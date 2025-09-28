@@ -1,0 +1,15 @@
+# Core dependencies
+Flask>=2.3.0
+flask-compress
+python-dotenv
+requests
+
+# New dependency for markdown rendering
+markdown>=3.5.0
+
+# Additional extensions for better markdown support
+# These are optional but provide enhanced formatting
+# markdown[extra] would include these automatically:
+# - markdown.extensions.extra (tables, fenced code, etc.)
+# - markdown.extensions.codehilite (syntax highlighting)
+# - markdown.extensions.toc (table of contents)

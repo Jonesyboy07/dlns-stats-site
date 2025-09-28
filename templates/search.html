@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}DLNS • Search{% endblock %}
+{% block content %}
+<section class="card">
+  <header>
+    <h2>Search</h2>
+    <p class="muted">Type a match ID or a username. Use the suggestions or press Enter.</p>
+  </header>
+  <form action="{{ url_for('search') }}" method="get">
+    <input type="search" name="q" placeholder="Search match ID or username" value="{{ q }}" aria-label="Search" autofocus />
+  </form>
+  {% if q %}
+    <h3>Results for “{{ q }}”</h3>
+    {% if users %}
+    <ul>
+      {% for u in users %}
+        <li><a href="{{ url_for('user_detail', account_id=u.account_id) }}">{{ u.persona_name }}</a></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No users matched. If you typed a number, it would link to a match page.</p>
+    {% endif %}
+  {% endif %}
+  <footer>
+    <a class="button secondary" href="/">Back</a>
+  </footer>
+</section>
+{% endblock %}

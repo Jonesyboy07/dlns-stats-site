@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+.python-version
+
+# Dotenv (files, not just dirs)
+.env
+.env.*
+!.env.example
+
+# Coverage
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+
+# Logs
+*.log
+data/temp.json
+data/user_cache.json
+data/hero_names.json
+cache.py
+data/dlns.sqlite3-shm
+data/dlns.sqlite3-wal
+data/matches_status.json
+static/apple-touch-icon.png
+static/css/dlns-style.css
+static/favicon.png
+static/favicon.ico
+/static/fonts
+static/og.png
+data/dlns.sqlite3

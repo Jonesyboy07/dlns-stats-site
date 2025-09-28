@@ -1,0 +1,21 @@
+{% extends 'dlns_exporter/base.html' %}
+{% block title %}DLNS Match Lookup{% endblock %}
+{% block content %}
+<div class="dlns-card">
+  <h1 class="dlns-title">DLNS Match to Sheet</h1>
+  <div class="dlns-row">
+    <input id="dlnsMatchId" type="text" placeholder="Enter Match ID or comma-separated IDs (e.g., 123456,789012,345678)" class="dlns-input">
+    <button id="dlnsRunBtn" class="dlns-btn">Process</button>
+    <a id="dlnsViewBtn" class="dlns-btn-secondary" href="{{ url_for('dlns_exporter.results') }}" style="display:none;">View Results</a>
+  </div>
+  <div id="dlnsProgress" class="dlns-progress">Ready.</div>
+  <div class="dlns-instructions">
+    <p class="dlns-note"><strong>Single Match:</strong> Enter one match ID (e.g., 123456)</p>
+    <p class="dlns-note"><strong>Batch Processing:</strong> Enter multiple match IDs separated by commas (e.g., 123456,789012,345678)</p>
+    <p class="dlns-note">Batch mode will combine all matches into one CSV with a Match_ID column. Winners are listed first, then losers.</p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('dlns_exporter.static', filename='js/dlns-index.js') }}"></script>
+{% endblock %}

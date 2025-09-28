@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}DLNS • {{ user and user.persona_name or 'User' }}{% endblock %}
+{% block content %}
+{% if not user %}
+<p>User not found.</p>
+{% else %}
+<section class="card">
+  <header>
+    <h2>{{ user.persona_name }}</h2>
+    {% if stats %}
+    <p class="muted">Matches: {{ stats.matches_played }} • Winrate: {{ (stats.winrate * 100) | round(1) }}% • Avg KDA: {{ stats.avg_kda | round(2) }}{% if stats.shots_hit is not none and stats.shots_missed is not none and (stats.shots_hit + stats.shots_missed) > 0 %} • Shot Accuracy: {{ ((stats.shots_hit / (stats.shots_hit + stats.shots_missed)) * 100) | round(1) }}%{% endif %}</p>
+    {% endif %}
+    <button type="button" class="chip-button" data-open-modal="#userFilters">Filters <span class="chev" aria-hidden="true">▾</span></button>
+    <div id="userFilters" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="userFiltersTitle">
+        <header class="modal-header">
+          <h3 id="userFiltersTitle">Filters</h3>
+          <button type="button" class="icon-button close" aria-label="Close" data-close-modal>&times;</button>
+        </header>
+        <div class="modal-body">
+          <form action="" method="get" class="stacked" data-filter-form>
+            <label>
+              Sort
+              <select name="order">
+                <option value="desc" {{ 'selected' if order == 'desc' else '' }}>Newest first</option>
+                <option value="asc" {{ 'selected' if order == 'asc' else '' }}>Oldest first</option>
+              </select>
+            </label>
+            <label>
+              Result
+              <select name="res">
+                <option value="" {{ 'selected' if not res else '' }}>All</option>
+                <option value="win" {{ 'selected' if res == 'win' else '' }}>Wins</option>
+                <option value="loss" {{ 'selected' if res == 'loss' else '' }}>Losses</option>
+              </select>
+            </label>
+            <label>
+              Team
+              <select name="team">
+                <option value="" {{ 'selected' if not teamf else '' }}>Both</option>
+                <option value="0" {{ 'selected' if teamf == '0' else '' }}>Amber</option>
+                <option value="1" {{ 'selected' if teamf == '1' else '' }}>Sapphire</option>
+              </select>
+            </label>
+            <div class="modal-actions">
+              <button type="submit" class="button">Apply</button>
+              <button type="button" class="button secondary" data-close-modal>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <h3>Matches</h3>
+  <div id="userMatchesWrap">
+    <table role="grid" class="striped" id="userMatchesTable" data-user-id="{{ user.account_id if user else '' }}">
+      <thead>
+        <tr>
+          <th>Match</th>
+          <th>Team</th>
+          <th>Hero</th>
+          <th>Result</th>
+          <th><abbr title="Kills/Deaths/Assists">K/D/A</abbr></th>
+          <th><abbr title="Creep Kills/Last Hits/Denies">CK/LH/D</abbr></th>
+          <th><abbr title="Shots Hit/Missed">Shots H/M</abbr></th>
+          <th>Damage</th>
+          <th>Healing</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in matches %}
+        <tr>
+          <td><a href="{{ url_for('match_detail', match_id=m.match_id) }}">{{ m.match_id }}</a></td>
+          <td><span class="{{ 'team-amber' if m.team == 0 else 'team-sapphire' if m.team == 1 else '' }}">{{ m.team | team_name }}</span></td>
+          <td>{{ get_hero_name(m.hero_id) or 'Unknown' }}</td>
+          <td>{% if m.result == 'Win' %}<span class="badge win">Win</span>{% elif m.result == 'Loss' %}<span class="badge loss">Loss</span>{% else %}<span class="badge neutral">-</span>{% endif %}</td>
+          <td>{{ m.kills or 0 }}/{{ m.deaths or 0 }}/{{ m.assists or 0 }}</td>
+          <td>{{ m.creep_kills or 0 }}/{{ m.last_hits or 0 }}/{{ m.denies or 0 }}</td>
+          <td>{{ m.shots_hit or 0 }}/{{ m.shots_missed or 0 }}</td>
+          <td>{{ m.player_damage or 0 }}</td>
+          <td>{{ m.player_healing or 0 }}</td>
+          <td><time class="dt" datetime="{{ m.start_time or m.created_at }}">{{ (m.start_time or m.created_at)[:10] }}</time></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10">No matches found for this user.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <nav id="userPager" class="pager" aria-label="Pagination" style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-top:0.75rem;">
+      <button class="chip-button" type="button" data-page="prev" disabled>Prev</button>
+      <span class="muted" id="userPageStat">Page 1</span>
+      <button class="chip-button" type="button" data-page="next" disabled>Next</button>
+    </nav>
+  </div>
+  <footer>
+    <a class="button secondary" href="/">Back</a>
+  </footer>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}{% endblock %}

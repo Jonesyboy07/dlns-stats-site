@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Home{% endblock %}</title>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="{{ meta_url or (BASE_URL ~ request.path) }}">
+
+  <!-- SEO / Open Graph -->
+  {% set __meta_title = meta_title or 'DLNS Stats' %}
+  {% set __meta_desc  = meta_desc  or 'Fan made site for DLNS (Deadlock Night Shift). Stats and history for DLNS + Fight Night games.' %}
+  {% set __meta_image = meta_image or url_for('static', filename='og.png') %}
+  {% set __abs_image  = (__meta_image if __meta_image.startswith('http') else (BASE_URL ~ __meta_image)) %}
+  {% set __abs_url    = meta_url or (BASE_URL ~ request.path) %}
+
+  <meta name="description" content="{{ __meta_desc }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ __meta_title }}">
+  <meta property="og:description" content="{{ __meta_desc }}">
+  <meta property="og:image" content="{{ __abs_image }}">
+  <meta property="og:url" content="{{ __abs_url }}">
+  <meta property="og:site_name" content="DLNS Stats">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ __meta_title }}">
+  <meta name="twitter:description" content="{{ __meta_desc }}">
+  <meta name="twitter:image" content="{{ __abs_image }}">
+
+  <!-- Optional theme colors -->
+  <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="dark light">
+
+  <!-- Favicon(s) -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+</head>
+<body>
+  <header class="container">
+    <nav>
+      <ul>
+        <li><a href="{{ url_for('index') }}">Home</a></li>
+        <li><a href="{{ url_for('search') }}">Search</a></li>
+        <li><a href="{{ url_for('stats.statistics') }}">Statistics</a></li>
+        <li><a href="{{ url_for('updates') }}">Updates</a></li>
+        <li><a href="{{ url_for('community') }}">Community</a></li>
+      </ul>
+      <ul class="nav-right">
+        <li class="hide-on-mobile">
+          <form action="{{ url_for('search') }}" method="get">
+            <input type="search" name="q" placeholder="Search match ID or username" aria-label="Search" />
+          </form>
+        </li>
+        <li>
+          <div class="social-links">
+            <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
+              <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
+            </a>
+            <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" aria-label="Twitch">
+              <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
+            </a>
+            <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" aria-label="Deadlock on Steam">
+              <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
+            </a>
+          </div>
+        </li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container fade-in">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container">
+    <small>
+      <a href="{{ url_for('index') }}">Home</a> •
+      <a href="{{ url_for('search') }}">Search</a> •
+      <a href="{{ url_for('stats.statistics') }}">Statistics</a> •
+      <a href="{{ url_for('updates') }}">Updates</a> •
+      <a href="{{ url_for('community') }}">Community</a> •
+      <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">Support on Ko‑Fi</a>
+    </small>
+    <div class="social-links">
+      <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
+        <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
+      </a>
+      <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" aria-label="Twitch">
+        <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
+      </a>
+      <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" aria-label="Deadlock on Steam">
+        <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
+      </a>
+    </div>
+    <small class="muted">
+      This is a passion project made by Jonesy and not affiliated with Valve or Deadlock Night Shift.
+      Data is presented for fun and community use. If you enjoy this, consider supporting on
+  <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">Ko‑Fi</a>.
+    </small>
+  </footer>
+  <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+[
+  {
+    "group": "DLNS",
+    "items": [
+      {
+        "name": "DLNS - YouTube",
+        "url": "https://www.youtube.com/@DeadlockNightShift",
+        "description": "Watch DLNS streams, VODs, and highlights."
+      },
+      {
+        "name": "DLNS - Twitch",
+        "url": "https://www.twitch.tv/deadlocknightshift",
+        "description": "Catch live DLNS streams every Wednesday."
+      },
+      {
+        "name": "DLNS - Twitter",
+        "url": "https://x.com/DLNightShift",
+        "description": "Follow DLNS for updates, announcements, and community highlights."
+      },
+      {
+        "name": "DLNS - Discord",
+        "url": "https://discord.gg/PXru7ZFBuw",
+        "description": "Join the DLNS community on Discord to chat, share, and connect."
+      }
+    ]
+  },
+  {
+    "group": "This Website",
+    "items": [
+      {
+        "name": "My Ko‑fi",
+        "url": "https://ko-fi.com/jonesy_alr",
+        "description": "Support the project and community. Donations help cover server costs and support future development."
+      },
+      {
+        "name": "My Github",
+        "url": "https://github.com/jonesyboy07",
+        "description": "Check out my github for other projects I've worked on!"
+      },
+      {
+        "name": "This Website's Github",
+        "url": "https://github.com/Jonesyboy07/dlns-stats-site",
+        "description": "View the source code for this website, report issues, or contribute to its development."
+      }
+    ]
+  },
+  {"group": "Content Creators",
+    "groups": [
+      {
+        "group": "Glutensnake",
+        "items": [
+          {
+            "name": "Gluten's Youtube",
+            "url": "https://www.youtube.com/@glutensnake",
+            "description": "Catch Glooten's whacky youtube videos here, these include EVI (Eternus VS Initiate) and other fun modded/vanilla content."
+          },
+          {
+            "name": "Gluten's Twitch",
+            "url": "https://www.twitch.tv/glutensnake",
+            "description": "Watch Glooten's live streams here, these include modded and vanilla content, as well as some other fun shenanigans."
+          },
+          {
+            "name": "Gluten's Discord",
+            "url": "https://discord.gg/VeUwpHDBtJ",
+            "description": "Join Gluten's Discord server for updates, announcements, and the chance to join in his wacky adventures!"
+          }
+        ]
+      }
+    ]
+  }
+]

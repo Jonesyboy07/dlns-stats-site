@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}DLNS Exporter{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('dlns_exporter.static', filename='css/dlns-style.css') }}">
+    {% block head %}{% endblock %}
+  </head>
+  <body class="dlns-body">
+    <main class="dlns-container">
+      {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

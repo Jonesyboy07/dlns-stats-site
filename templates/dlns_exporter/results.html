@@ -1,0 +1,18 @@
+{% extends 'dlns_exporter/base.html' %}
+{% block title %}DLNS Results{% endblock %}
+{% block content %}
+<div class="dlns-card">
+  <h1 class="dlns-title">Results</h1>
+  <div class="dlns-actions">
+    <button id="dlnsCopyTsvBtn" class="dlns-btn" disabled>Copy TSV</button>
+    <button id="dlnsCopyTsvNoMatchIdBtn" class="dlns-btn" disabled style="display:none;">Copy TSV (No Match ID)</button>
+    <button id="dlnsCopyCsvBtn" class="dlns-btn" disabled>Copy CSV</button>
+    <button id="dlnsDownloadCsvBtn" class="dlns-btn" disabled>Download CSV</button>
+  </div>
+  <div id="dlnsTableWrap" class="dlns-table-wrap" style="display:none;"></div>
+  <p class="dlns-note">Note: "Obj Damage" uses boss_damage as a proxy due to lack of explicit per-player objective damage in the API.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('dlns_exporter.static', filename='js/dlns-results.js') }}"></script>
+{% endblock %}

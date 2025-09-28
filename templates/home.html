@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}DLNS • Home{% endblock %}
+{% block content %}
+<section class="card">
+  <header>
+    <h2>Latest Matches</h2>
+    <p class="muted">Browse the most recent games played in DLNS and processed by the system.</p>
+    <button type="button" class="chip-button" data-open-modal="#homeFilters">Filters <span class="chev" aria-hidden="true">▾</span></button>
+  </header>
+  <div id="matchesWrap">
+    <table role="grid" class="striped" id="matchesTable">
+      <thead>
+        <tr>
+          <th>Match</th>
+          <th>Duration</th>
+          <th>Winning Team</th>
+          <th>Date Played (Local Time)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in latest %}
+        <tr>
+          <td><a class="chip-button" href="{{ url_for('match_detail', match_id=m.match_id) }}">{{ m.match_id }}</a></td>
+          <td>{{ m.duration_s | format_duration }}</td>
+          <td><span class="{{ 'team-amber' if m.winning_team == 0 else 'team-sapphire' if m.winning_team == 1 else '' }}">{{ m.winning_team | team_name }}</span></td>
+          <td><time class="dt" datetime="{{ m.start_time or m.created_at }}">{{ (m.start_time or m.created_at)[:10] }}</time></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">No matches yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <nav id="pager" class="pager" aria-label="Pagination" style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-top:0.75rem;">
+      <button class="chip-button" type="button" data-page="prev" disabled>Prev</button>
+      <span class="muted" id="pageStat">Page 1</span>
+      <button class="chip-button" type="button" data-page="next" disabled>Next</button>
+    </nav>
+  </div>
+  <footer></footer>
+</section>
+{% endblock %}
+
+{% block scripts %}{% endblock %}

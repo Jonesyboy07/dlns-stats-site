@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}DLNS • Match {{ match and match.match_id }}{% endblock %}
+{% block content %}
+{% if not match %}
+<p>Match not found.</p>
+{% else %}
+<section class="card">
+  <header>
+    <h2>Match {{ match.match_id }}</h2>
+  <p class="muted">Duration: {{ match.duration_s | format_duration }} • Winner: <strong class="{{ 'team-amber' if match.winning_team == 0 else 'team-sapphire' if match.winning_team == 1 else '' }}">{{ match.winning_team | team_name }}</strong> • Date: <time class="dt" datetime="{{ match.start_time or match.created_at }}">{{ (match.start_time or match.created_at)[:10] }}</time></p>
+  <button type="button" class="chip-button" data-open-modal="#matchFilters">Filters <span class="chev" aria-hidden="true">▾</span></button>
+    <div id="matchFilters" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="matchFiltersTitle">
+        <header class="modal-header">
+          <h3 id="matchFiltersTitle">Filters</h3>
+          <button type="button" class="icon-button close" aria-label="Close" data-close-modal>&times;</button>
+        </header>
+        <div class="modal-body">
+          <form action="" method="get" class="stacked" data-filter-form>
+            <label>Team
+              <select name="team">
+                <option value="" {{ 'selected' if not team_filter else '' }}>Both teams</option>
+                <option value="0" {{ 'selected' if team_filter == '0' else '' }}>Amber</option>
+                <option value="1" {{ 'selected' if team_filter == '1' else '' }}>Sapphire</option>
+              </select>
+            </label>
+            <div class="modal-actions">
+              <button type="submit" class="button">Apply</button>
+              <button type="button" class="button secondary" data-close-modal>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+  <table role="grid" class="striped">
+  <thead>
+    <tr>
+      <th>Player</th>
+      <th>Team</th>
+      <th>Hero</th>
+      <th><abbr title="Kills/Deaths/Assists">K/D/A</abbr></th>
+      <th><abbr title="Last Hits/Denies">LH/D</abbr></th>
+      <th><abbr title="Shots Hit/Missed">Shots H/M</abbr></th>
+      <th>Damage</th>
+      <th>Healing</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in players %}
+    <tr>
+  <td><a href="{{ url_for('user_detail', account_id=p.account_id) }}">{{ p.persona_name or 'Unknown Player' }}</a></td>
+  <td><span class="{{ 'team-amber' if p.team == 0 else 'team-sapphire' if p.team == 1 else '' }}">{{ p.team | team_name }}</span></td>
+      <td>{{ p.hero_name or get_hero_name(p.hero_id) }}</td>
+      <td>{{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}</td>
+      <td>{{ p.last_hits or 0 }}/{{ p.denies or 0 }}</td>
+      <td>{{ p.shots_hit or 0 }}/{{ p.shots_missed or 0 }}</td>
+      <td>{{ p.player_damage or 0 }}</td>
+      <td>{{ p.player_healing or 0 }}</td>
+  <td>{% if p.result == 'Win' %}<span class="badge win">Win</span>{% elif p.result == 'Loss' %}<span class="badge loss">Loss</span>{% else %}<span class="badge neutral">-</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  <footer>
+    <a class="button secondary" href="/">Back</a>
+  </footer>
+</section>
+{% endif %}
+{% endblock %}

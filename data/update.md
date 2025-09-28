@@ -4,6 +4,20 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
+### September 28, 2025 - Made it open source!
+
+Due to some friends and people in the community asking, i have made the project open source!
+
+What does this mean?
+
+- The community can better help with adding features
+- People can add issues onto the github page
+- People can see the amount of chaos behind the scenes!
+
+This does also mean people can run the website entirely themselves, which i hope they dont but i do hope they take inspiration!
+
+## Old Updates
+
 ### September 27, 2025 - Added Statistics Page
 
 Its here! A nice statistics page with details on:
@@ -31,7 +45,7 @@ Added a cache to the match search. Helps with preventing needing to research the
 
 Added a Community Tab - If you feel you fit in to the community as a creator or provider of something key to the game, reach out on discord! My username is `j0nesy_`, where I can be found in the Deadlock, Deadlock Modding, and DLNS servers.
 
-## Old Updates
+
 
 ### September 26, 2025 - Shot Statistics Added
 Added shot hit/missed data to all matches from DLNS games. This data is now visible on:

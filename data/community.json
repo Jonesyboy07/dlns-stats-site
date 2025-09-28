@@ -25,6 +25,16 @@
     ]
   },
   {
+    "group": "Mods & Modding",
+    "items": [
+      {
+        "name": "Deadlock Mod Manager",
+        "url": "https://deadlockmods.app",
+        "description": "The most used Mod Manager for Deadlock, developed by the community using open source code and GameBanana API."
+      }
+    ]
+  },
+  {
     "group": "This Website",
     "items": [
       {

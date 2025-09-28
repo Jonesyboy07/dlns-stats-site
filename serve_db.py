@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, make_response
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, make_response, Response
 from flask_compress import Compress
 try:
     import markdown
@@ -578,6 +578,11 @@ def create_app() -> Flask:
     @app.get("/api/community")
     def community_api():  # type: ignore
         return {"groups": load_community_groups()}
+    
+    @app.get('/cgi-bin/<path:anything>')
+    def fake_cgibin(anything):
+        fake_response = "You really trying this? Nothing to be found here."
+        return Response(fake_response, mimetype="text/plain", status=200)
 
     return app
 

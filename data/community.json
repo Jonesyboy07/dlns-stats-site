@@ -31,6 +31,11 @@
         "name": "Deadlock Mod Manager",
         "url": "https://deadlockmods.app",
         "description": "The most used Mod Manager for Deadlock, developed by the community using open source code and GameBanana API."
+      },
+      {
+        "name": "One Lane Map",
+        "url": "https://gamebanana.com/wips/95034",
+        "description": "A single-lane map for Deadlock, designed for competitive play. Made by jakciechan you can install it through a custom installer by clicking 'OneLane Map' at the top of your screen."
       }
     ]
   },

@@ -118,7 +118,7 @@ def extract_mod(zip_path, temp_dir):
         return False
 
 def install_files(temp_dir, deadlock_path):
-    """Install mod files to Deadlock directory."""
+    """Install mod files to Deadlock/game directory."""
     print("Installing mod files...")
     
     conflicts = []
@@ -130,6 +130,12 @@ def install_files(temp_dir, deadlock_path):
         print("✗ Invalid mod structure: 'game' folder not found")
         return False, conflicts, installed
     
+    # Target the game subfolder within Deadlock directory
+    deadlock_game_path = deadlock_path / "game"
+    if not deadlock_game_path.exists():
+        print("✗ Deadlock game folder not found at expected location")
+        return False, conflicts, installed
+    
     try:
         # Walk through all files in the game directory
         for root, dirs, files in os.walk(game_source):
@@ -137,7 +143,7 @@ def install_files(temp_dir, deadlock_path):
                 source_file = Path(root) / file
                 # Get relative path from game folder
                 rel_path = source_file.relative_to(game_source)
-                dest_file = deadlock_path / rel_path
+                dest_file = deadlock_game_path / rel_path
                 
                 # Create destination directory if it doesn't exist
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
@@ -152,7 +158,7 @@ def install_files(temp_dir, deadlock_path):
                     installed.append(str(rel_path))
                     print(f"✓ Installed: {rel_path}")
         
-        # Also copy README if it exists
+        # Also copy README if it exists (place in main Deadlock folder for visibility)
         readme_source = temp_dir / "README.txt"
         if readme_source.exists():
             readme_dest = deadlock_path / f"{MOD_NAME}_README.txt"

@@ -75,6 +75,22 @@
           <a href="{{ url_for('onelane.view_source') }}" target="_blank" class="text-link">
             📋 View source code for transparency
           </a>
+          <small class="build-info">
+            .exe built with PyInstaller from the Python source above
+          </small>
+          
+          <div class="security-notice">
+            <h5>🛡️ Security Notice</h5>
+            <p>Some antivirus software may flag PyInstaller executables as suspicious (false positive). This is a known issue with packaged Python applications.</p>
+            <div class="security-links">
+              <a href="https://www.virustotal.com/gui/file/27b37166f9e233cf63b17933e526c5fab84a7654541f20c8d01eedbf1e2ac592?nocache=1" target="_blank" rel="noopener" class="security-link">
+                📊 VirusTotal Scan
+              </a>
+              <a href="https://stackoverflow.com/questions/43777106/program-made-with-pyinstaller-now-seen-as-a-trojan-horse-by-avg" target="_blank" rel="noopener" class="security-link">
+                📚 Why PyInstaller Gets Flagged
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -270,6 +286,62 @@
 
 .text-link:hover {
   color: var(--pico-primary);
+}
+
+.build-info {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.security-notice {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--pico-warning-background);
+  border: 1px solid var(--pico-warning-border);
+  border-radius: var(--pico-border-radius);
+  text-align: left;
+}
+
+.security-notice h5 {
+  margin: 0 0 0.5rem 0;
+  color: var(--pico-warning);
+  font-size: 0.9rem;
+}
+
+.security-notice p {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.8rem;
+  color: var(--pico-muted-color);
+}
+
+.security-links {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.security-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--pico-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  color: var(--pico-primary);
+  text-decoration: none;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.security-link:hover {
+  background: var(--pico-primary-background);
+  border-color: var(--pico-primary);
+  transform: translateY(-1px);
 }
 
 .installation-guide {

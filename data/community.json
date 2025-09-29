@@ -21,6 +21,11 @@
         "name": "DLNS - Discord",
         "url": "https://discord.gg/PXru7ZFBuw",
         "description": "Join the DLNS community on Discord to chat, share, and connect."
+      },
+      {
+        "name": "DLNS - Patreon",
+        "url": "https://www.patreon.com/deadlocknightshift",
+        "description": "Support DLNS on Patreon for exclusive content, perks and support the amazing team."
       }
     ]
   },

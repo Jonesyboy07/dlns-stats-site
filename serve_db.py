@@ -20,6 +20,7 @@ from expo import expo_bp
 from stats_bp import stats_bp
 from heroes import get_hero_name
 from sitemap import sitemap_bp
+from onelane import onelane_bp
 
 
 def create_app() -> Flask:
@@ -78,7 +79,8 @@ def create_app() -> Flask:
     app.register_blueprint(db_api_bp)
     app.register_blueprint(expo_bp)
     app.register_blueprint(stats_bp)
-    app.register_blueprint(sitemap_bp) 
+    app.register_blueprint(sitemap_bp)
+    app.register_blueprint(onelane_bp) 
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

@@ -1,0 +1,492 @@
+{% extends 'base.html' %}
+{% block title %}OneLane Mod - Download{% endblock %}
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="container">
+    <div class="hero-content">
+      <h1>🎮 ARAM OneLane Mod</h1>
+      <p class="hero-subtitle">Transform your Deadlock experience with single-lane ARAM gameplay</p>
+      <div class="hero-actions">
+        <a href="#download" class="button primary large">Get Started</a>
+        <a href="https://gamebanana.com/wips/95034" class="button outline large" target="_blank" rel="noopener">
+          View Original
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Credits Section (Important - Moved to Top) -->
+<section class="section credits-section prominent">
+  <div class="container">
+    <div class="credits-grid">
+      <!-- Creator Credits -->
+      <div class="credit-card">
+        <h3>👨‍💻 Mod Credits</h3>
+        <div class="creator-info">
+          <p><strong>Original Creator:</strong> jakciechan</p>
+          <p><strong>Discord:</strong> jakciechan</p>
+          <p><strong>Original Source:</strong> <a href="https://gamebanana.com/wips/95034" target="_blank" rel="noopener">GameBanana</a></p>
+        </div>
+        <div class="disclaimer">
+          <strong>Disclaimer:</strong> This mod was created by jakciechan. The DLNS Stats website provides only the installer tool. 
+          All credit for the mod goes to the original creator.
+        </div>
+      </div>
+
+      <!-- Safety Notice -->
+      <div class="safety-card">
+        <h3>🔒 Safety & Transparency</h3>
+        <ul class="safety-list">
+          <li>✓ Open source installer code</li>
+          <li>✓ No telemetry or data collection</li>
+          <li>✓ Local-only installation process</li>
+          <li>✓ Easily removable</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Download Section -->
+<section id="download" class="section">
+  <div class="container">
+    <h2>📥 Download Options</h2>
+    <div class="download-grid">
+      <!-- Automatic Installer -->
+      <div class="download-card recommended">
+        <div class="card-header">
+          <h3>🚀 Automatic Installer</h3>
+          <span class="recommended-badge">Recommended</span>
+        </div>
+        <p>One-click installation that automatically finds your Steam and Deadlock folders.</p>
+        <div class="download-actions">
+          <a href="{{ url_for('onelane.download_exe') }}" class="button primary block" id="exe-download">
+            <span class="button-icon">⬇️</span>
+            Download Installer (.exe)
+          </a>
+          <a href="{{ url_for('onelane.download_installer') }}" class="button secondary block" id="py-download">
+            <span class="button-icon">🐍</span>
+            Python Script (.py)
+          </a>
+        </div>
+        <div class="card-footer">
+          <a href="{{ url_for('onelane.view_source') }}" target="_blank" class="text-link">
+            📋 View source code for transparency
+          </a>
+        </div>
+      </div>
+
+      <!-- Manual Installation -->
+      <div class="download-card">
+        <div class="card-header">
+          <h3>📁 Manual Installation</h3>
+        </div>
+        <p>Download the mod files and install them manually to your Deadlock folder.</p>
+        <div class="download-actions">
+          <a href="{{ url_for('onelane.download_zip') }}" class="button outline block">
+            <span class="button-icon">📦</span>
+            Download ZIP File
+          </a>
+          <a href="https://gamebanana.com/wips/95034" class="button secondary block" target="_blank" rel="noopener">
+            <span class="button-icon">🍌</span>
+            GameBanana Page
+          </a>
+        </div>
+        <details class="installation-guide">
+          <summary>Installation Instructions</summary>
+          <ol>
+            <li>Download and extract the ZIP file</li>
+            <li>Navigate to: <code>C:\Program Files (x86)\Steam\steamapps\common\Deadlock</code></li>
+            <li>Copy the contents of the <code>game</code> folder to your Deadlock directory</li>
+            <li>Launch Deadlock and enjoy!</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Info Section -->
+<section class="section info-section">
+  <div class="container">
+    <div class="info-grid">
+      <!-- About the Mod -->
+      <div class="info-card">
+        <h3>ℹ️ About OneLane</h3>
+        <p>Experience Deadlock in a whole new way with ARAM-style gameplay:</p>
+        <ul class="feature-list">
+          <li>Single-lane map layout</li>
+          <li>Balanced game mechanics</li>
+          <li>Enhanced bot configurations</li>
+          <li>Fast-paced action</li>
+        </ul>
+      </div>
+
+      <!-- Mod Contents -->
+      <div class="info-card">
+        <h3>📋 What's Included</h3>
+        <ul class="file-list">
+          <li><code>pak_62.vpk</code> <span>Core mod assets</span></li>
+          <li><code>onelane.cfg</code> <span>Game configuration</span></li>
+          <li><code>onelanebots.cfg</code> <span>Bot settings</span></li>
+          <li><code>onelane.vpk</code> <span>Map files</span></li>
+          <li><code>gameinfo.gi</code> <span>Game information</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+<style>
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(135deg, var(--pico-primary-background) 0%, var(--pico-card-background-color) 100%);
+  border-bottom: 1px solid var(--pico-border-color);
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.hero-content h1 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: var(--pico-primary);
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: var(--pico-muted-color);
+  margin-bottom: 2rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.button.large {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+}
+
+/* Sections */
+.section {
+  padding: 3rem 0;
+}
+
+.section h2 {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: var(--pico-primary);
+}
+
+/* Download Grid */
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.download-card {
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 2rem;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.download-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.download-card.recommended {
+  border-color: var(--pico-primary);
+  background: var(--pico-primary-background);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.card-header h3 {
+  margin: 0;
+  color: var(--pico-primary);
+}
+
+.recommended-badge {
+  background: var(--pico-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.download-actions {
+  margin: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.button.block {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.button-icon {
+  font-size: 1.1em;
+}
+
+.card-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--pico-border-color);
+  text-align: center;
+}
+
+.text-link {
+  color: var(--pico-muted-color);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.text-link:hover {
+  color: var(--pico-primary);
+}
+
+.installation-guide {
+  margin-top: 1rem;
+}
+
+.installation-guide summary {
+  cursor: pointer;
+  color: var(--pico-primary);
+  font-weight: 500;
+}
+
+.installation-guide ol {
+  margin-top: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+/* Info Section */
+.info-section {
+  background: var(--pico-background-color);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.info-card {
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 1.5rem;
+}
+
+.info-card h3 {
+  margin-top: 0;
+  color: var(--pico-primary);
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+}
+
+.feature-list li {
+  padding: 0.5rem 0;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.feature-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--pico-primary);
+  font-weight: bold;
+}
+
+.file-list {
+  font-family: var(--pico-font-family-monospace);
+  font-size: 0.9rem;
+  list-style: none;
+  padding: 0;
+}
+
+.file-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--pico-border-color);
+}
+
+.file-list li:last-child {
+  border-bottom: none;
+}
+
+.file-list code {
+  color: var(--pico-primary);
+  font-weight: 500;
+}
+
+.file-list span {
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+}
+
+/* Credits Section */
+.credits-section {
+  background: var(--pico-card-background-color);
+  border-top: 1px solid var(--pico-border-color);
+  border-bottom: 1px solid var(--pico-border-color);
+}
+
+.credits-section.prominent {
+  background: var(--pico-primary-background);
+  border: 2px solid var(--pico-primary-border);
+  position: relative;
+}
+
+.credits-section.prominent::before {
+  content: "⚠️ IMPORTANT: Creator Attribution";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--pico-primary);
+  color: white;
+  padding: 0.25rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.credits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.credit-card, .safety-card {
+  background: var(--pico-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 1.5rem;
+}
+
+.credit-card h3, .safety-card h3 {
+  margin-top: 0;
+  color: var(--pico-primary);
+}
+
+.creator-info p {
+  margin: 0.5rem 0;
+}
+
+.disclaimer {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--pico-muted-background);
+  border-radius: var(--pico-border-radius);
+  font-style: italic;
+  color: var(--pico-muted-color);
+  font-size: 0.9rem;
+}
+
+.safety-list {
+  list-style: none;
+  padding: 0;
+}
+
+.safety-list li {
+  padding: 0.5rem 0;
+  color: var(--pico-muted-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .hero-content h1 {
+    font-size: 2rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+  
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .button.large {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .download-grid, .info-grid, .credits-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .section {
+    padding: 2rem 0;
+  }
+  
+  .hero-section {
+    padding: 2rem 0;
+  }
+}
+
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Check file availability
+  fetch('/onelane/api/check')
+    .then(response => response.json())
+    .then(data => {
+      const exeBtn = document.getElementById('exe-download');
+      const pyBtn = document.getElementById('py-download');
+      
+      if (!data.exe_available) {
+        exeBtn.classList.add('disabled');
+        exeBtn.title = 'Executable not yet built';
+        exeBtn.textContent = 'Installer (.exe) - Coming Soon';
+      }
+      
+      if (!data.installer_available) {
+        pyBtn.classList.add('disabled');
+        pyBtn.title = 'Python script not available';
+      }
+    })
+    .catch(err => console.warn('Could not check file availability:', err));
+});
+</script>
+{% endblock %}

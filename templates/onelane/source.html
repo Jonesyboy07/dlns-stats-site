@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block title %}OneLane Installer - Source Code{% endblock %}
+{% block content %}
+<section class="card">
+  <header>
+    <h1>📋 OneLane Installer Source Code</h1>
+    <p class="muted">Review the installer source code for transparency and security</p>
+    <nav>
+      <a href="{{ url_for('onelane.index') }}" class="button outline">← Back to Downloads</a>
+      <a href="{{ url_for('onelane.download_installer') }}" class="button">Download Script</a>
+    </nav>
+  </header>
+  
+  <div class="source-info">
+    <h3>🔍 What does this installer do?</h3>
+    <div class="grid">
+      <div>
+        <h4>1. Locate Steam & Deadlock</h4>
+        <ul>
+          <li>Searches Windows registry for Steam installation</li>
+          <li>Finds Deadlock game folder automatically</li>
+          <li>Validates paths before proceeding</li>
+        </ul>
+      </div>
+      <div>
+        <h4>2. Download & Extract</h4>
+        <ul>
+          <li>Downloads mod zip from dlns-stats.co.uk</li>
+          <li>Extracts to temporary folder in AppData</li>
+          <li>Validates downloaded content</li>
+        </ul>
+      </div>
+      <div>
+        <h4>3. Safe Installation</h4>
+        <ul>
+          <li>Checks for existing files before copying</li>
+          <li>Never overwrites existing game files</li>
+          <li>Reports what was installed vs skipped</li>
+        </ul>
+      </div>
+      <div>
+        <h4>4. Clean Up</h4>
+        <ul>
+          <li>Removes temporary files automatically</li>
+          <li>No permanent changes to system</li>
+          <li>Only adds mod files to game folder</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <div class="source-container">
+    <div class="source-header">
+      <h3>📄 onelane_installer.py</h3>
+      <div class="source-actions">
+        <button onclick="copyToClipboard()" class="button secondary small">📋 Copy Code</button>
+        <button onclick="toggleLineNumbers()" class="button outline small" id="line-toggle">Show Line Numbers</button>
+      </div>
+    </div>
+    
+    <pre id="source-code" class="language-python"><code>{{ source_code }}</code></pre>
+  </div>
+</section>
+
+<style>
+.source-info {
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.source-info h4 {
+  color: var(--pico-primary);
+  margin-bottom: 0.5rem;
+}
+
+.source-container {
+  background: var(--pico-code-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  overflow: hidden;
+}
+
+.source-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: var(--pico-card-background-color);
+  border-bottom: 1px solid var(--pico-border-color);
+}
+
+.source-header h3 {
+  margin: 0;
+  font-family: var(--pico-font-family-monospace);
+}
+
+.source-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.button.small {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+#source-code {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--pico-code-background-color);
+  color: var(--pico-code-color);
+  font-family: var(--pico-font-family-monospace);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  counter-reset: line;
+}
+
+#source-code.show-lines {
+  counter-reset: line;
+}
+
+#source-code.show-lines::before {
+  content: counter(line);
+  counter-increment: line;
+  color: var(--pico-muted-color);
+  text-align: right;
+  display: inline-block;
+  width: 3em;
+  margin-right: 1em;
+  border-right: 1px solid var(--pico-border-color);
+  padding-right: 0.5em;
+}
+
+.copy-feedback {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: var(--pico-success-background);
+  color: var(--pico-success);
+  padding: 0.5rem 1rem;
+  border-radius: var(--pico-border-radius);
+  border: 1px solid var(--pico-success-border);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .source-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .source-actions {
+    justify-content: center;
+  }
+}
+</style>
+
+<script>
+let lineNumbersVisible = false;
+
+function copyToClipboard() {
+  const code = document.getElementById('source-code');
+  const text = code.textContent;
+  
+  navigator.clipboard.writeText(text).then(function() {
+    showCopyFeedback();
+  }).catch(function(err) {
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    showCopyFeedback();
+  });
+}
+
+function showCopyFeedback() {
+  const feedback = document.createElement('div');
+  feedback.className = 'copy-feedback';
+  feedback.textContent = '✓ Code copied to clipboard!';
+  document.body.appendChild(feedback);
+  
+  setTimeout(() => {
+    feedback.remove();
+  }, 3000);
+}
+
+function toggleLineNumbers() {
+  const code = document.getElementById('source-code');
+  const toggle = document.getElementById('line-toggle');
+  
+  lineNumbersVisible = !lineNumbersVisible;
+  
+  if (lineNumbersVisible) {
+    code.classList.add('show-lines');
+    toggle.textContent = 'Hide Line Numbers';
+    
+    // Add line numbers to each line
+    const lines = code.textContent.split('\n');
+    const numberedLines = lines.map((line, index) => {
+      const lineNum = String(index + 1).padStart(3, '0');
+      return `${lineNum} | ${line}`;
+    });
+    code.textContent = numberedLines.join('\n');
+  } else {
+    code.classList.remove('show-lines');
+    toggle.textContent = 'Show Line Numbers';
+    
+    // Remove line numbers
+    const lines = code.textContent.split('\n');
+    const cleanLines = lines.map(line => {
+      return line.replace(/^\d{3} \| /, '');
+    });
+    code.textContent = cleanLines.join('\n');
+  }
+}
+</script>
+{% endblock %}

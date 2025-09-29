@@ -9,6 +9,7 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 We've launched a brand new OneLane mod distribution system! Now you can easily install the popular ARAM OneLane mod created by **jakciechan**.
 
 **What's New:**
+
 - **Automatic Installer**: One-click .exe that finds your Steam/Deadlock folders automatically
 - **Python Script Option**: For users who prefer to run the Python source directly  
 - **Manual Installation**: Traditional zip download with clear instructions
@@ -16,6 +17,7 @@ We've launched a brand new OneLane mod distribution system! Now you can easily i
 - **Security Notice**: Clear explanation about PyInstaller false positives with VirusTotal scan
 
 **Features:**
+
 - Smart Steam path detection via Windows registry
 - Safe installation that never overwrites existing files
 - Conflict reporting for existing mod files

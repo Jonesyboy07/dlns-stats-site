@@ -11,6 +11,8 @@ Just some smaller changes currently.
 - Fixed the search bar being cut off ( can still use /search page as intended)
 - Nicer padding on the buttons ( base.html seen on all screens)
 
+20:11 PM - Fixed the installer, didnt put it in the right directory ( placed one folder to high )
+
 ## Old Updates
 
 ### September 29, 2025 - OneLane Mod Installer!

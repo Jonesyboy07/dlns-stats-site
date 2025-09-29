@@ -198,7 +198,7 @@ The application uses SQLite with the following main tables:
 
 ## 📄 License
 
-This project is currently unlicensed. Please contact the repository owner for usage permissions and licensing information.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🙏 Acknowledgments
 

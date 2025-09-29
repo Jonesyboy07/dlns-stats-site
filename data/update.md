@@ -4,6 +4,30 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
+### September 29, 2025 - OneLane Mod Installer!
+
+We've launched a brand new OneLane mod distribution system! Now you can easily install the popular ARAM OneLane mod created by **jakciechan**.
+
+**What's New:**
+- **Automatic Installer**: One-click .exe that finds your Steam/Deadlock folders automatically
+- **Python Script Option**: For users who prefer to run the Python source directly  
+- **Manual Installation**: Traditional zip download with clear instructions
+- **Full Transparency**: Complete source code available for review
+- **Security Notice**: Clear explanation about PyInstaller false positives with VirusTotal scan
+
+**Features:**
+- Smart Steam path detection via Windows registry
+- Safe installation that never overwrites existing files
+- Conflict reporting for existing mod files
+- Clean temporary file management
+- Built with PyInstaller for easy distribution
+
+**Important:** All credit for the OneLane mod goes to the original creator **jakciechan** (Discord: jakciechan). We're simply providing an easy installer tool for the community. Original mod available on [GameBanana](https://gamebanana.com/wips/95034).
+
+Visit `/onelane` to try out the new installer system!
+
+## Old Updates
+
 ### September 28, 2025 - Made it open source!
 
 Due to some friends and people in the community asking, i have made the project open source!
@@ -15,8 +39,6 @@ What does this mean?
 - People can see the amount of chaos behind the scenes!
 
 This does also mean people can run the website entirely themselves, which i hope they dont but i do hope they take inspiration!
-
-## Old Updates
 
 ### September 27, 2025 - Added Statistics Page
 

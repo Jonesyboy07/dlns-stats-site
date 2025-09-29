@@ -4,6 +4,15 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
+### September 30, 2025 - Small UI Changes
+
+Just some smaller changes currently. 
+
+- Fixed the search bar being cut off ( can still use /search page as intended)
+- Nicer padding on the buttons ( base.html seen on all screens)
+
+## Old Updates
+
 ### September 29, 2025 - OneLane Mod Installer!
 
 We've launched a brand new OneLane mod distribution system! Now you can easily install the popular ARAM OneLane mod created by **jakciechan**.
@@ -27,8 +36,6 @@ We've launched a brand new OneLane mod distribution system! Now you can easily i
 **Important:** All credit for the OneLane mod goes to the original creator **jakciechan** (Discord: jakciechan). We're simply providing an easy installer tool for the community. Original mod available on [GameBanana](https://gamebanana.com/wips/95034).
 
 Visit `/onelane` to try out the new installer system!
-
-## Old Updates
 
 ### September 28, 2025 - Made it open source!
 

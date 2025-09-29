@@ -53,7 +53,10 @@ body { --pico-font-size: 16px; --pico-font-family: 'Fira Sans', system-ui, -appl
 .fade-in { animation: fadeIn 0.3s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-header nav form input[type="search"] { min-width: 280px; }
+header nav form input[type="search"] { min-width: 400px; }
+
+/* navigation spacing */
+nav ul { gap: 0.5rem; }
 
 /* table tweaks */
 table[role="grid"] td, table[role="grid"] th { white-space: nowrap; }
@@ -92,6 +95,13 @@ table[role="grid"] td, table[role="grid"] th { white-space: nowrap; }
 
 /* search suggest dropdown */
 .suggest-list { max-height: 280px; overflow-y: auto; }
+.suggest-list li { 
+	display: block; 
+	white-space: normal; 
+	word-wrap: break-word;
+	line-height: 1.4;
+	min-height: 1.4em;
+}
 .suggest-list li:hover { background: var(--pico-muted-border-color, #f3f4f6); }
 
 /* cards polish */

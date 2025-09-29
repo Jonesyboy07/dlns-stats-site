@@ -586,6 +586,45 @@ def create_app() -> Flask:
         fake_response = "You really trying this? Nothing to be found here."
         return Response(fake_response, mimetype="text/plain", status=200)
 
+    # API Documentation routes
+    @app.get("/api/docs")
+    def api_docs():  # type: ignore
+        """Serve the API documentation using Swagger UI"""
+        spec_url = url_for('openapi_spec')
+        return render_template(
+            "api_docs.html",
+            spec_url=spec_url,
+            meta_title="API Documentation • DLNS Stats",
+            meta_desc="Complete API documentation for DLNS Stats. Access match data, player statistics, and community information.",
+            meta_image=_og_image_abs(),
+            meta_url=_abs(request.path),
+        )
+
+    @app.get("/api/openapi.json")
+    def openapi_spec():  # type: ignore
+        """Serve the OpenAPI specification JSON"""
+        from openapi_spec import get_openapi_spec
+        
+        spec = get_openapi_spec()
+        # Update server URLs based on request
+        base_url = request.url_root.rstrip('/')
+        spec["servers"] = [
+            {
+                "url": base_url,
+                "description": "Current server"
+            }
+        ]
+        if base_url != "https://dlns-stats.co.uk":
+            spec["servers"].append({
+                "url": "https://dlns-stats.co.uk",
+                "description": "Production server"
+            })
+        
+        resp = make_response(json.dumps(spec, ensure_ascii=False, indent=2))
+        resp.headers["Content-Type"] = "application/json; charset=utf-8"
+        resp.headers["Cache-Control"] = "public, max-age=300"  # Cache for 5 minutes
+        return resp
+
     return app
 
 

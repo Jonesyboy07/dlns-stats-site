@@ -20,6 +20,7 @@ A comprehensive web application for tracking and analyzing Deadlock Night Shift 
 
 ### 🔧 Technical Features
 - **RESTful API**: Comprehensive API endpoints for accessing all data
+- **OpenAPI/Swagger Documentation**: Interactive API documentation with try-it-out functionality
 - **Intelligent Caching**: Multi-layer caching system for optimal performance
 - **SEO Optimized**: Proper meta tags, sitemaps, and Open Graph support
 - **Compression**: Built-in response compression (Brotli/Gzip)
@@ -132,22 +133,48 @@ KOFI_URL=https://ko-fi.com/your_username
 └── matches.txt        # Match IDs for processing
 ```
 
-## 🔌 API Endpoints
+## 🔌 API Documentation
 
-### Match Data
-- `GET /db/matches/latest` - Latest matches
+### 📖 Interactive API Documentation
+The DLNS Stats API includes comprehensive OpenAPI/Swagger documentation:
+- **Documentation Interface**: Visit `/api/docs` for interactive API documentation
+- **OpenAPI Specification**: Access the raw OpenAPI spec at `/api/openapi.json`
+- **Try It Out**: Test endpoints directly from the documentation interface
+
+### 🎯 Core API Endpoints
+
+#### Match Data
+- `GET /db/matches/latest` - Latest matches (configurable limit)
+- `GET /db/matches/latest/paged` - Paginated match list with filtering
 - `GET /db/matches/<id>/players` - Match player details
-- `GET /db/matches/latest/paged` - Paginated match list
+- `GET /db/matches/<match_id>/users/<account_id>` - Specific player stats from match
 
-### Player Data
-- `GET /db/users/<account_id>/matches` - Player match history
-- `GET /db/users/<account_id>/matches/paged` - Paginated player matches
-- `GET /db/users/<account_id>/stats` - Player statistics
+#### Player Data
+- `GET /db/users/<account_id>` - Basic user information
+- `GET /db/users/<account_id>/stats` - Aggregated player statistics
+- `GET /db/users/<account_id>/matches` - Complete player match history
+- `GET /db/users/<account_id>/matches/paged` - Paginated player matches with filtering
 
-### Search & Utilities
-- `GET /db/search/suggest` - Search suggestions
-- `GET /db/heroes` - Hero name mappings
+#### Search & Utilities
+- `GET /db/search/suggest?q=<query>` - Search suggestions for matches and players
+- `GET /db/heroes` - Complete hero ID to name mappings
+- `GET /api/community` - Community links and information
+- `GET /community.json` - Cached community information with ETags
+
+#### OneLane Integration
+- `GET /onelane/api/check` - Version check for OneLane mod
+
+#### SEO & Utilities
 - `GET /sitemap.xml` - SEO sitemap
+- `GET /robots.txt` - Robots.txt file
+
+### 🔧 API Features
+- **Comprehensive Filtering**: Most endpoints support filtering by team, result, game mode, etc.
+- **Pagination**: Large datasets are paginated with configurable page sizes
+- **Caching**: Built-in caching (20-300 seconds) for optimal performance
+- **Error Handling**: Consistent error responses with meaningful messages
+- **Content Negotiation**: JSON responses with proper content types
+- **Hero Enhancement**: Player data automatically includes hero names
 
 ## 🎨 Features in Detail
 

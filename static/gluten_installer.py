@@ -66,13 +66,52 @@ def find_steam_path():
     return None
 
 def find_deadlock_path(steam_path):
-    """Find Deadlock installation path."""
+    """Find Deadlock installation path by checking all Steam library folders."""
     if not steam_path:
         return None
     
-    deadlock_path = steam_path / "steamapps" / "common" / "Deadlock"
-    if deadlock_path.exists():
-        return deadlock_path
+    # First check the main Steam installation
+    main_deadlock_path = steam_path / "steamapps" / "common" / "Deadlock"
+    if main_deadlock_path.exists():
+        return main_deadlock_path
+    
+    # Check additional Steam library folders
+    library_folders_vdf = steam_path / "steamapps" / "libraryfolders.vdf"
+    if library_folders_vdf.exists():
+        try:
+            with open(library_folders_vdf, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+            # Parse the VDF file to find library paths
+            import re
+            # Look for "path" entries in the VDF file
+            path_pattern = r'"path"\s+"([^"]+)"'
+            library_paths = re.findall(path_pattern, content)
+            
+            for lib_path in library_paths:
+                # Convert forward slashes to backslashes for Windows
+                lib_path = lib_path.replace('\\\\', '\\')
+                deadlock_path = Path(lib_path) / "steamapps" / "common" / "Deadlock"
+                if deadlock_path.exists():
+                    return deadlock_path
+        except Exception as e:
+            print(f"Warning: Could not parse Steam library folders: {e}")
+    
+    # Fallback: Check common drive letters for Steam libraries
+    common_drives = ['C:', 'D:', 'E:', 'F:', 'G:']
+    common_steam_paths = [
+        "SteamLibrary",
+        "Steam",
+        "Games\\Steam",
+        "Program Files (x86)\\Steam",
+        "Program Files\\Steam"
+    ]
+    
+    for drive in common_drives:
+        for steam_folder in common_steam_paths:
+            potential_path = Path(drive) / steam_folder / "steamapps" / "common" / "Deadlock"
+            if potential_path.exists():
+                return potential_path
     
     return None
 
@@ -208,13 +247,50 @@ def main():
     
     # Find Deadlock path
     print("Locating Deadlock installation...")
+    print("  Checking main Steam directory...")
+    print("  Checking Steam library folders...")
+    print("  Scanning common drive locations...")
     deadlock_path = find_deadlock_path(steam_path)
     
     if not deadlock_path:
-        print("✗ Could not find Deadlock installation")
-        print("Please ensure Deadlock is installed through Steam.")
-        safe_input("\nPress Enter to exit...")
-        sys.exit(1)
+        print("✗ Could not find Deadlock installation automatically")
+        print("Please provide the path to your Deadlock installation folder.")
+        print("This should be the main Deadlock folder (not the 'game' subfolder).")
+        print("Example: C:\\Steam\\steamapps\\common\\Deadlock")
+        print()
+        
+        while True:
+            try:
+                user_path = input("Enter Deadlock path (or 'exit' to quit): ").strip()
+                if user_path.lower() == 'exit':
+                    print("Installation cancelled.")
+                    sys.exit(0)
+                
+                if not user_path:
+                    print("Please enter a valid path.")
+                    continue
+                
+                deadlock_path = Path(user_path)
+                if deadlock_path.exists() and deadlock_path.is_dir():
+                    # Check if this looks like a Deadlock installation
+                    game_folder = deadlock_path / "game"
+                    if game_folder.exists():
+                        print(f"✓ Valid Deadlock installation found at: {deadlock_path}")
+                        break
+                    else:
+                        print("⚠ This doesn't appear to be a Deadlock installation (no 'game' folder found).")
+                        print("Please ensure you're pointing to the main Deadlock folder.")
+                        continue
+                else:
+                    print("✗ Path does not exist or is not a directory.")
+                    continue
+                    
+            except (EOFError, KeyboardInterrupt):
+                print("\nInstallation cancelled by user.")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}")
+                continue
     
     print(f"✓ Found Deadlock at: {deadlock_path}")
     

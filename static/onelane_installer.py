@@ -199,10 +199,44 @@ def main():
     deadlock_path = find_deadlock_path(steam_path)
     
     if not deadlock_path:
-        print("✗ Could not find Deadlock installation")
-        print("Please ensure Deadlock is installed through Steam.")
-        safe_input("\nPress Enter to exit...")
-        sys.exit(1)
+        print("✗ Could not find Deadlock installation automatically")
+        print("Please provide the path to your Deadlock installation folder.")
+        print("This should be the main Deadlock folder (not the 'game' subfolder).")
+        print("Example: C:\\Steam\\steamapps\\common\\Deadlock")
+        print()
+        
+        while True:
+            try:
+                user_path = input("Enter Deadlock path (or 'exit' to quit): ").strip()
+                if user_path.lower() == 'exit':
+                    print("Installation cancelled.")
+                    sys.exit(0)
+                
+                if not user_path:
+                    print("Please enter a valid path.")
+                    continue
+                
+                deadlock_path = Path(user_path)
+                if deadlock_path.exists() and deadlock_path.is_dir():
+                    # Check if this looks like a Deadlock installation
+                    game_folder = deadlock_path / "game"
+                    if game_folder.exists():
+                        print(f"✓ Valid Deadlock installation found at: {deadlock_path}")
+                        break
+                    else:
+                        print("⚠ This doesn't appear to be a Deadlock installation (no 'game' folder found).")
+                        print("Please ensure you're pointing to the main Deadlock folder.")
+                        continue
+                else:
+                    print("✗ Path does not exist or is not a directory.")
+                    continue
+                    
+            except (EOFError, KeyboardInterrupt):
+                print("\nInstallation cancelled by user.")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}")
+                continue
     
     print(f"✓ Found Deadlock at: {deadlock_path}")
     

@@ -76,6 +76,10 @@ from the DLNS community.""",
             {
                 "name": "OneLane",
                 "description": "OneLane mod related endpoints"
+            },
+            {
+                "name": "Gluten",
+                "description": "Gluten mod related endpoints"
             }
         ],
         "components": {
@@ -659,6 +663,30 @@ from the DLNS community.""",
                                         "properties": {
                                             "version": {"type": "string", "description": "Current version"},
                                             "download_url": {"type": "string", "description": "Download URL"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/gluten/api/check": {
+                "get": {
+                    "tags": ["Gluten"],
+                    "summary": "Check Gluten mod availability",
+                    "description": "Check if Gluten mod files are available for download",
+                    "responses": {
+                        "200": {
+                            "description": "File availability status",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "zip_available": {"type": "boolean", "description": "Whether Gluten_Zip.zip is available"},
+                                            "installer_available": {"type": "boolean", "description": "Whether Python installer is available"},
+                                            "exe_available": {"type": "boolean", "description": "Whether Gluten_Video.exe is available"}
                                         }
                                     }
                                 }

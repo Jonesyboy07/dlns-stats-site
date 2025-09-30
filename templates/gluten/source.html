@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% block title %}Gluten Installer - Source Code{% endblock %}
+{% block content %}
+<section class="card">
+  <header>
+    <h1>📋 Gluten Installer Source Code</h1>
+    <p class="muted">Review the installer source code for transparency and security</p>
+    <nav>
+      <a href="{{ url_for('gluten.index') }}" class="button outline">← Back to Downloads</a>
+      <a href="{{ url_for('gluten.download_installer') }}" class="button">Download Script</a>
+    </nav>
+  </header>
+  
+  <div class="source-info">
+    <h3>🔍 What does this installer do?</h3>
+    <div class="grid">
+      <div>
+        <h4>1. Locate Steam & Deadlock</h4>
+        <ul>
+          <li>Searches Windows registry for Steam installation</li>
+          <li>Finds Deadlock game folder automatically</li>
+          <li>Validates paths before proceeding</li>
+        </ul>
+      </div>
+      <div>
+        <h4>2. Download & Extract</h4>
+        <ul>
+          <li>Downloads mod zip from dlns-stats.co.uk</li>
+          <li>Extracts to temporary folder in AppData</li>
+          <li>Validates downloaded content</li>
+        </ul>
+      </div>
+      <div>
+        <h4>3. Safe Installation</h4>
+        <ul>
+          <li>Checks for existing files before copying</li>
+          <li>Never overwrites existing game files</li>
+          <li>Reports what was installed vs skipped</li>
+        </ul>
+      </div>
+      <div>
+        <h4>4. Clean Up</h4>
+        <ul>
+          <li>Removes temporary files automatically</li>
+          <li>No permanent changes to system</li>
+          <li>Only adds mod files to game folder</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="security-notice">
+    <h4>🛡️ Security Features</h4>
+    <ul>
+      <li><strong>Read-Only Registry Access:</strong> Only reads Steam paths, never modifies registry</li>
+      <li><strong>Temporary Files:</strong> Uses system temp directory, cleans up automatically</li>
+      <li><strong>No Network Persistence:</strong> Only downloads during installation, no background connections</li>
+      <li><strong>File Conflict Detection:</strong> Won't overwrite existing files without user awareness</li>
+      <li><strong>Graceful Error Handling:</strong> Stops safely if any step fails</li>
+    </ul>
+  </div>
+
+  <div class="source-container">
+    <div class="source-header">
+      <h4>📄 gluten_installer.py</h4>
+      <button onclick="copySource()" class="copy-btn" title="Copy source code">📋 Copy</button>
+    </div>
+    <pre id="source-code"><code class="language-python">{{ source_code }}</code></pre>
+  </div>
+</section>
+
+<style>
+.source-info {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+}
+
+.source-info h3 {
+  margin-top: 0;
+  color: var(--pico-primary);
+}
+
+.source-info .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.source-info h4 {
+  color: var(--pico-primary);
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.source-info ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--pico-muted-color);
+}
+
+.source-info li {
+  margin: 0.25rem 0;
+}
+
+.security-notice {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--pico-primary-background);
+  border: 1px solid var(--pico-primary-border);
+  border-radius: var(--pico-border-radius);
+}
+
+.security-notice h4 {
+  margin-top: 0;
+  color: var(--pico-primary);
+}
+
+.security-notice ul {
+  margin: 1rem 0 0 0;
+  padding-left: 1.25rem;
+}
+
+.security-notice li {
+  margin: 0.5rem 0;
+  color: var(--pico-muted-color);
+}
+
+.security-notice strong {
+  color: var(--pico-color);
+}
+
+.source-container {
+  margin: 2rem 0;
+  border: 1px solid var(--pico-border-color);
+  border-radius: var(--pico-border-radius);
+  overflow: hidden;
+}
+
+.source-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: var(--pico-muted-background);
+  border-bottom: 1px solid var(--pico-border-color);
+}
+
+.source-header h4 {
+  margin: 0;
+  color: var(--pico-primary);
+  font-family: var(--pico-font-family-monospace);
+}
+
+.copy-btn {
+  background: var(--pico-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--pico-border-radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: var(--pico-font-family);
+  transition: background-color 0.2s ease;
+}
+
+.copy-btn:hover {
+  background: var(--pico-primary-hover);
+}
+
+.copy-btn:active {
+  transform: translateY(1px);
+}
+
+pre {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--pico-code-background-color);
+  color: var(--pico-code-color);
+  font-family: var(--pico-font-family-monospace);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+code {
+  background: none;
+  padding: 0;
+}
+
+/* Syntax highlighting for Python */
+.language-python .keyword {
+  color: #ff7b72;
+  font-weight: bold;
+}
+
+.language-python .string {
+  color: #a5d6ff;
+}
+
+.language-python .comment {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.language-python .number {
+  color: #79c0ff;
+}
+
+.language-python .function {
+  color: #d2a8ff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .source-info .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .source-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  pre {
+    font-size: 0.8rem;
+    padding: 1rem;
+  }
+}
+
+/* Scrollbar styling for source code */
+pre::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+pre::-webkit-scrollbar-track {
+  background: var(--pico-muted-background);
+}
+
+pre::-webkit-scrollbar-thumb {
+  background: var(--pico-muted-border-color);
+  border-radius: 4px;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+  background: var(--pico-border-color);
+}
+</style>
+
+<script>
+function copySource() {
+  const sourceCode = document.getElementById('source-code').textContent;
+  
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(sourceCode).then(() => {
+      showCopyFeedback('Copied to clipboard!');
+    }).catch(() => {
+      fallbackCopy(sourceCode);
+    });
+  } else {
+    fallbackCopy(sourceCode);
+  }
+}
+
+function fallbackCopy(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-999999px';
+  textArea.style.top = '-999999px';
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  
+  try {
+    document.execCommand('copy');
+    showCopyFeedback('Copied to clipboard!');
+  } catch (err) {
+    showCopyFeedback('Copy failed - please select manually');
+  }
+  
+  document.body.removeChild(textArea);
+}
+
+function showCopyFeedback(message) {
+  const copyBtn = document.querySelector('.copy-btn');
+  const originalText = copyBtn.textContent;
+  
+  copyBtn.textContent = message;
+  copyBtn.style.background = '#28a745';
+  
+  setTimeout(() => {
+    copyBtn.textContent = originalText;
+    copyBtn.style.background = '';
+  }, 2000);
+}
+
+// Basic syntax highlighting
+document.addEventListener('DOMContentLoaded', function() {
+  const codeElement = document.querySelector('#source-code code');
+  if (codeElement) {
+    let html = codeElement.innerHTML;
+    
+    // Highlight Python keywords
+    const keywords = ['def', 'class', 'if', 'else', 'elif', 'for', 'while', 'try', 'except', 'finally', 'with', 'import', 'from', 'as', 'return', 'yield', 'break', 'continue', 'pass', 'lambda', 'and', 'or', 'not', 'in', 'is', 'True', 'False', 'None'];
+    const keywordPattern = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g');
+    html = html.replace(keywordPattern, '<span class="keyword">$1</span>');
+    
+    // Highlight strings
+    html = html.replace(/(["'])((?:\\.|(?!\1)[^\\])*?)\1/g, '<span class="string">$1$2$1</span>');
+    
+    // Highlight comments
+    html = html.replace(/(#.*$)/gm, '<span class="comment">$1</span>');
+    
+    // Highlight numbers
+    html = html.replace(/\b\d+\.?\d*\b/g, '<span class="number">$&</span>');
+    
+    codeElement.innerHTML = html;
+  }
+});
+</script>
+{% endblock %}

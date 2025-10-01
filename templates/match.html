@@ -97,10 +97,14 @@
         {% for p in players %}
         <tr>
           <td>
-            <a href="{{ url_for('user_detail', account_id=p.account_id) }}" class="no-btn" style="font-weight: 500; text-decoration: none;">
+            <button type="button" 
+                    class="chip-button primary bounce-on-click player-button" 
+                    data-user-url="{{ url_for('user_detail', account_id=p.account_id) }}"
+                    style="margin: 0; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-weight: 500;">
+              <span aria-hidden="true">👤</span>
               {{ p.persona_name or 'Unknown Player' }}
-            </a>
-            <div class="show-on-mobile text-small text-muted" style="margin-top: 0.25rem;">
+            </button>
+            <div class="show-on-mobile text-small text-muted" style="margin-top: 0.5rem;">
               {{ p.team | team_name }} • {{ p.hero_name or get_hero_name(p.hero_id) }} • {{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}
             </div>
           </td>
@@ -162,4 +166,21 @@
   </footer>
 </section>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle player button clicks
+  const playerButtons = document.querySelectorAll('.player-button');
+  playerButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const userUrl = this.getAttribute('data-user-url');
+      if (userUrl) {
+        window.location.href = userUrl;
+      }
+    });
+  });
+});
+</script>
 {% endblock %}

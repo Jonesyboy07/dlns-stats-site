@@ -3,126 +3,120 @@
 {% block title %}Help & Contribute • DLNS Stats{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <h1>Help & Contribute</h1>
-            <p class="lead">Want to help improve DLNS Stats? We'd love your contribution!</p>
-        </div>
-    </div>
+<section class="card">
+    <header>
+        <h1>Help & Contribute</h1>
+        <p class="muted">Want to help improve DLNS Stats? We'd love your contribution!</p>
+    </header>
+    
+    <div class="stagger-in" style="display: grid; gap: 1.5rem;">
+        <section class="card">
+            <header>
+                <h3>
+                    <span style="color: #6366f1; margin-right: 0.5rem;" aria-hidden="true">⚡</span>
+                    Small Contributions
+                </h3>
+            </header>
+            <p>
+                Found a bug? Have a small feature request? Want to fix a typo or improve documentation? 
+                Open a pull request on our GitHub repository!
+            </p>
+            <p><strong>Perfect for:</strong></p>
+            <ul style="margin: 1rem 0; padding-left: 1.25rem;">
+                <li>Bug fixes</li>
+                <li>UI improvements</li>
+                <li>Documentation updates</li>
+                <li>Small feature additions</li>
+                <li>Code optimizations</li>
+            </ul>
+            <footer>
+                <a href="https://github.com/Jonesyboy07/dlns-stats-site" 
+                   class="chip-button primary bounce-on-click" 
+                   target="_blank" 
+                   rel="noopener noreferrer">
+                    <span aria-hidden="true">🐙</span>
+                    View Repository
+                </a>
+            </footer>
+        </section>
 
-    <div class="row mt-4">
-        <div class="col-lg-6 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h3 class="card-title">
-                        <i class="fab fa-github me-2"></i>
-                        Small Contributions
-                    </h3>
-                    <p class="card-text">
-                        Found a bug? Have a small feature request? Want to fix a typo or improve documentation? 
-                        Open a pull request on our GitHub repository!
-                    </p>
-                    <p class="card-text">
-                        Perfect for:
-                    </p>
-                    <ul>
-                        <li>Bug fixes</li>
-                        <li>UI improvements</li>
-                        <li>Documentation updates</li>
-                        <li>Small feature additions</li>
-                        <li>Code optimizations</li>
-                    </ul>
-                    <a href="https://github.com/Jonesyboy07/dlns-stats-site" 
-                       class="btn btn-primary" 
-                       target="_blank" 
-                       rel="noopener noreferrer">
-                        <i class="fab fa-github me-2"></i>
-                        View Repository
-                    </a>
+        <section class="card">
+            <header>
+                <h3>
+                    <span style="color: #8b5cf6; margin-right: 0.5rem;" aria-hidden="true">🚀</span>
+                    Major Contributions
+                </h3>
+            </header>
+            <p>
+                Want to get more involved? Have bigger ideas for the project? 
+                Looking to contribute regularly or help with major features?
+            </p>
+            <p><strong>Great for:</strong></p>
+            <ul style="margin: 1rem 0; padding-left: 1.25rem;">
+                <li>New major features</li>
+                <li>Architecture discussions</li>
+                <li>Long-term project planning</li>
+                <li>Regular collaboration</li>
+                <li>Backend improvements</li>
+            </ul>
+            <p>
+                <strong>Reach out on Discord</strong> to discuss your ideas and how you can help shape the future of DLNS Stats!
+            </p>
+            <footer>
+                <div class="chip-button" style="background: color-mix(in oklab, #8b5cf6 15%, transparent); color: #8b5cf6; border-color: #8b5cf6;">
+                    <span aria-hidden="true">💬</span>
+                    Message j0nesy_ on Discord
                 </div>
-            </div>
+            </footer>
+        </section>
+    </div>
+</section>
+
+<section class="card" style="margin-top: 1.5rem;">
+    <header>
+        <h3>
+            <span style="color: #10b981; margin-right: 0.5rem;" aria-hidden="true">🛠</span>
+            Getting Started
+        </h3>
+    </header>
+    
+    <div style="display: grid; gap: 2rem;">
+        <div>
+            <h4>For Developers</h4>
+            <ol style="margin: 1rem 0; padding-left: 1.25rem; line-height: 1.6;">
+                <li>Fork the repository on GitHub</li>
+                <li>Clone your fork locally</li>
+                <li>Install dependencies: <code style="background: color-mix(in oklab, var(--pico-muted-border-color) 20%, transparent); padding: 0.2rem 0.4rem; border-radius: 4px;">pip install -r requirements.txt</code></li>
+                <li>Make your changes</li>
+                <li>Test your changes</li>
+                <li>Submit a pull request</li>
+            </ol>
         </div>
-
-        <div class="col-lg-6 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h3 class="card-title">
-                        <i class="fab fa-discord me-2"></i>
-                        Major Contributions
-                    </h3>
-                    <p class="card-text">
-                        Want to get more involved? Have bigger ideas for the project? 
-                        Looking to contribute regularly or help with major features?
-                    </p>
-                    <p class="card-text">
-                        Great for:
-                    </p>
-                    <ul>
-                        <li>New major features</li>
-                        <li>Architecture discussions</li>
-                        <li>Long-term project planning</li>
-                        <li>Regular collaboration</li>
-                        <li>Backend improvements</li>
-                    </ul>
-                    <p class="card-text">
-                        <strong>Reach out on Discord</strong> to discuss your ideas and how you can help shape the future of DLNS Stats! Message `j0nesy_` to get started.
-                    </p>
-
-                </div>
-            </div>
+        
+        <div>
+            <h4>Tech Stack</h4>
+            <ul style="margin: 1rem 0; padding-left: 1.25rem; line-height: 1.6;">
+                <li><strong>Backend:</strong> Python Flask</li>
+                <li><strong>Templates:</strong> Jinja templating engine</li>
+                <li><strong>Database:</strong> SQLite</li>
+                <li><strong>Styling:</strong> PicoCSS, CSS (inline & file-based)</li>
+                <li><strong>JavaScript:</strong> File-based JavaScript</li>
+                <li><strong>Caching:</strong> Flask-Caching</li>
+            </ul>
         </div>
     </div>
+</section>
 
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="card-title">Getting Started</h3>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>For Developers</h5>
-                            <ol>
-                                <li>Fork the repository on GitHub</li>
-                                <li>Clone your fork locally</li>
-                                <li>Install dependencies: <code>pip install -r requirements.txt</code></li>
-                                <li>Make your changes</li>
-                                <li>Test your changes</li>
-                                <li>Submit a pull request</li>
-                            </ol>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Tech Stack</h5>
-                            <ul>
-                                <li><strong>Backend:</strong> Python Flask</li>
-                                <li><strong>Templates:</strong> Jinja templating engine</li>
-                                <li><strong>Database:</strong> SQLite</li>
-                                <li><strong>Styling:</strong> Bootstrap, CSS (inline & file-based)</li>
-                                <li><strong>JavaScript:</strong> File-based JavaScript</li>
-                                <li><strong>Caching:</strong> Flask-Caching</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="alert alert-info">
-                <h5 class="alert-heading">
-                    <i class="fas fa-heart me-2"></i>
-                    Other Ways to Help
-                </h5>
-                <p class="mb-0">
-                    Not a developer? You can still help! Consider supporting the project through 
-                    <a href="{{ KOFI_URL }}" target="_blank" rel="noopener noreferrer">Ko‑fi</a>{% if PATREON_URL %} 
-                    or <a href="{{ PATREON_URL }}" target="_blank" rel="noopener noreferrer">Patreon</a>{% endif %}, 
-                    sharing the site with others, or providing feedback and suggestions.
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
+<section class="alert info" style="margin-top: 1.5rem;">
+    <h4 style="margin: 0 0 0.75rem 0;">
+        <span style="color: #ef4444; margin-right: 0.5rem;" aria-hidden="true">❤️</span>
+        Other Ways to Help
+    </h4>
+    <p style="margin: 0; line-height: 1.5;">
+        Not a developer? You can still help! Consider supporting the project through 
+        <a href="{{ KOFI_URL }}" target="_blank" rel="noopener noreferrer" class="no-btn" style="color: #059669; text-decoration: underline;">Ko‑fi</a>{% if PATREON_URL %} 
+        or <a href="{{ PATREON_URL }}" target="_blank" rel="noopener noreferrer" class="no-btn" style="color: #059669; text-decoration: underline;">Patreon</a>{% endif %}, 
+        sharing the site with others, or providing feedback and suggestions.
+    </p>
+</section>
 {% endblock %}

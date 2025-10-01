@@ -2,148 +2,232 @@
 {% block title %}DLNS • Updates{% endblock %}
 {% block content %}
 <section class="card">
+  <header>
+    <h2>
+      <span style="color: #10b981; margin-right: 0.5rem;" aria-hidden="true">📰</span>
+      Latest Updates
+    </h2>
+    <p class="muted">Stay up to date with the latest changes, improvements, and announcements for DLNS Stats.</p>
+  </header>
+  
   <div class="markdown-content">
     {{ content | safe }}
   </div>
+  
   <footer>
-    <a class="button secondary" href="/">Back to Home</a>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+      <a href="{{ url_for('index') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">🏠</span>
+        Back to Home
+      </a>
+      <a href="{{ url_for('community') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">🌟</span>
+        Community
+      </a>
+    </div>
   </footer>
 </section>
 
 <style>
-/* Markdown content styling */
+/* Enhanced Markdown content styling */
 .markdown-content {
   line-height: 1.7;
   color: var(--pico-color);
   max-width: none;
   font-family: var(--pico-font-family);
+  margin: 1.5rem 0;
 }
 
 .markdown-content h1 {
-  font-size: 2.5rem;
+  font-size: 2rem;
   color: var(--pico-primary);
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid var(--pico-muted-border-color);
+  margin: 2rem 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid color-mix(in oklab, var(--pico-primary) 30%, transparent);
   font-weight: 600;
+  position: relative;
+}
+
+.markdown-content h1:first-child {
+  margin-top: 0;
 }
 
 .markdown-content h2 {
-  font-size: 2rem;
-  color: var(--pico-primary);
-  margin: 2.5rem 0 1rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--pico-muted-border-color);
-  font-weight: 500;
+  font-size: 1.5rem;
+  color: var(--pico-color);
+  margin: 1.5rem 0 0.75rem 0;
+  font-weight: 600;
+  position: relative;
+  padding-left: 0.75rem;
+}
+
+.markdown-content h2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.25rem;
+  width: 4px;
+  height: 1.25rem;
+  background: var(--pico-primary);
+  border-radius: 2px;
 }
 
 .markdown-content h3 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: var(--pico-color);
-  margin: 2rem 0 0.75rem 0;
-  font-weight: 500;
-}
-
-.markdown-content p {
-  margin: 1.25rem 0;
-  font-size: 1rem;
-}
-
-.markdown-content ul, .markdown-content ol {
-  margin: 1.25rem 0;
-  padding-left: 2rem;
-}
-
-.markdown-content li {
-  margin: 0.5rem 0;
-  line-height: 1.6;
-}
-
-.markdown-content strong {
-  color: var(--pico-primary);
+  margin: 1.25rem 0 0.5rem 0;
   font-weight: 600;
 }
 
-.markdown-content em {
+.markdown-content p {
+  margin: 0.75rem 0;
+  line-height: 1.6;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.markdown-content li {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+
+.markdown-content li::marker {
+  color: var(--pico-primary);
+}
+
+.markdown-content blockquote {
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid var(--pico-primary);
+  background: color-mix(in oklab, var(--pico-muted-border-color) 10%, transparent);
+  border-radius: 0 8px 8px 0;
   font-style: italic;
-  color: var(--pico-color);
+}
+
+.markdown-content blockquote p {
+  margin: 0;
 }
 
 .markdown-content code {
-  background-color: var(--pico-code-background-color);
-  color: var(--pico-code-color);
-  padding: 0.2rem 0.4rem;
-  border-radius: var(--pico-border-radius);
-  font-family: var(--pico-font-family-monospace);
-  font-size: 0.875rem;
-  border: 1px solid var(--pico-muted-border-color);
+  background: color-mix(in oklab, var(--pico-muted-border-color) 20%, transparent);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: var(--pico-color);
+  border: 1px solid color-mix(in oklab, var(--pico-muted-border-color) 40%, transparent);
 }
 
 .markdown-content pre {
-  background-color: var(--pico-code-background-color);
-  padding: 1.25rem;
-  border-radius: var(--pico-border-radius);
+  background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent);
+  padding: 1rem;
+  border-radius: 8px;
   overflow-x: auto;
-  margin: 1.5rem 0;
-  border: 1px solid var(--pico-muted-border-color);
+  margin: 1rem 0;
+  border: 1px solid color-mix(in oklab, var(--pico-muted-border-color) 50%, transparent);
 }
 
 .markdown-content pre code {
   background: none;
   padding: 0;
   border: none;
-  font-size: 0.875rem;
-}
-
-.markdown-content blockquote {
-  border-left: 4px solid var(--pico-primary);
-  margin: 1.5rem 0;
-  padding: 1rem 1.5rem;
-  background-color: var(--pico-card-sectioning-background-color);
-  font-style: italic;
-  border-radius: 0 var(--pico-border-radius) var(--pico-border-radius) 0;
-}
-
-.markdown-content hr {
-  border: none;
-  border-top: 1px solid var(--pico-muted-border-color);
-  margin: 3rem 0;
+  border-radius: 0;
 }
 
 .markdown-content a {
   color: var(--pico-primary);
   text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-bottom-color 0.2s ease;
 }
 
 .markdown-content a:hover {
-  text-decoration: underline;
-  color: var(--pico-primary-hover);
+  border-bottom-color: var(--pico-primary);
 }
 
-/* Make sure the card styling applies */
-.card .markdown-content {
-  padding: 0;
-}
-
-/* Enhanced list styling */
-.markdown-content ul li::marker {
-  color: var(--pico-primary);
-}
-
-.markdown-content ol li::marker {
-  color: var(--pico-primary);
+.markdown-content strong {
   font-weight: 600;
+  color: var(--pico-color);
 }
 
-/* Enhanced spacing for nested elements */
-.markdown-content h2 + p,
-.markdown-content h3 + p {
-  margin-top: 0.75rem;
+.markdown-content em {
+  font-style: italic;
+  color: color-mix(in oklab, var(--pico-color) 85%, transparent);
 }
 
-.markdown-content p + ul,
-.markdown-content p + ol {
-  margin-top: 0.75rem;
+.markdown-content hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--pico-muted-border-color), transparent);
+  margin: 2rem 0;
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  background: var(--pico-card-background-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-content table th {
+  background: color-mix(in oklab, var(--pico-muted-border-color) 20%, transparent);
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid color-mix(in oklab, var(--pico-muted-border-color) 50%, transparent);
+}
+
+.markdown-content table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--pico-muted-border-color) 30%, transparent);
+}
+
+.markdown-content table tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-content table tr:nth-child(even) {
+  background: color-mix(in oklab, var(--pico-muted-border-color) 5%, transparent);
+}
+
+/* Mobile responsiveness for markdown content */
+@media (max-width: 767px) {
+  .markdown-content {
+    font-size: 0.9rem;
+  }
+  
+  .markdown-content h1 {
+    font-size: 1.75rem;
+  }
+  
+  .markdown-content h2 {
+    font-size: 1.35rem;
+  }
+  
+  .markdown-content h3 {
+    font-size: 1.15rem;
+  }
+  
+  .markdown-content pre {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+  }
+  
+  .markdown-content table {
+    font-size: 0.85rem;
+  }
+  
+  .markdown-content table th,
+  .markdown-content table td {
+    padding: 0.5rem 0.25rem;
+  }
 }
 </style>
 {% endblock %}

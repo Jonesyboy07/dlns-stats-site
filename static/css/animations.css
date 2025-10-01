@@ -1,0 +1,436 @@
+/* ============================================
+   ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+/* Base animation settings */
+:root {
+  --animation-duration: 0.3s;
+  --animation-timing: cubic-bezier(0.4, 0, 0.2, 1);
+  --hover-duration: 0.2s;
+  --hover-timing: ease-out;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   PAGE TRANSITIONS
+   ============================================ */
+
+/* Main content fade in */
+.fade-in {
+  animation: fadeInUp var(--animation-duration) var(--animation-timing);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger animation for multiple elements */
+.stagger-in > * {
+  animation: fadeInUp var(--animation-duration) var(--animation-timing);
+  animation-fill-mode: both;
+}
+
+.stagger-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-in > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-in > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-in > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-in > *:nth-child(8) { animation-delay: 350ms; }
+
+/* ============================================
+   TABLE ANIMATIONS
+   ============================================ */
+
+/* Table row animations */
+table[role="grid"] tbody tr {
+  transition: all var(--hover-duration) var(--hover-timing);
+  animation: slideInLeft 0.4s var(--animation-timing);
+  animation-fill-mode: both;
+}
+
+table[role="grid"] tbody tr:nth-child(1) { animation-delay: 0ms; }
+table[role="grid"] tbody tr:nth-child(2) { animation-delay: 40ms; }
+table[role="grid"] tbody tr:nth-child(3) { animation-delay: 80ms; }
+table[role="grid"] tbody tr:nth-child(4) { animation-delay: 120ms; }
+table[role="grid"] tbody tr:nth-child(5) { animation-delay: 160ms; }
+table[role="grid"] tbody tr:nth-child(6) { animation-delay: 200ms; }
+table[role="grid"] tbody tr:nth-child(7) { animation-delay: 240ms; }
+table[role="grid"] tbody tr:nth-child(8) { animation-delay: 280ms; }
+table[role="grid"] tbody tr:nth-child(9) { animation-delay: 320ms; }
+table[role="grid"] tbody tr:nth-child(10) { animation-delay: 360ms; }
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Table hover effects */
+table[role="grid"] tbody tr:hover {
+  background-color: color-mix(
+    in oklab,
+    var(--pico-primary) 8%,
+    transparent
+  ) !important;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Table cell content animations */
+table[role="grid"] td {
+  position: relative;
+  overflow: hidden;
+}
+
+table[role="grid"] td::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+table[role="grid"] tbody tr:hover td::before {
+  left: 100%;
+}
+
+/* ============================================
+   CARD ANIMATIONS
+   ============================================ */
+
+/* Card entrance animation */
+section.card {
+  animation: cardSlideIn 0.5s var(--animation-timing);
+  transition: all var(--hover-duration) var(--hover-timing);
+}
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Card hover effects */
+section.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================
+   BUTTON ANIMATIONS
+   ============================================ */
+
+/* Chip button animations */
+.chip-button {
+  transition: all var(--hover-duration) var(--hover-timing);
+  position: relative;
+  overflow: hidden;
+}
+
+.chip-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.3s ease;
+}
+
+.chip-button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.chip-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.chip-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Link button animations */
+a[href]:not(.button):not(.no-btn):not(:has(img)) {
+  transition: all var(--hover-duration) var(--hover-timing);
+  position: relative;
+  overflow: hidden;
+}
+
+a[href]:not(.button):not(.no-btn):not(:has(img)):hover {
+  transform: translateY(-1px);
+}
+
+a[href]:not(.button):not(.no-btn):not(:has(img)):active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ============================================
+   NAVIGATION ANIMATIONS
+   ============================================ */
+
+/* Navigation link hover effects */
+nav ul li a {
+  transition: all var(--hover-duration) var(--hover-timing);
+  position: relative;
+}
+
+nav ul li a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--pico-primary);
+  transition: all var(--hover-duration) var(--hover-timing);
+  transform: translateX(-50%);
+}
+
+nav ul li a:hover::after {
+  width: 80%;
+}
+
+nav ul li a:hover {
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   SOCIAL ICONS ANIMATIONS
+   ============================================ */
+
+.social-links a {
+  transition: all var(--hover-duration) var(--hover-timing);
+}
+
+.social-links a:hover {
+  transform: translateY(-2px) scale(1.1);
+  filter: brightness(1.2);
+}
+
+.social-links img {
+  transition: all var(--hover-duration) var(--hover-timing);
+}
+
+/* ============================================
+   MODAL ANIMATIONS
+   ============================================ */
+
+/* Modal backdrop animation */
+.modal[aria-hidden="false"] .modal-backdrop {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal[aria-hidden="true"] .modal-backdrop {
+  animation: fadeOut 0.2s ease-out;
+}
+
+/* Modal card animation */
+.modal[aria-hidden="false"] .modal-card {
+  animation: modalSlideIn 0.3s var(--animation-timing);
+}
+
+.modal[aria-hidden="true"] .modal-card {
+  animation: modalSlideOut 0.2s var(--animation-timing);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modalSlideOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+}
+
+/* ============================================
+   FORM ANIMATIONS
+   ============================================ */
+
+/* Input focus animations */
+input:focus,
+select:focus,
+textarea:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all var(--hover-duration) var(--hover-timing);
+}
+
+/* ============================================
+   LOADING ANIMATIONS
+   ============================================ */
+
+/* Spinner animation */
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--pico-muted-border-color);
+  border-radius: 50%;
+  border-top-color: var(--pico-primary);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pulse animation for loading states */
+.loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================
+   MICRO-INTERACTIONS
+   ============================================ */
+
+/* Subtle bounce for interactive elements */
+.bounce-on-click {
+  transition: transform 0.1s ease;
+}
+
+.bounce-on-click:active {
+  transform: scale(0.95);
+}
+
+/* Shake animation for errors */
+.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Success check animation */
+.success-check {
+  animation: successPop 0.4s var(--animation-timing);
+}
+
+@keyframes successPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================
+   SCROLL ANIMATIONS
+   ============================================ */
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scroll to top button animation */
+.scroll-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all var(--animation-duration) var(--animation-timing);
+  pointer-events: none;
+  z-index: 100;
+}
+
+.scroll-to-top.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.scroll-to-top:hover {
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   ACCESSIBILITY ANIMATIONS
+   ============================================ */
+
+/* Focus visible animations */
+*:focus-visible {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+  transition: outline-offset var(--hover-duration) ease;
+}
+
+*:focus-visible:hover {
+  outline-offset: 4px;
+}

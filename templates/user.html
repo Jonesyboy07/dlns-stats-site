@@ -2,101 +2,218 @@
 {% block title %}DLNS • {{ user and user.persona_name or 'User' }}{% endblock %}
 {% block content %}
 {% if not user %}
-<p>User not found.</p>
+<section class="card">
+  <header>
+    <h2>
+      <span style="color: #ef4444; margin-right: 0.5rem;" aria-hidden="true">❌</span>
+      User Not Found
+    </h2>
+  </header>
+  <div class="alert error">
+    <h4 style="margin: 0 0 0.5rem 0;">Player Not Available</h4>
+    <p style="margin: 0;">The requested player could not be found. They may not have played any matches yet or the ID might be incorrect.</p>
+  </div>
+  <footer>
+    <a href="{{ url_for('index') }}" class="chip-button bounce-on-click">
+      <span aria-hidden="true">🏠</span>
+      Back to Home
+    </a>
+  </footer>
+</section>
 {% else %}
 <section class="card">
   <header>
-    <h2>{{ user.persona_name }}</h2>
+    <h2>
+      <span style="color: #10b981; margin-right: 0.5rem;" aria-hidden="true">👤</span>
+      {{ user.persona_name }}
+    </h2>
+    
     {% if stats %}
-    <p class="muted">Matches: {{ stats.matches_played }} • Winrate: {{ (stats.winrate * 100) | round(1) }}% • Avg KDA: {{ stats.avg_kda | round(2) }}{% if stats.shots_hit is not none and stats.shots_missed is not none and (stats.shots_hit + stats.shots_missed) > 0 %} • Shot Accuracy: {{ ((stats.shots_hit / (stats.shots_hit + stats.shots_missed)) * 100) | round(1) }}%{% endif %}</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0; padding: 1rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 8px;">
+      <div class="text-center">
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--pico-primary);">
+          {{ stats.matches_played }}
+        </div>
+        <div class="text-small text-muted">Matches</div>
+      </div>
+      <div class="text-center">
+        <div style="font-size: 1.5rem; font-weight: 600; color: {{ '#10b981' if (stats.winrate * 100) >= 50 else '#ef4444' }};">
+          {{ (stats.winrate * 100) | round(1) }}%
+        </div>
+        <div class="text-small text-muted">Win Rate</div>
+      </div>
+      <div class="text-center">
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--pico-color);">
+          {{ stats.avg_kda | round(2) }}
+        </div>
+        <div class="text-small text-muted">Avg KDA</div>
+      </div>
+      {% if stats.shots_hit is not none and stats.shots_missed is not none and (stats.shots_hit + stats.shots_missed) > 0 %}
+      <div class="text-center">
+        <div style="font-size: 1.5rem; font-weight: 600; color: var(--pico-color);">
+          {{ ((stats.shots_hit / (stats.shots_hit + stats.shots_missed)) * 100) | round(1) }}%
+        </div>
+        <div class="text-small text-muted">Shot Accuracy</div>
+      </div>
+      {% endif %}
+    </div>
     {% endif %}
-    <button type="button" class="chip-button" data-open-modal="#userFilters">Filters <span class="chev" aria-hidden="true">▾</span></button>
+    
+    <button type="button" class="chip-button" data-open-modal="#userFilters">
+      Filters <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    
+    <!-- Filter Modal -->
     <div id="userFilters" class="modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal></div>
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="userFiltersTitle">
         <header class="modal-header">
-          <h3 id="userFiltersTitle">Filters</h3>
+          <h3 id="userFiltersTitle">Filter Matches</h3>
           <button type="button" class="icon-button close" aria-label="Close" data-close-modal>&times;</button>
         </header>
         <div class="modal-body">
           <form action="" method="get" class="stacked" data-filter-form>
             <label>
-              Sort
+              <span>Sort Order</span>
               <select name="order">
-                <option value="desc" {{ 'selected' if order == 'desc' else '' }}>Newest first</option>
-                <option value="asc" {{ 'selected' if order == 'asc' else '' }}>Oldest first</option>
+                <option value="desc" {{ 'selected' if order == 'desc' else '' }}>Newest First</option>
+                <option value="asc" {{ 'selected' if order == 'asc' else '' }}>Oldest First</option>
               </select>
             </label>
             <label>
-              Result
+              <span>Match Result</span>
               <select name="res">
-                <option value="" {{ 'selected' if not res else '' }}>All</option>
-                <option value="win" {{ 'selected' if res == 'win' else '' }}>Wins</option>
-                <option value="loss" {{ 'selected' if res == 'loss' else '' }}>Losses</option>
+                <option value="" {{ 'selected' if not res else '' }}>All Results</option>
+                <option value="win" {{ 'selected' if res == 'win' else '' }}>Wins Only</option>
+                <option value="loss" {{ 'selected' if res == 'loss' else '' }}>Losses Only</option>
               </select>
             </label>
             <label>
-              Team
+              <span>Team</span>
               <select name="team">
-                <option value="" {{ 'selected' if not teamf else '' }}>Both</option>
-                <option value="0" {{ 'selected' if teamf == '0' else '' }}>Amber</option>
-                <option value="1" {{ 'selected' if teamf == '1' else '' }}>Sapphire</option>
+                <option value="" {{ 'selected' if not teamf else '' }}>Both Teams</option>
+                <option value="0" {{ 'selected' if teamf == '0' else '' }}>Amber Team</option>
+                <option value="1" {{ 'selected' if teamf == '1' else '' }}>Sapphire Team</option>
               </select>
             </label>
-            <div class="modal-actions">
-              <button type="submit" class="button">Apply</button>
-              <button type="button" class="button secondary" data-close-modal>Cancel</button>
-            </div>
           </form>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" form="data-filter-form" class="chip-button primary">Apply Filters</button>
+          <button type="button" class="chip-button" data-close-modal>Cancel</button>
         </div>
       </div>
     </div>
   </header>
-
-  <h3>Matches</h3>
-  <div id="userMatchesWrap">
-    <table role="grid" class="striped" id="userMatchesTable" data-user-id="{{ user.account_id if user else '' }}">
+  
+  {% if matches %}
+  <div class="table-responsive">
+    <table role="grid" class="striped">
       <thead>
         <tr>
           <th>Match</th>
-          <th>Team</th>
-          <th>Hero</th>
+          <th class="hide-on-mobile">Team</th>
+          <th class="hide-on-mobile">Hero</th>
+          <th>K/D/A</th>
+          <th class="hide-on-mobile">Farm</th>
+          <th class="hide-on-mobile">Shots</th>
+          <th class="hide-on-mobile">Damage</th>
+          <th class="hide-on-mobile">Healing</th>
           <th>Result</th>
-          <th><abbr title="Kills/Deaths/Assists">K/D/A</abbr></th>
-          <th><abbr title="Creep Kills/Last Hits/Denies">CK/LH/D</abbr></th>
-          <th><abbr title="Shots Hit/Missed">Shots H/M</abbr></th>
-          <th>Damage</th>
-          <th>Healing</th>
-          <th>When</th>
+          <th class="hide-on-mobile">Date</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="stagger-in">
         {% for m in matches %}
         <tr>
-          <td><a href="{{ url_for('match_detail', match_id=m.match_id) }}">{{ m.match_id }}</a></td>
-          <td><span class="{{ 'team-amber' if m.team == 0 else 'team-sapphire' if m.team == 1 else '' }}">{{ m.team | team_name }}</span></td>
-          <td>{{ get_hero_name(m.hero_id) or 'Unknown' }}</td>
-          <td>{% if m.result == 'Win' %}<span class="badge win">Win</span>{% elif m.result == 'Loss' %}<span class="badge loss">Loss</span>{% else %}<span class="badge neutral">-</span>{% endif %}</td>
-          <td>{{ m.kills or 0 }}/{{ m.deaths or 0 }}/{{ m.assists or 0 }}</td>
-          <td>{{ m.creep_kills or 0 }}/{{ m.last_hits or 0 }}/{{ m.denies or 0 }}</td>
-          <td>{{ m.shots_hit or 0 }}/{{ m.shots_missed or 0 }}</td>
-          <td>{{ m.player_damage or 0 }}</td>
-          <td>{{ m.player_healing or 0 }}</td>
-          <td><time class="dt" datetime="{{ m.start_time or m.created_at }}">{{ (m.start_time or m.created_at)[:10] }}</time></td>
+          <td>
+            <a href="{{ url_for('match_detail', match_id=m.match_id) }}" class="chip-button">
+              {{ m.match_id }}
+            </a>
+            <div class="show-on-mobile text-small text-muted" style="margin-top: 0.25rem;">
+              {{ m.team | team_name }} • {{ get_hero_name(m.hero_id) }} • {{ (m.start_time or m.created_at)[:10] }}
+            </div>
+          </td>
+          <td class="hide-on-mobile">
+            <span class="{{ 'team-amber' if m.team == 0 else 'team-sapphire' if m.team == 1 else '' }}">
+              {{ m.team | team_name }}
+            </span>
+          </td>
+          <td class="hide-on-mobile">{{ get_hero_name(m.hero_id) }}</td>
+          <td>
+            <span style="font-family: monospace; font-weight: 500;">
+              {{ m.kills or 0 }}/{{ m.deaths or 0 }}/{{ m.assists or 0 }}
+            </span>
+          </td>
+          <td class="hide-on-mobile">
+            <span style="font-family: monospace;" title="Creep Kills / Last Hits / Denies">
+              {{ m.creep_kills or 0 }}/{{ m.last_hits or 0 }}/{{ m.denies or 0 }}
+            </span>
+          </td>
+          <td class="hide-on-mobile">
+            <span style="font-family: monospace;" title="Shots Hit / Shots Missed">
+              {{ m.shots_hit or 0 }}/{{ m.shots_missed or 0 }}
+            </span>
+          </td>
+          <td class="hide-on-mobile">
+            <span style="font-family: monospace;">{{ '{:,}'.format(m.player_damage or 0) }}</span>
+          </td>
+          <td class="hide-on-mobile">
+            <span style="font-family: monospace;">{{ '{:,}'.format(m.player_healing or 0) }}</span>
+          </td>
+          <td>
+            {% if m.result == 'Win' %}
+              <span class="badge win">Win</span>
+            {% elif m.result == 'Loss' %}
+              <span class="badge loss">Loss</span>
+            {% else %}
+              <span class="badge neutral">-</span>
+            {% endif %}
+          </td>
+          <td class="hide-on-mobile">
+            <time class="dt" datetime="{{ m.start_time or m.created_at }}">
+              {{ (m.start_time or m.created_at)[:10] }}
+            </time>
+          </td>
         </tr>
-        {% else %}
-        <tr><td colspan="10">No matches found for this user.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-    <nav id="userPager" class="pager" aria-label="Pagination" style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-top:0.75rem;">
-      <button class="chip-button" type="button" data-page="prev" disabled>Prev</button>
-      <span class="muted" id="userPageStat">Page 1</span>
-      <button class="chip-button" type="button" data-page="next" disabled>Next</button>
-    </nav>
   </div>
+  
+  <nav id="userPager" class="pager" aria-label="Pagination">
+    <button class="chip-button bounce-on-click" type="button" data-page="prev" disabled>
+      <span aria-hidden="true">‹</span> Prev
+    </button>
+    <span class="muted" id="userPageStat">Page 1</span>
+    <button class="chip-button bounce-on-click" type="button" data-page="next" disabled>
+      Next <span aria-hidden="true">›</span>
+    </button>
+  </nav>
+  {% else %}
+  <div class="alert info">
+    <h4 style="margin: 0 0 0.5rem 0;">No Matches Found</h4>
+    <p style="margin: 0;">
+      {% if res or teamf %}
+        No matches found with the current filters. Try adjusting or clearing the filters.
+      {% else %}
+        This player hasn't played any matches yet or their matches haven't been processed.
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+  
   <footer>
-    <a class="button secondary" href="/">Back</a>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+      <a href="{{ url_for('index') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">🏠</span>
+        Back to Home
+      </a>
+      <a href="{{ url_for('search') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">🔍</span>
+        Search More
+      </a>
+    </div>
   </footer>
 </section>
 {% endif %}

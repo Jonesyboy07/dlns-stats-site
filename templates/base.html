@@ -6,6 +6,10 @@
   <title>{% block title %}Home{% endblock %}</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/utilities.css') }}">
 
   <!-- Canonical -->
   <link rel="canonical" href="{{ meta_url or (BASE_URL ~ request.path) }}">
@@ -46,10 +50,10 @@
       <ul>
         <li><a href="{{ url_for('index') }}">Home</a></li>
         <li><a href="{{ url_for('search') }}">Search</a></li>
-        <li><a href="{{ url_for('stats.statistics') }}">Statistics</a></li>
+        <li><a href="{{ url_for('stats.statistics') }}">Stats</a></li>
         <li><a href="{{ url_for('updates') }}">Updates</a></li>
         <li><a href="{{ url_for('community') }}">Community</a></li>
-        <li><a href="{{ url_for('onelane.index') }}">OneLane Map</a></li>
+        <li class="hide-on-mobile"><a href="{{ url_for('onelane.index') }}">OneLane</a></li>
       </ul>
       <ul class="nav-right">
         <li class="hide-on-mobile">
@@ -103,6 +107,61 @@
   <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">Ko‑Fi</a>.
     </small>
   </footer>
+  <!-- Scroll to top button -->
+  <button class="scroll-to-top chip-button" id="scrollToTop" aria-label="Scroll to top">
+    <span aria-hidden="true">↑</span>
+  </button>
+  
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+  <script>
+    // Enhanced mobile experience
+    document.addEventListener('DOMContentLoaded', function() {
+      // Scroll to top functionality
+      const scrollBtn = document.getElementById('scrollToTop');
+      if (scrollBtn) {
+        window.addEventListener('scroll', function() {
+          if (window.pageYOffset > 300) {
+            scrollBtn.classList.add('visible');
+          } else {
+            scrollBtn.classList.remove('visible');
+          }
+        });
+        
+        scrollBtn.addEventListener('click', function() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+      
+      // Add stagger animation to tables on scroll
+      const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('stagger-in');
+          }
+        });
+      }, { threshold: 0.1 });
+      
+      document.querySelectorAll('tbody').forEach(function(tbody) {
+        observer.observe(tbody);
+      });
+      
+      // Improve touch interactions on mobile
+      if ('ontouchstart' in window) {
+        document.body.classList.add('touch-device');
+      }
+      
+      // Add loading states to buttons
+      document.querySelectorAll('button[type="submit"], .chip-button').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          if (!btn.disabled && btn.type === 'submit') {
+            setTimeout(function() {
+              btn.innerHTML = '<span class="loading-spinner"></span> Loading...';
+              btn.disabled = true;
+            }, 100);
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

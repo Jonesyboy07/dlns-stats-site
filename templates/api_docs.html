@@ -1,64 +1,263 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLNS Stats API Documentation</title>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}" />
-    <style>
-        html {
-            box-sizing: border-box;
-            overflow: -moz-scrollbars-vertical;
-            overflow-y: scroll;
-        }
-        *, *:before, *:after {
-            box-sizing: inherit;
-        }
-        body {
-            margin:0;
-            background: #fafafa;
-        }
-        .swagger-ui .topbar {
-            background-color: #2c3e50;
-        }
-        .swagger-ui .topbar .download-url-wrapper .select-label {
-            color: #ffffff;
-        }
-        .swagger-ui .topbar .download-url-wrapper input[type=text] {
-            border: 2px solid #34495e;
-        }
-    </style>
-</head>
-<body>
-    <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
-    <script>
-        window.onload = function() {
-            const ui = SwaggerUIBundle({
-                url: '{{ spec_url }}',
-                dom_id: '#swagger-ui',
-                deepLinking: true,
-                presets: [
-                    SwaggerUIBundle.presets.apis,
-                    SwaggerUIStandalonePreset
-                ],
-                plugins: [
-                    SwaggerUIBundle.plugins.DownloadUrl
-                ],
-                layout: "StandaloneLayout",
-                validatorUrl: null,
-                tryItOutEnabled: true,
-                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-                onComplete: function() {
-                    console.log('Swagger UI loaded successfully');
-                },
-                onFailure: function(data) {
-                    console.log('Failed to load API definition:', data);
-                }
-            });
-        };
-    </script>
-</body>
-</html>
+{% extends 'base.html' %}
+{% block title %}API Documentation • DLNS Stats{% endblock %}
+
+{% block content %}
+<section class="card">
+  <header>
+    <h2>
+      <span style="color: #10b981; margin-right: 0.5rem;" aria-hidden="true">🔌</span>
+      API Documentation
+    </h2>
+    <p class="muted">Complete API documentation for DLNS Stats. Access match data, player statistics, and community information programmatically.</p>
+  </header>
+  
+  <div class="alert info" style="margin: 1rem 0;">
+    <h4 style="margin: 0 0 0.5rem 0;">
+      <span aria-hidden="true">ℹ️</span>
+      Getting Started
+    </h4>
+    <p style="margin: 0;">
+      The DLNS Stats API provides RESTful endpoints to access match data, player statistics, and community information. 
+      All responses are in JSON format and most endpoints support query parameters for filtering.
+    </p>
+  </div>
+  
+  <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0;">
+    <a href="{{ spec_url }}" 
+       target="_blank" 
+       rel="noopener noreferrer" 
+       class="chip-button primary bounce-on-click">
+      <span aria-hidden="true">📋</span>
+      View OpenAPI Spec
+    </a>
+    <button onclick="toggleInteractiveApiDocs()" 
+            class="chip-button bounce-on-click" 
+            id="toggleApiDocs">
+      <span aria-hidden="true">🚀</span>
+      Show Interactive Docs
+    </button>
+  </div>
+</section>
+
+<!-- Interactive API Documentation (Hidden by default) -->
+<section class="card" id="interactive-api-docs" style="display: none; margin-top: 1.5rem;">
+  <header>
+    <h3>
+      <span style="color: #3b82f6; margin-right: 0.5rem;" aria-hidden="true">🚀</span>
+      Interactive API Explorer
+    </h3>
+    <p class="muted">Try out the API endpoints directly from your browser.</p>
+  </header>
+  
+  <div id="swagger-ui-container" style="min-height: 400px;">
+    <div class="loading-state">
+      <span class="loading-spinner"></span>
+      Loading API documentation...
+    </div>
+  </div>
+</section>
+
+<!-- Quick Reference -->
+<section class="card" style="margin-top: 1.5rem;">
+  <header>
+    <h3>
+      <span style="color: #f59e0b; margin-right: 0.5rem;" aria-hidden="true">⚡</span>
+      Quick Reference
+    </h3>
+  </header>
+  
+  <div style="display: grid; gap: 1.5rem;">
+    <div>
+      <h4 style="margin: 0 0 0.75rem 0; color: var(--pico-primary);">Base URL</h4>
+      <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.9rem;">
+        {{ request.url_root.rstrip('/') }}
+      </div>
+    </div>
+    
+    <div>
+      <h4 style="margin: 0 0 0.75rem 0; color: var(--pico-primary);">Popular Endpoints</h4>
+      <div style="display: grid; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
+          <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/api/matches</code>
+          <span class="text-small text-muted">Latest matches</span>
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
+          <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/api/users/{id}</code>
+          <span class="text-small text-muted">User details</span>
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
+          <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/api/matches/{id}</code>
+          <span class="text-small text-muted">Match details</span>
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
+          <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/api/community</code>
+          <span class="text-small text-muted">Community links</span>
+        </div>
+      </div>
+    </div>
+    
+    <div>
+      <h4 style="margin: 0 0 0.75rem 0; color: var(--pico-primary);">Response Format</h4>
+      <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>{
+  "data": [ ... ],
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 20
+  }
+}</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card" style="margin-top: 1.5rem;">
+  <header>
+    <h3>
+      <span style="color: #ef4444; margin-right: 0.5rem;" aria-hidden="true">📚</span>
+      Usage Examples
+    </h3>
+  </header>
+  
+  <div style="display: grid; gap: 1.5rem;">
+    <div>
+      <h4 style="margin: 0 0 0.5rem 0;">JavaScript (Fetch)</h4>
+      <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>fetch('{{ request.url_root.rstrip('/') }}/api/matches?limit=10')
+  .then(response => response.json())
+  .then(data => console.log(data));</code></pre>
+      </div>
+    </div>
+    
+    <div>
+      <h4 style="margin: 0 0 0.5rem 0;">Python (Requests)</h4>
+      <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>import requests
+
+response = requests.get('{{ request.url_root.rstrip('/') }}/api/matches')
+data = response.json()
+print(data)</code></pre>
+      </div>
+    </div>
+    
+    <div>
+      <h4 style="margin: 0 0 0.5rem 0;">cURL</h4>
+      <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>curl -X GET "{{ request.url_root.rstrip('/') }}/api/matches?limit=5" \
+  -H "Accept: application/json"</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card" style="margin-top: 1.5rem;">
+  <footer>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+      <a href="{{ url_for('index') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">🏠</span>
+        Back to Home
+      </a>
+      <a href="{{ url_for('community') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">🌟</span>
+        Community
+      </a>
+      <a href="{{ url_for('help_page') }}" class="chip-button bounce-on-click">
+        <span aria-hidden="true">❤️</span>
+        Contribute
+      </a>
+    </div>
+  </footer>
+</section>
+
+<style>
+/* API Docs specific styles */
+#swagger-ui-container .swagger-ui {
+  font-family: var(--pico-font-family) !important;
+}
+
+#swagger-ui-container .swagger-ui .topbar {
+  background-color: var(--pico-primary) !important;
+}
+
+@media (max-width: 767px) {
+  pre {
+    font-size: 0.8rem !important;
+    overflow-x: auto;
+  }
+  
+  code {
+    word-break: break-all;
+  }
+}
+</style>
+
+<script>
+let swaggerUILoaded = false;
+
+function toggleInteractiveApiDocs() {
+  const container = document.getElementById('interactive-api-docs');
+  const button = document.getElementById('toggleApiDocs');
+  
+  if (container.style.display === 'none') {
+    container.style.display = 'block';
+    button.innerHTML = '<span aria-hidden="true">🙈</span> Hide Interactive Docs';
+    
+    if (!swaggerUILoaded) {
+      loadSwaggerUI();
+    }
+  } else {
+    container.style.display = 'none';
+    button.innerHTML = '<span aria-hidden="true">🚀</span> Show Interactive Docs';
+  }
+}
+
+function loadSwaggerUI() {
+  // Load Swagger UI CSS and JS dynamically
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css';
+  document.head.appendChild(css);
+  
+  const script1 = document.createElement('script');
+  script1.src = 'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js';
+  script1.onload = function() {
+    const script2 = document.createElement('script');
+    script2.src = 'https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js';
+    script2.onload = function() {
+      initSwaggerUI();
+    };
+    document.head.appendChild(script2);
+  };
+  document.head.appendChild(script1);
+}
+
+function initSwaggerUI() {
+  const ui = SwaggerUIBundle({
+    url: '{{ spec_url }}',
+    dom_id: '#swagger-ui-container',
+    deepLinking: true,
+    presets: [
+      SwaggerUIBundle.presets.apis,
+      SwaggerUIStandalonePreset
+    ],
+    plugins: [
+      SwaggerUIBundle.plugins.DownloadUrl
+    ],
+    layout: "StandaloneLayout",
+    tryItOutEnabled: true,
+    displayRequestDuration: true,
+    docExpansion: 'list',
+    filter: true,
+    showExtensions: true,
+    showCommonExtensions: true
+  });
+  
+  swaggerUILoaded = true;
+}
+</script>
+{% endblock %}

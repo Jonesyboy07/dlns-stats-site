@@ -69,9 +69,7 @@ body {
   }
 }
 
-header nav form input[type="search"] {
-  min-width: 400px;
-}
+/* Navigation search moved to responsive.css */
 
 /* navigation spacing */
 nav ul {
@@ -155,22 +153,7 @@ table[role="grid"] th {
   background: var(--pico-muted-border-color, #f3f4f6);
 }
 
-/* cards polish */
-section.card {
-  border: 1px solid var(--pico-muted-border-color, #e5e7eb);
-  border-radius: 10px;
-  padding: 1rem 1.1rem;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.04);
-}
-section.card > header {
-  margin-bottom: 0.5rem;
-}
-section.card > footer {
-  margin-top: 0.75rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+/* Card styles moved to components.css */
 
 /* navigation enhancements */
 nav ul li a[href="/updates"] {
@@ -210,26 +193,7 @@ table.striped th {
   vertical-align: middle;
 }
 
-/* badges */
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.85em;
-  line-height: 1;
-}
-.badge.win {
-  background: #10b981;
-  color: #053b2d;
-}
-.badge.loss {
-  background: #ef4444;
-  color: #3f0b0b;
-}
-.badge.neutral {
-  background: #e5e7eb;
-  color: #374151;
-}
+/* Badge styles moved to components.css */
 
 /* team accents */
 .team-amber {

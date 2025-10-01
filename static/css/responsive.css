@@ -1,0 +1,374 @@
+/* ============================================
+   RESPONSIVE DESIGN & MOBILE IMPROVEMENTS
+   ============================================ */
+
+/* Base responsive utilities */
+.hide-on-mobile {
+  display: revert; /* Use the default display value for the element */
+}
+
+.show-on-mobile {
+  display: none;
+}
+
+/* Specific table cell display fixes */
+table th.hide-on-mobile,
+table td.hide-on-mobile {
+  display: table-cell;
+}
+
+table thead th.hide-on-mobile,
+table tbody td.hide-on-mobile {
+  display: table-cell;
+}
+
+/* Container improvements for mobile */
+.container {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Navigation responsive improvements */
+header nav {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+header nav ul {
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+header nav form input[type="search"] {
+  min-width: 200px;
+  max-width: 100%;
+}
+
+/* Table responsive wrapper */
+.table-responsive {
+  overflow-x: auto;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pico-primary) transparent;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: var(--pico-primary);
+  border-radius: 3px;
+}
+
+/* Card improvements for mobile */
+section.card {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+/* Filter panel mobile improvements */
+.inline-filters {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.inline-filters > * {
+  width: 100%;
+}
+
+/* Modal improvements for mobile */
+.modal-card {
+  width: min(640px, 95vw);
+  margin: 2vh auto;
+  max-height: 96vh;
+}
+
+/* Social links mobile improvements */
+.social-links {
+  gap: 8px;
+}
+
+.social-links img {
+  max-width: 20px;
+  max-height: 20px;
+  height: 20px;
+}
+
+/* Button improvements for mobile */
+.chip-button {
+  min-height: 44px; /* Better touch target */
+  padding: 0.5rem 0.75rem;
+}
+
+a[href]:not(.button):not(.no-btn):not(:has(img)) {
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+}
+
+/* ============================================
+   TABLET STYLES (768px and up)
+   ============================================ */
+@media (min-width: 768px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  section.card {
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+  }
+  
+  .inline-filters {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem 1rem;
+  }
+  
+  .inline-filters > * {
+    width: auto;
+  }
+  
+  .table-responsive {
+    margin: 0;
+    padding: 0;
+  }
+  
+  header nav form input[type="search"] {
+    min-width: 300px;
+  }
+  
+  .social-links {
+    gap: 10px;
+  }
+  
+  .social-links img {
+    max-width: 22px;
+    max-height: 22px;
+    height: 22px;
+  }
+}
+
+/* ============================================
+   DESKTOP STYLES (1024px and up)
+   ============================================ */
+@media (min-width: 1024px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  
+  section.card {
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+  }
+  
+  header nav form input[type="search"] {
+    min-width: 400px;
+  }
+  
+  .social-links {
+    gap: 12px;
+  }
+}
+
+/* ============================================
+   MOBILE-SPECIFIC STYLES (below 768px)
+   ============================================ */
+@media (max-width: 767px) {
+  /* Hide search in header on mobile */
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  .show-on-mobile {
+    display: block !important;
+  }
+  
+  /* Navigation improvements */
+  header nav {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  header nav ul {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  header nav ul li {
+    flex: 0 0 auto;
+  }
+  
+  /* Make nav links more touch-friendly */
+  header nav ul li a {
+    padding: 0.5rem 0.75rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  
+  /* Social links row on mobile */
+  header nav .nav-right {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* Table mobile improvements */
+  table[role="grid"] {
+    font-size: 0.85rem;
+  }
+  
+  table[role="grid"] th,
+  table[role="grid"] td {
+    padding: 0.5rem 0.25rem;
+    white-space: nowrap;
+  }
+  
+  /* Table mobile improvements - simplified approach */
+  table[role="grid"] {
+    font-size: 0.85rem;
+  }
+  
+  table[role="grid"] th,
+  table[role="grid"] td {
+    padding: 0.5rem 0.5rem;
+  }
+  
+  /* Card improvements for mobile */
+  section.card header {
+    text-align: center;
+  }
+  
+  section.card header h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Pagination mobile improvements */
+  .pager {
+    flex-wrap: wrap;
+    gap: 0.5rem !important;
+    justify-content: center !important;
+  }
+  
+  /* Footer improvements */
+  footer.container {
+    text-align: center;
+  }
+  
+  footer .social-links {
+    justify-content: center;
+    margin: 1rem 0;
+  }
+  
+  footer small {
+    display: block;
+    margin: 0.5rem 0;
+    line-height: 1.4;
+  }
+  
+  /* Form improvements */
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Modal mobile improvements */
+  .modal-card {
+    width: 95vw;
+    margin: 1vh auto;
+    max-height: 98vh;
+    border-radius: 8px;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-actions {
+    padding: 0.75rem;
+  }
+  
+  /* Help page mobile improvements */
+  .card.h-100 {
+    height: auto !important;
+    margin-bottom: 1rem;
+  }
+  
+  /* Statistics page mobile improvements */
+  .row {
+    margin: 0;
+  }
+  
+  .col-lg-6,
+  .col-md-6,
+  .col-12 {
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+}
+
+/* ============================================
+   VERY SMALL SCREENS (below 480px)
+   ============================================ */
+@media (max-width: 479px) {
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  section.card {
+    padding: 0.75rem;
+    border-radius: 6px;
+  }
+  
+  .chip-button {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+  }
+  
+  .modal-card {
+    width: 98vw;
+    margin: 0.5vh auto;
+    max-height: 99vh;
+  }
+  
+  /* On very small screens, show mobile info more compactly */
+  .show-on-mobile {
+    font-size: 0.75rem !important;
+    line-height: 1.3;
+  }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+@media print {
+  .social-links,
+  .chip-button,
+  .modal,
+  nav,
+  footer {
+    display: none !important;
+  }
+  
+  .container {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  
+  section.card {
+    border: 1px solid #000 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}

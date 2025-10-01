@@ -3,26 +3,83 @@
 {% block content %}
 <section class="card">
   <header>
-    <h2>Search</h2>
-    <p class="muted">Type a match ID or a username. Use the suggestions or press Enter.</p>
+    <h2>
+      <span style="color: #8b5cf6; margin-right: 0.5rem;" aria-hidden="true">🔍</span>
+      Search Players & Matches
+    </h2>
+    <p class="muted">Enter a match ID (numbers) to view match details, or search for players by username.</p>
   </header>
-  <form action="{{ url_for('search') }}" method="get">
-    <input type="search" name="q" placeholder="Search match ID or username" value="{{ q }}" aria-label="Search" autofocus />
+  
+  <form action="{{ url_for('search') }}" method="get" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <input type="search" 
+           name="q" 
+           placeholder="Match ID or player name..." 
+           value="{{ q }}" 
+           aria-label="Search" 
+           autofocus 
+           style="flex: 1; min-width: 200px;" />
+    <button type="submit" class="chip-button primary bounce-on-click">
+      <span aria-hidden="true">🔍</span>
+      Search
+    </button>
   </form>
+  
   {% if q %}
-    <h3>Results for “{{ q }}”</h3>
-    {% if users %}
-    <ul>
-      {% for u in users %}
-        <li><a href="{{ url_for('user_detail', account_id=u.account_id) }}">{{ u.persona_name }}</a></li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p>No users matched. If you typed a number, it would link to a match page.</p>
-    {% endif %}
+    <div style="margin-top: 1.5rem;">
+      <h3>Results for "{{ q }}"</h3>
+      {% if users %}
+        <div class="stagger-in" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+          {% for u in users %}
+            <div style="display: flex; align-items: center; padding: 0.75rem; border-radius: 8px; border: 1px solid color-mix(in oklab, var(--pico-muted-border-color) 50%, transparent); transition: all 0.2s ease;" class="hover:shadow-md">
+              <span style="color: #10b981; margin-right: 0.75rem; font-size: 1.25rem;" aria-hidden="true">👤</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 500; margin-bottom: 0.25rem;">
+                  {{ u.persona_name }}
+                </div>
+                <div class="text-small text-muted">Account ID: {{ u.account_id }}</div>
+              </div>
+              <a href="{{ url_for('user_detail', account_id=u.account_id) }}" 
+                 class="chip-button bounce-on-click">
+                View Profile
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert info" style="margin-top: 1rem;">
+          <h4 style="margin: 0 0 0.5rem 0;">
+            <span aria-hidden="true">ℹ️</span>
+            No Results Found
+          </h4>
+          <p style="margin: 0;">
+            {% if q.isdigit() %}
+              No match found with ID {{ q }}. Try checking if the match ID is correct.
+            {% else %}
+              No players found matching "{{ q }}". Try a different spelling or partial name.
+            {% endif %}
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="alert info" style="margin-top: 1.5rem;">
+      <h4 style="margin: 0 0 0.5rem 0;">
+        <span aria-hidden="true">💡</span>
+        Search Tips
+      </h4>
+      <ul style="margin: 0; padding-left: 1.25rem; line-height: 1.6;">
+        <li><strong>Match ID:</strong> Enter numbers like "12345" to view match details</li>
+        <li><strong>Player Name:</strong> Enter partial or full usernames to find players</li>
+        <li><strong>Partial Search:</strong> You don't need the complete name - try just a few letters</li>
+      </ul>
+    </div>
   {% endif %}
+  
   <footer>
-    <a class="button secondary" href="/">Back</a>
+    <a href="{{ url_for('index') }}" class="chip-button bounce-on-click">
+      <span aria-hidden="true">🏠</span>
+      Back to Home
+    </a>
   </footer>
 </section>
 {% endblock %}

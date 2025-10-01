@@ -4,6 +4,11 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
+### October 1, 2025 - HTML Overhaul!
+
+Redid the entire frontend just as it sucked... Thats it
+
+## Old Updates
 ### September 30, 2025 - Small UI Changes
 
 Just some smaller changes currently. 
@@ -15,7 +20,7 @@ Just some smaller changes currently.
 
 Some Later Time... - Started work on API documentation
 
-## Old Updates
+
 
 ### September 29, 2025 - OneLane Mod Installer!
 

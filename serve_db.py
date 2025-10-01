@@ -521,6 +521,17 @@ def create_app() -> Flask:
     def favicon():  # type: ignore
         return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
+    @app.get("/help")
+    @cache.cached(timeout=300)
+    def help_page():  # type: ignore
+        return render_template(
+            "help.html",
+            meta_title="Help & Contribute • DLNS Stats",
+            meta_desc="Want to help improve DLNS Stats? Learn how to contribute through GitHub or get involved in the project.",
+            meta_image=_og_image_abs(),
+            meta_url=_abs(request.path),
+        )
+
     @app.get("/community")
     def community():  # type: ignore
         groups = load_community_groups()

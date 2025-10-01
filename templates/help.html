@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Contribute • DLNS Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1>Help & Contribute</h1>
+            <p class="lead">Want to help improve DLNS Stats? We'd love your contribution!</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fab fa-github me-2"></i>
+                        Small Contributions
+                    </h3>
+                    <p class="card-text">
+                        Found a bug? Have a small feature request? Want to fix a typo or improve documentation? 
+                        Open a pull request on our GitHub repository!
+                    </p>
+                    <p class="card-text">
+                        Perfect for:
+                    </p>
+                    <ul>
+                        <li>Bug fixes</li>
+                        <li>UI improvements</li>
+                        <li>Documentation updates</li>
+                        <li>Small feature additions</li>
+                        <li>Code optimizations</li>
+                    </ul>
+                    <a href="https://github.com/Jonesyboy07/dlns-stats-site" 
+                       class="btn btn-primary" 
+                       target="_blank" 
+                       rel="noopener noreferrer">
+                        <i class="fab fa-github me-2"></i>
+                        View Repository
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fab fa-discord me-2"></i>
+                        Major Contributions
+                    </h3>
+                    <p class="card-text">
+                        Want to get more involved? Have bigger ideas for the project? 
+                        Looking to contribute regularly or help with major features?
+                    </p>
+                    <p class="card-text">
+                        Great for:
+                    </p>
+                    <ul>
+                        <li>New major features</li>
+                        <li>Architecture discussions</li>
+                        <li>Long-term project planning</li>
+                        <li>Regular collaboration</li>
+                        <li>Backend improvements</li>
+                    </ul>
+                    <p class="card-text">
+                        <strong>Reach out on Discord</strong> to discuss your ideas and how you can help shape the future of DLNS Stats! Message `j0nesy_` to get started.
+                    </p>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Getting Started</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>For Developers</h5>
+                            <ol>
+                                <li>Fork the repository on GitHub</li>
+                                <li>Clone your fork locally</li>
+                                <li>Install dependencies: <code>pip install -r requirements.txt</code></li>
+                                <li>Make your changes</li>
+                                <li>Test your changes</li>
+                                <li>Submit a pull request</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Tech Stack</h5>
+                            <ul>
+                                <li><strong>Backend:</strong> Python, Flask</li>
+                                <li><strong>Database:</strong> SQLite</li>
+                                <li><strong>Frontend:</strong> HTML, CSS, JavaScript</li>
+                                <li><strong>Styling:</strong> Bootstrap</li>
+                                <li><strong>Caching:</strong> Flask-Caching</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5 class="alert-heading">
+                    <i class="fas fa-heart me-2"></i>
+                    Other Ways to Help
+                </h5>
+                <p class="mb-0">
+                    Not a developer? You can still help! Consider supporting the project through 
+                    <a href="{{ KOFI_URL }}" target="_blank" rel="noopener noreferrer">Ko‑fi</a>{% if PATREON_URL %} 
+                    or <a href="{{ PATREON_URL }}" target="_blank" rel="noopener noreferrer">Patreon</a>{% endif %}, 
+                    sharing the site with others, or providing feedback and suggestions.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

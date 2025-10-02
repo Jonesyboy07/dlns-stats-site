@@ -47,3 +47,4 @@ static/favicon.ico
 /static/fonts
 static/og.png
 data/dlns.sqlite3
+data/cache

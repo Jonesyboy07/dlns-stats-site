@@ -37,7 +37,6 @@ dist/
 data/temp.json
 data/user_cache.json
 data/hero_names.json
-cache.py
 data/dlns.sqlite3-shm
 data/dlns.sqlite3-wal
 data/matches_status.json

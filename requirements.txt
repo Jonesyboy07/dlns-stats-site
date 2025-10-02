@@ -3,6 +3,7 @@ Flask>=2.3.0
 flask-compress
 python-dotenv
 requests
+flask-caching 
 
 # New dependency for markdown rendering
 markdown>=3.5.0

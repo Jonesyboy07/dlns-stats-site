@@ -643,32 +643,4 @@ def create_app() -> Flask:
 
 if __name__ == "__main__":
     app = create_app()
-
-    # Build a list of files for the reloader to watch. The default Flask
-    # reloader only watches the main module; passing extra_files ensures the
-    # development server restarts when any project file changes.
-    def _gather_watch_files(root: Path | str = '.') -> list[str]:
-        root_path = Path(root)
-        ignore_dirs = {'.git', '__pycache__', '.venv', 'venv', 'env'}
-        files: list[str] = []
-        for p in root_path.rglob('*'):
-            try:
-                if not p.is_file():
-                    continue
-                # Skip files that live inside ignored directories
-                if any(part in ignore_dirs for part in p.parts):
-                    continue
-                files.append(str(p.resolve()))
-            except Exception:
-                # Ignore unreadable files
-                continue
-        return files
-
-    try:
-        extra_watch = _gather_watch_files(Path.cwd())
-    except Exception:
-        extra_watch = []
-
-    # Start the dev server with debug and pass extra_files so any change in
-    # the repo causes a restart.
-    app.run(port=5050, debug=True, extra_files=extra_watch)
+    app.run(port=5050, debug=False)

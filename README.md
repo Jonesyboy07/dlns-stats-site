@@ -64,7 +64,7 @@ A comprehensive web application for tracking and analyzing Deadlock Night Shift 
 
 6. **Start the web server**
    ```bash
-   python serve_db.py
+   python main_web.py
    ```
 
 Visit `http://localhost:5000` to access the application.
@@ -115,7 +115,8 @@ KOFI_URL=https://ko-fi.com/your_username
 
 ```
 ├── main.py              # Data ingestion and processing
-├── serve_db.py          # Web server and main application
+├── main_web.py          # Web server and main application
+├── debug_web.py         # Used as a way for people to put in the main_web.py code, in a "debug" format. Will require copy pasting.
 ├── db_api.py           # Database API endpoints
 ├── stats_bp.py         # Statistics blueprint
 ├── expo.py             # Export functionality

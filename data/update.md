@@ -4,11 +4,20 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
+### October 3, 2025 - Another set of HTML / CSS Changes
+
+Coming today, user `jevd322` has gone through and changed the HTML for the Footer and Header. 
+
+This will be the first set of possible changes on the HTML/CSS front, in hopefully a nicer design for any user.
+
+Some more features are being worked on, so do keep an eye out!
+
+## Old Updates
+
 ### October 1, 2025 - HTML Overhaul!
 
 Redid the entire frontend just as it sucked... Thats it
 
-## Old Updates
 ### September 30, 2025 - Small UI Changes
 
 Just some smaller changes currently. 

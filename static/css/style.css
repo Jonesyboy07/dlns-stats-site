@@ -82,23 +82,75 @@ table[role="grid"] th {
   white-space: nowrap;
 }
 
+/* header */
+
+header nav a[href]:not(.button):not(.no-btn):not(:has(img)),
+header nav ul li a,
+header nav .nav-right a {
+  /* Reset button-like rules from global styles */
+  display: inline !important;
+  padding: 0.6rem 1rem !important;
+  min-height: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  gap: 0 !important;
+  align-items: baseline !important;
+  transform: none !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Ensure hover/active don't reapply button backgrounds/borders */
+header nav a[href]:not(.button):not(.no-btn):not(:has(img)):hover,
+header nav ul li a:hover,
+header nav .nav-right a:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+li.hide-on-mobile {
+  width: 350px;
+}
+
+.hide-on-mobile form {
+  min-width: 300px;
+}
+
+.hide-on-mobile form input[type="search"] {
+  width: 100%;
+  padding: 0.4rem 0.75rem 0.4rem 2.75rem;
+  border: none;
+  background-color: #DFE3EB;
+  color: #181C25;
+}
+
 /* top bar social icons */
+.social-links-item {
+  display: flex;
+  justify-content: center;
+}
+
 .social-links {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 1rem;
 }
 .social-links img {
-  max-width: 22px;
-  max-height: 22px;
+  max-width: 32px;
+  max-height: 32px;
   width: auto;
-  height: 22px;
+  height: 32px;
   display: block;
 }
 /* keep social icon links unstyled (no pill button) */
 .social-links a[href] {
   display: inline-block;
-  padding: 0;
+  padding: 0.5rem;
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -119,6 +171,47 @@ table[role="grid"] th {
 .footer-nav {
   margin-bottom: 0.5rem;
 }
+
+footer small {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  margin: 1rem 1rem 1rem 0;
+}
+
+.footer-nav {
+  padding: 0 1rem 0 0;
+  margin: 0;
+}
+
+footer small a[href]:not(.button):not(.no-btn):not(:has(img)){
+  /* Reset button-like rules from global styles */
+  display: inline !important;
+  padding: 0.6rem 0.3rem !important;
+  min-height: 0 !important;
+  border: none !important;
+  background: transparent !important;
+
+  gap: 0 !important;
+  align-items: baseline !important;
+  transform: none !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Ensure hover/active don't reapply button backgrounds/borders */
+footer small a[href]:not(.button):not(.no-btn):not(:has(img)):hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+
+
+
 .inline-list {
   list-style: none;
   padding: 0;
@@ -165,14 +258,7 @@ nav ul li a[href="/updates"]:hover {
   color: var(--pico-primary-hover);
 }
 
-/* subtle indicator for new updates link */
-nav ul li a[href="/updates"]::after {
-  content: "•";
-  color: var(--pico-primary);
-  font-size: 0.8rem;
-  margin-left: 0.3rem;
-  opacity: 0.7;
-}
+
 
 /* table polish */
 table.striped thead th {
@@ -214,33 +300,18 @@ h3 {
 
 /* minor spacing */
 .muted {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
   color: var(--pico-muted-color, #6b7280);
+  margin: 1rem 1rem 1rem 0.2rem;
 }
 
-/* make any link look like a nice pill button by default (exclude image-only links) */
-a[href]:not(.button):not(.no-btn):not(:has(img)) {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.28rem 0.65rem;
-  border: 1px solid
-    color-mix(
-      in oklab,
-      var(--pico-muted-border-color, #e5e7eb) 70%,
-      #94a3b8 30%
-    );
-  border-radius: 999px;
-  background: color-mix(
-    in oklab,
-    var(--pico-muted-border-color, #e5e7eb) 14%,
-    transparent
-  );
-  color: inherit;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02), 0 1px 8px rgba(0, 0, 0, 0.02) inset;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
-    box-shadow 0.15s ease;
+.muted img {
+  width: 200px;
+  margin: 1rem 1rem 1rem 0;
 }
+
 a[href]:not(.button):not(.no-btn):not(:has(img)):hover {
   background: color-mix(
     in oklab,

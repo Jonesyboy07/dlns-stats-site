@@ -49,7 +49,6 @@
     <nav>
       <ul>
         <li><a href="{{ url_for('index') }}">Home</a></li>
-        <li><a href="{{ url_for('search') }}">Search</a></li>
         <li><a href="{{ url_for('stats.statistics') }}">Stats</a></li>
         <li><a href="{{ url_for('updates') }}">Updates</a></li>
         <li><a href="{{ url_for('community') }}">Community</a></li>
@@ -58,10 +57,10 @@
       <ul class="nav-right">
         <li class="hide-on-mobile">
           <form action="{{ url_for('search') }}" method="get">
-            <input type="search" name="q" placeholder="Search match ID or username" aria-label="Search" />
+            <input type="search" name="q" placeholder="Search ID or username" aria-label="Search"/>
           </form>
         </li>
-        <li>
+        <li class="social-links-item">
           <div class="social-links">
             <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
               <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
@@ -82,29 +81,33 @@
   </main>
   <footer class="container">
     <small>
-      <a href="{{ url_for('index') }}">Home</a> •
-      <a href="{{ url_for('search') }}">Search</a> •
-      <a href="{{ url_for('stats.statistics') }}">Statistics</a> •
-      <a href="{{ url_for('updates') }}">Updates</a> •
-      <a href="{{ url_for('community') }}">Community</a> •
-      <a href="{{ url_for('help_page') }}">Help</a> •
-      <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">Support on Ko‑Fi</a>
-    </small>
-    <div class="social-links">
-      <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
-        <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
-      </a>
-      <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" aria-label="Twitch">
-        <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
-      </a>
-      <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" aria-label="Deadlock on Steam">
-        <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
-      </a>
+      <div class="footer-nav">
+        <a href="{{ url_for('index') }}">Home</a>• 
+        <a href="{{ url_for('search') }}">Search</a> • 
+        <a href="{{ url_for('stats.statistics') }}">Statistics</a> •  
+        <a href="{{ url_for('updates') }}">Updates</a> • 
+        <a href="{{ url_for('community') }}">Community</a> • 
+        <a href="{{ url_for('help_page') }}">Help</a> 
+      </div>
+      <div class="social-links">
+        <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
+          <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
+        </a>
+        <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" aria-label="Twitch">
+          <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
+        </a>
+        <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" aria-label="Deadlock on Steam">
+          <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
+        </a>
     </div>
+    </small>
     <small class="muted">
       This is a passion project made by Jonesy and not affiliated with Valve or Deadlock Night Shift.
-      Data is presented for fun and community use. If you enjoy this, consider supporting on
-  <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">Ko‑Fi</a>.
+      Data is presented for fun and community use. <br>
+      Please support the project if you find it useful! <br>
+    <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">
+      <img src="{{ url_for('static', filename='images/support_me_on_kofi_red.png') }}" alt="Ko-fi" />
+    </a>
     </small>
   </footer>
   <!-- Scroll to top button -->

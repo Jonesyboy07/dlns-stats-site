@@ -180,6 +180,39 @@
 .status-error {
     color: var(--error-color);
 }
+
+.directory-structure {
+    font-family: 'Courier New', 'Monaco', monospace;
+    background: var(--pico-code-background-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    white-space: pre;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border: 1px solid var(--pico-form-element-border-color);
+}
+
+.example-section {
+    margin: 2rem 0;
+}
+
+.example-content {
+    margin-top: 1rem;
+}
+
+.example-note {
+    background: color-mix(in oklab, var(--pico-primary) 8%, transparent);
+    border: 1px solid color-mix(in oklab, var(--pico-primary) 20%, transparent);
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: var(--pico-color);
+}
+
+.example-note strong {
+    color: var(--pico-primary);
+}
 </style>
 
 <section class="card">
@@ -228,27 +261,55 @@
         </div>
     </form>
 
+    <!-- Example Directory Structure -->
+    <details class="example-section">
+        <summary class="instructions-summary">📂 Example Directory Structure</summary>
+        <div class="example-content">
+            <div class="example-note">
+                <strong>Note:</strong> Your ZIP file should contain the following structure at the root level. 
+                The ZIP should extract to create these folders directly.
+            </div>
+            <div class="directory-structure">C:.
+├── README.txt
+└── game
+    └── citadel
+        ├── gameinfo.gi
+        ├── addons
+        │   └── PUT YOUR ADDONS HERE
+        ├── cfg
+        │   └── PUT ANY CONFIG FILES HERE
+        └── maps
+            └── PUT ANY MAPS HERE</div>
+            <div class="example-note">
+                <strong>Important:</strong> Make sure your ZIP file contains the complete folder structure starting from the root. 
+                When users extract the ZIP, they should get the "game" folder and "README.txt" file directly.
+            </div>
+        </div>
+    </details>
+
     <!-- Instructions -->
     <details class="instructions-section">
-        <summary class="instructions-summary">Upload Instructions</summary>
+        <summary class="instructions-summary">📋 Upload Instructions</summary>
         <div class="instructions-content">
             <ul class="instructions-list">
                 <li>Only ZIP files are accepted</li>
                 <li>Maximum file size is 50MB</li>
+                <li>The ZIP should contain the complete directory structure shown above</li>
                 <li>The existing file will be automatically backed up before replacement</li>
                 <li>The uploaded file will be renamed to "Gluten_Zip.zip" automatically</li>
                 <li>Users will immediately be able to download the new version</li>
+                <li>Ensure all required files (.vpk, .cfg, .gi) are included</li>
             </ul>
         </div>
     </details>
 
     <!-- Recent backups (if any) -->
     <details class="backup-section">
-        <summary class="instructions-summary">Backup Files</summary>
+        <summary class="instructions-summary">💾 Backup Files</summary>
         <div class="backup-content">
             <p class="backup-text">
                 Backup files are automatically created when you upload a new version. 
-                They are stored in the static folder with timestamps.
+                They are stored in the static folder with timestamps for recovery purposes.
             </p>
         </div>
     </details>

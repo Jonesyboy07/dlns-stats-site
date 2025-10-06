@@ -1,553 +1,142 @@
-{% extends 'base.html' %}
-{% block title %}Gluten Mod - Download{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Gluten Mod • DLNS Stats{% endblock %}
+
 {% block content %}
-<!-- Hero Section -->
-<section class="hero-section">
-  <div class="container">
-    <div class="hero-content">
-      <h1>🎮 Gluten Mod</h1>
-      <p class="hero-subtitle">Experience Deadlock with enhanced soul sharing mechanics</p>
-      <div class="hero-actions">
-        <a href="#download" class="button primary large">Get Started</a>
-        <a href="#info" class="button outline large">Learn More</a>
-      </div>
-    </div>
-  </div>
-</section>
+<section class="card">
+    <header>
+        <h1>
+            <span style="color: #10b981; margin-right: 0.5rem;" aria-hidden="true">🎮</span>
+            Gluten Mod
+        </h1>
+        <p class="muted">Modpack used for GlutenSnake video(s).</p>
+    </header>
 
-<!-- Credits Section (Important - Moved to Top) -->
-<section class="section credits-section prominent">
-  <div class="container">
-    <div class="credits-grid">
-      <!-- Creator Credits -->
-      <div class="credit-card">
-        <h3>👨‍💻 Mod Credits</h3>
-        <div class="creator-info">
-          <p><strong>Mod Name:</strong> Gluten</p>
-          <p><strong>Features:</strong> Modpack for Gluten's Video</p>
-          <p><strong>Distribution:</strong> DLNS Stats</p>
-        </div>
-        <div class="disclaimer">
-          <strong>Disclaimer:</strong> This is a custom Deadlock mod. The DLNS Stats website provides the installer tool. 
-          Use at your own discretion and ensure compatibility with your game version.
-        </div>
-      </div>
-
-      <!-- Safety Notice -->
-      <div class="safety-card">
-        <h3>🔒 Safety & Transparency</h3>
-        <ul class="safety-list">
-          <li>✓ Open source installer code</li>
-          <li>✓ No telemetry or data collection</li>
-          <li>✓ Local-only installation process</li>
-          <li>✓ Easily removable</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Download Section -->
-<section id="download" class="section">
-  <div class="container">
-    <h2>📥 Download Options</h2>
-    <div class="download-grid">
-      <!-- Automatic Installer -->
-      <div class="download-card recommended">
-        <div class="card-header">
-          <h3>🚀 Automatic Installer</h3>
-          <span class="recommended-badge">Recommended</span>
-        </div>
-        <p>One-click installation that automatically finds your Steam and Deadlock folders.</p>
-        <div class="download-actions">
-          <a href="{{ url_for('gluten.download_exe') }}" class="button primary block" id="exe-download">
-            <span class="button-icon">⬇️</span>
-            Download Gluten_Video.exe
-          </a>
-          <a href="{{ url_for('gluten.download_installer') }}" class="button secondary block" id="py-download">
-            <span class="button-icon">🐍</span>
-            Python Script (.py)
-          </a>
-        </div>
-        <div class="card-footer">
-          <a href="{{ url_for('gluten.view_source') }}" target="_blank" class="text-link">
-            📋 View source code for transparency
-          </a>
-          <small class="build-info">
-            .exe built with PyInstaller from the Python source above
-          </small>
-          
-          <div class="security-notice">
-            <h5>🛡️ Security Notice</h5>
-            <p>Some antivirus software may flag PyInstaller executables as suspicious (false positive). This is a known issue with packaged Python applications.</p>
-            <div class="security-links">
-              <a href="https://stackoverflow.com/questions/43777106/program-made-with-pyinstaller-now-seen-as-a-trojan-horse-by-avg" target="_blank" rel="noopener" class="security-link">
-                📚 Why PyInstaller Gets Flagged
-              </a>
+    <!-- Admin upload section -->
+    {% if can_upload %}
+    <div style="margin: 2rem 0; padding: 1.5rem; background: color-mix(in oklab, #10b981 8%, transparent); border-radius: 8px; border: 1px solid color-mix(in oklab, #10b981 20%, transparent);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0 0 0.5rem 0; color: #10b981;">
+                    <span aria-hidden="true">👑</span> Admin Controls
+                </h3>
+                <p style="margin: 0; color: var(--pico-muted-color);">
+                    You have permission to upload new Gluten mod files.
+                </p>
             </div>
-          </div>
+            <a href="{{ url_for('gluten.upload_page') }}" style="background: #10b981; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; transition: all 0.2s ease;">
+                Upload New Version
+            </a>
         </div>
-      </div>
-
-      <!-- Manual Installation -->
-      <div class="download-card">
-        <div class="card-header">
-          <h3>📁 Manual Installation</h3>
-        </div>
-        <p>Download the mod files and install them manually to your Deadlock folder.</p>
-        <div class="download-actions">
-          <a href="{{ url_for('gluten.download_zip') }}" class="button outline block">
-            <span class="button-icon">📦</span>
-            Download ZIP File
-          </a>
-        </div>
-        <details class="installation-guide">
-          <summary>Installation Instructions</summary>
-          <ol>
-            <li>Download and extract the ZIP file</li>
-            <li>Navigate to: <code>C:\Program Files (x86)\Steam\steamapps\common\Deadlock</code></li>
-            <li>Copy the contents of the <code>game</code> folder to your Deadlock directory</li>
-            <li>Launch Deadlock and enjoy!</li>
-          </ol>
-        </details>
-      </div>
     </div>
-  </div>
-</section>
+    {% endif %}
 
-<!-- Info Section -->
-<section id="info" class="section info-section">
-  <div class="container">
-    <div class="info-grid">
-      <!-- About the Mod -->
-      <div class="info-card">
-        <h3>ℹ️ About Gluten Mod</h3>
-        <p>Experience Deadlock with enhanced soul sharing mechanics:</p>
-        <ul class="feature-list">
-          <li>Modified soul sharing system</li>
-          <li>Enhanced gameplay mechanics</li>
-          <li>Improved player interactions</li>
-          <li>Custom configurations</li>
-        </ul>
-      </div>
-
-      <!-- Mod Contents -->
-      <div class="info-card">
-        <h3>📋 What's Included</h3>
-        <p>The Gluten mod package contains custom game files and configurations designed to enhance your Deadlock experience with modified soul sharing mechanics.</p>
-        <ul class="feature-list">
-          <li>Core mod files</li>
-          <li>Custom game configurations</li>
-          <li>Enhanced soul mechanics</li>
-          <li>Installation documentation</li>
-        </ul>
-      </div>
-
-      <!-- Usage Guide -->
-      <div class="info-card">
-        <h3>🎯 Getting Started</h3>
-        <p>Ready to try the Gluten mod? Here's what you need to know:</p>
-        <div class="hosting-actions">
-          <a href="#download" class="button outline">
-            <span class="button-icon">📥</span>
-            Download Now
-          </a>
+    <!-- Download options -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
+        <!-- ZIP Download Card -->
+        <div style="padding: 1.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); border-radius: 8px;">
+            <h3 style="margin: 0 0 1rem 0; color: var(--pico-primary);">
+                <span aria-hidden="true">📦</span> ZIP Download
+            </h3>
+            <p style="margin: 0 0 1.5rem 0; color: var(--pico-muted-color);">
+                Direct download of the Gluten mod files. Extract to your Deadlock directory.
+            </p>
+            <a href="{{ url_for('gluten.download_zip') }}" 
+               style="display: inline-block; background: var(--pico-primary); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                Download ZIP
+            </a>
         </div>
-        <ul class="feature-list">
-          <li>Ensure Deadlock is installed via Steam</li>
-          <li>Use the automatic installer for easy setup</li>
-          <li>Launch Deadlock normally after installation</li>
-          <li>Enjoy the enhanced soul sharing experience</li>
-        </ul>
-      </div>
+
+        <!-- Python Installer Card -->
+        <div style="padding: 1.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); border-radius: 8px;">
+            <h3 style="margin: 0 0 1rem 0; color: var(--pico-primary);">
+                <span aria-hidden="true">🐍</span> Python Installer
+            </h3>
+            <p style="margin: 0 0 1.5rem 0; color: var(--pico-muted-color);">
+                Automated Python script that installs the mod for you. Requires Python.
+            </p>
+            <div style="display: flex; gap: 0.5rem;">
+                <a href="{{ url_for('gluten.download_installer') }}" 
+                   style="display: inline-block; background: var(--pico-primary); color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem;">
+                    Download .py
+                </a>
+                <a href="{{ url_for('gluten.view_source') }}" 
+                   style="display: inline-block; background: transparent; color: var(--pico-primary); padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; border: 1px solid var(--pico-primary);">
+                    View Source
+                </a>
+            </div>
+        </div>
+
+        <!-- EXE Installer Card -->
+        <div style="padding: 1.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); border-radius: 8px;">
+            <h3 style="margin: 0 0 1rem 0; color: var(--pico-primary);">
+                <span aria-hidden="true">⚡</span> EXE Installer
+            </h3>
+            <p style="margin: 0 0 1.5rem 0; color: var(--pico-muted-color);">
+                Compiled executable installer. No Python required, just run and install.
+            </p>
+            <a href="{{ url_for('gluten.download_exe') }}" 
+               style="display: inline-block; background: var(--pico-primary); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                Download EXE
+            </a>
+        </div>
     </div>
-  </div>
+
+    <!-- Installation Instructions -->
+    <details style="margin: 2rem 0;">
+        <summary style="cursor: pointer; font-weight: 600; color: var(--pico-primary);">Installation Instructions</summary>
+        <div style="margin-top: 1rem; padding: 1rem; background: var(--pico-card-background-color); border-radius: 8px;">
+            <h4>Method 1: ZIP Download (Manual)</h4>
+            <ol>
+                <li>Download the ZIP file</li>
+                <li>Extract all files to your Deadlock installation directory</li>
+                <li>Launch Deadlock and enjoy enhanced video settings</li>
+            </ol>
+            
+            <h4>Method 2: Python Installer</h4>
+            <ol>
+                <li>Ensure Python is installed on your system</li>
+                <li>Download the Python installer script</li>
+                <li>Run the script - it will automatically find and install to Deadlock</li>
+            </ol>
+            
+            <h4>Method 3: EXE Installer (Recommended)</h4>
+            <ol>
+                <li>Download the EXE installer</li>
+                <li>Run the executable</li>
+                <li>Follow the on-screen instructions</li>
+            </ol>
+        </div>
+    </details>
+
+    <!-- File Status API Check -->
+    <div id="fileStatusAPI" style="margin: 2rem 0;"></div>
 </section>
-
-<style>
-/* Hero Section */
-.hero-section {
-  background: linear-gradient(135deg, var(--pico-primary-background) 0%, var(--pico-card-background-color) 100%);
-  border-bottom: 1px solid var(--pico-border-color);
-  padding: 4rem 0;
-  text-align: center;
-}
-
-.hero-content h1 {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  color: var(--pico-primary);
-}
-
-.hero-subtitle {
-  font-size: 1.25rem;
-  color: var(--pico-muted-color);
-  margin-bottom: 2rem;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.button.large {
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-}
-
-/* Sections */
-.section {
-  padding: 3rem 0;
-}
-
-.section h2 {
-  text-align: center;
-  margin-bottom: 2rem;
-  color: var(--pico-primary);
-}
-
-/* Download Grid */
-.download-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 2rem;
-  margin-top: 2rem;
-}
-
-.download-card {
-  background: var(--pico-card-background-color);
-  border: 1px solid var(--pico-border-color);
-  border-radius: var(--pico-border-radius);
-  padding: 2rem;
-  position: relative;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.download-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.download-card.recommended {
-  border-color: var(--pico-primary);
-  background: var(--pico-primary-background);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.card-header h3 {
-  margin: 0;
-  color: var(--pico-primary);
-}
-
-.recommended-badge {
-  background: var(--pico-primary);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.8rem;
-  font-weight: bold;
-}
-
-.download-actions {
-  margin: 1.5rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.button.block {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.button-icon {
-  font-size: 1.1em;
-}
-
-.card-footer {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--pico-border-color);
-  text-align: center;
-}
-
-.text-link {
-  color: var(--pico-muted-color);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.text-link:hover {
-  color: var(--pico-primary);
-}
-
-.build-info {
-  display: block;
-  margin-top: 0.5rem;
-  color: var(--pico-muted-color);
-  font-size: 0.8rem;
-  font-style: italic;
-}
-
-.security-notice {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--pico-warning-background);
-  border: 1px solid var(--pico-warning-border);
-  border-radius: var(--pico-border-radius);
-  text-align: left;
-}
-
-.security-notice h5 {
-  margin: 0 0 0.5rem 0;
-  color: var(--pico-warning);
-  font-size: 0.9rem;
-}
-
-.security-notice p {
-  margin: 0 0 0.75rem 0;
-  font-size: 0.8rem;
-  color: var(--pico-muted-color);
-}
-
-.security-links {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.security-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
-  background: var(--pico-background-color);
-  border: 1px solid var(--pico-border-color);
-  border-radius: var(--pico-border-radius);
-  color: var(--pico-primary);
-  text-decoration: none;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-}
-
-.security-link:hover {
-  background: var(--pico-primary-background);
-  border-color: var(--pico-primary);
-  transform: translateY(-1px);
-}
-
-.installation-guide {
-  margin-top: 1rem;
-}
-
-.installation-guide summary {
-  cursor: pointer;
-  color: var(--pico-primary);
-  font-weight: 500;
-}
-
-.installation-guide ol {
-  margin-top: 0.5rem;
-  padding-left: 1.5rem;
-}
-
-/* Info Section */
-.info-section {
-  background: var(--pico-background-color);
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-}
-
-.info-card {
-  background: var(--pico-card-background-color);
-  border: 1px solid var(--pico-border-color);
-  border-radius: var(--pico-border-radius);
-  padding: 1.5rem;
-}
-
-.info-card h3 {
-  margin-top: 0;
-  color: var(--pico-primary);
-}
-
-.feature-list {
-  list-style: none;
-  padding: 0;
-}
-
-.feature-list li {
-  padding: 0.5rem 0;
-  position: relative;
-  padding-left: 1.5rem;
-}
-
-.feature-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: var(--pico-primary);
-  font-weight: bold;
-}
-
-.hosting-actions {
-  margin: 1rem 0;
-  text-align: center;
-}
-
-.hosting-actions .button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Credits Section */
-.credits-section {
-  background: var(--pico-card-background-color);
-  border-top: 1px solid var(--pico-border-color);
-  border-bottom: 1px solid var(--pico-border-color);
-}
-
-.credits-section.prominent {
-  background: var(--pico-primary-background);
-  border: 2px solid var(--pico-primary-border);
-  position: relative;
-}
-
-.credits-section.prominent::before {
-  content: "⚠️ IMPORTANT: Mod Information";
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--pico-primary);
-  color: white;
-  padding: 0.25rem 1rem;
-  border-radius: 1rem;
-  font-size: 0.8rem;
-  font-weight: bold;
-}
-
-.credits-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-}
-
-.credit-card, .safety-card {
-  background: var(--pico-background-color);
-  border: 1px solid var(--pico-border-color);
-  border-radius: var(--pico-border-radius);
-  padding: 1.5rem;
-}
-
-.credit-card h3, .safety-card h3 {
-  margin-top: 0;
-  color: var(--pico-primary);
-}
-
-.creator-info p {
-  margin: 0.5rem 0;
-}
-
-.disclaimer {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--pico-muted-background);
-  border-radius: var(--pico-border-radius);
-  font-style: italic;
-  color: var(--pico-muted-color);
-  font-size: 0.9rem;
-}
-
-.safety-list {
-  list-style: none;
-  padding: 0;
-}
-
-.safety-list li {
-  padding: 0.5rem 0;
-  color: var(--pico-muted-color);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .hero-content h1 {
-    font-size: 2rem;
-  }
-  
-  .hero-subtitle {
-    font-size: 1rem;
-  }
-  
-  .hero-actions {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .button.large {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-  }
-  
-  .download-grid, .info-grid, .credits-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .section {
-    padding: 2rem 0;
-  }
-  
-  .hero-section {
-    padding: 2rem 0;
-  }
-}
-
-/* Smooth scrolling for anchor links */
-html {
-  scroll-behavior: smooth;
-}
-</style>
 
 <script>
+// Check file availability
 document.addEventListener('DOMContentLoaded', function() {
-  // Check file availability
-  fetch('/gluten/api/check')
-    .then(response => response.json())
-    .then(data => {
-      const exeBtn = document.getElementById('exe-download');
-      const pyBtn = document.getElementById('py-download');
-      
-      if (!data.exe_available) {
-        exeBtn.classList.add('disabled');
-        exeBtn.title = 'Executable not yet built';
-        exeBtn.textContent = 'Gluten_Video.exe - Coming Soon';
-      }
-      
-      if (!data.installer_available) {
-        pyBtn.classList.add('disabled');
-        pyBtn.title = 'Python script not available';
-      }
-    })
-    .catch(err => console.warn('Could not check file availability:', err));
+    fetch('/gluten/api/check')
+        .then(response => response.json())
+        .then(data => {
+            const statusDiv = document.getElementById('fileStatusAPI');
+            if (data.zip_available || data.installer_available || data.exe_available) {
+                let statusHTML = '<div style="padding: 1rem; background: color-mix(in oklab, #10b981 8%, transparent); border-radius: 8px; border: 1px solid color-mix(in oklab, #10b981 20%, transparent);"><h4 style="margin: 0 0 0.5rem 0; color: #10b981;">File Status</h4><ul style="margin: 0; padding-left: 1.5rem;">';
+                
+                if (data.zip_available) {
+                    const size = data.file_info.zip_size ? (data.file_info.zip_size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size';
+                    statusHTML += `<li>ZIP: Available (${size})</li>`;
+                }
+                if (data.installer_available) statusHTML += '<li>Python Installer: Available</li>';
+                if (data.exe_available) statusHTML += '<li>EXE Installer: Available</li>';
+                
+                statusHTML += '</ul></div>';
+                statusDiv.innerHTML = statusHTML;
+            }
+        })
+        .catch(error => {
+            console.error('Error checking file status:', error);
+        });
 });
 </script>
 {% endblock %}

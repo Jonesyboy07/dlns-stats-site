@@ -13,35 +13,54 @@ import json
 import hashlib
 from email.utils import formatdate
 from datetime import datetime, timezone
-from db_api import bp as db_api_bp, get_ro_conn
+
+# Import blueprints from the new folder structure
+from blueprints.db_api import bp as db_api_bp, get_ro_conn
+from blueprints.auth import auth_bp
+from blueprints.admin import admin_bp
 from cache import cache
 from dotenv import load_dotenv
-from expo import expo_bp
-from stats_bp import stats_bp
+from blueprints.expo import expo_bp
+from blueprints.stats_bp import stats_bp
 from heroes import get_hero_name
-from sitemap import sitemap_bp
-from onelane import onelane_bp
-from gluten import gluten_bp
+from blueprints.sitemap import sitemap_bp
+from blueprints.onelane import onelane_bp
+from blueprints.gluten import gluten_bp
 
 
 def create_app() -> Flask:
     # Load .env if present
     load_dotenv()
     app = Flask(__name__)
+    
+    # Add secret key for sessions
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-change-this-in-production')
+    
     app.config['DATABASE_PATH'] = Path('./data/dlns.sqlite3')
-    app.config['BASE_URL'] = 'https://dlns-stats.co.uk'  # Change this to your real domain
+    app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5050')  # Use env variable
     app.config['OG_IMAGE'] = os.getenv('OG_IMAGE', 'og.png')  # place og.png in /static
     
     # Default DB path is ./data/dlns.sqlite3 from current working directory
     default_db = Path.cwd() / "data" / "dlns.sqlite3"
     app.config["DB_PATH"] = os.getenv("DB_PATH", str(default_db))
     app.config["API_LATEST_LIMIT"] = int(os.getenv("API_LATEST_LIMIT", "20"))
+    
+    #Discord Info
+    app.config["DISCORD_CLIENT_ID"] = os.getenv("DISCORD_CLIENT_ID")
+    app.config["DISCORD_CLIENT_SECRET"] = os.getenv("DISCORD_CLIENT_SECRET")
+    app.config["DISCORD_OWNER_ID"] = os.getenv("DISCORD_OWNER_ID")
+    app.config["DISCORD_REDIRECT_URI"] = os.getenv("DISCORD_REDIRECT_URI")
+    app.config["DISCORD_ADMIN_IDS"] = os.getenv("DISCORD_ADMIN_IDS", "")
+    app.config["DISCORD_GLUTEN_UPLOADER_ID"] = os.getenv("DISCORD_GLUTEN_UPLOADER_ID")
+    
+    
     # Cache config (simple default; can switch to Redis/Memcached via env)
     cache_config = {
         "CACHE_TYPE": os.getenv("CACHE_TYPE", "SimpleCache"),
         "CACHE_DEFAULT_TIMEOUT": int(os.getenv("CACHE_DEFAULT_TIMEOUT", "60")),
     }
     cache.init_app(app, config=cache_config)
+    
     # Enable response compression site-wide (gzip/deflate, and Brotli if brotli package is present)
     compress = Compress()
     # Prefer Brotli when available; fall back to gzip. Compress virtually all text-like responses.
@@ -78,6 +97,8 @@ def create_app() -> Flask:
 
     # Register blueprints
     app.register_blueprint(db_api_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(expo_bp)
     app.register_blueprint(stats_bp)
     app.register_blueprint(sitemap_bp)
@@ -250,12 +271,21 @@ def create_app() -> Flask:
     @app.context_processor
     def inject_links():
         return dict(
-            YOUTUBE_URL=app.config["YOUTUBE_URL"],
-            TWITCH_URL=app.config["TWITCH_URL"],
-            DEADLOCK_URL=app.config["DEADLOCK_URL"],
-            KOFI_URL=app.config["KOFI_URL"],
-            PATREON_URL=app.config["PATREON_URL"],
-            BASE_URL=app.config["BASE_URL"].rstrip('/'),
+            YOUTUBE_URL=app.config.get("YOUTUBE_URL", ""),
+            TWITCH_URL=app.config.get("TWITCH_URL", ""),
+            DEADLOCK_URL=app.config.get("DEADLOCK_URL", ""),
+            KOFI_URL=app.config.get("KOFI_URL", ""),
+            PATREON_URL=app.config.get("PATREON_URL", ""),
+            BASE_URL=app.config.get("BASE_URL", "").rstrip('/'),
+        )
+
+    # Add authentication context processor
+    @app.context_processor
+    def inject_auth():
+        from utils.auth import get_current_user, is_logged_in
+        return dict(
+            current_user=get_current_user(),
+            is_logged_in=is_logged_in()
         )
 
     # If templates call get_hero_name, expose it:
@@ -273,8 +303,7 @@ def create_app() -> Flask:
         return _abs(url_for('static', filename=app.config['OG_IMAGE']))
 
     @app.get("/")
-    @cache.cached(timeout=60, query_string=True)
-    def index():  # type: ignore
+    def index():  # Remove the @cache.cached decorator since we need fresh auth state
         # Filters
         order = (request.args.get("order") or "desc").lower()
         order = "asc" if order == "asc" else "desc"
@@ -320,7 +349,8 @@ def create_app() -> Flask:
                 }
                 for r in cur.fetchall()
             ]
-        return render_template(
+        
+        response = make_response(render_template(
             "home.html",
             latest=latest,
             order=order,
@@ -335,7 +365,11 @@ def create_app() -> Flask:
             meta_desc="Fan made site for DLNS (Deadlock Night Shift). Has DLNS + Fight Night games that are possible to grab through API. Explore stats across all logged games.",
             meta_image=_og_image_abs(),
             meta_url=_abs(request.path),
-        )
+        ))
+        
+        # Add cache headers but allow for user-specific content
+        response.headers['Cache-Control'] = 'private, max-age=30'
+        return response
 
     @app.get("/search")
     @cache.cached(timeout=30, query_string=True)

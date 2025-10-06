@@ -31,9 +31,9 @@
   <meta property="og:site_name" content="DLNS Stats">
 
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ __meta_title }}">
-  <meta name="twitter:description" content="{{ __meta_desc }}">
-  <meta name="twitter:image" content="{{ __abs_image }}">
+  <meta property="og:title" content="{{ __meta_title }}">
+  <meta property="og:description" content="{{ __meta_desc }}">
+  <meta property="og:image" content="{{ __abs_image }}">
 
   <!-- Optional theme colors -->
   <meta name="theme-color" content="#0f172a">
@@ -45,40 +45,124 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
 </head>
 <body>
+  <!-- Sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <!-- Close button positioned on the right edge -->
+    <button class="sidebar-close-arrow" id="sidebarClose" aria-label="Close sidebar">
+      <span>→</span>
+    </button>
+    
+    <div class="sidebar-content">
+      <!-- Authentication -->
+      <div class="sidebar-section">
+        {% if is_logged_in %}
+        <div class="user-info">
+          <span>👤 {{ current_user.username }}</span>
+          <div class="user-actions">
+            <a href="/auth/profile" class="sidebar-link">Profile</a>
+            <a href="/auth/logout" class="sidebar-link logout">Logout</a>
+          </div>
+        </div>
+        {% else %}
+        <a href="/auth/login" class="sidebar-link login-btn">
+          <span>🔑</span> Login with Discord
+        </a>
+        {% endif %}
+      </div>
+      
+      <!-- Navigation Links -->
+      <div class="sidebar-section">
+        <h4>Navigation</h4>
+        <a href="{{ url_for('index') }}" class="sidebar-link">🏠 Home</a>
+        <a href="{{ url_for('stats.statistics') }}" class="sidebar-link">📊 Statistics</a>
+        <a href="{{ url_for('community') }}" class="sidebar-link">👥 Community</a>
+        <a href="{{ url_for('updates') }}" class="sidebar-link">📰 Updates</a>
+        <a href="{{ url_for('onelane.index') }}" class="sidebar-link">🎯 OneLane</a>
+        <a href="{{ url_for('search') }}" class="sidebar-link">🔍 Search</a>
+        <a href="{{ url_for('help_page') }}" class="sidebar-link">❓ Help</a>
+      </div>
+      
+      <!-- Admin Section (only for admins) -->
+      {% if is_logged_in and current_user %}
+        {% set user_id = current_user.id %}
+        {% if user_id == "950380630905069578" %}
+        <div class="sidebar-section">
+          <h4>Admin</h4>
+          <a href="/admin/" class="sidebar-link admin-link">⚙️ Admin Panel</a>
+        </div>
+        {% endif %}
+      {% endif %}
+      
+      <!-- Social Links -->
+      <div class="sidebar-section">
+        <h4>Links</h4>
+        <div class="social-grid">
+          <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" class="social-link">
+            <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
+            YouTube
+          </a>
+          <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" class="social-link">
+            <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
+            Twitch
+          </a>
+          <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" class="social-link">
+            <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
+            Deadlock
+          </a>
+        </div>
+      </div>
+      
+      <!-- Support -->
+      <div class="sidebar-section">
+        <a href="{{ KOFI_URL }}" target="_blank" rel="noopener" class="support-link">
+          <img src="{{ url_for('static', filename='images/support_me_on_kofi_red.png') }}" alt="Ko-fi" />
+        </a>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main header with simplified navigation -->
   <header class="container">
-    <nav>
-      <ul>
+    <nav class="main-nav">
+      <ul class="nav-left">
+        <li>
+          <button class="menu-toggle" id="menuToggle" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </li>
+        <li><a href="{{ url_for('index') }}" class="nav-logo">DLNS Stats</a></li>
+      </ul>
+      <ul class="nav-center">
         <li><a href="{{ url_for('index') }}">Home</a></li>
         <li><a href="{{ url_for('stats.statistics') }}">Stats</a></li>
-        <li><a href="{{ url_for('updates') }}">Updates</a></li>
-        <li><a href="{{ url_for('community') }}">Community</a></li>
-        <li class="hide-on-mobile"><a href="{{ url_for('onelane.index') }}">OneLane</a></li>
+        <li class="hide-on-small"><a href="{{ url_for('community') }}">Community</a></li>
       </ul>
       <ul class="nav-right">
-        <li class="hide-on-mobile">
+        <li class="search-container">
           <form action="{{ url_for('search') }}" method="get">
-            <input type="search" name="q" placeholder="Search ID or username" aria-label="Search"/>
+            <input type="search" name="q" placeholder="Search..." aria-label="Search"/>
           </form>
         </li>
-        <li class="social-links-item">
-          <div class="social-links">
-            <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
-              <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
-            </a>
-            <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" aria-label="Twitch">
-              <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
-            </a>
-            <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" aria-label="Deadlock on Steam">
-              <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
-            </a>
-          </div>
+        <li class="hide-on-mobile auth-quick">
+          {% if is_logged_in %}
+            <span class="user-greeting">👤 {{ current_user.username }}</span>
+          {% else %}
+            <a href="/auth/login" class="login-quick">Login</a>
+          {% endif %}
         </li>
       </ul>
     </nav>
   </header>
+  
   <main class="container fade-in">
     {% block content %}{% endblock %}
   </main>
+  
   <footer class="container">
     <small>
       <div class="footer-nav">
@@ -89,27 +173,14 @@
         <a href="{{ url_for('community') }}">Community</a> • 
         <a href="{{ url_for('help_page') }}">Help</a> 
       </div>
-      <div class="social-links">
-        <a href="{{ YOUTUBE_URL }}" target="_blank" rel="noopener" aria-label="YouTube">
-          <img src="{{ url_for('static', filename='images/youtube.png') }}" alt="YouTube" />
-        </a>
-        <a href="{{ TWITCH_URL }}" target="_blank" rel="noopener" aria-label="Twitch">
-          <img src="{{ url_for('static', filename='images/twitch.png') }}" alt="Twitch" />
-        </a>
-        <a href="{{ DEADLOCK_URL }}" target="_blank" rel="noopener" aria-label="Deadlock on Steam">
-          <img src="{{ url_for('static', filename='images/deadlock.png') }}" alt="Deadlock" />
-        </a>
-    </div>
     </small>
     <small class="muted">
       This is a passion project made by Jonesy and not affiliated with Valve or Deadlock Night Shift.
       Data is presented for fun and community use. <br>
-      Please support the project if you find it useful! <br>
-    <a href="{{ KOFI_URL }}" target="_blank" rel="noopener">
-      <img src="{{ url_for('static', filename='images/support_me_on_kofi_red.png') }}" alt="Ko-fi" />
-    </a>
+      Please support the project if you find it useful!
     </small>
   </footer>
+  
   <!-- Scroll to top button -->
   <button class="scroll-to-top chip-button" id="scrollToTop" aria-label="Scroll to top">
     <span aria-hidden="true">↑</span>
@@ -117,8 +188,36 @@
   
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
   <script>
-    // Enhanced mobile experience
+    // Sidebar functionality
     document.addEventListener('DOMContentLoaded', function() {
+      const menuToggle = document.getElementById('menuToggle');
+      const sidebar = document.getElementById('sidebar');
+      const sidebarOverlay = document.getElementById('sidebarOverlay');
+      const sidebarClose = document.getElementById('sidebarClose');
+      
+      function openSidebar() {
+        sidebar.classList.add('open');
+        sidebarOverlay.classList.add('active');
+        document.body.classList.add('sidebar-open');
+      }
+      
+      function closeSidebar() {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+      }
+      
+      menuToggle?.addEventListener('click', openSidebar);
+      sidebarClose?.addEventListener('click', closeSidebar);
+      sidebarOverlay?.addEventListener('click', closeSidebar);
+      
+      // Close sidebar on escape key
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+          closeSidebar();
+        }
+      });
+      
       // Scroll to top functionality
       const scrollBtn = document.getElementById('scrollToTop');
       if (scrollBtn) {
@@ -152,18 +251,6 @@
       if ('ontouchstart' in window) {
         document.body.classList.add('touch-device');
       }
-      
-      // Add loading states to buttons
-      document.querySelectorAll('button[type="submit"], .chip-button').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-          if (!btn.disabled && btn.type === 'submit') {
-            setTimeout(function() {
-              btn.innerHTML = '<span class="loading-spinner"></span> Loading...';
-              btn.disabled = true;
-            }, 100);
-          }
-        });
-      });
     });
   </script>
 </body>

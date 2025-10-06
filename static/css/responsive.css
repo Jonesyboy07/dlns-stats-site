@@ -376,3 +376,135 @@ a[href]:not(.button):not(.no-btn):not(:has(img)) {
     page-break-inside: avoid;
   }
 }
+
+/* Add these styles to fix the navigation layout */
+
+/* Ensure navigation stays on one line */
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+nav ul {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    flex-wrap: nowrap;
+}
+
+nav ul li {
+    margin: 0 0.25rem;
+    white-space: nowrap;
+}
+
+/* Make the right navigation more compact */
+.nav-right {
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-right li {
+    margin: 0 0.25rem;
+}
+
+/* Compact search form */
+.nav-right form {
+    margin: 0;
+}
+
+.nav-right input[type="search"] {
+    width: 160px;
+    min-width: 120px;
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Social links more compact */
+.social-links {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.social-links img {
+    width: 20px;
+    height: 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    nav {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    nav ul {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+    
+    .nav-right {
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .hide-on-mobile {
+        display: none !important;
+    }
+    
+    .social-links-item {
+        order: -1;
+    }
+}
+
+@media (max-width: 992px) and (min-width: 769px) {
+    .nav-right input[type="search"] {
+        width: 140px;
+    }
+    
+    nav ul li {
+        margin: 0 0.15rem;
+    }
+    
+    nav ul li a {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Ensure authentication links are properly styled */
+.nav-right li a[title="Profile"],
+.nav-right li a[title="Logout"],
+.nav-right li a[title="Login with Discord"] {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--pico-primary) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--pico-primary) 20%, transparent);
+    text-decoration: none;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.nav-right li a[title="Profile"]:hover,
+.nav-right li a[title="Logout"]:hover,
+.nav-right li a[title="Login with Discord"]:hover {
+    background: color-mix(in oklab, var(--pico-primary) 20%, transparent);
+    border-color: var(--pico-primary);
+}
+
+.nav-right li a[title="Logout"] {
+    background: color-mix(in oklab, #ef4444 10%, transparent);
+    border-color: color-mix(in oklab, #ef4444 20%, transparent);
+}
+
+.nav-right li a[title="Logout"]:hover {
+    background: color-mix(in oklab, #ef4444 20%, transparent);
+    border-color: #ef4444;
+}

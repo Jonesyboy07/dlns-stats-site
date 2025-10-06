@@ -559,3 +559,540 @@ textarea:focus {
 .status-dot.error { background: #ef4444; }
 .status-dot.warning { background: #f59e0b; }
 .status-dot.info { background: #3b82f6; }
+
+/* Add these styles to your components.css file */
+
+/* Search Container - FIXED properly */
+.search-container {
+  margin: 0;
+  position: relative;
+}
+
+.search-container form {
+  margin: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-container input[type="search"] {
+  width: 180px;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0 0.75rem 0 2.5rem !important;
+  font-size: 0.9rem;
+  border-radius: 20px;
+  background-color: var(--pico-form-element-background-color);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.75rem center;
+  background-size: 16px;
+  border: 1px solid var(--pico-form-element-border-color);
+  text-indent: 0 !important;
+  box-sizing: border-box;
+}
+
+/* Dark mode search icon */
+[data-theme="dark"] .search-container input[type="search"],
+@media (prefers-color-scheme: dark) {
+  .search-container input[type="search"] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+  }
+}
+
+/* Override any conflicting styles */
+.search-container input[type="search"]::-webkit-input-placeholder {
+  padding-left: 0;
+  text-indent: 0;
+}
+
+.search-container input[type="search"]::-moz-placeholder {
+  padding-left: 0;
+  text-indent: 0;
+}
+
+.search-container input[type="search"]:-ms-input-placeholder {
+  padding-left: 0;
+  text-indent: 0;
+}
+
+.search-container input[type="search"]::placeholder {
+  padding-left: 0;
+  text-indent: 0;
+}
+
+/* Remove webkit search styling */
+.search-container input[type="search"]::-webkit-search-decoration,
+.search-container input[type="search"]::-webkit-search-cancel-button,
+.search-container input[type="search"]::-webkit-search-results-button,
+.search-container input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  display: none;
+}
+
+/* Sidebar Styles - FIXED content accessibility */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -360px;
+  width: 360px;
+  height: 100vh;
+  background: var(--pico-card-background-color);
+  border-right: 1px solid var(--pico-card-border-color);
+  z-index: 1000;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  /* Ensure proper scrolling on mobile */
+  -webkit-overflow-scrolling: touch;
+  /* Ensure content starts from the very top */
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.open {
+  left: 0;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Arrow close button - positioned on the right edge */
+.sidebar-close-arrow {
+  position: absolute;
+  top: 20px; /* Fixed position from top */
+  right: -20px;
+  width: 40px;
+  height: 40px;
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-card-border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1001;
+  transition: all 0.2s ease;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-close-arrow span {
+  font-size: 1.25rem;
+  color: var(--pico-muted-color);
+  transition: all 0.2s ease;
+  font-weight: 300;
+}
+
+.sidebar-close-arrow:hover {
+  background: var(--pico-primary);
+  border-color: var(--pico-primary);
+  transform: scale(1.1);
+}
+
+.sidebar-close-arrow:hover span {
+  color: white;
+}
+
+/* Sidebar content with proper spacing - NO padding top to allow full access */
+.sidebar-content {
+  flex: 1;
+  padding: 0;
+  /* Remove any top padding that might hide content */
+  margin: 0;
+  /* Ensure all content is accessible */
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section {
+  padding: 1.5rem 1.25rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--pico-card-border-color) 30%, transparent);
+  /* Ensure sections don't get cut off */
+  flex-shrink: 0;
+}
+
+/* First section should have normal padding - no special top treatment */
+.sidebar-section:first-child {
+  padding-top: 1.5rem;
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+  padding-bottom: 2rem;
+  /* Add extra bottom padding for scroll clearance */
+  margin-bottom: 1rem;
+}
+
+.sidebar-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--pico-muted-color);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin: 0.25rem 0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--pico-color);
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.sidebar-link:hover {
+  background: var(--pico-secondary-background);
+  color: var(--pico-primary);
+  text-decoration: none;
+  transform: translateX(4px);
+  border-color: color-mix(in oklab, var(--pico-primary) 20%, transparent);
+}
+
+.sidebar-link.logout {
+  color: #ef4444;
+}
+
+.sidebar-link.logout:hover {
+  background: color-mix(in oklab, #ef4444 8%, transparent);
+  border-color: color-mix(in oklab, #ef4444 30%, transparent);
+}
+
+.sidebar-link.login-btn {
+  background: linear-gradient(135deg, var(--pico-primary) 0%, color-mix(in oklab, var(--pico-primary) 80%, black) 100%);
+  color: white;
+  justify-content: center;
+  font-weight: 600;
+  margin: 0.5rem 0;
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--pico-primary) 30%, transparent);
+}
+
+.sidebar-link.login-btn:hover {
+  background: linear-gradient(135deg, color-mix(in oklab, var(--pico-primary) 90%, black) 0%, color-mix(in oklab, var(--pico-primary) 70%, black) 100%);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--pico-primary) 40%, transparent);
+}
+
+.sidebar-link.admin-link {
+  background: linear-gradient(135deg, 
+    color-mix(in oklab, #ef4444 8%, transparent) 0%,
+    color-mix(in oklab, #ef4444 12%, transparent) 100%
+  );
+  color: #ef4444;
+  font-weight: 600;
+  border-color: color-mix(in oklab, #ef4444 20%, transparent);
+}
+
+.sidebar-link.admin-link:hover {
+  background: linear-gradient(135deg, 
+    color-mix(in oklab, #ef4444 15%, transparent) 0%,
+    color-mix(in oklab, #ef4444 20%, transparent) 100%
+  );
+  border-color: color-mix(in oklab, #ef4444 40%, transparent);
+}
+
+.user-info {
+  text-align: center;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, 
+    color-mix(in oklab, var(--pico-primary) 5%, transparent) 0%,
+    color-mix(in oklab, var(--pico-primary) 10%, transparent) 100%
+  );
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--pico-primary) 15%, transparent);
+}
+
+.user-info span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  color: var(--pico-primary);
+}
+
+.user-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.user-actions .sidebar-link {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+}
+
+.social-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--pico-color);
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.social-link:hover {
+  background: var(--pico-secondary-background);
+  text-decoration: none;
+  transform: translateX(4px);
+  border-color: color-mix(in oklab, var(--pico-primary) 20%, transparent);
+}
+
+.social-link img {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.support-link {
+  display: block;
+  text-align: center;
+  padding: 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.support-link:hover {
+  transform: scale(1.02);
+}
+
+.support-link img {
+  max-width: 140px;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Main Navigation Styles */
+.main-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.main-nav ul {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0.5rem;
+}
+
+.nav-left, .nav-center, .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-logo {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--pico-primary) !important;
+  text-decoration: none;
+}
+
+.nav-logo:hover {
+  text-decoration: none;
+}
+
+/* Menu Toggle Button */
+.menu-toggle {
+  background: none;
+  border: none;
+  width: 2rem;
+  height: 2rem;
+  position: relative;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+}
+
+.menu-toggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--pico-color);
+  transition: all 0.3s ease;
+  border-radius: 1px;
+}
+
+.menu-toggle:hover span {
+  background: var(--pico-primary);
+}
+
+/* Quick Auth */
+.auth-quick .user-greeting {
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
+}
+
+.login-quick {
+  padding: 0.4rem 0.75rem;
+  background: var(--pico-primary);
+  color: white !important;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.login-quick:hover {
+  background: color-mix(in oklab, var(--pico-primary) 80%, black);
+  text-decoration: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .hide-on-small {
+    display: none !important;
+  }
+  
+  .search-container input[type="search"] {
+    width: 140px;
+  }
+  
+  .nav-center {
+    gap: 0.5rem;
+  }
+  
+  .nav-center a {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  .search-container input[type="search"] {
+    width: 120px;
+    font-size: 0.8rem;
+  }
+  
+  .nav-center {
+    gap: 0.25rem;
+  }
+  
+  .nav-center a {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  .sidebar {
+    width: 320px;
+    left: -320px;
+  }
+  
+  .sidebar-close-arrow {
+    right: -18px;
+    width: 36px;
+    height: 36px;
+    top: 15px; /* Adjust for mobile */
+  }
+  
+  .sidebar-section {
+    padding: 1.25rem 1rem;
+  }
+}
+
+/* Prevent body scroll when sidebar is open */
+body.sidebar-open {
+  overflow: hidden;
+}
+
+/* Add subtle animation to sidebar items */
+.sidebar-section {
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Active link styling */
+.main-nav a[href]:hover {
+  color: var(--pico-primary);
+}
+
+/* Focus styles for accessibility */
+.menu-toggle:focus,
+.sidebar-close-arrow:focus,
+.sidebar-link:focus {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+
+/* Ensure sidebar scrolls properly on all devices */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: var(--pico-card-background-color);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--pico-muted-color) 30%, transparent);
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--pico-muted-color) 50%, transparent);
+}

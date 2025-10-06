@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Profile • DLNS Stats{% endblock %}
+
+{% block content %}
+<section class="card">
+    <header>
+        <h1>
+            <span style="color: #6366f1; margin-right: 0.5rem;" aria-hidden="true">👤</span>
+            User Profile
+        </h1>
+    </header>
+
+    {% if user %}
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+        {% if user.avatar %}
+        <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png?size=128" 
+             alt="{{ user.username }}'s avatar" 
+             style="width: 64px; height: 64px; border-radius: 50%;">
+        {% else %}
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--pico-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 1.5rem;">
+            {{ user.username[0]|upper }}
+        </div>
+        {% endif %}
+        
+        <div>
+            <h2 style="margin: 0;">{{ user.full_username }}</h2>
+            <p class="muted" style="margin: 0;">Discord ID: {{ user.id }}</p>
+        </div>
+    </div>
+
+    <div class="alert info">
+        <h3>Welcome to DLNS Stats!</h3>
+        <p>Your Discord account is now linked to DLNS Stats. You can:</p>
+        <ul>
+            <li>View detailed match history and statistics</li>
+            <li>Track performance across different heroes in DLNS</li>
+            <li>Compare stats from different DLNS players</li>
+            <li>Access exclusive community features (coming soon)</li>
+        </ul>
+    </div>
+
+    <footer>
+        <div style="display: flex; gap: 0.5rem;">
+            <a href="/auth/logout" class="chip-button" style="background: #ef4444; color: white;">
+                <span aria-hidden="true">🚪</span>
+                Logout
+            </a>
+        </div>
+    </footer>
+    {% else %}
+    <div class="alert warning">
+        <p>No user information available. Please log in again.</p>
+        <a href="/auth/login" class="chip-button">Login with Discord</a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

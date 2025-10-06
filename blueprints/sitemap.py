@@ -2,7 +2,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from flask import Blueprint, Response, current_app, request
-from db_api import get_ro_conn
+from blueprints.db_api import get_ro_conn
 
 sitemap_bp = Blueprint('sitemap', __name__)
 

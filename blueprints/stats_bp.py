@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template
-from db_api import get_ro_conn
+from blueprints.db_api import get_ro_conn
 from heroes import get_hero_name
 import threading
 import time

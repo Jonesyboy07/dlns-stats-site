@@ -4,6 +4,14 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
+### October 6, 2025 - Discord Auth
+
+Added in discord auth! 
+
+This is for some backend things, but also to add possible future things.
+
+## Old Updates
+
 ### October 3, 2025 - Another set of HTML / CSS Changes
 
 Coming today, user `jevd322` has gone through and changed the HTML for the Footer and Header. 
@@ -12,7 +20,7 @@ This will be the first set of possible changes on the HTML/CSS front, in hopeful
 
 Some more features are being worked on, so do keep an eye out!
 
-## Old Updates
+
 
 ### October 1, 2025 - HTML Overhaul!
 

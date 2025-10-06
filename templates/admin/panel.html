@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel • DLNS Stats{% endblock %}
+
+{% block content %}
+<section class="card">
+    <header>
+        <h1>
+            <span style="color: #ef4444; margin-right: 0.5rem;" aria-hidden="true">⚙️</span>
+            Admin Panel
+        </h1>
+        {% if user %}
+        <p class="muted">Welcome, {{ user.username }}!</p>
+        {% endif %}
+    </header>
+
+    <!-- Statistics Overview -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
+        <div style="text-align: center; padding: 1.5rem; border-radius: 8px; background: color-mix(in oklab, var(--pico-primary) 10%, transparent); border: 1px solid color-mix(in oklab, var(--pico-primary) 20%, transparent);">
+            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--pico-primary);">
+                {{ stats.total_matches }}
+            </div>
+            <div style="font-size: 0.9rem; color: var(--pico-muted-color);">Total Matches</div>
+        </div>
+        
+        <div style="text-align: center; padding: 1.5rem; border-radius: 8px; background: color-mix(in oklab, #10b981 10%, transparent); border: 1px solid color-mix(in oklab, #10b981 20%, transparent);">
+            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: #10b981;">
+                {{ stats.total_players }}
+            </div>
+            <div style="font-size: 0.9rem; color: var(--pico-muted-color);">Total Players</div>
+        </div>
+        
+        <div style="text-align: center; padding: 1.5rem; border-radius: 8px; background: color-mix(in oklab, #f59e0b 10%, transparent); border: 1px solid color-mix(in oklab, #f59e0b 20%, transparent);">
+            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: #f59e0b;">
+                {{ stats.recent_matches }}
+            </div>
+            <div style="font-size: 0.9rem; color: var(--pico-muted-color);">Recent Matches (7d)</div>
+        </div>
+    </div>
+
+    <!-- Admin Navigation -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 2rem 0;">
+        <a href="{{ url_for('admin.manage_users') }}" style="text-decoration: none; padding: 1.5rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); transition: transform 0.2s ease;">
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--pico-primary);">
+                <span aria-hidden="true">👥</span>
+                View Users
+            </h3>
+            <p style="margin: 0; color: var(--pico-muted-color);">
+                View privileged users configuration
+            </p>
+        </a>
+        
+        <a href="{{ url_for('admin.view_logs') }}" style="text-decoration: none; padding: 1.5rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); transition: transform 0.2s ease;">
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--pico-primary);">
+                <span aria-hidden="true">📋</span>
+                View Logs
+            </h3>
+            <p style="margin: 0; color: var(--pico-muted-color);">
+                Monitor system activity and errors
+            </p>
+        </a>
+        
+        <a href="/stats/" style="text-decoration: none; padding: 1.5rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); transition: transform 0.2s ease;">
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--pico-primary);">
+                <span aria-hidden="true">📊</span>
+                Statistics
+            </h3>
+            <p style="margin: 0; color: var(--pico-muted-color);">
+                View detailed site statistics
+            </p>
+        </a>
+    </div>
+
+    <!-- Current Configuration -->
+    <details>
+        <summary>Current Permissions Configuration</summary>
+        <div style="margin-top: 1rem;">
+            <div style="padding: 1rem; border-radius: 8px; background: color-mix(in oklab, var(--pico-primary) 5%, transparent); margin-bottom: 1rem;">
+                <p><strong>Note:</strong> User permissions are managed via environment variables and require a server restart to update.</p>
+            </div>
+            
+            <h4>Owner</h4>
+            {% if privileged_users.owner %}
+            <p><code>{{ privileged_users.owner }}</code></p>
+            {% else %}
+            <p class="muted">No owner configured.</p>
+            {% endif %}
+            
+            <h4>Admins ({{ privileged_users.admins|length }})</h4>
+            {% if privileged_users.admins %}
+            <ul>
+                {% for admin_id in privileged_users.admins %}
+                <li><code>{{ admin_id }}</code></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="muted">No additional admins configured.</p>
+            {% endif %}
+        </div>
+    </details>
+</section>
+{% endblock %}

@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Gluten Mod • DLNS Stats{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --success-color: #10b981;
+    --error-color: #ef4444;
+    --success-bg: color-mix(in oklab, #10b981 10%, transparent);
+    --success-border: color-mix(in oklab, #10b981 20%, transparent);
+    --error-bg: color-mix(in oklab, #ef4444 10%, transparent);
+    --error-border: color-mix(in oklab, #ef4444 20%, transparent);
+}
+
+.upload-header-icon {
+    color: var(--success-color);
+    margin-right: 0.5rem;
+}
+
+.flash-message {
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+}
+
+.flash-success {
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    color: var(--success-color);
+}
+
+.flash-error {
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    color: var(--error-color);
+}
+
+.file-status-container {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: color-mix(in oklab, var(--pico-primary) 5%, transparent);
+    border-radius: 8px;
+    border: 1px solid color-mix(in oklab, var(--pico-primary) 15%, transparent);
+}
+
+.file-status-title {
+    margin: 0 0 1rem 0;
+    color: var(--pico-primary);
+}
+
+.upload-form {
+    margin: 2rem 0;
+}
+
+.file-input-group {
+    margin-bottom: 1.5rem;
+}
+
+.file-input-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.file-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px dashed var(--pico-form-element-border-color);
+    border-radius: 8px;
+    background: var(--pico-form-element-background-color);
+}
+
+.file-input-help {
+    color: var(--pico-muted-color);
+    margin-top: 0.5rem;
+    display: block;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.upload-button {
+    background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.upload-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.cancel-link {
+    color: var(--pico-muted-color);
+    text-decoration: none;
+    padding: 0.75rem 1rem;
+}
+
+.instructions-section {
+    margin: 2rem 0;
+}
+
+.instructions-summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--pico-primary);
+}
+
+.instructions-content {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--pico-card-background-color);
+    border-radius: 8px;
+}
+
+.instructions-list {
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.backup-section {
+    margin: 2rem 0;
+}
+
+.backup-content {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--pico-card-background-color);
+    border-radius: 8px;
+}
+
+.backup-text {
+    color: var(--pico-muted-color);
+    margin: 0;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    align-items: center;
+}
+
+.status-icon-success {
+    color: var(--success-color);
+    font-size: 2rem;
+}
+
+.status-icon-error {
+    color: var(--error-color);
+    font-size: 2rem;
+}
+
+.status-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.status-title-error {
+    margin: 0;
+    font-weight: 600;
+    color: var(--error-color);
+}
+
+.status-details {
+    margin: 0.25rem 0 0 0;
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
+}
+
+.status-error {
+    color: var(--error-color);
+}
+</style>
+
+<section class="card">
+    <header>
+        <h1>
+            <span class="upload-header-icon" aria-hidden="true">📁</span>
+            Upload Gluten Mod
+        </h1>
+        <p class="muted">Upload a new version of the Gluten mod ZIP file</p>
+    </header>
+
+    <!-- Current file info -->
+    <div class="file-status-container">
+        <h3 class="file-status-title">Current File Status</h3>
+        <div id="fileStatus">
+            <p>Loading file information...</p>
+        </div>
+    </div>
+
+    <!-- Upload form -->
+    <form method="POST" enctype="multipart/form-data" class="upload-form">
+        <div class="file-input-group">
+            <label for="zip_file" class="file-input-label">
+                Select ZIP File
+            </label>
+            <input 
+                type="file" 
+                id="zip_file" 
+                name="zip_file" 
+                accept=".zip" 
+                required
+                class="file-input"
+            />
+            <small class="file-input-help">
+                Maximum file size: 50MB. Only ZIP files are accepted.
+            </small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="upload-button">
+                Upload File
+            </button>
+            <a href="{{ url_for('gluten.index') }}" class="cancel-link">
+                Cancel
+            </a>
+        </div>
+    </form>
+
+    <!-- Instructions -->
+    <details class="instructions-section">
+        <summary class="instructions-summary">Upload Instructions</summary>
+        <div class="instructions-content">
+            <ul class="instructions-list">
+                <li>Only ZIP files are accepted</li>
+                <li>Maximum file size is 50MB</li>
+                <li>The existing file will be automatically backed up before replacement</li>
+                <li>The uploaded file will be renamed to "Gluten_Zip.zip" automatically</li>
+                <li>Users will immediately be able to download the new version</li>
+            </ul>
+        </div>
+    </details>
+
+    <!-- Recent backups (if any) -->
+    <details class="backup-section">
+        <summary class="instructions-summary">Backup Files</summary>
+        <div class="backup-content">
+            <p class="backup-text">
+                Backup files are automatically created when you upload a new version. 
+                They are stored in the static folder with timestamps.
+            </p>
+        </div>
+    </details>
+</section>
+
+<script>
+// Load file status
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/gluten/api/check')
+        .then(response => response.json())
+        .then(data => {
+            const statusDiv = document.getElementById('fileStatus');
+            if (data.zip_available) {
+                const size = data.file_info.zip_size ? (data.file_info.zip_size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size';
+                const modified = data.file_info.zip_modified ? new Date(data.file_info.zip_modified).toLocaleString() : 'Unknown date';
+                
+                statusDiv.innerHTML = `
+                    <div class="status-grid">
+                        <div class="status-icon-success">✅</div>
+                        <div>
+                            <p class="status-title">Gluten_Zip.zip is available</p>
+                            <p class="status-details">
+                                Size: ${size} • Last modified: ${modified}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="status-grid">
+                        <div class="status-icon-error">❌</div>
+                        <div>
+                            <p class="status-title-error">No Gluten_Zip.zip file found</p>
+                            <p class="status-details">
+                                Upload one to make it available for download.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('fileStatus').innerHTML = '<p class="status-error">Error loading file status</p>';
+        });
+
+    // File input styling and validation
+    const fileInput = document.getElementById('zip_file');
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            if (!file.name.toLowerCase().endsWith('.zip')) {
+                alert('Please select a ZIP file only.');
+                this.value = '';
+                return;
+            }
+            if (file.size > 50 * 1024 * 1024) {
+                alert('File is too large. Maximum size is 50MB.');
+                this.value = '';
+                return;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

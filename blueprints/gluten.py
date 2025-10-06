@@ -129,23 +129,6 @@ def handle_upload():
     
     return redirect(url_for('gluten.upload_page'))
 
-# Add a debug route to check permissions
-@gluten_bp.route('/debug/permissions')
-@require_login
-def debug_permissions():
-    """Debug route to check permissions."""
-    user = get_current_user()
-    can_upload = is_gluten_uploader()
-    
-    debug_info = {
-        'user': user,
-        'can_upload': can_upload,
-        'owner_id': current_app.config.get('DISCORD_OWNER_ID'),
-        'gluten_id': current_app.config.get('DISCORD_GLUTEN_UPLOADER_ID'),
-    }
-    
-    return jsonify(debug_info)
-
 @gluten_bp.route('/download/zip')
 def download_zip():
     """Serve the existing Gluten_Zip.zip file."""

@@ -247,7 +247,7 @@
                 class="file-input"
             />
             <small class="file-input-help">
-                Maximum file size: 50MB. Only ZIP files are accepted.
+                Only ZIP files are accepted.
             </small>
         </div>
 
@@ -293,7 +293,6 @@
         <div class="instructions-content">
             <ul class="instructions-list">
                 <li>Only ZIP files are accepted</li>
-                <li>Maximum file size is 50MB</li>
                 <li>The ZIP should contain the complete directory structure shown above</li>
                 <li>The existing file will be automatically backed up before replacement</li>
                 <li>The uploaded file will be renamed to "Gluten_Zip.zip" automatically</li>
@@ -355,18 +354,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('fileStatus').innerHTML = '<p class="status-error">Error loading file status</p>';
         });
 
-    // File input styling and validation
+    // File input validation (no size check now)
     const fileInput = document.getElementById('zip_file');
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
             if (!file.name.toLowerCase().endsWith('.zip')) {
                 alert('Please select a ZIP file only.');
-                this.value = '';
-                return;
-            }
-            if (file.size > 50 * 1024 * 1024) {
-                alert('File is too large. Maximum size is 50MB.');
                 this.value = '';
                 return;
             }

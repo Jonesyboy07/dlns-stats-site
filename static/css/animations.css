@@ -236,7 +236,6 @@ nav ul li a:hover::after {
 nav ul li a:hover {
   transform: translateY(-1px);
   color: var(--pico-primary);
-
 }
 
 /* ============================================

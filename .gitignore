@@ -48,3 +48,4 @@ static/favicon.ico
 static/og.png
 data/dlns.sqlite3
 data/cache
+testing.py

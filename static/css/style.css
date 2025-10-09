@@ -114,7 +114,7 @@ header nav .nav-right a:hover {
 }
 
 li.hide-on-mobile {
-  width: 350px;
+  width: 250px;
 }
 
 .hide-on-mobile form {
@@ -192,7 +192,6 @@ footer small a[href]:not(.button):not(.no-btn):not(:has(img)){
   min-height: 0 !important;
   border: none !important;
   background: transparent !important;
-
   gap: 0 !important;
   align-items: baseline !important;
   transform: none !important;
@@ -208,9 +207,6 @@ footer small a[href]:not(.button):not(.no-btn):not(:has(img)):hover {
   border-color: transparent !important;
   box-shadow: none !important;
 }
-
-
-
 
 .inline-list {
   list-style: none;

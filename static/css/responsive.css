@@ -382,7 +382,7 @@ a[href]:not(.button):not(.no-btn):not(:has(img)) {
 /* Ensure navigation stays on one line */
 nav {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     flex-wrap: nowrap;
 }
@@ -402,8 +402,6 @@ nav ul li {
 
 /* Make the right navigation more compact */
 .nav-right {
-    display: flex !important;
-    align-items: center;
     gap: 0.5rem;
 }
 

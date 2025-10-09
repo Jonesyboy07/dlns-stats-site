@@ -33,12 +33,6 @@
         <span class="badge neutral">{{ match.duration_s | format_duration }}</span>
       </div>
       <div>
-        <strong>Winner:</strong> 
-        <span class="badge {{ 'win' if match.winning_team is not none else 'neutral' }} {{ 'team-amber' if match.winning_team == 0 else 'team-sapphire' if match.winning_team == 1 else '' }}">
-          {{ match.winning_team | team_name }}
-        </span>
-      </div>
-      <div>
         <strong>Date:</strong> 
         <time class="dt" datetime="{{ match.start_time or match.created_at }}">
           {{ (match.start_time or match.created_at)[:10] }}
@@ -79,71 +73,169 @@
   
   {% if players %}
   <div class="table-responsive">
-    <table role="grid" class="striped">
-      <thead>
-        <tr>
-          <th>Player</th>
-          <th class="hide-on-mobile">Team</th>
-          <th class="hide-on-mobile">Hero</th>
-          <th><abbr title="Kills/Deaths/Assists">K/D/A</abbr></th>
-          <th class="hide-on-mobile"><abbr title="Last Hits/Denies">LH/D</abbr></th>
-          <th class="hide-on-mobile"><abbr title="Shots Hit/Missed">Shots</abbr></th>
-          <th class="hide-on-mobile">Damage</th>
-          <th class="hide-on-mobile">Healing</th>
-          <th>Result</th>
-        </tr>
-      </thead>
-      <tbody class="stagger-in">
-        {% for p in players %}
-        <tr>
-          <td>
-            <button type="button" 
-                    class="chip-button primary bounce-on-click player-button" 
-                    data-user-url="{{ url_for('user_detail', account_id=p.account_id) }}"
-                    style="margin: 0; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-weight: 500;">
-              <span aria-hidden="true">👤</span>
-              {{ p.persona_name or 'Unknown Player' }}
-            </button>
-            <div class="show-on-mobile text-small text-muted" style="margin-top: 0.5rem;">
-              {{ p.team | team_name }} • {{ p.hero_name or get_hero_name(p.hero_id) }} • {{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}
-            </div>
-          </td>
-          <td class="hide-on-mobile">
-            <span class="{{ 'team-amber' if p.team == 0 else 'team-sapphire' if p.team == 1 else '' }}">
-              {{ p.team | team_name }}
-            </span>
-          </td>
-          <td class="hide-on-mobile">{{ p.hero_name or get_hero_name(p.hero_id) }}</td>
-          <td>
-            <span style="font-family: monospace; font-weight: 500;">
-              {{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}
-            </span>
-          </td>
-          <td class="hide-on-mobile">
-            <span style="font-family: monospace;">{{ p.last_hits or 0 }}/{{ p.denies or 0 }}</span>
-          </td>
-          <td class="hide-on-mobile">
-            <span style="font-family: monospace;">{{ p.shots_hit or 0 }}/{{ p.shots_missed or 0 }}</span>
-          </td>
-          <td class="hide-on-mobile">
-            <span style="font-family: monospace;">{{ '{:,}'.format(p.player_damage or 0) }}</span>
-          </td>
-          <td class="hide-on-mobile">
-            <span style="font-family: monospace;">{{ '{:,}'.format(p.player_healing or 0) }}</span>
-          </td>
-          <td>
-            {% if p.result == 'Win' %}
-              <span class="badge win">Win</span>
-            {% elif p.result == 'Loss' %}  
-              <span class="badge loss">Loss</span>
+    {% set amber = players | selectattr('team', 'equalto', 0) | list %}
+    {% set sapphire = players | selectattr('team', 'equalto', 1) | list %}
+
+    <section style="flex: 1 1 360px; min-width: 300px;">
+      {# Team Sapphire header #}
+        <h3 class="team-sapphire">
+          Team Sapphire
+          {% if match.winning_team is not none %}
+            {% if match.winning_team == 1 %}
+              <span class="badge win" style="margin-left:0.5rem;">Win</span>
             {% else %}
-              <span class="badge neutral">-</span>
+              <span class="badge loss" style="margin-left:0.5rem;">Loss</span>
             {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          {% else %}
+            <span class="badge neutral" style="margin-left:0.5rem;">-</span>
+          {% endif %}
+        </h3>        
+        <table role="grid" class="striped playerCol">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Souls</th>
+              <th>Damage</th>
+              <th class="hide-on-mobile">Healing</th>
+              <th class="hide-on-mobile"><abbr title="Kills/Deaths/Assists">K/D/A</abbr></th>
+              <th class="hide-on-mobile"><abbr title="Last Hits/Denies">LH/D</abbr></th>
+              <th class="hide-on-mobile"><abbr title="Shots Hit/Missed">Shots</abbr></th>
+            </tr>
+          </thead>
+          <tbody class="stagger-in">
+            {% for p in sapphire %}
+            {# compute hero name and filename #}
+            {% set hero_name = p.hero_name or get_hero_name(p.hero_id) %}
+            {% set hero_file = (hero_name
+                |lower
+                |replace(' ', '_')
+                |replace("'", '')
+                |replace('.', '')
+                |replace(':', '')
+                |replace('/', '')
+                |replace('&', 'and')
+                |replace('(', '')
+                |replace(')', '')
+                |replace(',', '')
+              ) ~ '_sm_psd.png' %}
+            <tr>
+              <!-- same row markup as above -->
+              <td>
+                <button type="button"
+                        class="chip-button contrast bounce-on-click player-button"
+                        data-user-url="{{ url_for('user_detail', account_id=p.account_id) }}"
+                        style="margin: 0; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-weight: 500;">
+                <img src="{{ url_for('static', filename='images/hero icons/' ~ hero_file) }}"
+                     alt="{{ hero_name }}" style="height:40px; width:auto; vertical-align:middle; margin-right:0.5rem;">
+                  {{ p.persona_name or 'Unknown Player' }}
+                </button>
+                <div class="show-on-mobile text-small" style="margin-top: 0.5rem;">
+                  {{ p.team | team_name }} • {{ p.hero_name or get_hero_name(p.hero_id) }} • {{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}
+                </div>
+              </td>
+              <td style="font-weight: 700;">{{ p.net_worth or N/A }}</td>
+              <td><span style="font-family: monospace;">{{ '{:,}'.format(p.player_damage or 0) }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace;">{{ '{:,}'.format(p.player_healing or 0) }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace; font-weight: 500;">{{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace;">{{ p.last_hits or 0 }}/{{ p.denies or 0 }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace;">
+              {% set shots_hit = p.shots_hit or 0 %}
+              {% set shots_missed = p.shots_missed or 0 %}
+              {% set shots_total = shots_hit + shots_missed %}
+              {% if shots_total > 0 %}
+              {% set acc = (shots_hit * 100.0) / shots_total %}
+                <span style="font-family: monospace;">{{ shots_hit }}/{{ shots_missed }} ({{ '%.1f' % acc }}%)</span>
+              {% else %}
+                <span style="font-family: monospace;">0/0 (—)</span>
+              {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+    </section>
+
+    <section style="flex: 1 1 360px; min-width: 300px;">
+      {# Team Amber header #}
+        <h3 class="team-amber">
+          Team Amber
+          {% if match.winning_team is not none %}
+            {% if match.winning_team == 0 %}
+              <span class="badge win" style="margin-left:0.5rem;">Win</span>
+            {% else %}
+              <span class="badge loss" style="margin-left:0.5rem;">Loss</span>
+            {% endif %}
+          {% else %}
+            <span class="badge neutral" style="margin-left:0.5rem;">-</span>
+          {% endif %}
+        </h3>        
+        <table role="grid" class="striped">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Souls</th>
+              <th>Damage</th>
+              <th class="hide-on-mobile">Healing</th>
+              <th class="hide-on-mobile"><abbr title="Kills/Deaths/Assists">K/D/A</abbr></th>
+              <th class="hide-on-mobile"><abbr title="Last Hits/Denies">LH/D</abbr></th>
+              <th class="hide-on-mobile"><abbr title="Shots Hit/Missed">Shots</abbr></th>
+            </tr>
+          </thead>
+          <tbody class="stagger-in">
+            {% for p in amber %}
+            {# compute hero name and filename #}
+            {% set hero_name = p.hero_name or get_hero_name(p.hero_id) %}
+            {% set hero_file = (hero_name
+                |lower
+                |replace(' ', '_')
+                |replace("'", '')
+                |replace('.', '')
+                |replace(':', '')
+                |replace('/', '')
+                |replace('&', 'and')
+                |replace('(', '')
+                |replace(')', '')
+                |replace(',', '')
+              ) ~ '_sm_psd.png' %}
+            <tr>
+              <!-- same row markup as above -->
+              <td>
+                <button type="button"
+                        class="chip-button contrast bounce-on-click player-button"
+                        data-user-url="{{ url_for('user_detail', account_id=p.account_id) }}"
+                        style="margin: 0; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-weight: 500;">
+                <img src="{{ url_for('static', filename='images/hero icons/' ~ hero_file) }}"
+                     alt="{{ hero_name }}" style="height:40px; width:auto; vertical-align:middle; margin-right:0.5rem;">
+                  {{ p.persona_name or 'Unknown Player' }}
+                </button>
+                <div class="show-on-mobile text-small" style="margin-top: 0.5rem;">
+                  {{ p.team | team_name }} • {{ p.hero_name or get_hero_name(p.hero_id) }} • {{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}
+                </div>
+              </td>
+              <td style="font-weight: 700;">{{ p.net_worth or N/A }}</td>
+
+              <td><span style="font-family: monospace;">{{ '{:,}'.format(p.player_damage or 0) }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace;">{{ '{:,}'.format(p.player_healing or 0) }}</span></td>
+
+              <td class="hide-on-mobile"><span style="font-family: monospace; font-weight: 500;">{{ p.kills or 0 }}/{{ p.deaths or 0 }}/{{ p.assists or 0 }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace;">{{ p.last_hits or 0 }}/{{ p.denies or 0 }}</span></td>
+              <td class="hide-on-mobile"><span style="font-family: monospace;">
+              {% set shots_hit = p.shots_hit or 0 %}
+              {% set shots_missed = p.shots_missed or 0 %}
+              {% set shots_total = shots_hit + shots_missed %}
+              {% if shots_total > 0 %}
+              {% set acc = (shots_hit * 100.0) / shots_total %}
+                <span style="font-family: monospace;">{{ shots_hit }}/{{ shots_missed }} ({{ '%.1f' % acc }}%)</span>
+              {% else %}
+                <span style="font-family: monospace;">0/0 (—)</span>
+              {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
   </div>
   {% else %}
   <div class="alert info">

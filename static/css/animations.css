@@ -91,7 +91,7 @@ table[role="grid"] tbody tr:nth-child(10) { animation-delay: 360ms; }
 }
 
 /* Table hover effects */
-table[role="grid"] tbody tr:hover {
+table[role="grid"] tbody tr:hover td {
   background-color: color-mix(
     in oklab,
     var(--pico-primary) 8%,
@@ -102,31 +102,6 @@ table[role="grid"] tbody tr:hover {
 }
 
 /* Table cell content animations */
-table[role="grid"] td {
-  position: relative;
-  overflow: hidden;
-}
-
-table[role="grid"] td::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  transition: left 0.5s;
-}
-
-table[role="grid"] tbody tr:hover td::before {
-  left: 100%;
-}
-
 /* ============================================
    CARD ANIMATIONS
    ============================================ */
@@ -236,7 +211,6 @@ nav ul li a:hover::after {
 nav ul li a:hover {
   transform: translateY(-1px);
   color: var(--pico-primary);
-
 }
 
 /* ============================================
@@ -363,6 +337,11 @@ textarea:focus {
 /* Subtle bounce for interactive elements */
 .bounce-on-click {
   transition: transform 0.1s ease;
+}
+
+.bounce-on-click:hover {
+  background: color-mix(in oklab, var(--pico-muted-border-color, #e5e7eb) 25%, transparent);
+  border-color: color-mix(in oklab, var(--pico-muted-border-color, #e5e7eb) 90%, transparent);
 }
 
 .bounce-on-click:active {

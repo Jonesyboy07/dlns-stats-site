@@ -91,15 +91,6 @@ def handle_upload():
         flash('Only ZIP files are allowed', 'error')
         return redirect(url_for('gluten.upload_page'))
     
-    # Check file size (limit to 50MB)
-    file.seek(0, os.SEEK_END)
-    file_size = file.tell()
-    file.seek(0)
-    
-    if file_size > 50 * 1024 * 1024:  # 50MB limit
-        flash('File too large. Maximum size is 50MB.', 'error')
-        return redirect(url_for('gluten.upload_page'))
-    
     try:
         static_folder = Path(current_app.static_folder)
         zip_path = static_folder / 'Gluten_Zip.zip'

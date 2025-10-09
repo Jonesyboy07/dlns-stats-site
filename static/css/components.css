@@ -57,7 +57,6 @@
 
 .team-amber::before,
 .team-sapphire::before {
-  content: '';
   position: absolute;
   left: -8px;
   top: 50%;
@@ -143,12 +142,10 @@ section.card footer {
   font: inherit;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: start;
   gap: 0.4rem;
   padding: 0.4rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in oklab, var(--pico-muted-border-color, #e5e7eb) 70%, transparent);
-  background: color-mix(in oklab, var(--pico-muted-border-color, #e5e7eb) 12%, transparent);
+  border-radius: 12px;
   color: inherit;
   cursor: pointer;
   font-size: 0.875rem;
@@ -238,6 +235,15 @@ table[role="grid"] tbody td {
 
 table[role="grid"] tbody tr:last-child td {
   border-bottom: none;
+}
+
+table.playerCol th:first-child,
+table.playerCol  td:first-child {
+  min-width: 250px;     
+  max-width: 250px;     
+  white-space: nowrap; 
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Striped table enhancement */
@@ -576,7 +582,7 @@ textarea:focus {
 }
 
 .search-container input[type="search"] {
-  width: 180px;
+  width: 80px;
   height: 2.5rem;
   margin: 0;
   padding: 0 0.75rem 0 2.5rem !important;
@@ -590,14 +596,6 @@ textarea:focus {
   border: 1px solid var(--pico-form-element-border-color);
   text-indent: 0 !important;
   box-sizing: border-box;
-}
-
-/* Dark mode search icon */
-[data-theme="dark"] .search-container input[type="search"],
-@media (prefers-color-scheme: dark) {
-  .search-container input[type="search"] {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
-  }
 }
 
 /* Override any conflicting styles */
@@ -894,7 +892,7 @@ textarea:focus {
 }
 
 .support-link img {
-  max-width: 140px;
+  max-width: 240px;
   height: auto;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -917,10 +915,9 @@ textarea:focus {
   gap: 0.5rem;
 }
 
-.nav-left, .nav-center, .nav-right {
+.nav-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
 }
 
 .nav-center {

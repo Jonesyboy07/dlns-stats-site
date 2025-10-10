@@ -26,6 +26,105 @@ document.addEventListener('DOMContentLoaded', () => {
     const warn = (...a) => console.warn('[DLNS]', ...a);
     const err = (...a) => console.error('[DLNS]', ...a);
 
+    // ========================
+    // Player Button Handling
+    // ========================
+    console.log('Setting up player button handlers');
+    
+    // Handle player button clicks
+    const setupPlayerButtons = () => {
+        const playerButtons = document.querySelectorAll('.player-button');
+        console.log('Found', playerButtons.length, 'player buttons');
+        
+        playerButtons.forEach(button => {
+            // Remove any existing listeners to prevent duplicates
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            newButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const userUrl = this.getAttribute('data-user-url');
+                console.log('Player button clicked, URL:', userUrl);
+                if (userUrl) {
+                    window.location.href = userUrl;
+                }
+            });
+        });
+    };
+    
+    // Set up player buttons initially
+    setupPlayerButtons();
+    
+    // Also set up after any AJAX content loads
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                // Check if any new player buttons were added
+                const hasPlayerButtons = Array.from(mutation.addedNodes).some(node => 
+                    node.nodeType === 1 && (
+                        node.classList?.contains('player-button') || 
+                        node.querySelector?.('.player-button')
+                    )
+                );
+                if (hasPlayerButtons) {
+                    console.log('New player buttons detected, re-initializing');
+                    setupPlayerButtons();
+                }
+            }
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // ========================
+    // Modal Handling
+    // ========================
+    const setupModals = () => {
+        // Handle modal open triggers
+        const modalTriggers = document.querySelectorAll('[data-open-modal]');
+        modalTriggers.forEach(trigger => {
+            trigger.addEventListener('click', function(e) {
+                e.preventDefault();
+                const modalId = this.getAttribute('data-open-modal');
+                const modal = document.querySelector(modalId);
+                if (modal) {
+                    modal.setAttribute('aria-hidden', 'false');
+                    modal.style.display = 'block';
+                }
+            });
+        });
+        
+        // Handle modal close triggers
+        const modalClosers = document.querySelectorAll('[data-close-modal]');
+        modalClosers.forEach(closer => {
+            closer.addEventListener('click', function(e) {
+                e.preventDefault();
+                const modal = this.closest('.modal');
+                if (modal) {
+                    modal.setAttribute('aria-hidden', 'true');
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // Close modal when clicking backdrop
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this || e.target.classList.contains('modal-backdrop')) {
+                    this.setAttribute('aria-hidden', 'true');
+                    this.style.display = 'none';
+                }
+            });
+        });
+    };
+    
+    setupModals();
+
     // Hero name mapping - we'll fetch this from the server
     let heroNames = {};
     const loadHeroNames = async () => {

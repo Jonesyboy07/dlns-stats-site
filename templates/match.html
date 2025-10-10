@@ -261,18 +261,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Handle player button clicks
-  const playerButtons = document.querySelectorAll('.player-button');
-  playerButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      const userUrl = this.getAttribute('data-user-url');
-      if (userUrl) {
-        window.location.href = userUrl;
-      }
-    });
-  });
-});
-</script>
+<!-- Player button functionality is now handled in site.js -->
 {% endblock %}

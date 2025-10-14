@@ -26,6 +26,7 @@ from heroes import get_hero_name
 from blueprints.sitemap import sitemap_bp
 from blueprints.onelane import onelane_bp
 from blueprints.gluten import gluten_bp
+from blueprints.ChatVTwitch import chat_bp
 
 
 def create_app() -> Flask:
@@ -104,6 +105,7 @@ def create_app() -> Flask:
     app.register_blueprint(sitemap_bp)
     app.register_blueprint(onelane_bp)
     app.register_blueprint(gluten_bp) 
+    app.register_blueprint(chat_bp)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

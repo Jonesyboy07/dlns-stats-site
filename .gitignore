@@ -50,4 +50,4 @@ data/dlns.sqlite3
 data/cache
 testing.py
 static/sounds/
-
+_cache/

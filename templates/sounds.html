@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wavebox • Audio Library</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="wrap">
+      <div class="bar">
+        <button class="btn round drawer-btn" id="drawerBtn" aria-controls="sidebar" aria-expanded="false">☰ Library</button>
+        <div class="brand"><div class="dot"></div> <span>Wavebox</span></div>
+
+        <div class="search" role="search" aria-label="Search your library">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="search" placeholder="Search your library… (Ctrl+K)" />
+          <span class="kbd">⌘/Ctrl K</span>
+        </div>
+
+        <div class="header-actions">
+          <label class="toggle-inline" title="Autoplay next">
+            <input id="autoplayToggle" class="switch" type="checkbox" aria-label="Autoplay next">
+            <span class="label">Autoplay</span>
+          </label>
+          <label class="toggle-inline" title="Normalize loudness (EBU R128)">
+            <input id="normalizeToggle" class="switch" type="checkbox" aria-label="Normalize loudness">
+            <span class="label">Normalize</span>
+          </label>
+          <button id="settingsBtn" class="btn round" title="Appearance & Preferences" aria-haspopup="true" aria-controls="settingsPanel">🖌</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Settings -->
+  <aside class="settings" id="settingsPanel" aria-hidden="true">
+    <h3>Appearance</h3>
+    <div class="row">
+      <div>Accent</div>
+      <input type="color" id="accentPicker" value="#1DB954">
+    </div>
+    <div class="row">
+      <div>Surface</div>
+      <input type="color" id="surfacePicker" value="#111214">
+    </div>
+    <div class="row">
+      <div>Rounded corners</div>
+      <input type="range" id="radiusRange" min="8" max="28" step="1" value="16"><span class="mini" id="radiusVal">16</span>
+    </div>
+    <div class="row">
+      <div>Density</div>
+      <input type="range" id="densityRange" min="0.9" max="1.1" step="0.01" value="1"><span class="mini" id="densityVal">1.00</span>
+    </div>
+    <h3>Behavior</h3>
+    <div class="row">
+      <label class="label">EQ visible by default</label>
+      <input id="eqDefault" class="switch" type="checkbox">
+    </div>
+    <div class="row">
+      <label class="label">Autoplay next</label>
+      <input id="autoplayDefault" class="switch" type="checkbox">
+    </div>
+    <div class="row">
+      <label class="label">Normalize by default</label>
+      <input id="normalizeDefault" class="switch" type="checkbox">
+    </div>
+  </aside>
+
+  <!-- Mobile drawer backdrop -->
+  <div class="backdrop" id="backdrop"></div>
+
+  <!-- Main Shell -->
+  <main class="wrap mainwrap">
+    <section class="shell">
+      <!-- Sidebar / Library -->
+      <aside class="sidebar" id="sidebar" aria-label="Library">
+        <div class="side-head">
+          <div class="side-title">Your Library</div>
+          <div class="mini" style="color:var(--muted)"><span id="stat-files">0</span> files · <span id="stat-folders">0</span> folders · <span id="stat-size">0 B</span></div>
+        </div>
+        <nav class="tree" id="tree" aria-label="Folders and files"></nav>
+      </aside>
+
+      <!-- Content -->
+      <section class="panel">
+        <div class="inner">
+          <div class="now">
+            <div class="dot" style="width:10px;height:10px;border-radius:50%; background:var(--accent)"></div>
+            <div>
+              <div class="title" id="now-title">Nothing playing</div>
+              <div class="path" id="now-path">—</div>
+            </div>
+          </div>
+
+          <div class="controls-row">
+            <button class="btn accent" id="btn-random">🎲 Random</button>
+            <button class="btn" id="btn-play">▶︎ Play/Pause</button>
+            <button class="btn" id="btn-prev">⏮ Prev</button>
+            <button class="btn" id="btn-next">⏭ Next</button>
+          </div>
+
+          <!-- Floating FABs (mobile) -->
+          <div class="ctrls-floating">
+            <button class="fab" id="fab-play" aria-label="Play or pause">▶</button>
+            <button class="fab secondary" id="fab-random" aria-label="Play random">🎲</button>
+          </div>
+
+          <div class="eq-wrap">
+            <div class="eq-header">
+              <div style="color:var(--muted)">Visualizer</div>
+              <button class="btn" id="btn-eq-toggle">Show EQ</button>
+            </div>
+            <div id="eq-container" style="margin-top:10px; display:none;">
+              <canvas id="eq"></canvas>
+            </div>
+            <div class="path" style="margin-top:6px">
+              Shortcuts: Space = Play/Pause · N/P = Next/Prev · R = Random
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Player -->
+  <footer class="player" aria-label="Player">
+    <div class="wrap">
+      <div class="track-mini">
+        <div class="dot"></div>
+        <div class="name" id="mini-name">—</div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="p-play" aria-label="Play/Pause">▶︎</button>
+        <button class="btn" id="p-stop" aria-label="Stop">■</button>
+        <input class="range" id="volume" type="range" min="0" max="1" step="0.01" value="1" title="Volume" />
+      </div>
+      <div class="progress">
+        <span id="cur" class="path">0:00</span>
+        <div class="bar" id="seek"><div class="fill" id="fill"></div></div>
+        <span id="dur" class="path">0:00</span>
+      </div>
+    </div>
+  </footer>
+
+  <audio id="audio" crossorigin="anonymous"></audio>
+
+  <!-- JS -->
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/prefs.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/viz.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

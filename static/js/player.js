@@ -12,10 +12,10 @@ const Player = {
   urlFor(path){
     // if mp3 + !normalize -> direct
     if(Player.isMP3(path) && !Player.normalize){
-      return "/media/" + encodeURIComponent(path).replace(/%2F/g,"/");
+      return "/sounds/media/" + encodeURIComponent(path).replace(/%2F/g,"/");
     }
     // otherwise stream with normalize flag
-    return "/stream/" + encodeURIComponent(path).replace(/%2F/g,"/") + "?normalize=" + (Player.normalize ? "1":"0");
+    return "/sounds/stream/" + encodeURIComponent(path).replace(/%2F/g,"/") + "?normalize=" + (Player.normalize ? "1":"0");
   },
 
   playPath(path){

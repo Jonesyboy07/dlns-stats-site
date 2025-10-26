@@ -56,6 +56,7 @@ def _build_sitemap_xml() -> str:
     # Static pages
     add_url(f'{base}/', today, 'daily', '1.0')
     add_url(f'{base}/stats/', today, 'daily', '0.9')
+    add_url(f'{base}/sounds/', today, 'monthly', '0.5')
 
     # Dynamic content
     try:

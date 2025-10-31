@@ -17,6 +17,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 10px;
+      transition: opacity 0.25s, box-shadow 0.25s;
     }
     .record-panel.visible { display: flex; }
 
@@ -35,7 +36,7 @@
       color: white;
       border-radius: 6px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.2s, opacity 0.2s;
     }
     .record-panel button:hover { background: #1ed760; }
 
@@ -68,6 +69,25 @@
       background: var(--accent, #1db954);
       width: 0%;
       transition: width 0.05s linear;
+    }
+
+    /* === Locked / Pending Visual States === */
+    .record-panel.locked {
+      border: 2px solid var(--accent, #1db954);
+      box-shadow: 0 0 10px var(--accent, #1db954);
+      animation: lockedPulse 2.5s ease-in-out infinite;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .record-panel.pending {
+      border: 2px solid #888;
+      box-shadow: none;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    @keyframes lockedPulse {
+      0%, 100% { box-shadow: 0 0 8px var(--accent, #1db954); }
+      50% { box-shadow: 0 0 16px var(--accent, #1db954); }
     }
   </style>
 </head>

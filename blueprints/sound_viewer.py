@@ -9,10 +9,6 @@ from flask import (
 from werkzeug.utils import secure_filename
 from utils.auth import get_current_user
 
-
-
-
-
 # =====================================================
 # ---------------- CONFIGURATION ----------------
 # =====================================================
@@ -39,15 +35,12 @@ if not log.handlers:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )
-log.info("🚀 [Wavebox] Sound system initialized. Awaiting first request to build cache.")
-
 
 FFMPEG_BIN = shutil.which("ffmpeg") or "C:\\ffmpeg\\bin\\ffmpeg.exe"
 if not Path(FFMPEG_BIN).exists():
     log.warning(f"⚠️ FFmpeg not found at {FFMPEG_BIN}")
 else:
     log.info(f"🎬 Using FFmpeg: {FFMPEG_BIN}")
-
 
 # =====================================================
 # ---------------- BLUEPRINT ----------------
@@ -133,78 +126,39 @@ def ffmpeg_exists():
 # =====================================================
 # ---------------- DIRECTORY SCANS ----------------
 # =====================================================
-import pprint
-
-# =====================================================
-# ---------------- DEBUG-AWARE TREE BUILDER ----------------
-# =====================================================
-def build_tree(path: Path, rel: str = "", depth: int = 0, seen=None):
-    """Recursively build folder/file tree with detailed debug logging."""
+def build_tree(path: Path, rel: str = "", seen=None):
+    """Recursively build folder/file tree."""
     if seen is None:
         seen = set()
-
-    prefix = "│  " * depth
-    log.debug("%s📂 Scanning: %s", prefix, path)
-
-    node = {
-        "name": path.name if rel else "sounds",
-        "path": rel,
-        "type": "dir",
-        "children": []
-    }
-
-    # Prevent infinite recursion on duplicate / cyclic paths
+    node = {"name": path.name if rel else "sounds", "path": rel, "type": "dir", "children": []}
     real_path = path.resolve()
     if real_path in seen:
-        log.warning("%s⚠️ Skipping already-seen folder: %s", prefix, path)
         return node
     seen.add(real_path)
-
     try:
         entries = sorted(
             [p for p in path.iterdir() if not p.name.startswith(".")],
             key=lambda p: (p.is_file(), p.name.lower())
         )
-    except Exception as e:
-        log.warning("%s❌ Error reading folder %s: %s", prefix, path, e)
+    except Exception:
         return node
-
     for entry in entries:
         rel_child = f"{rel}/{entry.name}" if rel else entry.name
         rel_child = rel_child.replace("\\", "/")
-
-        # Avoid self-referencing or cyclic paths
-        if entry.resolve() == path.resolve():
-            log.warning("%s🔁 Skipping self-reference: %s", prefix, entry)
-            continue
-
-        if entry.is_symlink():
-            log.info("%s⛓️  Skipping symlink: %s", prefix, entry)
-            continue
-
         if entry.is_dir():
-            log.debug("%s→ Entering folder: %s", prefix, entry.name)
-            node["children"].append(build_tree(entry, rel_child, depth + 1, seen))
+            node["children"].append(build_tree(entry, rel_child, seen))
         elif entry.is_file() and is_allowed_file(entry):
             try:
                 size = entry.stat().st_size
             except Exception:
                 size = 0
-            log.debug("%s🎵 File: %s (%.1f KB)", prefix, entry.name, size / 1024)
             node["children"].append({
                 "name": entry.name,
                 "path": rel_child,
                 "type": "file",
                 "size": size
             })
-        else:
-            log.debug("%s🚫 Skipped: %s", prefix, entry.name)
-
-    if depth == 0:
-        log.info("✅ Finished scanning top-level folder: %s", path)
     return node
-
-
 
 def collect_stats(path: Path):
     folder_count, file_count, total_bytes = 0, 0, 0
@@ -235,7 +189,7 @@ def compute_dir_hash(path: Path) -> str:
     for root, _, files in os.walk(path):
         for f in sorted(files):
             fp = Path(root, f)
-            if not is_allowed_file(fp): 
+            if not is_allowed_file(fp):
                 continue
             sha.update(fp.name.encode())
             try:
@@ -244,25 +198,17 @@ def compute_dir_hash(path: Path) -> str:
                 pass
     return sha.hexdigest()
 
-# =====================================================
-# ---------------- BACKGROUND CACHING ----------------
-# =====================================================
 def _background_cache_builder(force=False):
     start = time.time()
-    log.info("🧠 [CacheInit] Starting background cache builder (force=%s)...", force)
     try:
         cur_hash = compute_dir_hash(MEDIA_ROOT)
         if not force and cur_hash == _cache_state.get("last_hash"):
-            log.info("✅ [CacheInit] No changes detected — cache valid.")
             return
         _cache_state["last_hash"] = cur_hash
 
-        log.info("📁 [CacheBuild] Scanning media tree...")
         tree_data = build_tree(MEDIA_ROOT)
         disk_cache_set("tree_root", tree_data)
-        log.info("✅ Tree cache built (%d top-level items)", len(tree_data.get("children", [])))
 
-        log.info("📊 [CacheBuild] Computing stats...")
         folders, files, total = collect_stats(MEDIA_ROOT)
         stats = {
             "folders": folders,
@@ -272,16 +218,13 @@ def _background_cache_builder(force=False):
             "updated_at": int(time.time())
         }
         disk_cache_set("stats", stats)
-        log.info("✅ Stats: %d files, %d folders, %s total", files, folders, human_size(total))
 
-        log.info("🎵 [CacheBuild] Collecting playable files...")
         filelist = all_playables()
         disk_cache_set("files", filelist)
-        log.info("✅ Playables cached (%d items)", len(filelist))
 
-        log.info("🟢 [CacheInit] Build complete in %.2fs", time.time() - start)
+        log.info("✅ Cache rebuilt in %.2fs", time.time() - start)
     except Exception as e:
-        log.exception("❌ [CacheInit] Builder failed: %s", e)
+        log.exception("[CacheInit] Builder failed: %s", e)
 
 def _launch_background_cache_builder(block=False):
     if block:
@@ -289,9 +232,6 @@ def _launch_background_cache_builder(block=False):
     else:
         threading.Thread(target=_background_cache_builder, daemon=True).start()
 
-# =====================================================
-# ---------------- AUTO WATCHER ----------------
-# =====================================================
 _cache_watcher_started = False
 
 @wavebox_bp.before_app_request
@@ -300,20 +240,16 @@ def _init_cache_watcher():
     if _cache_watcher_started:
         return
     _cache_watcher_started = True
-    log.info("⚙️ [CacheInit] Launching background cache builder + watcher...")
     _launch_background_cache_builder()
-
     def watch_loop():
         while True:
             time.sleep(300)
             try:
                 new_hash = compute_dir_hash(MEDIA_ROOT)
                 if new_hash != _cache_state.get("last_hash"):
-                    log.info("♻️ [CacheWatch] Media changed — rebuilding cache.")
                     _background_cache_builder(force=True)
             except Exception as e:
                 log.warning("[CacheWatch] Error: %s", e)
-
     threading.Thread(target=watch_loop, daemon=True).start()
 
 # =====================================================
@@ -325,47 +261,22 @@ def index():
 
 @wavebox_bp.get("/api/tree")
 def api_tree():
-    """
-    Return the folder tree for a given path — fast and cache-friendly.
-    Uses the disk cache if present, only rescans when missing.
-    """
     rel = (request.args.get("path") or "").strip()
-    log.info("🌲 [API TREE] Request for path=%r", rel)
-
     cache_key = f"tree_{rel or 'root'}"
     cached = disk_cache_get(cache_key)
-
-    # ✅ Serve directly from cache if available
     if cached:
-        log.info("⚡ [API TREE] Served from cache: %s", cache_key)
         return jsonify(cached)
-
-    # --- Only rebuild if missing ---
     path = (MEDIA_ROOT / rel).resolve()
-    if not str(path).startswith(str(MEDIA_ROOT)):
-        log.warning("🚫 [API TREE] Blocked invalid path: %s", rel)
+    if not str(path).startswith(str(MEDIA_ROOT)) or not path.exists():
         return jsonify({"name": "invalid", "path": rel, "type": "dir", "children": []})
-
-    if not path.exists() or not path.is_dir():
-        log.warning("⚠️ [API TREE] Nonexistent folder: %s", rel)
-        return jsonify({"name": "missing", "path": rel, "type": "dir", "children": []})
-
-    start = time.time()
-    log.info("📁 [API TREE] Rebuilding folder tree for '%s'...", rel or "root")
     data = build_tree(path, rel)
     disk_cache_set(cache_key, data)
-    elapsed = time.time() - start
-    log.info("✅ [API TREE] Built tree for '%s' in %.2fs (cached)", rel or "root", elapsed)
-
     return jsonify(data)
-
-
 
 @wavebox_bp.get("/api/stats")
 def api_stats():
     data = disk_cache_get("stats")
     if not data:
-        log.info("⚙️ [API] Stats cache missing — building synchronously.")
         _launch_background_cache_builder(block=True)
         data = disk_cache_get("stats")
     return jsonify(data or {"ok": False, "error": "Cache unavailable"})
@@ -374,57 +285,11 @@ def api_stats():
 def api_random():
     filelist = disk_cache_get("files")
     if not filelist:
-        log.info("⚙️ [API] Files cache missing — rebuilding synchronously.")
         _launch_background_cache_builder(block=True)
         filelist = disk_cache_get("files")
     if not filelist:
         return jsonify({"ok": False, "error": "No files"}), 404
     return jsonify({"ok": True, "path": random.choice(filelist)})
-
-@wavebox_bp.get("/api/cache-status")
-def cache_status():
-    """Debug info"""
-    return jsonify({
-        "last_hash": _cache_state.get("last_hash"),
-        "tree_cached": _cache_path_for("tree_root").exists(),
-        "stats_cached": _cache_path_for("stats").exists(),
-        "files_cached": _cache_path_for("files").exists(),
-        "media_root": str(MEDIA_ROOT),
-        "cache_dir": str(CACHE_DIR),
-    })
-    
-@wavebox_bp.get("/api/debug/tree")
-def debug_tree():
-    """Logs the full folder tree structure to the console and returns success."""
-    log.info("🪵 [Debug] Building folder tree for manual inspection...")
-    data = build_tree(MEDIA_ROOT)
-    pretty = pprint.pformat(data, indent=2, width=100)
-    log.info("=== BEGIN TREE STRUCTURE ===\n%s\n=== END TREE STRUCTURE ===", pretty)
-    return jsonify({"ok": True, "message": "Tree structure printed to console."})
-
-@wavebox_bp.get("/api/debug/files")
-def debug_files():
-    """Show all playable file paths in cache or directly scanned."""
-    log.info("🪵 [Debug] Listing all playable files...")
-    files = all_playables()
-    for f in files:
-        log.info("🎵 %s", f)
-    return jsonify({"ok": True, "count": len(files), "files": files[:50]})  # limit for sanity
-
-@wavebox_bp.get("/api/debug/stats")
-def debug_stats():
-    """Force stats rebuild and print result."""
-    log.info("🧾 [Debug] Rebuilding media stats manually...")
-    folders, files, total = collect_stats(MEDIA_ROOT)
-    human = human_size(total)
-    log.info("📊 Folders: %d | Files: %d | Total: %s", folders, files, human)
-    return jsonify({
-        "ok": True,
-        "folders": folders,
-        "files": files,
-        "size": human,
-        "updated_at": int(time.time())
-    })
 
 # =====================================================
 # ---------------- MEDIA / STREAMING ----------------
@@ -432,25 +297,17 @@ def debug_stats():
 def transcode_stream(src: Path, normalize: bool, target: str):
     if not ffmpeg_exists():
         return None, None
-    if target == "opus":
-        codec, fmt, mime = "libopus", "ogg", "audio/ogg"
-    else:
-        codec, fmt, mime = "libmp3lame", "mp3", "audio/mpeg"
-
+    codec, fmt, mime = ("libopus", "ogg", "audio/ogg") if target == "opus" else ("libmp3lame", "mp3", "audio/mpeg")
     filters = []
-    if RESAMPLE_HZ:
-        filters.append(f"aresample={RESAMPLE_HZ}")
-    if normalize:
-        filters.append("loudnorm=I=-16:LRA=11:TP=-1.5")
+    if RESAMPLE_HZ: filters.append(f"aresample={RESAMPLE_HZ}")
+    if normalize:   filters.append("loudnorm=I=-16:LRA=11:TP=-1.5")
     af = ",".join(filters) or "anull"
-
     cmd = [
         FFMPEG_BIN, "-v", "error", "-nostdin",
         "-i", str(src), "-vn", "-ac", "2", "-af", af,
         "-c:a", codec, "-b:a", TRANSCODE_BITRATE, "-f", fmt, "pipe:1"
     ]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=65536)
-
     def generate():
         try:
             while chunk := proc.stdout.read(65536):
@@ -458,7 +315,6 @@ def transcode_stream(src: Path, normalize: bool, target: str):
         finally:
             if proc.poll() is None:
                 proc.kill()
-
     return stream_with_context(generate()), mime
 
 @wavebox_bp.get("/media/<path:relpath>")
@@ -466,7 +322,11 @@ def media(relpath):
     p = safe_join_media(relpath)
     if not p.exists() or not is_allowed_file(p):
         abort(404)
-    return send_file(p, mimetype=mimetypes.guess_type(p.name)[0] or "application/octet-stream", conditional=True)
+    return send_file(
+        p,
+        mimetype=mimetypes.guess_type(p.name)[0] or "application/octet-stream",
+        conditional=True
+    )
 
 @wavebox_bp.get("/stream/<path:relpath>")
 def stream(relpath):
@@ -488,7 +348,7 @@ def stream(relpath):
     return resp
 
 # =====================================================
-# ---------------- UPLOAD HANDLING ----------------
+# ---------------- UPLOAD SYSTEM ----------------
 # =====================================================
 def _load_upload_log():
     if UPLOAD_LOG.exists():
@@ -514,97 +374,126 @@ def is_owner():
 @wavebox_bp.post("/api/upload")
 def api_upload():
     """
-    Accepts a recorded audio file and stores it in
-    data/recorded/<exact relative path>. Always saved as .mp3.
-    Example:
-      path=vo/astro/astro_allies_lasso_kill_01.mp3
-      -> data/recorded/vo/astro/astro_allies_lasso_kill_01.mp3
+    Accepts a recorded audio file and stores it under data/recorded/<path>. Always saved as .mp3.
+    Expects form fields:
+      - file: the uploaded blob
+      - path: e.g. 'vo/astro/line_01.mp3' (the canonical final path within sounds/)
     """
     file = request.files.get("file")
     relpath = (request.form.get("path") or "").strip().replace("\\", "/").lower()
-
     if not file or not relpath:
         return jsonify({"ok": False, "error": "Missing file or path"}), 400
 
-    # Split the path cleanly
     rel = Path(relpath)
-    rel_dir = rel.parent  # vo/astro
-    filename = rel.stem + ".mp3"  # astro_allies_lasso_kill_01.mp3
+    rel_dir = rel.parent
+    filename = rel.stem + ".mp3"
 
-    # Compute final save dir and path
     save_dir = (RECORDED_ROOT / rel_dir).resolve()
     save_path = save_dir / filename
 
-    # Security check
     if not str(save_dir).startswith(str(RECORDED_ROOT)):
         return jsonify({"ok": False, "error": "Invalid path"}), 400
 
-    # Ensure directory exists
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    # Prevent overwriting existing
     if save_path.exists():
         return jsonify({"ok": False, "error": "Recording already exists"}), 409
 
-    # Save temporarily
     temp_path = save_dir / f"__temp__{secure_filename(file.filename)}"
     file.save(temp_path)
 
-    # Validate allowed type
     if temp_path.suffix.lower() not in (".webm", ".wav", ".mp3"):
         temp_path.unlink(missing_ok=True)
         return jsonify({"ok": False, "error": "Unsupported file type"}), 400
 
-    # Convert or rename to MP3
     try:
         if temp_path.suffix.lower() != ".mp3":
             subprocess.run(
-                [
-                    "ffmpeg", "-y", "-i", str(temp_path),
-                    "-vn", "-ac", "2", "-ar", "44100",
-                    "-b:a", "192k", "-f", "mp3", str(save_path)
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True,
+                ["ffmpeg", "-y", "-i", str(temp_path), "-vn", "-ac", "2", "-ar", "44100", "-b:a", "192k", "-f", "mp3", str(save_path)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
             )
             temp_path.unlink(missing_ok=True)
         else:
             temp_path.rename(save_path)
-
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         temp_path.unlink(missing_ok=True)
-        log.error("❌ [Upload] Conversion failed: %s", e)
         return jsonify({"ok": False, "error": "Conversion failed"}), 500
 
-    # Log entry
     log_data = _load_upload_log()
     user = get_current_user() or {"id": "unknown", "name": "anonymous"}
     entry = {
         "user": user,
         "filename": save_path.name,
-        "path": relpath,
-        "saved_to": str(save_path.relative_to(RECORDED_ROOT)),
+        "path": relpath,  # canonical path in sounds/
+        "saved_to": str(save_path.relative_to(RECORDED_ROOT)),  # relative path within recorded/
         "timestamp": int(time.time()),
         "status": "pending"
     }
     log_data[str(time.time())] = entry
     _save_upload_log(log_data)
 
-    log.info("📤 [Upload] Saved new recording: %s (%s)", save_path, user)
     return jsonify({"ok": True, "entry": entry})
 
-@wavebox_bp.get("/dev")
-def dev_dashboard():
+@wavebox_bp.post("/api/accept")
+def api_accept():
+    """
+    Locks a pending recording into the final sounds library.
+    Moves data/recorded/<rel> -> static/sounds/<rel>, marks status=accepted, sets accepted_at.
+    Body JSON: { "id": "<upload-log-key>" }
+    """
     if not is_owner():
         abort(403)
+
+    data = request.get_json(silent=True) or {}
+    target_id = data.get("id")
+    if not target_id:
+        return jsonify({"ok": False, "error": "Missing id"}), 400
+
     uploads = _load_upload_log()
-    return render_template("sounds_dev.html", uploads=uploads)
+    entry = uploads.get(target_id)
+    if not entry:
+        return jsonify({"ok": False, "error": "Upload not found"}), 404
+
+    if entry.get("status") == "accepted":
+        return jsonify({"ok": False, "error": "Already accepted"}), 409
+
+    rel = entry.get("saved_to")
+    if not rel:
+        return jsonify({"ok": False, "error": "Invalid log entry"}), 400
+
+    src_path = RECORDED_ROOT / rel
+    if not src_path.exists():
+        return jsonify({"ok": False, "error": "Source file missing"}), 404
+
+    dest_path = MEDIA_ROOT / rel
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        shutil.move(str(src_path), str(dest_path))
+    except Exception as e:
+        log.error("[Accept] Failed move %s -> %s: %s", src_path, dest_path, e)
+        return jsonify({"ok": False, "error": "Move failed"}), 500
+
+    entry["status"] = "accepted"
+    entry["accepted_at"] = int(time.time())
+    entry["final_path"] = str(dest_path.relative_to(MEDIA_ROOT))
+    uploads[target_id] = entry
+    _save_upload_log(uploads)
+
+    # refresh caches
+    threading.Thread(target=_background_cache_builder, kwargs={"force": True}, daemon=True).start()
+
+    return jsonify({"ok": True, "entry": entry, "message": f"File locked in: {entry['final_path']}"})
 
 @wavebox_bp.post("/api/reject")
 def api_reject():
+    """
+    Rejects and deletes a pending recording from data/recorded and removes it from the log.
+    Body JSON: { "id": "<upload-log-key>" }
+    """
     if not is_owner():
         abort(403)
+
     data = request.get_json(silent=True) or {}
     target_id = data.get("id")
     if not target_id:
@@ -621,34 +510,87 @@ def api_reject():
         try:
             if p.exists():
                 p.unlink()
-                log.info("🗑️ [Reject] Deleted rejected recording: %s", p)
         except Exception as e:
-            log.warning("[Reject] Could not delete: %s", e)
+            log.warning("[Reject] Could not delete %s: %s", p, e)
 
-    # remove entry completely
     uploads.pop(target_id, None)
     _save_upload_log(uploads)
-    return jsonify({"ok": True, "removed": target_id})
 
+    return jsonify({"ok": True, "removed": target_id})
 
 @wavebox_bp.get("/api/exists")
 def api_exists():
-    """Check if a recorded version of a given file already exists."""
+    """
+    Check the status of a canonical line path within sounds/.
+    Query: ?path=vo/astro/line_01.mp3
+    Returns: { status: "missing" | "pending" | "accepted", accepted_at?: int, ... }
+    """
     rel = (request.args.get("path") or "").strip()
     if not rel:
         return jsonify({"ok": False, "error": "Missing path"}), 400
+    rel = rel.replace("\\", "/")
 
-    p = (RECORDED_ROOT / rel).resolve()
-    if not str(p).startswith(str(RECORDED_ROOT)):
-        return jsonify({"ok": False, "error": "Invalid path"}), 400
+    # Final (accepted) exists under static/sounds
+    final_path = (MEDIA_ROOT / rel).resolve()
+    if str(final_path).startswith(str(MEDIA_ROOT)) and final_path.exists():
+        # Try to fetch accepted_at from log
+        uploads = _load_upload_log()
+        for entry in uploads.values():
+            if entry.get("status") == "accepted" and entry.get("final_path") == rel:
+                return jsonify({
+                    "ok": True,
+                    "exists": True,
+                    "status": "accepted",
+                    "accepted_at": entry.get("accepted_at"),
+                    "path": rel
+                })
+        # Fallback without timestamp (e.g., historical file)
+        return jsonify({
+            "ok": True,
+            "exists": True,
+            "status": "accepted",
+            "path": rel
+        })
 
-    exists = p.exists()
-    return jsonify({"ok": True, "exists": exists})
+    # Pending exists under data/recorded
+    recorded_path = (RECORDED_ROOT / rel).resolve()
+    if str(recorded_path).startswith(str(RECORDED_ROOT)) and recorded_path.exists():
+        uploads = _load_upload_log()
+        for entry in uploads.values():
+            if entry.get("saved_to") == rel:
+                return jsonify({
+                    "ok": True,
+                    "exists": True,
+                    "status": entry.get("status", "pending"),
+                    "uploader": entry.get("user"),
+                    "timestamp": entry.get("timestamp"),
+                    "path": rel
+                })
+        return jsonify({
+            "ok": True,
+            "exists": True,
+            "status": "pending",
+            "path": rel
+        })
 
+    # Nothing exists yet
+    return jsonify({
+        "ok": True,
+        "exists": False,
+        "status": "missing",
+        "path": rel
+    })
 
 # =====================================================
-# ---------------- USER + ERRORS ----------------
+# ---------------- DEV DASHBOARD + USER ----------------
 # =====================================================
+@wavebox_bp.get("/dev")
+def dev_dashboard():
+    if not is_owner():
+        abort(403)
+    uploads = _load_upload_log()
+    return render_template("sounds_dev.html", uploads=uploads)
+
 @wavebox_bp.get("/api/me")
 def api_me():
     user = get_current_user()
@@ -656,6 +598,9 @@ def api_me():
         return jsonify({"ok": False, "user": None})
     return jsonify({"ok": True, "user": user})
 
+# =====================================================
+# ---------------- ERROR HANDLERS ----------------
+# =====================================================
 @wavebox_bp.errorhandler(404)
 def not_found(e):
     return jsonify({"ok": False, "error": "Not found"}), 404

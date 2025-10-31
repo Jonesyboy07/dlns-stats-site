@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wavebox • Developer Uploads</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dev_styles.css') }}">
+  <style>
+    .btn.accept {
+      background: var(--accent, #1db954);
+      color: white;
+    }
+    .btn.accept:hover {
+      background: #1ed760;
+    }
+    .badge.accepted {
+      background: var(--accent, #1db954);
+      color: #fff;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -49,6 +62,9 @@
             <td>{{ entry.path }}</td>
             <td>
               <span class="badge {{ entry.status }}">{{ entry.status|capitalize }}</span>
+              {% if entry.status == 'accepted' and entry.accepted_at %}
+                <br><small>{{ entry.accepted_at | int | datetime }}</small>
+              {% endif %}
             </td>
             <td>
               <audio controls preload="none">
@@ -56,10 +72,13 @@
               </audio>
             </td>
             <td>
-              {% if entry.status != 'rejected' %}
-              <button class="btn danger" onclick="rejectUpload('{{ uid }}')">Reject</button>
+              {% if entry.status == 'pending' %}
+                <button class="btn accept" onclick="acceptUpload('{{ uid }}')">✅ Accept</button>
+                <button class="btn danger" onclick="rejectUpload('{{ uid }}')">Reject</button>
+              {% elif entry.status == 'accepted' %}
+                <em>Accepted</em>
               {% else %}
-              <em>Rejected</em>
+                <em>Rejected</em>
               {% endif %}
             </td>
           </tr>
@@ -86,6 +105,22 @@
       const data = await res.json();
       if (data.ok) {
         alert("Upload rejected.");
+        location.reload();
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    }
+
+    async function acceptUpload(id) {
+      if (!confirm("Accept and finalize this upload? This will lock it in permanently.")) return;
+      const res = await fetch("/sounds/api/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert("✅ Upload accepted and locked in!");
         location.reload();
       } else {
         alert("Error: " + (data.error || "Unknown error"));

@@ -1,6 +1,6 @@
 # ruff: noqa
 from __future__ import annotations
-import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading
+import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading, shutil
 from pathlib import Path
 from flask import (
     Blueprint, jsonify, send_file, abort, render_template,
@@ -8,6 +8,10 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 from utils.auth import get_current_user
+
+
+
+
 
 # =====================================================
 # ---------------- CONFIGURATION ----------------
@@ -36,6 +40,14 @@ if not log.handlers:
         datefmt="%H:%M:%S",
     )
 log.info("🚀 [Wavebox] Sound system initialized. Awaiting first request to build cache.")
+
+
+FFMPEG_BIN = shutil.which("ffmpeg") or "C:\\ffmpeg\\bin\\ffmpeg.exe"
+if not Path(FFMPEG_BIN).exists():
+    log.warning(f"⚠️ FFmpeg not found at {FFMPEG_BIN}")
+else:
+    log.info(f"🎬 Using FFmpeg: {FFMPEG_BIN}")
+
 
 # =====================================================
 # ---------------- BLUEPRINT ----------------
@@ -113,7 +125,7 @@ def human_size(num: int) -> str:
 
 def ffmpeg_exists():
     try:
-        subprocess.run(["ffmpeg", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([FFMPEG_BIN, "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
     except FileNotFoundError:
         return False
@@ -433,7 +445,7 @@ def transcode_stream(src: Path, normalize: bool, target: str):
     af = ",".join(filters) or "anull"
 
     cmd = [
-        "ffmpeg", "-v", "error", "-nostdin",
+        FFMPEG_BIN, "-v", "error", "-nostdin",
         "-i", str(src), "-vn", "-ac", "2", "-af", af,
         "-c:a", codec, "-b:a", TRANSCODE_BITRATE, "-f", fmt, "pipe:1"
     ]

@@ -436,11 +436,7 @@ def api_upload():
 
 @wavebox_bp.post("/api/accept")
 def api_accept():
-    """
-    Locks a pending recording into the final sounds library.
-    Moves data/recorded/<rel> -> static/sounds/<rel>, marks status=accepted, sets accepted_at.
-    Body JSON: { "id": "<upload-log-key>" }
-    """
+    """Mark an uploaded recording as accepted without moving the file."""
     if not is_owner():
         abort(403)
 
@@ -454,36 +450,23 @@ def api_accept():
     if not entry:
         return jsonify({"ok": False, "error": "Upload not found"}), 404
 
-    if entry.get("status") == "accepted":
-        return jsonify({"ok": False, "error": "Already accepted"}), 409
-
     rel = entry.get("saved_to")
     if not rel:
-        return jsonify({"ok": False, "error": "Invalid log entry"}), 400
+        return jsonify({"ok": False, "error": "Invalid saved path"}), 400
 
-    src_path = RECORDED_ROOT / rel
-    if not src_path.exists():
-        return jsonify({"ok": False, "error": "Source file missing"}), 404
+    # Make sure the recorded file actually exists
+    p = RECORDED_ROOT / rel
+    if not p.exists():
+        return jsonify({"ok": False, "error": "File not found"}), 404
 
-    dest_path = MEDIA_ROOT / rel
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        shutil.move(str(src_path), str(dest_path))
-    except Exception as e:
-        log.error("[Accept] Failed move %s -> %s: %s", src_path, dest_path, e)
-        return jsonify({"ok": False, "error": "Move failed"}), 500
-
+    # Update status only — no move
     entry["status"] = "accepted"
     entry["accepted_at"] = int(time.time())
-    entry["final_path"] = str(dest_path.relative_to(MEDIA_ROOT))
     uploads[target_id] = entry
     _save_upload_log(uploads)
 
-    # refresh caches
-    threading.Thread(target=_background_cache_builder, kwargs={"force": True}, daemon=True).start()
-
-    return jsonify({"ok": True, "entry": entry, "message": f"File locked in: {entry['final_path']}"})
+    log.info("✅ [Accept] Marked as accepted (no move): %s", rel)
+    return jsonify({"ok": True, "entry": entry})
 
 @wavebox_bp.post("/api/reject")
 def api_reject():
@@ -521,40 +504,47 @@ def api_reject():
 @wavebox_bp.get("/api/exists")
 def api_exists():
     """
-    Check the status of a canonical line path within sounds/.
+    Check the status of a canonical line (used by recorder.js).
     Query: ?path=vo/astro/line_01.mp3
-    Returns:
-      {
-        ok: True,
-        exists: bool,
-        status: "missing" | "pending" | "accepted",
-        accepted_at?: int,
-        uploader?: {...},
-        timestamp?: int,
-        path: str
-      }
+    Looks ONLY inside data/recorded/, and reports:
+      - missing: no file yet
+      - pending: uploaded but not accepted
+      - accepted: marked accepted in _uploads.json
     """
     rel = (request.args.get("path") or "").strip()
     if not rel:
         return jsonify({"ok": False, "error": "Missing path"}), 400
-    rel = rel.replace("\\", "/")
+
+    # Normalize (Windows safe)
+    rel = rel.replace("\\", "/").lstrip("/").lower()
+    if not rel.endswith(".mp3"):
+        rel = str(Path(rel).with_suffix(".mp3"))
+
+    # Build absolute path
+    recorded_path = (RECORDED_ROOT / rel).resolve()
+
+    # Prevent traversal
+    if not str(recorded_path).startswith(str(RECORDED_ROOT)):
+        return jsonify({"ok": False, "error": "Invalid path"}), 400
 
     uploads = _load_upload_log()
 
-    # 1️⃣ Check in recorded folder first (pending uploads)
-    recorded_path = (RECORDED_ROOT / rel).resolve()
-    if str(recorded_path).startswith(str(RECORDED_ROOT)) and recorded_path.exists():
+    # ✅ File physically exists in data/recorded/
+    if recorded_path.exists():
+        # Try to enrich from uploads log
         for entry in uploads.values():
-            if entry.get("saved_to") == rel:
+            if str(entry.get("saved_to", "")).lower() == rel:
                 return jsonify({
                     "ok": True,
                     "exists": True,
                     "status": entry.get("status", "pending"),
+                    "accepted_at": entry.get("accepted_at"),
                     "uploader": entry.get("user"),
                     "timestamp": entry.get("timestamp"),
                     "path": rel
                 })
-        # Default to pending if not in log
+
+        # File exists but not logged — treat as pending
         return jsonify({
             "ok": True,
             "exists": True,
@@ -562,33 +552,14 @@ def api_exists():
             "path": rel
         })
 
-    # 2️⃣ Check in final sounds folder (accepted)
-    final_path = (MEDIA_ROOT / rel).resolve()
-    if str(final_path).startswith(str(MEDIA_ROOT)) and final_path.exists():
-        for entry in uploads.values():
-            if entry.get("status") == "accepted" and entry.get("final_path") == rel:
-                return jsonify({
-                    "ok": True,
-                    "exists": True,
-                    "status": "accepted",
-                    "accepted_at": entry.get("accepted_at"),
-                    "path": rel
-                })
-        # Fallback for historical files
-        return jsonify({
-            "ok": True,
-            "exists": True,
-            "status": "accepted",
-            "path": rel
-        })
-
-    # 3️⃣ Nothing exists yet
+    # ❌ File not in data/recorded
     return jsonify({
         "ok": True,
         "exists": False,
         "status": "missing",
         "path": rel
     })
+
 
 # =====================================================
 # ---------------- DEV DASHBOARD + USER ----------------

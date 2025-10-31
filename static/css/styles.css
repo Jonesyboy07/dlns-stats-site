@@ -1,5 +1,13 @@
-/* === Font Import === */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
+/* === Font Import: Colus === */
+@font-face {
+  font-family: 'Colus';
+  src: url('../fonts/Colus-Regular.woff2') format('woff2'),
+       url('../fonts/Colus-Regular.ttf') format('truetype'),
+       url('../fonts/Colus-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* === Root Theme Variables === */
 :root {
@@ -34,7 +42,7 @@ body {
   margin: 0;
   background: linear-gradient(180deg, var(--bg), #0c0c0d 60%, #0a0a0b);
   color: var(--text);
-  font: calc(15px * var(--density)) / 1.55 'Cinzel', ui-serif, Georgia, Times, 'Times New Roman', serif;
+  font: calc(15px * var(--density)) / 1.55 'Colus', ui-serif, Georgia, Times, 'Times New Roman', serif;
   letter-spacing: 0.3px;
 }
 
@@ -70,7 +78,7 @@ body {
   font-weight: 900;
   letter-spacing: 0.5px;
   font-size: 18px;
-  font-family: 'Cinzel', serif;
+  font-family: 'Colus', serif;
 }
 
 .brand .dot {
@@ -106,7 +114,7 @@ body {
   background: transparent;
   color: var(--text);
   font-size: 15px;
-  font-family: 'Cinzel', serif;
+  font-family: 'Colus', serif;
 }
 
 .kbd {
@@ -130,7 +138,7 @@ body {
   font-weight: 800;
   color: #eaeaea;
   transition: transform .06s ease, background .2s ease, box-shadow .2s ease;
-  font-family: 'Cinzel', serif;
+  font-family: 'Colus', serif;
 }
 
 .btn:hover {
@@ -204,7 +212,7 @@ body {
 
 .side-title {
   font-weight: 900;
-  font-family: 'Cinzel', serif;
+  font-family: 'Colus', serif;
 }
 
 /* === Tree View (Enhanced UX) === */
@@ -328,7 +336,7 @@ body {
 .title {
   font-weight: 900;
   font-size: 16px;
-  font-family: 'Cinzel', serif;
+  font-family: 'Colus', serif;
 }
 
 .path {

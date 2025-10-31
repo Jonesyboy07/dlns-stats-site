@@ -435,6 +435,30 @@ def api_upload():
 
     return jsonify({"ok": True, "entry": entry})
 
+@wavebox_bp.get("/recorded/<path:relpath>")
+def recorded_media(relpath):
+    """
+    Serve uploaded recordings for review (admin-only).
+    Files are stored in data/recorded/.
+    """
+    # Require admin / owner access
+    if not is_owner():
+        abort(403)
+
+    relpath = relpath.replace("\\", "/")
+    p = (RECORDED_ROOT / relpath).resolve()
+
+    # Prevent directory traversal
+    if not str(p).startswith(str(RECORDED_ROOT)):
+        abort(403)
+
+    if not p.exists() or not is_allowed_file(p):
+        abort(404)
+
+    mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+    return send_file(p, mimetype=mime, conditional=True)
+
+
 @wavebox_bp.post("/api/accept")
 def api_accept():
     """Mark an uploaded recording as accepted without moving the file."""

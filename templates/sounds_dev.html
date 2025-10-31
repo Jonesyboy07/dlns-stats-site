@@ -17,11 +17,40 @@
       background: var(--accent, #1db954);
       color: #fff;
     }
+    .badge.pending {
+      background: #888;
+      color: #fff;
+    }
+    .badge.rejected {
+      background: #b00020;
+      color: #fff;
+    }
+    audio {
+      width: 220px;
+    }
+    table tr.accepted {
+      background: rgba(29, 185, 84, 0.08);
+    }
+    table tr.pending {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    table tr.rejected {
+      background: rgba(176, 0, 32, 0.1);
+    }
+    footer {
+      text-align: center;
+      color: var(--muted, #aaa);
+      margin-top: 40px;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
   <header>
-    <div class="brand"><div class="dot"></div> <span>Wavebox Dev Panel</span></div>
+    <div class="brand">
+      <div class="dot"></div> 
+      <span>Wavebox Dev Panel</span>
+    </div>
     <div class="actions">
       <a href="/sounds" class="btn">← Back to Library</a>
       <button class="btn accent" id="refreshBtn">🔄 Refresh</button>
@@ -30,7 +59,7 @@
 
   <main>
     <h2>Uploaded Recordings</h2>
-    <p style="color:var(--muted)">Review and manage user-submitted audio files.</p>
+    <p style="color:var(--muted)">Review and manage user-submitted audio files. Only admins can access this page.</p>
 
     {% if uploads %}
       <table>
@@ -55,22 +84,27 @@
                 <em>Unknown</em>
               {% endif %}
             </td>
+
             <td>
               <strong>{{ entry.filename }}</strong><br>
               <span class="meta">{{ entry.timestamp | int | datetime }}</span>
             </td>
+
             <td>{{ entry.path }}</td>
+
             <td>
               <span class="badge {{ entry.status }}">{{ entry.status|capitalize }}</span>
               {% if entry.status == 'accepted' and entry.accepted_at %}
                 <br><small>{{ entry.accepted_at | int | datetime }}</small>
               {% endif %}
             </td>
+
             <td>
               <audio controls preload="none">
-                <source src="{{ url_for('static', filename='../data/recorded/' ~ entry.saved_to) }}" type="audio/mpeg">
+                <source src="{{ url_for('wavebox.recorded_media', relpath=entry.saved_to) }}" type="audio/mpeg">
               </audio>
             </td>
+
             <td>
               {% if entry.status == 'pending' %}
                 <button class="btn accept" onclick="acceptUpload('{{ uid }}')">✅ Accept</button>
@@ -95,8 +129,10 @@
   </footer>
 
   <script>
+    // === Reject Upload ===
     async function rejectUpload(id) {
       if (!confirm("Reject this upload?")) return;
+      console.log("[Wavebox Dev] Rejecting upload:", id);
       const res = await fetch("/sounds/api/reject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,15 +140,19 @@
       });
       const data = await res.json();
       if (data.ok) {
+        console.log("✅ Upload rejected:", id);
         alert("Upload rejected.");
         location.reload();
       } else {
+        console.error("❌ Reject error:", data.error || data);
         alert("Error: " + (data.error || "Unknown error"));
       }
     }
 
+    // === Accept Upload ===
     async function acceptUpload(id) {
       if (!confirm("Accept and finalize this upload? This will lock it in permanently.")) return;
+      console.log("[Wavebox Dev] Accepting upload:", id);
       const res = await fetch("/sounds/api/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,14 +160,20 @@
       });
       const data = await res.json();
       if (data.ok) {
+        console.log("✅ Upload accepted:", id, data.entry);
         alert("✅ Upload accepted and locked in!");
         location.reload();
       } else {
+        console.error("❌ Accept error:", data.error || data);
         alert("Error: " + (data.error || "Unknown error"));
       }
     }
 
-    document.getElementById("refreshBtn").onclick = () => location.reload();
+    // === Refresh ===
+    document.getElementById("refreshBtn").onclick = () => {
+      console.log("[Wavebox Dev] Refreshing page...");
+      location.reload();
+    };
   </script>
 </body>
 </html>

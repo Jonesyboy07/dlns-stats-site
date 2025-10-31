@@ -1,4 +1,4 @@
-// recorder.js — Wavebox Recorder + Visualizer (final enhanced)
+// recorder.js — Wavebox Recorder + Visualizer (with enhanced console logging)
 
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -24,6 +24,17 @@ const statusEl = document.getElementById("recordStatus");
 const recordedAudio = document.getElementById("recordedAudio");
 const levelMeterFill = document.getElementById("levelMeter");
 
+// === Styled Console Logging Helper ===
+function logInfo(msg, ...args) {
+  console.log(`%c🎙️ [Wavebox Recorder]%c ${msg}`, "color:#1db954;font-weight:bold", "color:inherit", ...args);
+}
+function logWarn(msg, ...args) {
+  console.warn(`%c🎙️ [Wavebox Recorder]%c ${msg}`, "color:#e2b93d;font-weight:bold", "color:inherit", ...args);
+}
+function logError(msg, ...args) {
+  console.error(`%c🎙️ [Wavebox Recorder]%c ${msg}`, "color:#ff5555;font-weight:bold", "color:inherit", ...args);
+}
+
 // === Waveform Canvas ===
 const canvas = document.createElement("canvas");
 canvas.width = 400;
@@ -46,12 +57,14 @@ const accentPicker = document.getElementById("accentPicker");
 if (accentPicker) {
   accentPicker.addEventListener("input", (e) => {
     accentColor = e.target.value;
+    logInfo(`Accent color changed to ${accentColor}`);
   });
 }
 
 // === Recorder Panel Toggle ===
 recordToggleBtn.addEventListener("click", () => {
   recordPanel.classList.toggle("visible");
+  logInfo(`Record panel ${recordPanel.classList.contains("visible") ? "opened" : "closed"}.`);
 });
 
 // === Populate Microphones ===
@@ -66,6 +79,7 @@ async function populateMics() {
       opt.textContent = "No microphone found";
       opt.disabled = true;
       micSelect.appendChild(opt);
+      logWarn("No microphones detected.");
       return;
     }
 
@@ -75,8 +89,9 @@ async function populateMics() {
       opt.textContent = mic.label || `Microphone ${mic.deviceId.slice(0, 5)}`;
       micSelect.appendChild(opt);
     }
+    logInfo(`Found ${mics.length} microphone(s).`);
   } catch (err) {
-    console.error("Failed to enumerate devices:", err);
+    logError("Failed to enumerate devices:", err);
   }
 }
 
@@ -122,6 +137,7 @@ function stopWaveform() {
 // === Start Recording ===
 async function startRecording() {
   try {
+    logInfo("Initializing microphone...");
     const constraints = {
       audio: {
         deviceId: micSelect.value ? { exact: micSelect.value } : undefined,
@@ -141,6 +157,7 @@ async function startRecording() {
     mediaRecorder = new MediaRecorder(stream);
     recordedChunks = [];
     statusEl.textContent = "🔴 Recording...";
+    logInfo("Recording started.");
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     levelMeterInterval = setInterval(() => {
@@ -169,6 +186,8 @@ async function startRecording() {
 
       stream.getTracks().forEach((t) => t.stop());
       if (audioCtx) audioCtx.close();
+
+      logInfo("Recording stopped. Blob ready:", audioBlob);
     };
 
     mediaRecorder.start();
@@ -178,7 +197,7 @@ async function startRecording() {
     saveBtn.disabled = true;
     uploadBtn.disabled = true;
   } catch (err) {
-    console.error("Mic error:", err);
+    logError("Microphone error:", err);
     statusEl.textContent = "❌ Unable to access microphone.";
   }
 }
@@ -189,12 +208,16 @@ function stopRecording() {
     mediaRecorder.stop();
     startBtn.disabled = false;
     stopBtn.disabled = true;
+    logInfo("Stopping recording...");
+  } else {
+    logWarn("Stop pressed, but recorder not active.");
   }
 }
 
 // === Playback with Waveform ===
 playBtn.addEventListener("click", async () => {
   if (!recordedAudio.src) return;
+  logInfo("Playing recorded audio...");
   const actx = new AudioContext();
   const src = actx.createMediaElementSource(recordedAudio);
   analyser = actx.createAnalyser();
@@ -206,6 +229,7 @@ playBtn.addEventListener("click", async () => {
   recordedAudio.onended = () => {
     stopWaveform();
     actx.close();
+    logInfo("Playback finished.");
   };
 });
 
@@ -216,6 +240,7 @@ saveBtn.addEventListener("click", () => {
   a.href = URL.createObjectURL(audioBlob);
   a.download = "recording.mp3";
   a.click();
+  logInfo("Recording downloaded.");
 });
 
 // === Upload ===
@@ -225,11 +250,13 @@ uploadBtn.addEventListener("click", async () => {
   const nowPath = document.getElementById("now-path").textContent.trim();
   if (!nowPath || !nowPath.endsWith(".mp3")) {
     statusEl.textContent = "⚠️ No valid audio path selected.";
+    logWarn("Upload aborted: invalid or missing path.");
     return;
   }
 
   const rel = nowPath.replace(/^\/+/, "");
   statusEl.textContent = "⬆️ Uploading...";
+  logInfo(`Uploading recording for path: ${rel}`);
 
   const form = new FormData();
   form.append("file", audioBlob, "recording.webm");
@@ -241,12 +268,14 @@ uploadBtn.addEventListener("click", async () => {
 
     if (data.ok) {
       statusEl.textContent = "✅ Uploaded successfully!";
+      logInfo("Upload success:", data.entry);
       disableRecordingForExisting();
     } else {
       statusEl.textContent = `❌ Upload failed: ${data.error || "Unknown error."}`;
+      logError("Upload failed:", data);
     }
   } catch (err) {
-    console.error("Upload error:", err);
+    logError("Upload network error:", err);
     statusEl.textContent = "❌ Network or server error.";
   }
 });
@@ -257,11 +286,12 @@ async function disableRecordingForExisting() {
   if (!nowPath || !nowPath.endsWith(".mp3")) return;
 
   const rel = nowPath.replace(/^\/+/, "");
+  logInfo(`Checking existence for path: ${rel}`);
   try {
     const res = await fetch(`/sounds/api/exists?path=${encodeURIComponent(rel)}`);
     const data = await res.json();
 
-    if (!data.ok) return;
+    if (!data.ok) return logWarn("Exists check returned not-ok.");
 
     const disableAll = () => {
       startBtn.disabled = true;
@@ -271,7 +301,7 @@ async function disableRecordingForExisting() {
       saveBtn.disabled = true;
     };
 
-    recordPanel.classList.remove("locked");
+    recordPanel.classList.remove("locked", "pending");
 
     if (data.exists && data.status === "accepted") {
       disableAll();
@@ -281,14 +311,16 @@ async function disableRecordingForExisting() {
         : "unknown time";
       statusEl.innerHTML = `✅ <b>Locked In</b> — final version accepted<br><small>${acceptedAt}</small>`;
       statusEl.style.color = "var(--accent)";
+      logInfo(`Line locked in (accepted) at ${acceptedAt}`);
     } else if (data.exists && data.status === "pending") {
       disableAll();
-      recordPanel.classList.remove("locked");
+      recordPanel.classList.add("pending");
       statusEl.textContent = "⚠️ Pending review (already uploaded).";
       statusEl.style.color = "var(--muted, #aaa)";
-    } else if (!data.exists || data.status === "missing") {
+      logInfo("Line already uploaded and pending.");
+    } else {
       // Allow new recording
-      recordPanel.classList.remove("locked");
+      recordPanel.classList.remove("locked", "pending");
       startBtn.disabled = false;
       stopBtn.disabled = true;
       uploadBtn.disabled = true;
@@ -296,9 +328,10 @@ async function disableRecordingForExisting() {
       saveBtn.disabled = true;
       statusEl.textContent = "";
       statusEl.style.color = "";
+      logInfo("Line available for new recording.");
     }
   } catch (err) {
-    console.error("Check exists failed:", err);
+    logError("Exists check failed:", err);
   }
 }
 
@@ -306,8 +339,14 @@ async function disableRecordingForExisting() {
 const observer = new MutationObserver(disableRecordingForExisting);
 observer.observe(document.getElementById("now-path"), { childList: true });
 
+// === Button bindings ===
+startBtn.addEventListener("click", startRecording);
+stopBtn.addEventListener("click", stopRecording);
+
 // === Init ===
 (async function initRecorder() {
+  logInfo("Initializing recorder UI...");
   await populateMics();
   disableRecordingForExisting();
+  logInfo("Recorder ready.");
 })();

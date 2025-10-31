@@ -51,3 +51,5 @@ data/cache
 testing.py
 static/sounds/
 _cache/
+# Ignore uploaded recordings
+data/recorded/

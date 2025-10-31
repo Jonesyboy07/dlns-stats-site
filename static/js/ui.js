@@ -72,7 +72,6 @@ const UI = {
     // Behavior toggles in header
     UI.normalizeToggle.addEventListener("change", () => {
       Player.normalize = UI.normalizeToggle.checked;
-      // re-play current to apply pipeline change
       if (Player.currentIndex >= 0 && Player.currentIndex < Player.currentList.length) {
         Player.playPath(Player.currentList[Player.currentIndex]);
       }
@@ -130,7 +129,9 @@ const UI = {
   },
 
   async refresh() {
-    const rootTree = await API.tree(""); // Load only root folder
+    console.log("🌳 Refreshing root tree...");
+    const rootTree = await API.tree("");
+    console.log("🌳 Root tree loaded:", rootTree);
     UI.renderRoot(rootTree);
     const stats = await API.stats();
     UI.statFolders.textContent = stats.folders;
@@ -148,20 +149,40 @@ const UI = {
     wrap.className = "node";
     const summary = document.createElement("summary");
     summary.className = "folder";
-    summary.innerHTML = `<span style="opacity:.6;width:16px;text-align:center;">▸</span><span class="folder-name">${node.name || "sounds"}</span>`;
-    
+    summary.innerHTML = `
+      <span style="opacity:.6;width:16px;text-align:center;">▸</span>
+      <span class="folder-name">${node.name || "sounds"}</span>
+      <span class="spinner" style="display:none; margin-left:6px;">⏳</span>
+    `;
+
     let loaded = false;
     wrap.addEventListener("toggle", async () => {
-      if (wrap.open && !loaded) {
-        const data = await API.tree(node.path || "");
+      if (!wrap.open || loaded || wrap.dataset.loading === "1") return;
+      wrap.dataset.loading = "1";
+      const spinner = summary.querySelector(".spinner");
+      spinner.style.display = "inline";
+      const path = node.path || "";
+      console.log("📂 Expanding folder:", path);
+
+      try {
+        const data = await API.tree(path);
+        if (!data || !data.children) {
+          console.warn("⚠️ No children for:", path);
+          return;
+        }
         data.children.forEach(ch => {
           if (ch.type === "file") wrap.appendChild(UI._createFileNode(ch));
-          else wrap.appendChild(UI._createFolderNode(ch));
+          else if (ch.path !== path) wrap.appendChild(UI._createFolderNode(ch));
+          else console.warn("🚫 Skipping recursive path:", ch.path);
         });
-        
-        // Update player list
         Player.currentList = UI._collectFiles(UI.treeEl);
         loaded = true;
+        console.log(`✅ Loaded ${data.children.length} items for`, path);
+      } catch (err) {
+        console.error("❌ Failed to load folder:", path, err);
+      } finally {
+        wrap.dataset.loading = "0";
+        spinner.style.display = "none";
       }
     });
 
@@ -228,7 +249,7 @@ const UI = {
       if (r.ok && r.path) Player.playPath(r.path);
       else UI.toast("No audio files found.");
     } catch (e) {
-      Log.error("Random error:", e);
+      console.error("Random error:", e);
       UI.toast("Failed to pick a random track.");
     }
   },

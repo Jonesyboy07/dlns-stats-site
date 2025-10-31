@@ -5,6 +5,71 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wavebox • Audio Library</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    /* === Record Panel Styles === */
+    .record-panel {
+      margin-top: 20px;
+      padding: 20px;
+      border: 1px solid var(--border, #2a2a2a);
+      border-radius: var(--radius, 12px);
+      background: var(--surface, #151515);
+      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .record-panel.visible { display: flex; }
+
+    .record-panel select {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #202020;
+      color: #fff;
+    }
+    .record-panel button {
+      padding: 8px 14px;
+      border: none;
+      background: var(--accent, #1db954);
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .record-panel button:hover { background: #1ed760; }
+
+    .upload-status {
+      font-size: 0.9em;
+      color: var(--muted, #aaa);
+      margin-top: 4px;
+    }
+    .upload-section-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 1.1em;
+      color: var(--accent, #1db954);
+    }
+    .record-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .meter {
+      width: 100%;
+      height: 6px;
+      background: #333;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      background: var(--accent, #1db954);
+      width: 0%;
+      transition: width 0.05s linear;
+    }
+  </style>
 </head>
 <body>
   <!-- Header -->
@@ -15,7 +80,9 @@
         <div class="brand"><div class="dot"></div> <span>Wavebox</span></div>
 
         <div class="search" role="search" aria-label="Search your library">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round"/>
+          </svg>
           <input id="search" placeholder="Search your library… (Ctrl+K)" />
           <span class="kbd">⌘/Ctrl K</span>
         </div>
@@ -38,50 +105,34 @@
   <!-- Settings -->
   <aside class="settings" id="settingsPanel" aria-hidden="true">
     <h3>Appearance</h3>
-    <div class="row">
-      <div>Accent</div>
-      <input type="color" id="accentPicker" value="#1DB954">
-    </div>
-    <div class="row">
-      <div>Surface</div>
-      <input type="color" id="surfacePicker" value="#111214">
-    </div>
-    <div class="row">
-      <div>Rounded corners</div>
-      <input type="range" id="radiusRange" min="8" max="28" step="1" value="16"><span class="mini" id="radiusVal">16</span>
-    </div>
-    <div class="row">
-      <div>Density</div>
-      <input type="range" id="densityRange" min="0.9" max="1.1" step="0.01" value="1"><span class="mini" id="densityVal">1.00</span>
-    </div>
+    <div class="row"><div>Accent</div><input type="color" id="accentPicker" value="#1DB954"></div>
+    <div class="row"><div>Surface</div><input type="color" id="surfacePicker" value="#111214"></div>
+    <div class="row"><div>Rounded corners</div><input type="range" id="radiusRange" min="8" max="28" step="1" value="16"><span class="mini" id="radiusVal">16</span></div>
+    <div class="row"><div>Density</div><input type="range" id="densityRange" min="0.9" max="1.1" step="0.01" value="1"><span class="mini" id="densityVal">1.00</span></div>
     <h3>Behavior</h3>
-    <div class="row">
-      <label class="label">EQ visible by default</label>
-      <input id="eqDefault" class="switch" type="checkbox">
-    </div>
-    <div class="row">
-      <label class="label">Autoplay next</label>
-      <input id="autoplayDefault" class="switch" type="checkbox">
-    </div>
-    <div class="row">
-      <label class="label">Normalize by default</label>
-      <input id="normalizeDefault" class="switch" type="checkbox">
-    </div>
+    <div class="row"><label class="label">EQ visible by default</label><input id="eqDefault" class="switch" type="checkbox"></div>
+    <div class="row"><label class="label">Autoplay next</label><input id="autoplayDefault" class="switch" type="checkbox"></div>
+    <div class="row"><label class="label">Normalize by default</label><input id="normalizeDefault" class="switch" type="checkbox"></div>
   </aside>
 
-  <!-- Mobile drawer backdrop -->
   <div class="backdrop" id="backdrop"></div>
 
   <!-- Main Shell -->
   <main class="wrap mainwrap">
     <section class="shell">
-      <!-- Sidebar / Library -->
+      <!-- Sidebar -->
       <aside class="sidebar" id="sidebar" aria-label="Library">
         <div class="side-head">
           <div class="side-title">Your Library</div>
-          <div class="mini" style="color:var(--muted)"><span id="stat-files">0</span> files · <span id="stat-folders">0</span> folders · <span id="stat-size">0 B</span></div>
+          <div class="mini" style="color:var(--muted)">
+            <span id="stat-files">0</span> files · <span id="stat-folders">0</span> folders · <span id="stat-size">0 B</span>
+          </div>
         </div>
         <nav class="tree" id="tree" aria-label="Folders and files"></nav>
+
+        <hr style="border-color:#333;margin:12px 0;">
+        <div class="side-title" style="color:var(--accent)">Record & Upload</div>
+        <button id="recordToggleBtn" class="btn" style="margin-top:8px;width:100%;display:none;">🎙️ Open Recorder</button>
       </aside>
 
       <!-- Content -->
@@ -102,12 +153,6 @@
             <button class="btn" id="btn-next">⏭ Next</button>
           </div>
 
-          <!-- Floating FABs (mobile) -->
-          <div class="ctrls-floating">
-            <button class="fab" id="fab-play" aria-label="Play or pause">▶</button>
-            <button class="fab secondary" id="fab-random" aria-label="Play random">🎲</button>
-          </div>
-
           <div class="eq-wrap">
             <div class="eq-header">
               <div style="color:var(--muted)">Visualizer</div>
@@ -120,6 +165,34 @@
               Shortcuts: Space = Play/Pause · N/P = Next/Prev · R = Random
             </div>
           </div>
+
+          <!-- === Record Panel === -->
+          <div class="record-panel" id="recordPanel">
+            <div class="upload-section-title">🎙️ Record a Response</div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <label>Microphone:
+                <select id="micSelect"></select>
+              </label>
+              <label style="display:flex; align-items:center; gap:6px;">
+                <input type="checkbox" id="noiseSuppressionToggle" checked>
+                Noise Suppression
+              </label>
+            </div>
+
+            <div class="record-controls">
+              <button id="recordStartBtn" class="btn accent">⏺ Start</button>
+              <button id="recordStopBtn" class="btn" disabled>⏹ Stop</button>
+              <button id="recordPlayBtn" class="btn" disabled>▶️ Play</button>
+              <button id="recordSaveBtn" class="btn" disabled>💾 Download</button>
+              <button id="recordUploadBtn" class="btn" disabled>⬆️ Upload</button>
+            </div>
+
+            <div class="meter"><div class="meter-fill" id="levelMeter"></div></div>
+
+            <audio id="recordedAudio" controls style="margin-top:10px; display:none;"></audio>
+            <div class="upload-status" id="recordStatus"></div>
+          </div>
         </div>
       </section>
     </section>
@@ -128,20 +201,13 @@
   <!-- Player -->
   <footer class="player" aria-label="Player">
     <div class="wrap">
-      <div class="track-mini">
-        <div class="dot"></div>
-        <div class="name" id="mini-name">—</div>
-      </div>
+      <div class="track-mini"><div class="dot"></div><div class="name" id="mini-name">—</div></div>
       <div class="controls">
-        <button class="btn" id="p-play" aria-label="Play/Pause">▶︎</button>
-        <button class="btn" id="p-stop" aria-label="Stop">■</button>
-        <input class="range" id="volume" type="range" min="0" max="1" step="0.01" value="1" title="Volume" />
+        <button class="btn" id="p-play">▶︎</button>
+        <button class="btn" id="p-stop">■</button>
+        <input class="range" id="volume" type="range" min="0" max="1" step="0.01" value="1" />
       </div>
-      <div class="progress">
-        <span id="cur" class="path">0:00</span>
-        <div class="bar" id="seek"><div class="fill" id="fill"></div></div>
-        <span id="dur" class="path">0:00</span>
-      </div>
+      <div class="progress"><span id="cur" class="path">0:00</span><div class="bar" id="seek"><div class="fill" id="fill"></div></div><span id="dur" class="path">0:00</span></div>
     </div>
   </footer>
 
@@ -154,5 +220,19 @@
   <script src="{{ url_for('static', filename='js/viz.js') }}"></script>
   <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+
+  <script>
+    // === Auth Check for Recorder Visibility ===
+    (async () => {
+      try {
+        const res = await fetch('/sounds/api/me');
+        const data = await res.json();
+        if (data.ok && data.user) {
+          document.getElementById('recordToggleBtn').style.display = 'block';
+        }
+      } catch {}
+    })();
+  </script>
 </body>
 </html>

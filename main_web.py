@@ -296,6 +296,15 @@ def create_app() -> Flask:
     @app.context_processor
     def inject_helpers():
         return dict(get_hero_name=get_hero_name)
+    
+    @app.template_filter("datetime")
+    def format_datetime(value):
+        try:
+            ts = int(value)
+            return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            return "-"
+
 
     def _abs(url_path: str) -> str:
         base = app.config['BASE_URL'].rstrip('/')

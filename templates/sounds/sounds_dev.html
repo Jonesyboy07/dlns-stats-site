@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wavebox • Developer Uploads</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dev_styles.css') }}">
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="dot"></div> <span>Wavebox Dev Panel</span></div>
+    <div class="actions">
+      <a href="/sounds" class="btn">← Back to Library</a>
+      <button class="btn accent" id="refreshBtn">🔄 Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <h2>Uploaded Recordings</h2>
+    <p style="color:var(--muted)">Review and manage user-submitted audio files.</p>
+
+    {% if uploads %}
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>File</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>Preview</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for uid, entry in uploads.items()|sort(reverse=True) %}
+          <tr class="{{ entry.status }}">
+            <td>
+              {% if entry.user %}
+                <strong>{{ entry.user.username or entry.user.name }}</strong><br>
+                <span class="meta">{{ entry.user.id }}</span>
+              {% else %}
+                <em>Unknown</em>
+              {% endif %}
+            </td>
+            <td>
+              <strong>{{ entry.filename }}</strong><br>
+              <span class="meta">{{ entry.timestamp | int | datetime }}</span>
+            </td>
+            <td>{{ entry.path }}</td>
+            <td>
+              <span class="badge {{ entry.status }}">{{ entry.status|capitalize }}</span>
+            </td>
+            <td>
+              <audio controls preload="none">
+                <source src="{{ url_for('static', filename='../data/recorded/' ~ entry.saved_to) }}" type="audio/mpeg">
+              </audio>
+            </td>
+            <td>
+              {% if entry.status != 'rejected' %}
+              <button class="btn danger" onclick="rejectUpload('{{ uid }}')">Reject</button>
+              {% else %}
+              <em>Rejected</em>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No uploads yet.</p>
+    {% endif %}
+  </main>
+
+  <footer>
+    Wavebox Developer Dashboard • {{ uploads|length }} uploads total
+  </footer>
+
+  <script>
+    async function rejectUpload(id) {
+      if (!confirm("Reject this upload?")) return;
+      const res = await fetch("/sounds/api/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert("Upload rejected.");
+        location.reload();
+      } else {
+        alert("Error: " + (data.error || "Unknown error"));
+      }
+    }
+
+    document.getElementById("refreshBtn").onclick = () => location.reload();
+  </script>
+</body>
+</html>

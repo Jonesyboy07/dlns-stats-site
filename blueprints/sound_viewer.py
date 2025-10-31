@@ -424,11 +424,12 @@ def api_upload():
     entry = {
         "user": user,
         "filename": save_path.name,
-        "path": relpath,  # canonical path in sounds/
-        "saved_to": str(save_path.relative_to(RECORDED_ROOT)),  # relative path within recorded/
+        "path": relpath.replace("\\", "/"),  # canonical path
+        "saved_to": str(save_path.relative_to(RECORDED_ROOT)).replace("\\", "/"),  # normalize for URLs
         "timestamp": int(time.time()),
         "status": "pending"
     }
+
     log_data[str(time.time())] = entry
     _save_upload_log(log_data)
 

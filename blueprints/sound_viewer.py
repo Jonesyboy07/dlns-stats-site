@@ -523,39 +523,27 @@ def api_exists():
     """
     Check the status of a canonical line path within sounds/.
     Query: ?path=vo/astro/line_01.mp3
-    Returns: { status: "missing" | "pending" | "accepted", accepted_at?: int, ... }
+    Returns:
+      {
+        ok: True,
+        exists: bool,
+        status: "missing" | "pending" | "accepted",
+        accepted_at?: int,
+        uploader?: {...},
+        timestamp?: int,
+        path: str
+      }
     """
     rel = (request.args.get("path") or "").strip()
     if not rel:
         return jsonify({"ok": False, "error": "Missing path"}), 400
     rel = rel.replace("\\", "/")
 
-    # Final (accepted) exists under static/sounds
-    final_path = (MEDIA_ROOT / rel).resolve()
-    if str(final_path).startswith(str(MEDIA_ROOT)) and final_path.exists():
-        # Try to fetch accepted_at from log
-        uploads = _load_upload_log()
-        for entry in uploads.values():
-            if entry.get("status") == "accepted" and entry.get("final_path") == rel:
-                return jsonify({
-                    "ok": True,
-                    "exists": True,
-                    "status": "accepted",
-                    "accepted_at": entry.get("accepted_at"),
-                    "path": rel
-                })
-        # Fallback without timestamp (e.g., historical file)
-        return jsonify({
-            "ok": True,
-            "exists": True,
-            "status": "accepted",
-            "path": rel
-        })
+    uploads = _load_upload_log()
 
-    # Pending exists under data/recorded
+    # 1️⃣ Check in recorded folder first (pending uploads)
     recorded_path = (RECORDED_ROOT / rel).resolve()
     if str(recorded_path).startswith(str(RECORDED_ROOT)) and recorded_path.exists():
-        uploads = _load_upload_log()
         for entry in uploads.values():
             if entry.get("saved_to") == rel:
                 return jsonify({
@@ -566,6 +554,7 @@ def api_exists():
                     "timestamp": entry.get("timestamp"),
                     "path": rel
                 })
+        # Default to pending if not in log
         return jsonify({
             "ok": True,
             "exists": True,
@@ -573,7 +562,27 @@ def api_exists():
             "path": rel
         })
 
-    # Nothing exists yet
+    # 2️⃣ Check in final sounds folder (accepted)
+    final_path = (MEDIA_ROOT / rel).resolve()
+    if str(final_path).startswith(str(MEDIA_ROOT)) and final_path.exists():
+        for entry in uploads.values():
+            if entry.get("status") == "accepted" and entry.get("final_path") == rel:
+                return jsonify({
+                    "ok": True,
+                    "exists": True,
+                    "status": "accepted",
+                    "accepted_at": entry.get("accepted_at"),
+                    "path": rel
+                })
+        # Fallback for historical files
+        return jsonify({
+            "ok": True,
+            "exists": True,
+            "status": "accepted",
+            "path": rel
+        })
+
+    # 3️⃣ Nothing exists yet
     return jsonify({
         "ok": True,
         "exists": False,

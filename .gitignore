@@ -52,3 +52,7 @@ static/sounds/
 _cache/
 # Ignore uploaded recordings
 data/recorded/
+
+# Ignore Filehub
+data/filehub/
+filehub/

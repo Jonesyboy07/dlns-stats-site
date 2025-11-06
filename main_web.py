@@ -28,6 +28,7 @@ from blueprints.onelane import onelane_bp
 from blueprints.gluten import gluten_bp
 from blueprints.ChatVTwitch import chat_bp
 from blueprints.sound_viewer import wavebox_bp
+from blueprints.filehub import filehub_bp
 
 
 def create_app() -> Flask:
@@ -108,6 +109,7 @@ def create_app() -> Flask:
     app.register_blueprint(gluten_bp) 
     app.register_blueprint(chat_bp)
     app.register_blueprint(wavebox_bp)
+    app.register_blueprint(filehub_bp)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

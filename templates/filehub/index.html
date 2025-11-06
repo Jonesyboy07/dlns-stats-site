@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FileHub Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/filehub.css') }}">
+</head>
+<body>
+  <header>Welcome to FileHub</header>
+
+  <main class="fade-in">
+    <h2>Hello, {{ user_id }}</h2>
+
+    <div class="quota">
+      <h3>Storage Summary</h3>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {{ percent }}%;"></div>
+      </div>
+      <small>{{ (used / (1024*1024))|round(1) }} MB of {{ (max_storage / (1024*1024))|round(1) }} MB used</small>
+    </div>
+
+    <a href="{{ url_for('filehub.view_owner', owner_id=user_id) }}" class="btn">Go to My FileHub</a>
+  </main>
+
+  <footer>
+    <p>© {{ datetime.utcnow().year }} FileHub</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload File - FileHub</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/filehub.css') }}">
+</head>
+<body>
+  <header>Upload to FileHub</header>
+
+  <main class="fade-in">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="fade-in">
+      <h2>Upload File</h2>
+      <p style="color:#94a3b8; margin-bottom:1.5rem;">
+        Select a file to upload (max 500 MB). Drag & drop also works!
+      </p>
+
+      <form id="upload-form" method="post" enctype="multipart/form-data" action="{{ url_for('filehub.upload', owner_id=owner_id) }}">
+        <div id="drop-zone" class="drop-zone">
+          <p>Drag & Drop your file here<br><small>or click to browse</small></p>
+          <input type="file" name="file" id="file-input" required>
+        </div>
+        <button type="submit" class="btn" style="margin-top:1rem;">Upload</button>
+      </form>
+
+      <div id="uploading" class="uploading">
+        <p>Uploading...</p>
+        <div class="upload-bar" id="upload-bar"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© {{ datetime.utcnow().year }} FileHub • Secure Upload</p>
+  </footer>
+
+  <script>
+    // Smooth upload progress
+    const form = document.getElementById('upload-form');
+    const uploadBar = document.getElementById('upload-bar');
+    const uploading = document.getElementById('uploading');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action, true);
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percent = (event.loaded / event.total) * 100;
+          uploadBar.style.width = percent + '%';
+        }
+      });
+
+      xhr.onloadstart = () => {
+        uploading.classList.add('active');
+        uploadBar.style.width = '0%';
+      };
+
+      xhr.onloadend = () => {
+        setTimeout(() => {
+          location.href = "{{ url_for('filehub.view_owner', owner_id=owner_id) }}";
+        }, 1000);
+      };
+
+      xhr.send(formData);
+    });
+
+    // Drag-and-drop upload
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('hover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('hover');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('hover');
+      fileInput.files = e.dataTransfer.files;
+    });
+  </script>
+</body>
+</html>

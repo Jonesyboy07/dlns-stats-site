@@ -56,3 +56,6 @@ data/recorded/
 # Ignore Filehub
 data/filehub/
 /filehub/
+/temp
+/static/mods
+/instance

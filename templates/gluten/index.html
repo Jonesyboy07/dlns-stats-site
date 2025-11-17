@@ -1,142 +1,91 @@
 {% extends "base.html" %}
-
-{% block title %}Gluten Mod • DLNS Stats{% endblock %}
+{% block title %}Deadlock Mods{% endblock %}
 
 {% block content %}
-<section class="card">
-    <header>
-        <h1>
-            <span style="color: #10b981; margin-right: 0.5rem;" aria-hidden="true">🎮</span>
-            Gluten Mod
-        </h1>
-        <p class="muted">Modpack used for GlutenSnake video(s).</p>
-    </header>
+<section class="container">
 
-    <!-- Admin upload section -->
-    {% if can_upload %}
-    <div style="margin: 2rem 0; padding: 1.5rem; background: color-mix(in oklab, #10b981 8%, transparent); border-radius: 8px; border: 1px solid color-mix(in oklab, #10b981 20%, transparent);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h3 style="margin: 0 0 0.5rem 0; color: #10b981;">
-                    <span aria-hidden="true">👑</span> Admin Controls
-                </h3>
-                <p style="margin: 0; color: var(--pico-muted-color);">
-                    You have permission to upload new Gluten mod files.
-                </p>
-            </div>
-            <a href="{{ url_for('gluten.upload_page') }}" style="background: #10b981; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; transition: all 0.2s ease;">
-                Upload New Version
-            </a>
-        </div>
-    </div>
-    {% endif %}
+  <h1>Deadlock Mods</h1>
+  <p class="muted">Download official Deadlock mods and install them easily with the DLNS Mod Installer.</p>
 
-    <!-- Download options -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
-        <!-- ZIP Download Card -->
-        <div style="padding: 1.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); border-radius: 8px;">
-            <h3 style="margin: 0 0 1rem 0; color: var(--pico-primary);">
-                <span aria-hidden="true">📦</span> ZIP Download
-            </h3>
-            <p style="margin: 0 0 1.5rem 0; color: var(--pico-muted-color);">
-                Direct download of the Gluten mod files. Extract to your Deadlock directory.
-            </p>
-            <a href="{{ url_for('gluten.download_zip') }}" 
-               style="display: inline-block; background: var(--pico-primary); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">
-                Download ZIP
-            </a>
-        </div>
+  {% if can_upload %}
+    <a href="{{ url_for('gluten.upload_page') }}" class="button">Manage Mods</a>
+  {% endif %}
 
-        <!-- Python Installer Card -->
-        <div style="padding: 1.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); border-radius: 8px;">
-            <h3 style="margin: 0 0 1rem 0; color: var(--pico-primary);">
-                <span aria-hidden="true">🐍</span> Python Installer
-            </h3>
-            <p style="margin: 0 0 1.5rem 0; color: var(--pico-muted-color);">
-                Automated Python script that installs the mod for you. Requires Python.
-            </p>
-            <div style="display: flex; gap: 0.5rem;">
-                <a href="{{ url_for('gluten.download_installer') }}" 
-                   style="display: inline-block; background: var(--pico-primary); color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem;">
-                    Download .py
-                </a>
-                <a href="{{ url_for('gluten.view_source') }}" 
-                   style="display: inline-block; background: transparent; color: var(--pico-primary); padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; border: 1px solid var(--pico-primary);">
-                    View Source
-                </a>
-            </div>
-        </div>
+  <hr>
 
-        <!-- EXE Installer Card -->
-        <div style="padding: 1.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-card-border-color); border-radius: 8px;">
-            <h3 style="margin: 0 0 1rem 0; color: var(--pico-primary);">
-                <span aria-hidden="true">⚡</span> EXE Installer
-            </h3>
-            <p style="margin: 0 0 1.5rem 0; color: var(--pico-muted-color);">
-                Compiled executable installer. No Python required, just run and install.
-            </p>
-            <a href="{{ url_for('gluten.download_exe') }}" 
-               style="display: inline-block; background: var(--pico-primary); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600;">
-                Download EXE
-            </a>
-        </div>
-    </div>
+  <!-- Installer Section -->
+  <h2>Mod Installer</h2>
+  <p class="muted">Use the official installer for safe and simple mod installation.</p>
 
-    <!-- Installation Instructions -->
-    <details style="margin: 2rem 0;">
-        <summary style="cursor: pointer; font-weight: 600; color: var(--pico-primary);">Installation Instructions</summary>
-        <div style="margin-top: 1rem; padding: 1rem; background: var(--pico-card-background-color); border-radius: 8px;">
-            <h4>Method 1: ZIP Download (Manual)</h4>
-            <ol>
-                <li>Download the ZIP file</li>
-                <li>Extract all files to your Deadlock installation directory</li>
-                <li>Launch Deadlock and enjoy enhanced video settings</li>
-            </ol>
-            
-            <h4>Method 2: Python Installer</h4>
-            <ol>
-                <li>Ensure Python is installed on your system</li>
-                <li>Download the Python installer script</li>
-                <li>Run the script - it will automatically find and install to Deadlock</li>
-            </ol>
-            
-            <h4>Method 3: EXE Installer (Recommended)</h4>
-            <ol>
-                <li>Download the EXE installer</li>
-                <li>Run the executable</li>
-                <li>Follow the on-screen instructions</li>
-            </ol>
-        </div>
-    </details>
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
 
-    <!-- File Status API Check -->
-    <div id="fileStatusAPI" style="margin: 2rem 0;"></div>
-</section>
+    <article class="card">
+      <header><h3>Installer (Python)</h3></header>
+      <p class="muted">Recommended for most users. Python required.</p>
+      <footer>
+        <a href="{{ url_for('gluten.download_installer_py') }}" class="button">Download .py</a>
+      </footer>
+    </article>
 
-<script>
-// Check file availability
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('/gluten/api/check')
-        .then(response => response.json())
-        .then(data => {
-            const statusDiv = document.getElementById('fileStatusAPI');
-            if (data.zip_available || data.installer_available || data.exe_available) {
-                let statusHTML = '<div style="padding: 1rem; background: color-mix(in oklab, #10b981 8%, transparent); border-radius: 8px; border: 1px solid color-mix(in oklab, #10b981 20%, transparent);"><h4 style="margin: 0 0 0.5rem 0; color: #10b981;">File Status</h4><ul style="margin: 0; padding-left: 1.5rem;">';
-                
-                if (data.zip_available) {
-                    const size = data.file_info.zip_size ? (data.file_info.zip_size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size';
-                    statusHTML += `<li>ZIP: Available (${size})</li>`;
-                }
-                if (data.installer_available) statusHTML += '<li>Python Installer: Available</li>';
-                if (data.exe_available) statusHTML += '<li>EXE Installer: Available</li>';
-                
-                statusHTML += '</ul></div>';
-                statusDiv.innerHTML = statusHTML;
-            }
+    <article class="card">
+      <header><h3>Installer (EXE)</h3></header>
+      <p class="muted">No Python required. Windows-ready installer.</p>
+      <footer>
+        <a href="{{ url_for('gluten.download_installer_exe') }}" class="button">Download .exe</a>
+      </footer>
+    </article>
+
+  </div>
+
+  <!-- Installer Source Code -->
+  <p style="margin-top: 0.75rem;">
+    <a href="{{ url_for('gluten.view_source') }}" class="button outline">View Installer Source Code</a>
+  </p>
+
+  <!-- Installer Version Info -->
+  <p id="installerVersion" class="muted" style="margin-top: 0.25rem;">Checking installer version...</p>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch("/gluten/api/version")
+        .then(r => r.json())
+        .then(v => {
+          document.getElementById("installerVersion").textContent =
+            "Latest installer version: " + v.version;
         })
-        .catch(error => {
-            console.error('Error checking file status:', error);
+        .catch(() => {
+          document.getElementById("installerVersion").textContent =
+            "Unable to load installer version.";
         });
-});
-</script>
+    });
+  </script>
+
+  <hr>
+
+  <!-- Mods List -->
+  <h2>Available Mods</h2>
+
+  {% if mods|length == 0 %}
+    <p class="muted">No mods have been uploaded yet.</p>
+  {% else %}
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem;">
+      {% for mod in mods %}
+      <article class="card">
+        <header>
+          <h3>{{ mod.title }}</h3>
+          <p class="muted" style="font-size: 0.8rem;">
+            Uploaded: {{ mod.uploaded_at }}
+          </p>
+        </header>
+        <footer>
+          <a href="{{ url_for('gluten.download_mod', mod_id=mod.id) }}" class="button">
+            Download
+          </a>
+        </footer>
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+</section>
 {% endblock %}

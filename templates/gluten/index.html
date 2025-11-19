@@ -5,7 +5,7 @@
 <section class="container">
 
   <h1>Deadlock Mods</h1>
-  <p class="muted">Download official Deadlock mods and install them easily with the DLNS Mod Installer.</p>
+  <p class="muted">Download official Deadlock mods and install them easily with the Community Mod Installer made by Jonesy.</p>
 
   {% if can_upload %}
     <a href="{{ url_for('gluten.upload_page') }}" class="button">Manage Mods</a>
@@ -15,13 +15,13 @@
 
   <!-- Installer Section -->
   <h2>Mod Installer</h2>
-  <p class="muted">Use the official installer for safe and simple mod installation.</p>
+  <p class="muted">Use the installer for safe and simple mod installation.</p>
 
   <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
 
     <article class="card">
       <header><h3>Installer (Python)</h3></header>
-      <p class="muted">Recommended for most users. Python required.</p>
+      <p class="muted">Recommended for advanced users. Python required.</p>
       <footer>
         <a href="{{ url_for('gluten.download_installer_py') }}" class="button">Download .py</a>
       </footer>
@@ -29,7 +29,7 @@
 
     <article class="card">
       <header><h3>Installer (EXE)</h3></header>
-      <p class="muted">No Python required. Windows-ready installer.</p>
+      <p class="muted">No Python required. Windows-ready installer. Recommended for all users.</p>
       <footer>
         <a href="{{ url_for('gluten.download_installer_exe') }}" class="button">Download .exe</a>
       </footer>

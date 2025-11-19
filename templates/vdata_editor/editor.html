@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Deadlock VDATA Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/vdata_editor.css') }}">
+
+    <!-- Monaco loader (no SRI so it isn’t blocked) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+<div class="vdata-root">
+    <!-- Top toolbar -->
+    <header class="vdata-toolbar">
+        <div class="toolbar-left">
+            <div class="brand">
+                <span class="brand-title">Deadlock VDATA Editor</span>
+                <span class="brand-subtitle">KV3 / Citadel-tuned</span>
+            </div>
+
+            <div class="file-controls">
+                <label class="btn btn-primary">
+                    <input id="file-input" type="file" accept=".vdata,.txt,.kv3" hidden>
+                    Open VDATA
+                </label>
+                <button id="new-file-btn" class="btn btn-secondary" type="button">New</button>
+                <button id="download-btn" class="btn btn-secondary" type="button">Download</button>
+            </div>
+        </div>
+
+        <div class="toolbar-center">
+            <div class="search-group">
+                <input id="search-input" type="text" placeholder="Search (Ctrl+F for Monaco find)" />
+                <button id="search-next-btn" class="btn btn-ghost" type="button">Next</button>
+            </div>
+        </div>
+
+        <div class="toolbar-right">
+            <button id="toggle-wrap-btn" class="btn btn-ghost" type="button" title="Toggle word wrap">
+                Wrap
+            </button>
+
+            <button id="toggle-docs-btn" class="btn btn-ghost" type="button" title="Toggle outline/docs panel">
+                Outline / Docs
+            </button>
+
+            <button id="theme-button" class="btn btn-ghost" type="button" title="Theme & layout settings">
+                Theme
+            </button>
+        </div>
+    </header>
+
+    <!-- Theme panel (overlay) -->
+    <div id="theme-panel" class="theme-panel theme-panel--hidden">
+        <div class="theme-panel-inner">
+            <div class="theme-panel-header">
+                <h2>Editor Appearance</h2>
+                <button id="theme-panel-close" class="btn btn-ghost" type="button">&times;</button>
+            </div>
+
+            <div class="theme-panel-body">
+                <div class="theme-row">
+                    <label for="theme-preset-select">Preset</label>
+                    <select id="theme-preset-select">
+                        <option value="deadlock">Deadlock Dark</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="light">Light</option>
+                    </select>
+                </div>
+
+                <div class="theme-row">
+                    <label for="accent-color-input">Accent colour</label>
+                    <input id="accent-color-input" type="color" value="#58a6ff">
+                </div>
+
+                <div class="theme-row">
+                    <label for="font-size-input">Editor font size</label>
+                    <div class="theme-row-inline">
+                        <input id="font-size-input" type="range" min="11" max="20" step="1">
+                        <span id="font-size-label" class="theme-row-value">13</span>
+                    </div>
+                </div>
+
+                <div class="theme-row theme-row--actions">
+                    <button id="theme-reset-btn" class="btn btn-secondary" type="button">
+                        Reset theme & layout
+                    </button>
+                </div>
+
+                <p class="theme-note">
+                    Preferences are stored locally with a short timeout, so the editor remembers your setup
+                    without being tied to the server.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main layout -->
+    <main class="vdata-main">
+        <!-- Left jump panel -->
+        <aside id="jump-panel" class="jump-panel">
+            <div class="jump-header">
+                <span>Jump</span>
+            </div>
+            <ul id="jump-list" class="jump-list">
+                <!-- Filled by JS with key sections / classes -->
+            </ul>
+        </aside>
+
+        <!-- Editor pane -->
+        <section class="editor-pane">
+            <div id="editor-container"></div>
+        </section>
+
+        <!-- Resizer between editor and side panel -->
+        <div id="right-resizer" class="side-resizer"></div>
+
+        <!-- Right side panel: Outline + Schema Docs -->
+        <aside id="side-panel" class="side-panel side-panel--hidden">
+            <div class="side-panel-tabs">
+                <button id="tab-outline" class="side-tab side-tab--active" type="button">Outline</button>
+                <button id="tab-docs" class="side-tab" type="button">Schema Docs</button>
+            </div>
+
+            <div id="panel-outline" class="side-panel-content side-panel-content--active">
+                <div class="panel-section-header">
+                    <h2>Outline</h2>
+                    <span class="panel-hint">Click to jump</span>
+                </div>
+                <ul id="outline-list" class="outline-list">
+                    <!-- Filled by JS -->
+                </ul>
+            </div>
+
+            <div id="panel-docs" class="side-panel-content">
+                <div class="panel-section-header">
+                    <h2>Schema Docs</h2>
+                </div>
+
+                <div id="docs-empty" class="docs-empty">
+                    <p>
+                        Place your cursor on a schema name like
+                        <code>CitadelAbilityVData</code> or <code>CAbility_..._VData</code>
+                        and the docs will appear here.
+                    </p>
+                </div>
+
+                <div id="docs-active" class="docs-active docs-active--hidden">
+                    <div class="docs-meta">
+                        <div>
+                            <div class="docs-schema-label">Current schema</div>
+                            <div id="docs-schema-name" class="docs-schema-name"></div>
+                        </div>
+                        <a id="docs-open-link"
+                           class="btn btn-secondary"
+                           href="#"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Open full docs
+                        </a>
+                    </div>
+
+                    <div class="docs-embed-wrapper">
+                        <iframe
+                            id="docs-iframe"
+                            src="about:blank"
+                            loading="lazy"
+                            title="Deadlock schema documentation">
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Status bar -->
+    <footer class="status-bar">
+        <div class="status-left">
+            <span id="status-file" class="status-file">No file loaded</span>
+            <span id="status-dirty" class="status-dirty status-dirty--clean">● Saved</span>
+        </div>
+        <div class="status-right">
+            <span id="status-position">Ln 1, Col 1</span>
+            <span id="status-language">vdata</span>
+        </div>
+    </footer>
+</div>
+
+<!-- App JS -->
+<script src="{{ url_for('static', filename='js/vdata_editor.js') }}"></script>
+</body>
+</html>

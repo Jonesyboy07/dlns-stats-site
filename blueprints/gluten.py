@@ -65,28 +65,25 @@ def _get_user_id_and_name() -> tuple[Optional[str], Optional[str]]:
 def is_mod_uploader() -> bool:
     """Check if current user can upload or delete mods."""
     user_id_str, _ = _get_user_id_and_name()
-    current_app.logger.info(
-        f"Checking mod upload permission for user_id={user_id_str}"
-    )
+    current_app.logger.info(f"Checking mod upload permission for user_id={user_id_str}")
 
     if not user_id_str:
         return False
 
-    owner_id = current_app.config.get("DISCORD_OWNER_ID")
-    raw_list = current_app.config.get("DISCORD_MOD_UPLOADER_IDS", "")
+    # Load directly from .env via os.getenv
+    owner_id = os.getenv("DISCORD_OWNER_ID", "")
+    raw_list = os.getenv("DISCORD_MOD_UPLOADER_IDS", "")
 
     allowed_ids: set[str] = set()
 
     if owner_id:
         allowed_ids.add(str(owner_id))
 
-    if isinstance(raw_list, (list, tuple, set)):
-        allowed_ids.update(str(x).strip() for x in raw_list)
-    else:
-        for entry in str(raw_list).split(","):
-            entry = entry.strip()
-            if entry:
-                allowed_ids.add(entry)
+    # Support comma-separated list
+    for entry in str(raw_list).split(","):
+        entry = entry.strip()
+        if entry:
+            allowed_ids.add(entry)
 
     result = user_id_str in allowed_ids
     current_app.logger.info(f"Permission result: {result}")

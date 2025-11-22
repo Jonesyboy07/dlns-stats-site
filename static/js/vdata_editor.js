@@ -519,6 +519,27 @@
             });
         }
 
+        // Collapse All
+        const collapseAllBtn = document.getElementById("collapse-all-btn");
+        if (collapseAllBtn) {
+            collapseAllBtn.addEventListener("click", function () {
+                if (editor) {
+                    editor.getAction("editor.foldAll").run();
+                }
+            });
+        }
+        
+        // Expand All
+        const expandAllBtn = document.getElementById("expand-all-btn");
+        if (expandAllBtn) {
+            expandAllBtn.addEventListener("click", function () {
+                if (editor) {
+                    editor.getAction("editor.unfoldAll").run();
+                }
+            });
+        }
+
+
         // Global Ctrl+O to open file
         window.addEventListener("keydown", function (e) {
             if (e.key === "o" && (e.ctrlKey || e.metaKey)) {

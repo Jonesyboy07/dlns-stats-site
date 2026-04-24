@@ -698,7 +698,7 @@ def admin_matches_page():
 
 
 @admin_bp.route('/match/bulk-submit', methods=['POST'])
-@require_admin
+@require_submit_perms
 def admin_bulk_submit():
     payload = request.get_json(silent=True) or {}
     title = (payload.get('title') or '').strip()

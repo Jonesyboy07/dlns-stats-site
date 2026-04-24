@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import request, flash, redirect, url_for, current_app
+from flask import request, flash, redirect, url_for, current_app, jsonify
 import os
 import sqlite3
 
@@ -105,15 +105,24 @@ def has_submit_perms(user_id=None):
     submitter_ids = get_match_submitter_ids()
     return str(user_id) in [str(submitter_id) for submitter_id in submitter_ids]
 
+def _is_api_request():
+    """Return True if the request expects a JSON response (API call)."""
+    return request.is_json or 'application/json' in request.accept_mimetypes
+
+
 def require_owner(f):
     """Decorator to require owner privileges"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_logged_in():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
         
         if not is_owner():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Owner privileges required'}), 403
             flash('Owner privileges required.', 'error')
             return redirect(url_for('index'))
         
@@ -125,10 +134,14 @@ def require_admin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_logged_in():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
         
         if not is_admin():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Admin privileges required'}), 403
             flash('Admin privileges required.', 'error')
             return redirect(url_for('index'))
         
@@ -140,10 +153,14 @@ def require_submit_perms(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_logged_in():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login'))
 
         if not has_submit_perms():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Match submit privileges required'}), 403
             flash('Match submit privileges required.', 'error')
             return redirect(url_for('index'))
 

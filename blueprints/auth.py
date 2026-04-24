@@ -193,13 +193,14 @@ def discord_callback():
 
         # Set HTTP-only secure cookie
         response = redirect(state_redirect if state_redirect else url_for('index'))
+        is_production = os.getenv('ENV') == 'production'
         response.set_cookie(
             'session_token',
             session_token,
             max_age=SESSION_TIMEOUT,
-            secure=os.getenv('ENV') == 'production',
+            secure=is_production,
             httponly=True,
-            samesite='Lax'
+            samesite='None' if is_production else 'Lax'
         )
 
         current_app.logger.info(f"User logged in: {username} ({discord_id})")

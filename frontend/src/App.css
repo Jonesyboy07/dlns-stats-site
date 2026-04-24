@@ -28,11 +28,12 @@
 @theme {   
      /* ── Core Backgrounds ── */
     --color-base: oklch(0.2304 0.028 279.82);
-    --color-panel: oklch(20.62% 0.0237 284.13 / 0.5);
-    --color-card: oklch(14.55% 0.0136 269.43 / 0.55);
-    --color-input: oklch(0% 0 none / 0.35);
-    --color-surface: oklch(100% 0 none / 0.03);
-    --color-hover: oklch(100% 0 none / 0.08);
+    --color-panel: oklch(0.28 0.030 279.82);
+    --color-card: oklch(0.19 0.025 279.82);
+    --color-table: oklch(0.15 0.018 279.82);
+    --color-input: oklch(0.26 0.032 279.82);
+    --color-surface: oklch(0.25 0.028 279.82);
+    --color-hover: oklch(0.32 0.035 279.82);
 
     /* ── Accent / Brand (green) ── */
     --color-accent: oklch(68.88% 0.187 148.92);

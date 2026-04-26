@@ -19,6 +19,7 @@ import SeriesDetail from "./pages/SeriesDetail";
 import TeamsList from "./pages/TeamsList";
 import TeamDetail from "./pages/TeamDetail";
 import WeekDetail from "./pages/WeekDetail";
+import WeekList from "./pages/WeekList";
 import ReactAdmin from "./pages/ReactAdmin";
 import { SoundLibrary } from "./pages/sounds.jsx";
 import { SoundsDev } from "./pages/dev.jsx";
@@ -37,7 +38,7 @@ function Navigation() {
     { path: "/heroes", label: "Heroes" },
     { path: "/items", label: "Items" },
     { path: "/stats", label: "Stats" },
-    { path: "/week", label: "Night Shift" },
+    { path: "/weeks", label: "Night Shift" },
     { path: "/sounds", label: "Sounds" },
     { path: "/sounds-dev", label: "Sounds Dev" },
     { path: "/vo", label: "VO Hub" },
@@ -74,7 +75,7 @@ function App() {
         {/* Background image, black & white, fades to bg colour toward bottom */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-[url(/static/images/background/background_gothic_jpg.jpeg)] bg-cover bg-center bg-no-repeat grayscale opacity-[0.08] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_5%,transparent_95%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_5%,transparent_95%)]"
+          className="absolute inset-0 bg-[url(/static/images/background/background_gothic_jpg.jpeg)] bg-cover bg-center bg-no-repeat grayscale opacity-[0.1] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_5%,transparent_95%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_5%,transparent_95%)]"
         />
 
         <div className="relative z-10 flex flex-col flex-1">
@@ -98,7 +99,7 @@ function App() {
               <Route path="/stats" element={<Stats />} />
               <Route path="/teams" element={<TeamsList />} />
               <Route path="/team/:teamName" element={<TeamDetail />} />
-              <Route path="/week" element={<WeekDetail />} />
+              <Route path="/week" element={<WeekList />} />
               <Route path="/week/:week" element={<WeekDetail />} />
               <Route path="/react-admin" element={<ReactAdmin />} />
               <Route path="/sounds" element={<SoundLibrary />} />

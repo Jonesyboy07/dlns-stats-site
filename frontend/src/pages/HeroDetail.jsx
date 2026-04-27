@@ -97,7 +97,7 @@ function HeroDetail() {
         />
         <div>
           <h1 className="text-white text-4xl font-bold">{heroName}</h1>
-          <div className="flex gap-2 mt-1">
+          <div className="flex gap-2 mt-1 font-valve-pulp">
             <span className="inline-flex items-center px-2 py-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[4deg]">
               {heroMeta?.tagline?.[0] ?? "—"}
             </span>

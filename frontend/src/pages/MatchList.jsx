@@ -370,7 +370,7 @@ function MatchList() {
       </div>
 
       {/* Match Table */}
-      <div className="bg-input border border-border-light shadow rounded-lg p-6">
+      <div className="bg-table border border-border-light shadow rounded-lg p-6">
         {loading ? (
           <div className="text-center text-xl text-gray-300 py-8">
             Loading matches...

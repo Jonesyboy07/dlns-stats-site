@@ -4,22 +4,6 @@
       "title": "Night Shift",
       "weeks": [
         {
-          "week": 99,
-          "games": [
-            {
-              "team_a": "Pole",
-              "team_b": "Sitter",
-              "matches": [
-                {
-                  "game": "test match",
-                  "match_id": 57898856,
-                  "team_a_side": 0
-                }
-              ]
-            }
-          ]
-        },
-        {
           "week": 1,
           "games": [
             {

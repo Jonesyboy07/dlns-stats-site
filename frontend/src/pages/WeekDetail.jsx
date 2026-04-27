@@ -32,7 +32,7 @@ function MatchRow({ match }) {
 
   return (
     <Link
-      to={`/match/${match.match_id}`}
+      to={`/series/${match.match_id}`}
       className="flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-700/60 bg-gray-800/30 hover:bg-gray-700/50 hover:border-gray-600 transition-all"
     >
       {/* coloured win indicator */}
@@ -71,7 +71,7 @@ function MatchRow({ match }) {
   );
 }
 
-function SeriesBlock({ teamA, teamB, matches }) {
+function SeriesBlock({ teamA, teamB, matches, eventTitle }) {
   const [showPlayers, setShowPlayers] = useState(false);
 
   // Tally series wins per team
@@ -85,7 +85,6 @@ function SeriesBlock({ teamA, teamB, matches }) {
         if (m.winning_team === teamAIngameSide) aWins++;
         else bWins++;
       } else {
-        // Fallback: assume team_a = amber (side 0)
         if (m.winning_team === 0) aWins++;
         else bWins++;
       }
@@ -114,62 +113,86 @@ function SeriesBlock({ teamA, teamB, matches }) {
   }, [matches]);
 
   const hasPlayers = teamAPlayers.length > 0 || teamBPlayers.length > 0;
+  const seriesDate = matches[0]?.start_time ?? null;
+  const hasScore = teamAWins > 0 || teamBWins > 0;
 
   return (
     <div className="rounded-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
-      {/* Series header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/60 border-b border-gray-700/60">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Title + date */}
+      <div className="px-4 pt-4 pb-3">
+        {eventTitle && (
+          <p className="text-sm font-bold text-white">{eventTitle}</p>
+        )}
+        {seriesDate && (
+          <p className="text-xs text-amber-400 mt-0.5">{formatDate(seriesDate)}</p>
+        )}
+      </div>
+
+      {/* Team vs Score row */}
+      <div className="grid grid-cols-[1fr_auto_1fr] mx-4 mb-4 border border-gray-700 rounded-lg overflow-hidden">
+        {/* Team A */}
+        <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
           <Link
             to={`/team/${encodeURIComponent(teamA)}`}
-            className="text-sm font-semibold text-amber-300 hover:underline truncate"
+            className="text-sm font-bold text-amber-300 hover:underline text-center"
           >
             {teamA}
           </Link>
           {seriesWinner === "a" && (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded">
               Winner
             </span>
           )}
         </div>
-        <div className="flex flex-col items-center shrink-0 mx-3">
-          <span className="text-xs text-gray-500 uppercase tracking-wider">vs</span>
-          {(teamAWins > 0 || teamBWins > 0) && (
-            <span className="text-xs font-bold text-gray-300 tabular-nums mt-0.5">
+
+        {/* Score */}
+        <div className="flex items-center justify-center px-6 py-4 border-x border-gray-700">
+          {hasScore ? (
+            <span className="text-xl font-bold text-white tabular-nums">
               {teamAWins} – {teamBWins}
             </span>
+          ) : (
+            <span className="text-sm text-gray-500 uppercase tracking-wider">vs</span>
           )}
         </div>
-        <div className="flex items-center gap-2 justify-end min-w-0">
-          {seriesWinner === "b" && (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-blue-400/20 text-blue-300 border border-blue-400/40 px-1.5 py-0.5 rounded">
-              Winner
-            </span>
-          )}
+
+        {/* Team B */}
+        <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
           <Link
             to={`/team/${encodeURIComponent(teamB)}`}
-            className="text-sm font-semibold text-blue-300 hover:underline truncate"
+            className="text-sm font-bold text-blue-300 hover:underline text-center"
           >
             {teamB}
           </Link>
+          {seriesWinner === "b" && (
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-400/20 text-blue-300 border border-blue-400/40 px-1.5 py-0.5 rounded">
+              Winner
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Matches */}
-      <div className="divide-y divide-gray-700/40">
-        {matches.map((m) => (
-          <MatchRow key={m.match_id} match={m} />
+      {/* Game buttons */}
+      <div className="flex flex-wrap justify-center gap-2 px-4 pb-4">
+        {matches.map((m, i) => (
+          <Link
+            key={m.match_id}
+            to={`/match/${m.match_id}`}
+            className="px-4 py-1.5 text-sm text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-700/60 hover:text-white hover:border-gray-500 transition-all"
+          >
+            {m.event_game || `Match ${i + 1}`}
+          </Link>
         ))}
       </div>
 
-      {/* Players accordion toggle */}
+      {/* Players accordion */}
       {hasPlayers && (
         <div className="border-t border-gray-700/60">
           <button
             onClick={() => setShowPlayers((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-400 hover:bg-gray-700/40 hover:text-gray-200 transition-all"
           >
-            <span className="font-semibold uppercase tracking-wider">Players</span>
+            <span className="font-semibold uppercase tracking-wider">View Players</span>
             <span>{showPlayers ? "▲" : "▼"}</span>
           </button>
 
@@ -326,6 +349,7 @@ export default function WeekDetail() {
             teamA={s.teamA}
             teamB={s.teamB}
             matches={s.matches}
+            eventTitle={event_title}
           />
         ))}
       </div>

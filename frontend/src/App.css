@@ -1,5 +1,130 @@
 @import "tailwindcss";
 
+/* ── Valve Pulp ── */
+@font-face {
+  font-family: "Valve Pulp";
+  src: url("/static/fonts/valvepulp-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Valve Oracle ── */
+@font-face {
+  font-family: "Valve Oracle";
+  src: url("/static/fonts/valveoracle-medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Valve Oracle";
+  src: url("/static/fonts/valveoracle-mediumitalic.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Valve Oracle";
+  src: url("/static/fonts/valveoracle-semibold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Valve Oracle";
+  src: url("/static/fonts/valveoracle-semibolditalic.ttf") format("truetype");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Valve Oracle";
+  src: url("/static/fonts/valveoracle-thin.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Valve Oracle";
+  src: url("/static/fonts/valveoracle-thinitalic.ttf") format("truetype");
+  font-weight: 100;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ── Fira Sans ── */
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-MediumItalic.otf") format("opentype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-SemiBoldItalic.otf") format("opentype");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-BoldItalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fira Sans";
+  src: url("/static/fonts/FiraSans-LightItalic.otf") format("opentype");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -12,7 +137,7 @@
   }
 
   html {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Valve Pulp", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
 
@@ -26,13 +151,17 @@
 }
 
 @theme {   
+    --font-valve-pulp: "Valve Pulp", sans-serif;
+    --font-valve-oracle: "Valve Oracle", sans-serif;
+
      /* ── Core Backgrounds ── */
     --color-base: oklch(0.2304 0.028 279.82);
-    --color-panel: oklch(20.62% 0.0237 284.13 / 0.5);
-    --color-card: oklch(14.55% 0.0136 269.43 / 0.55);
-    --color-input: oklch(0% 0 none / 0.35);
-    --color-surface: oklch(100% 0 none / 0.03);
-    --color-hover: oklch(100% 0 none / 0.08);
+    --color-panel: oklch(0.28 0.030 279.82);
+    --color-card: oklch(0.19 0.025 279.82);
+    --color-table: oklch(0.15 0.018 279.82);
+    --color-input: oklch(0.26 0.032 279.82);
+    --color-surface: oklch(0.25 0.028 279.82);
+    --color-hover: oklch(0.32 0.035 279.82);
 
     /* ── Accent / Brand (green) ── */
     --color-accent: oklch(68.88% 0.187 148.92);

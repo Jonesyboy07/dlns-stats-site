@@ -15,26 +15,12 @@ import hashlib
 from email.utils import formatdate
 from datetime import datetime, timezone
 
-# Import blueprints from the new folder structure
-from blueprints.db_api import bp as db_api_bp, get_ro_conn
-from blueprints.auth import auth_bp
-from blueprints.admin import admin_bp
+# Import blueprints and registration helpers
+from blueprints.db_api import get_ro_conn
+from blueprints.loader import register_blueprints
 from cache import cache
 from dotenv import load_dotenv
-from blueprints.expo import expo_bp
-from blueprints.stats_bp import stats_bp
 from heroes import get_hero_name
-from blueprints.sitemap import sitemap_bp
-from blueprints.onelane import onelane_bp
-from blueprints.gluten import gluten_bp
-from blueprints.ChatVTwitch import chat_bp
-from blueprints.sound_viewer import wavebox_bp
-from blueprints.vo import vo_bp
-from blueprints.filehub import filehub_bp
-from blueprints.vdata import vdata_editor_bp
-from blueprints.submission_bp import submission_bp
-from blueprints.ranker import ranker_bp
-from blueprints.react_stats import react_stats_bp
 
 
 def create_app() -> Flask:
@@ -116,23 +102,8 @@ def create_app() -> Flask:
         }
     })
 
-    # Register blueprints
-    app.register_blueprint(db_api_bp)
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(expo_bp)
-    app.register_blueprint(stats_bp)
-    app.register_blueprint(sitemap_bp)
-    app.register_blueprint(onelane_bp)
-    app.register_blueprint(gluten_bp) 
-    app.register_blueprint(chat_bp)
-    app.register_blueprint(wavebox_bp)
-    app.register_blueprint(vo_bp)
-    app.register_blueprint(filehub_bp)
-    app.register_blueprint(vdata_editor_bp)
-    app.register_blueprint(submission_bp)
-    app.register_blueprint(ranker_bp)
-    app.register_blueprint(react_stats_bp)
+    # Register blueprints from blueprints/registry.json
+    register_blueprints(app)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

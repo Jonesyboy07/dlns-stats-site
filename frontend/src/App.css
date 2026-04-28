@@ -137,7 +137,7 @@
   }
 
   html {
-    font-family: "Valve Pulp", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Valve Pulp", "Valve Oracle", "Fira Sans",  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
 
@@ -150,7 +150,18 @@
   color: var(--team-sapphire);
 }
 
+@layer utilities {
+  .text-stroke {
+    -webkit-text-stroke: 1px var(--text-stroke-color, currentColor);
+  }
+  .text-stroke-0 { -webkit-text-stroke: 0; }
+  .text-stroke-1 { -webkit-text-stroke: 1px var(--text-stroke-color, currentColor); }
+  .text-stroke-2 { -webkit-text-stroke: 2px var(--text-stroke-color, currentColor); }
+  .text-stroke-4 { -webkit-text-stroke: 4px var(--text-stroke-color, currentColor); }
+}
+
 @theme {   
+    --font-fira-sans: "Fira Sans", sans-serif;
     --font-valve-pulp: "Valve Pulp", sans-serif;
     --font-valve-oracle: "Valve Oracle", sans-serif;
 

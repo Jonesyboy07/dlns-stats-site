@@ -1197,10 +1197,55 @@ def nightshift_week(week: int):
         ).fetchall()
         all_weeks = [r[0] for r in neighbours]
 
+        # Pull vod_link (week-level), per-series match_vod, and per-game match_vod from matches.json
+        vod_link: str | None = None
+        series_vods: dict = {}  # key: "team_a__team_b" -> vod url
+        game_vods: dict = {}    # key: str(match_id) -> vod url
+        try:
+            matches_file = Path(current_app.root_path).parent / "matches.json"
+            if not matches_file.exists():
+                matches_file = Path("matches.json").resolve()
+            with open(matches_file, encoding="utf-8-sig") as f:
+                mdata = json.load(f)
+            week_entries: list = []
+            root_series = mdata.get("series")
+            if isinstance(root_series, list):
+                for s in root_series:
+                    for e in s.get("weeks") or s.get("events") or []:
+                        if isinstance(e, dict) and e.get("week") == week:
+                            week_entries.append(e)
+            if not week_entries:
+                for e in mdata.get("weeks") or mdata.get("events") or []:
+                    if isinstance(e, dict) and e.get("week") == week:
+                        week_entries.append(e)
+            for entry in week_entries:
+                if not vod_link:
+                    vod_link = entry.get("vod_link") or None
+                for game in entry.get("games") or []:
+                    if not isinstance(game, dict):
+                        continue
+                    ta = game.get("team_a") or game.get("team1") or ""
+                    tb = game.get("team_b") or game.get("team2") or ""
+                    mv = game.get("match_vod") or ""
+                    if mv and ta and tb:
+                        series_vods[f"{ta}__{tb}"] = mv
+                    for gmatch in game.get("matches") or []:
+                        if not isinstance(gmatch, dict):
+                            continue
+                        mid = gmatch.get("match_id")
+                        gvod = gmatch.get("match_vod") or ""
+                        if mid and gvod:
+                            game_vods[str(mid)] = gvod
+        except Exception:
+            pass
+
         return jsonify({
             "week": week,
             "event_title": event_title,
             "stats": stats,
             "matches": matches,
             "all_weeks": all_weeks,
+            "vod_link": vod_link,
+            "series_vods": series_vods,
+            "game_vods": game_vods,
         })

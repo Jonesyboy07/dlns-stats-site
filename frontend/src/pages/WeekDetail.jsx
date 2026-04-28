@@ -15,36 +15,21 @@ const formatDate = (iso) => {
   });
 };
 
-function StatPill({ label, value, accent }) {
-  return (
-    <div className="flex flex-col items-center bg-gray-800 rounded-lg px-5 py-3 min-w-[90px]">
-      <span className={`text-xl font-bold ${accent ?? "text-white"}`}>{value}</span>
-      <span className="text-xs text-gray-400 mt-0.5">{label}</span>
-    </div>
-  );
-}
-
 function MatchRow({ match }) {
   const teamAName = match.event_team_a || "Team A";
   const teamBName = match.event_team_b || "Team B";
   const winnerSide =
-    match.winning_team === 0 ? "amber" : match.winning_team === 1 ? "sapphire" : null;
+    match.winning_team === 0
+      ? "amber"
+      : match.winning_team === 1
+        ? "sapphire"
+        : null;
 
   return (
     <Link
       to={`/series/${match.match_id}`}
       className="flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-700/60 bg-gray-800/30 hover:bg-gray-700/50 hover:border-gray-600 transition-all"
     >
-      {/* coloured win indicator */}
-      <div
-        className={`w-1 self-stretch rounded-full shrink-0 ${
-          winnerSide === "amber"
-            ? "bg-amber-400"
-            : winnerSide === "sapphire"
-            ? "bg-blue-400"
-            : "bg-gray-600"
-        }`}
-      />
 
       <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         {/* Team A */}
@@ -57,7 +42,9 @@ function MatchRow({ match }) {
           {match.event_game && (
             <span className="text-xs text-gray-500">{match.event_game}</span>
           )}
-          <span className="text-xs text-gray-600">{formatDuration(match.duration_s)}</span>
+          <span className="text-xs text-gray-600">
+            {formatDuration(match.duration_s)}
+          </span>
         </div>
 
         {/* Team B */}
@@ -71,7 +58,7 @@ function MatchRow({ match }) {
   );
 }
 
-function SeriesBlock({ teamA, teamB, matches, eventTitle }) {
+function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods }) {
   const [showPlayers, setShowPlayers] = useState(false);
 
   // Tally series wins per team
@@ -117,42 +104,31 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle }) {
   const hasScore = teamAWins > 0 || teamBWins > 0;
 
   return (
-    <div className="rounded-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
-      {/* Title + date */}
-      <div className="px-4 pt-4 pb-3">
-        {eventTitle && (
-          <p className="text-sm font-bold text-white">{eventTitle}</p>
-        )}
-        {seriesDate && (
-          <p className="text-xs text-amber-400 mt-0.5">{formatDate(seriesDate)}</p>
-        )}
-      </div>
+    <div className="rounded-b-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
 
       {/* Team vs Score row */}
-      <div className="grid grid-cols-[1fr_auto_1fr] mx-4 mb-4 border border-gray-700 rounded-lg overflow-hidden">
+      <div className="bg-input grid grid-cols-[1fr_auto_1fr] mb-4 border-b border-gray-700 overflow-hidden">
         {/* Team A */}
         <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
           <Link
             to={`/team/${encodeURIComponent(teamA)}`}
-            className="text-sm font-bold text-amber-300 hover:underline text-center"
+            className="text-3xl font-bold text-white text-stroke-1 [--text-stroke-color:#000] hover:underline decoration-white text-center"
           >
             {teamA}
           </Link>
           {seriesWinner === "a" && (
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-success border border-success-border px-1.5 py-0.5 rounded">
               Winner
             </span>
           )}
         </div>
 
         {/* Score */}
-        <div className="flex items-center justify-center px-6 py-4 border-x border-gray-700">
-          {hasScore ? (
-            <span className="text-xl font-bold text-white tabular-nums">
+        <div className="bg-panel flex items-center justify-center px-6 py-4 border-x border-gray-700">
+          {hasScore && (
+            <span className="text-xl font-bold text-stroke-1 [--text-stroke-color:#000] text-white tabular-nums">
               {teamAWins} – {teamBWins}
             </span>
-          ) : (
-            <span className="text-sm text-gray-500 uppercase tracking-wider">vs</span>
           )}
         </div>
 
@@ -160,29 +136,63 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle }) {
         <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
           <Link
             to={`/team/${encodeURIComponent(teamB)}`}
-            className="text-sm font-bold text-blue-300 hover:underline text-center"
+            className="text-3xl font-bold text-white text-stroke-1 [--text-stroke-color:#000] hover:underline decoration-white text-center"
           >
             {teamB}
           </Link>
           {seriesWinner === "b" && (
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-400/20 text-blue-300 border border-blue-400/40 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-success border border-success-border px-1.5 py-0.5 rounded">
               Winner
             </span>
           )}
         </div>
       </div>
 
-      {/* Game buttons */}
+      {/* Game buttons + series VOD */}
       <div className="flex flex-wrap justify-center gap-2 px-4 pb-4">
-        {matches.map((m, i) => (
-          <Link
-            key={m.match_id}
-            to={`/match/${m.match_id}`}
-            className="px-4 py-1.5 text-sm text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-700/60 hover:text-white hover:border-gray-500 transition-all"
+        {matches.map((m, i) => {
+          const gvod = gameVods?.[String(m.match_id)];
+          return (
+            <div key={m.match_id} className="inline-flex items-center">
+              <Link
+                to={`/match/${m.match_id}`}
+                className={`px-4 py-1.5 text-sm text-gray-300 border border-gray-600 hover:bg-gray-700/60 hover:text-white hover:border-gray-500 transition-all ${gvod ? "rounded-l-lg border-r-0" : "rounded-lg"}`}
+              >
+                {m.event_game || `Match ${i + 1}`}
+              </Link>
+              {gvod && (
+                <a
+                  href={gvod}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Watch VOD"
+                  className="px-2 py-1.5 text-red-400 border border-gray-600 rounded-r-lg hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/40 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          );
+        })}
+        {seriesVod && (
+          <a
+            href={seriesVod}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm text-red-400 border border-red-500/40 rounded-lg hover:bg-red-500/10 hover:text-red-300 transition-all"
           >
-            {m.event_game || `Match ${i + 1}`}
-          </Link>
-        ))}
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+            </svg>
+            VOD
+          </a>
+        )}
       </div>
 
       {/* Players accordion */}
@@ -192,7 +202,9 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle }) {
             onClick={() => setShowPlayers((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-400 hover:bg-gray-700/40 hover:text-gray-200 transition-all"
           >
-            <span className="font-semibold uppercase tracking-wider">View Players</span>
+            <span className="font-semibold uppercase tracking-wider">
+              View Players
+            </span>
             <span>{showPlayers ? "▲" : "▼"}</span>
           </button>
 
@@ -264,7 +276,9 @@ export default function WeekDetail() {
         .then((d) => {
           const weeks = d.weeks;
           if (weeks && weeks.length > 0) {
-            navigate(`/week/${weeks[weeks.length - 1].event_week}`, { replace: true });
+            navigate(`/week/${weeks[weeks.length - 1].event_week}`, {
+              replace: true,
+            });
           }
         })
         .catch(() => {});
@@ -290,58 +304,67 @@ export default function WeekDetail() {
     const map = new Map();
     for (const m of data.matches) {
       const key = `${m.event_team_a ?? ""}__${m.event_team_b ?? ""}`;
-      if (!map.has(key)) map.set(key, { teamA: m.event_team_a, teamB: m.event_team_b, matches: [] });
+      if (!map.has(key))
+        map.set(key, {
+          teamA: m.event_team_a,
+          teamB: m.event_team_b,
+          matches: [],
+        });
       map.get(key).matches.push(m);
     }
     return [...map.values()];
   }, [data]);
 
-  if (weekNum == null) return <div className="p-8 text-center text-gray-400">Redirecting...</div>;
-  if (isNaN(weekNum)) return <div className="p-8 text-red-400">Invalid week.</div>;
-  if (loading) return <div className="p-8 text-center text-gray-400">Loading...</div>;
+  if (weekNum == null)
+    return <div className="p-8 text-center text-gray-400">Redirecting...</div>;
+  if (isNaN(weekNum))
+    return <div className="p-8 text-red-400">Invalid week.</div>;
+  if (loading)
+    return <div className="p-8 text-center text-gray-400">Loading...</div>;
   if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
   if (!data) return null;
 
-  const { stats, all_weeks, event_title } = data;
-  const prevWeek = all_weeks ? all_weeks[all_weeks.indexOf(weekNum) - 1] ?? null : null;
-  const nextWeek = all_weeks ? all_weeks[all_weeks.indexOf(weekNum) + 1] ?? null : null;
+  const { stats, all_weeks, event_title, vod_link, series_vods, game_vods } = data;
+  const prevWeek = all_weeks
+    ? (all_weeks[all_weeks.indexOf(weekNum) - 1] ?? null)
+    : null;
+  const nextWeek = all_weeks
+    ? (all_weeks[all_weeks.indexOf(weekNum) + 1] ?? null)
+    : null;
 
   return (
     <div className="w-full p-8">
-      {/* Breadcrumb / back */}
-      <Link
-        to="/matchlist"
-        className="text-sm text-gray-500 hover:text-gray-300 transition-colors mb-6 inline-block"
-      >
-        ← All Matches
-      </Link>
-
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-          {event_title}
-        </p>
-        <h1 className="text-3xl font-bold text-white mb-2">Week {weekNum}</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          {event_title} #{weekNum}
+        </h1>
         {stats.first_match_time && (
-          <p className="text-sm text-gray-400">{formatDate(stats.first_match_time)}</p>
+          <p className="text-sm text-gray-400">
+            {formatDate(stats.first_match_time)}
+          </p>
         )}
-      </div>
-
-      {/* Stat pills */}
-      <div className="flex flex-wrap gap-3 mb-8">
-        <StatPill label="Matches" value={stats.total_matches ?? 0} />
-        <StatPill label="Amber wins" value={stats.amber_wins ?? 0} accent="text-amber-300" />
-        <StatPill label="Sapphire wins" value={stats.sapphire_wins ?? 0} accent="text-blue-300" />
-        <StatPill
-          label="Avg duration"
-          value={formatDuration(stats.avg_duration_s)}
-        />
+        {vod_link && (
+          <a
+            href={vod_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 text-sm font-medium text-red-400 border border-red-500/40 rounded-lg hover:bg-red-500/10 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+            </svg>
+            Watch VOD
+          </a>
+        )}
       </div>
 
       {/* Series */}
       <div className="space-y-4">
         {series.length === 0 && (
-          <p className="text-gray-600 text-sm">No matches recorded for this week.</p>
+          <p className="text-gray-600 text-sm">
+            No matches recorded for this week.
+          </p>
         )}
         {series.map((s, i) => (
           <SeriesBlock
@@ -350,6 +373,8 @@ export default function WeekDetail() {
             teamB={s.teamB}
             matches={s.matches}
             eventTitle={event_title}
+            seriesVod={series_vods?.[`${s.teamA}__${s.teamB}`] ?? null}
+            gameVods={game_vods ?? {}}
           />
         ))}
       </div>

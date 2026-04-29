@@ -31,7 +31,6 @@ Thumbs.db
 # Build
 build/
 dist/
-static/react-app/
 
 # Logs
 *.log
@@ -65,4 +64,3 @@ data/guesstherank.json
 data/rank_submission.json
 data/team_assignment.json
 data/sounds_uploads.sqlite3
-/static/react-app

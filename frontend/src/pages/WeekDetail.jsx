@@ -112,7 +112,7 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
         <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
           <Link
             to={`/team/${encodeURIComponent(teamA)}`}
-            className="text-3xl font-bold text-white text-stroke-1 [--text-stroke-color:#000] hover:underline decoration-white text-center"
+            className="text-3xl font-bold text-white hover:underline decoration-white text-center"
           >
             {teamA}
           </Link>
@@ -136,7 +136,7 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
         <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
           <Link
             to={`/team/${encodeURIComponent(teamB)}`}
-            className="text-3xl font-bold text-white text-stroke-1 [--text-stroke-color:#000] hover:underline decoration-white text-center"
+            className="text-3xl font-bold text-white hover:underline decoration-white text-center"
           >
             {teamB}
           </Link>

@@ -1,4 +1,4 @@
-import{a as e,i as t,n}from"./ErrorBoundary.js";import{u as r}from"./api.js";var i=e(t(),1),a=n(),o=`
+import{i as e,n as t,o as n}from"./ErrorBoundary.js";import{u as r}from"./api.js";var i=n(e(),1),a=t(),o=`
   .vo-content {
     line-height: 1.8;
     font-size: 16px;

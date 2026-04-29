@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { Bar, Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import zoomPlugin from "chartjs-plugin-zoom";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, zoomPlugin);
 
 function MatchDetail() {
   const { matchId } = useParams();
@@ -14,6 +28,8 @@ function MatchDetail() {
   const [itemsByPlayer, setItemsByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("stats");
+  const [timeline, setTimeline] = useState(null);
 
   useEffect(() => {
     fetchHeroes();
@@ -21,7 +37,20 @@ function MatchDetail() {
     fetchAdjacentMatches();
     fetchMatchItems();
     fetchWeekMeta();
+    fetchTimeline();
   }, [matchId]);
+
+  const fetchTimeline = async () => {
+    try {
+      const response = await fetch(`/db/matches/${matchId}/timeline`);
+      if (response.ok) {
+        const data = await response.json();
+        setTimeline(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch timeline:", err);
+    }
+  };
 
   const fetchHeroes = async () => {
     try {
@@ -172,6 +201,68 @@ function MatchDetail() {
   const amberPlayers = players.filter((p) => p.team === 0);
   const sapphirePlayers = players.filter((p) => p.team === 1);
 
+  const amberTotalSouls = amberPlayers.reduce((sum, p) => sum + (p.net_worth || 0), 0);
+  const sapphireTotalSouls = sapphirePlayers.reduce((sum, p) => sum + (p.net_worth || 0), 0);
+
+  const totalSouls = amberTotalSouls + sapphireTotalSouls;
+  const amberPct = totalSouls > 0 ? (amberTotalSouls / totalSouls) * 100 : 50;
+
+  const amberSorted = [...amberPlayers].sort((a, b) => (b.net_worth || 0) - (a.net_worth || 0));
+  const sapphireSorted = [...sapphirePlayers].sort((a, b) => (b.net_worth || 0) - (a.net_worth || 0));
+
+  const allPlayersForChart = [
+    ...amberSorted.map((p) => ({ ...p, side: "amber" })),
+    ...sapphireSorted.map((p) => ({ ...p, side: "sapphire" })),
+  ];
+
+  const soulsChartData = {
+    labels: allPlayersForChart.map((p) => getHeroName(p.hero_id)),
+    datasets: [
+      {
+        data: allPlayersForChart.map((p) => p.net_worth || 0),
+        backgroundColor: allPlayersForChart.map((p) =>
+          p.side === "amber" ? "rgba(245, 158, 11, 0.7)" : "rgba(59, 130, 246, 0.7)"
+        ),
+        borderColor: allPlayersForChart.map((p) =>
+          p.side === "amber" ? "rgba(245, 158, 11, 1)" : "rgba(59, 130, 246, 1)"
+        ),
+        borderWidth: 1,
+        borderRadius: 3,
+      },
+    ],
+  };
+
+  const soulsChartOptions = {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ${ctx.raw.toLocaleString()} souls`,
+          afterLabel: (ctx) => {
+            const player = allPlayersForChart[ctx.dataIndex];
+            return player?.persona_name ? ` ${player.persona_name}` : "";
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: "rgba(255,255,255,0.05)" },
+        ticks: {
+          color: "#9ca3af",
+          callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
+        },
+      },
+      y: {
+        grid: { display: false },
+        ticks: { color: "#d1d5db", font: { size: 12 } },
+      },
+    },
+  };
+
   // Resolve winning side from match metadata first; fallback to player results if needed.
   const winnerPlayer = players.find((p) => p.result === "Win");
   const winningTeam =
@@ -293,8 +384,186 @@ function MatchDetail() {
         </div>
       </div>
 
-      {/* Team Amber */}
-      <div className="mb-6">
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-gray-700">
+        {["stats", "graphs"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-2 text-sm font-semibold capitalize rounded-t transition-colors ${
+              activeTab === tab
+                ? "bg-gray-800 text-white border-b-2 border-blue-400"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Graphs tab */}
+      {activeTab === "graphs" && players.length > 0 && (
+        <div className="bg-gray-800 rounded-lg p-4 mb-6">
+          <h3 className="text-gray-300 font-semibold text-lg mb-4">Souls Comparison</h3>
+
+          {/* Dominance bar */}
+          <div className="flex items-center gap-3 mb-1">
+            <span className="text-amber-300 font-semibold text-sm w-20 text-right shrink-0">
+              {amberTotalSouls.toLocaleString()}
+            </span>
+            <div className="flex-1 flex rounded overflow-hidden h-5">
+              <div
+                className="bg-amber-400/80 transition-all duration-500"
+                style={{ width: `${amberPct}%` }}
+              />
+              <div
+                className="bg-blue-500/80 transition-all duration-500"
+                style={{ width: `${100 - amberPct}%` }}
+              />
+            </div>
+            <span className="text-blue-300 font-semibold text-sm w-20 shrink-0">
+              {sapphireTotalSouls.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-amber-300/60 text-xs w-20 text-right shrink-0">
+              {amberTeamName || "Amber"}
+            </span>
+            <div className="flex-1 text-center text-xs text-gray-400">
+              {amberTotalSouls !== sapphireTotalSouls && (
+                <>
+                  {amberTotalSouls > sapphireTotalSouls
+                    ? <span className="text-amber-300">{amberTeamName || "Amber"} lead</span>
+                    : <span className="text-blue-300">{sapphireTeamName || "Sapphire"} lead</span>
+                  }
+                  {" "}
+                  <span className="text-gray-300 font-semibold">
+                    +{Math.abs(amberTotalSouls - sapphireTotalSouls).toLocaleString()}
+                  </span>
+                </>
+              )}
+              {amberTotalSouls === sapphireTotalSouls && <span>Even</span>}
+            </div>
+            <span className="text-blue-300/60 text-xs w-20 shrink-0">
+              {sapphireTeamName || "Sapphire"}
+            </span>
+          </div>
+
+          {/* Per-player bar chart */}
+          <div style={{ height: `${allPlayersForChart.length * 36 + 20}px` }}>
+            <Bar data={soulsChartData} options={soulsChartOptions} />
+          </div>
+
+          {/* Souls over time line chart */}
+          {timeline?.available ? (() => {
+            const playerList = Object.values(timeline.players);
+            const maxSnaps = Math.max(...playerList.map((p) => p.snapshots.length));
+            const durationS = adjacentMatches.duration_s;
+            // Try to build labels from real per-snapshot timestamps.
+            // Use the player with the most snapshots as the timestamp source.
+            const anchorPlayer = playerList.find((p) => p.snapshots.length === maxSnaps);
+            const hasRealTimestamps = anchorPlayer?.snapshots.every((s) => s.time_stamp_s != null);
+            const labels = Array.from({ length: maxSnaps }, (_, i) => {
+              let secs;
+              if (hasRealTimestamps) {
+                secs = anchorPlayer.snapshots[i].time_stamp_s;
+              } else if (durationS && maxSnaps > 1) {
+                secs = Math.round((i / (maxSnaps - 1)) * durationS);
+              } else {
+                return `#${i + 1}`;
+              }
+              const m = Math.floor(secs / 60);
+              const s = String(secs % 60).padStart(2, "0");
+              return `${m}:${s}`;
+            });
+
+            const lineDatasets = playerList.map((p) => {
+              const isAmber = p.team === 0;
+              const baseColor = isAmber ? "245,158,11" : "59,130,246";
+              return {
+                label: p.persona_name || getHeroName(p.hero_id) || `Player ${p.account_id}`,
+                data: p.snapshots.map((s) => s.net_worth ?? null),
+                borderColor: `rgba(${baseColor},0.9)`,
+                backgroundColor: `rgba(${baseColor},0.15)`,
+                borderWidth: 2,
+                pointRadius: 2,
+                tension: 0.3,
+                fill: false,
+              };
+            });
+
+            const lineOptions = {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: "bottom",
+                  labels: { color: "#d1d5db", boxWidth: 12, font: { size: 11 } },
+                },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => ` ${ctx.dataset.label}: ${(ctx.raw || 0).toLocaleString()} souls`,
+                  },
+                },
+                zoom: {
+                  pan: {
+                    enabled: true,
+                    mode: "x",
+                  },
+                  zoom: {
+                    wheel: { enabled: true },
+                    pinch: { enabled: true },
+                    mode: "x",
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  grid: { color: "rgba(255,255,255,0.05)" },
+                  ticks: { color: "#9ca3af", font: { size: 11 } },
+                },
+                y: {
+                  grid: { color: "rgba(255,255,255,0.05)" },
+                  ticks: {
+                    color: "#9ca3af",
+                    callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
+                  },
+                },
+              },
+            };
+
+            return (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-gray-400 text-sm font-semibold">Souls Over Time</h4>
+                  <button
+                    onClick={() => {
+                      const chart = ChartJS.getChart("soulsOverTime");
+                      chart?.resetZoom();
+                    }}
+                    className="text-xs text-gray-400 hover:text-gray-200 border border-gray-600 hover:border-gray-400 px-2 py-1 rounded transition-colors"
+                  >
+                    Reset zoom
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">Scroll to zoom · drag to pan</p>
+                <div style={{ height: "320px" }}>
+                  <Line id="soulsOverTime" data={{ labels, datasets: lineDatasets }} options={lineOptions} />
+                </div>
+              </div>
+            );
+          })() : (
+            <p className="text-gray-500 text-sm mt-6 text-center">
+              Timeline data not available for this match — only recorded for matches ingested after this feature was added.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Stats tab */}
+      {activeTab === "stats" && (
+        <div className="mb-6">
         <div className="text-gray-300 shadow py-6 ">
           <table className="w-full table-auto rounded-lg ">
             <thead className="">
@@ -337,7 +606,7 @@ function MatchDetail() {
                     {player.hero_id ? (
                       <Link
                         to={`/hero/${player.hero_id}`}
-                        className="block flex items-center gap-2 object-cover"
+                        className="block flex items-center gap-2 object-cover flex-shrink-0"
                         title={getHeroName(player.hero_id)}
                       >
                         <img
@@ -355,18 +624,18 @@ function MatchDetail() {
                     ) : (
                       "-"
                     )}
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0 overflow-hidden">
                       {player.account_id ? (
                         <Link
                           to={`/player/${player.account_id}`}
-                          className=" hover:underline min-w-0 truncate"
+                          className="hover:underline w-56 truncate"
                           title={player.persona_name || "Anonymous"}
                         >
                           {player.persona_name || "Anonymous"}
                         </Link>
                       ) : (
                         <span
-                          className="min-w-0 truncate"
+                          className="truncate"
                           title={player.persona_name || "Anonymous"}
                         >
                           {player.persona_name || "Anonymous"}
@@ -468,6 +737,17 @@ function MatchDetail() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-amber-500/40">
+                <td></td>
+                <td></td>
+                <td className="text-center p-3 text-sm font-semibold text-amber-300" title={amberTotalSouls.toLocaleString()}>{amberTotalSouls.toLocaleString()}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td className="hidden lg:table-cell"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
@@ -512,7 +792,7 @@ function MatchDetail() {
                     {player.hero_id ? (
                       <Link
                         to={`/hero/${player.hero_id}`}
-                        className="block flex items-center gap-2 object-cover"
+                        className="block flex items-center gap-2 object-cover flex-shrink-0"
                         title={getHeroName(player.hero_id)}
                       >
                         <img
@@ -530,18 +810,18 @@ function MatchDetail() {
                     ) : (
                       "-"
                     )}
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0 overflow-hidden">
                       {player.account_id ? (
                         <Link
                           to={`/player/${player.account_id}`}
-                          className="hover:underline min-w-0 truncate"
+                          className="hover:underline truncate"
                           title={player.persona_name || "Anonymous"}
                         >
                           {player.persona_name || "Anonymous"}
                         </Link>
                       ) : (
                         <span
-                          className="min-w-0 truncate"
+                          className="truncate"
                           title={player.persona_name || "Anonymous"}
                         >
                           {player.persona_name || "Anonymous"}
@@ -644,9 +924,21 @@ function MatchDetail() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-blue-500/40">
+                <td></td>
+                <td></td>
+                <td className="text-center p-3 text-sm font-semibold text-blue-300" title={sapphireTotalSouls.toLocaleString()}>{sapphireTotalSouls.toLocaleString()}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -1,1 +1,1 @@
-import{a as e,i as t,n,r,t as i}from"./chunks/ErrorBoundary.js";import{t as a}from"./chunks/App.js";var o=e(t(),1),s=e(r(),1),c=n();s.createRoot(document.getElementById(`root`)).render((0,c.jsx)(o.StrictMode,{children:(0,c.jsx)(i,{children:(0,c.jsx)(a,{})})}));
+import{i as e,n as t,o as n,r,t as i}from"./chunks/ErrorBoundary.js";import{t as a}from"./chunks/App.js";var o=n(e(),1),s=n(r(),1),c=t();s.createRoot(document.getElementById(`root`)).render((0,c.jsx)(o.StrictMode,{children:(0,c.jsx)(i,{children:(0,c.jsx)(a,{})})}));

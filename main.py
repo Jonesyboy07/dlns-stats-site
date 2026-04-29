@@ -404,6 +404,23 @@ CREATE TABLE IF NOT EXISTS user_stats (
 	updated_at TEXT,
 	FOREIGN KEY (account_id) REFERENCES users(account_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS player_snapshots (
+  match_id INTEGER NOT NULL,
+  account_id INTEGER,
+  snapshot_index INTEGER NOT NULL,
+  net_worth INTEGER,
+  kills INTEGER,
+  deaths INTEGER,
+  assists INTEGER,
+  player_damage INTEGER,
+  player_healing INTEGER,
+  time_stamp_s INTEGER,
+  PRIMARY KEY (match_id, account_id, snapshot_index),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_snapshots_match ON player_snapshots(match_id);
 """
 
 
@@ -471,8 +488,98 @@ def db_init(conn: sqlite3.Connection) -> bool:
 		conn.commit()
 	except Exception:
 		pass
+	try:
+		conn.execute("""
+			CREATE TABLE IF NOT EXISTS player_snapshots (
+			  match_id INTEGER NOT NULL,
+			  account_id INTEGER,
+			  snapshot_index INTEGER NOT NULL,
+			  net_worth INTEGER,
+			  kills INTEGER,
+			  deaths INTEGER,
+			  assists INTEGER,
+			  player_damage INTEGER,
+			  player_healing INTEGER,
+			  time_stamp_s INTEGER,
+			  PRIMARY KEY (match_id, account_id, snapshot_index),
+			  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+			)
+		""")
+		conn.execute("CREATE INDEX IF NOT EXISTS idx_snapshots_match ON player_snapshots(match_id)")
+		conn.commit()
+	except Exception:
+		pass
+	try:
+		cur = conn.execute("PRAGMA table_info(player_snapshots)")
+		snap_cols = {r[1] for r in cur.fetchall()}
+		if "time_stamp_s" not in snap_cols:
+			conn.execute("ALTER TABLE player_snapshots ADD COLUMN time_stamp_s INTEGER")
+			conn.commit()
+	except Exception:
+		pass
 	conn.commit()
 	return large_table_change
+
+
+def upsert_player_snapshots(conn: sqlite3.Connection, match_id: int, account_id: Optional[int], stats: Any) -> None:
+	"""Store per-snapshot stats for a player. Skips if no stats array or account_id missing."""
+	if account_id is None or not isinstance(stats, list) or not stats:
+		return
+	# Delete existing snapshots for this player/match before re-inserting (re-ingest safe)
+	conn.execute(
+		"DELETE FROM player_snapshots WHERE match_id=? AND account_id=?",
+		(match_id, account_id),
+	)
+	for idx, snap in enumerate(stats):
+		if not isinstance(snap, dict):
+			continue
+		conn.execute(
+			"INSERT OR IGNORE INTO player_snapshots"
+			"(match_id, account_id, snapshot_index, net_worth, kills, deaths, assists, player_damage, player_healing, time_stamp_s) "
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			(
+				match_id,
+				account_id,
+				idx,
+				extract_int(snap.get("net_worth")),
+				extract_int(snap.get("kills")),
+				extract_int(snap.get("deaths")),
+				extract_int(snap.get("assists")),
+				extract_int(snap.get("player_damage")),
+				extract_int(snap.get("player_healing")),
+				extract_int(snap.get("time_stamp_s")),
+			),
+		)
+
+
+async def upsert_player_snapshots_async(conn: Any, match_id: int, account_id: Optional[int], stats: Any) -> None:
+	"""Async version of upsert_player_snapshots."""
+	if account_id is None or not isinstance(stats, list) or not stats:
+		return
+	await conn.execute(
+		"DELETE FROM player_snapshots WHERE match_id=? AND account_id=?",
+		(match_id, account_id),
+	)
+	for idx, snap in enumerate(stats):
+		if not isinstance(snap, dict):
+			continue
+		await conn.execute(
+			"INSERT OR IGNORE INTO player_snapshots"
+			"(match_id, account_id, snapshot_index, net_worth, kills, deaths, assists, player_damage, player_healing, time_stamp_s) "
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			(
+				match_id,
+				account_id,
+				idx,
+				extract_int(snap.get("net_worth")),
+				extract_int(snap.get("kills")),
+				extract_int(snap.get("deaths")),
+				extract_int(snap.get("assists")),
+				extract_int(snap.get("player_damage")),
+				extract_int(snap.get("player_healing")),
+				extract_int(snap.get("time_stamp_s")),
+			),
+		)
 
 
 def upsert_user(conn: sqlite3.Connection, account_id: int, persona_name: Optional[str]) -> None:
@@ -622,6 +729,7 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 			items_json,
 		),
 	)
+	upsert_player_snapshots(conn, match_id, account_id, player.get("stats"))
 
 
 
@@ -1016,6 +1124,7 @@ async def upsert_player_async(
 			items_json,
 		),
 	)
+	await upsert_player_snapshots_async(conn, match_id, account_id, player.get("stats"))
 
 
 async def recompute_user_stats_async(conn: asqlite.Connection, account_id: int) -> None:

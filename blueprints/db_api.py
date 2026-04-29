@@ -439,7 +439,7 @@ def latest_matches_paged():  # type: ignore
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
-            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side FROM matches WHERE match_id = ?",
+            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, duration_s FROM matches WHERE match_id = ?",
             (match_id,),
         ).fetchone()
         prev_row = conn.execute(
@@ -463,6 +463,7 @@ def match_adjacent(match_id: int):  # type: ignore
         "event_team_b": cur_row[5] if cur_row else None,
         "event_game": cur_row[6] if cur_row else None,
         "event_team_a_ingame_side": cur_row[7] if cur_row else None,
+        "duration_s": cur_row[8] if cur_row else None,
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })
@@ -482,6 +483,58 @@ def match_players(match_id: int):  # type: ignore
         
         
         return jsonify({"players": data})
+
+
+@bp.get("/matches/<int:match_id>/timeline")
+@cache.cached(timeout=300)
+def match_timeline(match_id: int):  # type: ignore
+    with get_ro_conn() as conn:
+        # Check if any snapshots exist for this match
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM player_snapshots WHERE match_id = ?",
+            (match_id,),
+        )
+        count = cur.fetchone()[0]
+        if count == 0:
+            return jsonify({"available": False, "players": {}})
+
+        cur = conn.execute(
+            "SELECT s.account_id, s.snapshot_index, s.net_worth, s.kills, s.deaths, "
+            "s.assists, s.player_damage, s.player_healing, s.time_stamp_s, "
+            "u.persona_name, p.team, p.hero_id "
+            "FROM player_snapshots s "
+            "LEFT JOIN users u ON u.account_id = s.account_id "
+            "LEFT JOIN players p ON p.match_id = s.match_id AND p.account_id = s.account_id "
+            "WHERE s.match_id = ? "
+            "ORDER BY s.account_id, s.snapshot_index",
+            (match_id,),
+        )
+        rows = cur.fetchall()
+
+    players: Dict[str, Any] = {}
+    for row in rows:
+        account_id, snap_idx, net_worth, kills, deaths, assists, player_damage, player_healing, time_stamp_s, persona_name, team, hero_id = row
+        key = str(account_id)
+        if key not in players:
+            players[key] = {
+                "account_id": account_id,
+                "persona_name": persona_name,
+                "team": team,
+                "hero_id": hero_id,
+                "snapshots": [],
+            }
+        players[key]["snapshots"].append({
+            "net_worth": net_worth,
+            "kills": kills,
+            "deaths": deaths,
+            "assists": assists,
+            "player_damage": player_damage,
+            "player_healing": player_healing,
+            "time_stamp_s": time_stamp_s,
+        })
+
+    return jsonify({"available": True, "players": players})
+
 
 @bp.get("/matches/<int:match_id>/items")
 @cache.cached(timeout=86400)
@@ -1197,10 +1250,55 @@ def nightshift_week(week: int):
         ).fetchall()
         all_weeks = [r[0] for r in neighbours]
 
+        # Pull vod_link (week-level), per-series match_vod, and per-game match_vod from matches.json
+        vod_link: str | None = None
+        series_vods: dict = {}  # key: "team_a__team_b" -> vod url
+        game_vods: dict = {}    # key: str(match_id) -> vod url
+        try:
+            matches_file = Path(current_app.root_path).parent / "matches.json"
+            if not matches_file.exists():
+                matches_file = Path("matches.json").resolve()
+            with open(matches_file, encoding="utf-8-sig") as f:
+                mdata = json.load(f)
+            week_entries: list = []
+            root_series = mdata.get("series")
+            if isinstance(root_series, list):
+                for s in root_series:
+                    for e in s.get("weeks") or s.get("events") or []:
+                        if isinstance(e, dict) and e.get("week") == week:
+                            week_entries.append(e)
+            if not week_entries:
+                for e in mdata.get("weeks") or mdata.get("events") or []:
+                    if isinstance(e, dict) and e.get("week") == week:
+                        week_entries.append(e)
+            for entry in week_entries:
+                if not vod_link:
+                    vod_link = entry.get("vod_link") or None
+                for game in entry.get("games") or []:
+                    if not isinstance(game, dict):
+                        continue
+                    ta = game.get("team_a") or game.get("team1") or ""
+                    tb = game.get("team_b") or game.get("team2") or ""
+                    mv = game.get("match_vod") or ""
+                    if mv and ta and tb:
+                        series_vods[f"{ta}__{tb}"] = mv
+                    for gmatch in game.get("matches") or []:
+                        if not isinstance(gmatch, dict):
+                            continue
+                        mid = gmatch.get("match_id")
+                        gvod = gmatch.get("match_vod") or ""
+                        if mid and gvod:
+                            game_vods[str(mid)] = gvod
+        except Exception:
+            pass
+
         return jsonify({
             "week": week,
             "event_title": event_title,
             "stats": stats,
             "matches": matches,
             "all_weeks": all_weeks,
+            "vod_link": vod_link,
+            "series_vods": series_vods,
+            "game_vods": game_vods,
         })

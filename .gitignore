@@ -31,6 +31,7 @@ Thumbs.db
 # Build
 build/
 dist/
+static/react-app/
 
 # Logs
 *.log

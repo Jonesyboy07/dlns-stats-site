@@ -374,6 +374,9 @@ CREATE TABLE IF NOT EXISTS players (
   pings_count INTEGER,
   result TEXT,
   items TEXT,
+  item_build TEXT,
+  ability_order TEXT,
+  raw_items_json TEXT,
   PRIMARY KEY (match_id, account_id),
   FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE,
   FOREIGN KEY (account_id) REFERENCES users(account_id) ON DELETE SET NULL
@@ -485,6 +488,12 @@ def db_init(conn: sqlite3.Connection) -> bool:
 		cols = {r[1] for r in cur.fetchall()}
 		if "items" not in cols:
 			conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
+		if "item_build" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN item_build TEXT")
+		if "ability_order" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN ability_order TEXT")
+		if "raw_items_json" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN raw_items_json TEXT")
 		conn.commit()
 	except Exception:
 		pass
@@ -679,29 +688,53 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	# Items: store only unsold items as JSON list of item_ids, deduplicated to avoid
 	# upgrade components appearing multiple times (base components stay with sold_time_s=0
 	# even after being consumed into an upgrade).
+	# item_build stores [{item_id, game_time_s}, ...] sorted by purchase time.
+	# ability_order stores [{ability_id, game_time_s, tier}, ...] sorted by game_time_s.
 	raw_items = player.get("items") or []
+	# Group all raw entries by item_id to detect abilities (appear more than once or have upgrade_id != 0)
+	item_groups: Dict[Any, list] = {}
+	for i in raw_items:
+		if isinstance(i, dict) and i.get("item_id") is not None:
+			iid = i["item_id"]
+			if iid not in item_groups:
+				item_groups[iid] = []
+			item_groups[iid].append(i)
 	seen_item_ids: set = set()
 	unsold_item_ids = []
-	for i in raw_items:
-		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None:
-			iid = i["item_id"]
-			if iid not in seen_item_ids:
-				seen_item_ids.add(iid)
-				unsold_item_ids.append(iid)
+	build_items = []
+	ability_events = []
+	for iid, entries in item_groups.items():
+		is_ability = len(entries) > 1 or any(e.get("upgrade_id", 0) != 0 for e in entries)
+		if is_ability:
+			for tier, entry in enumerate(sorted(entries, key=lambda x: x.get("game_time_s") or 0)):
+				ability_events.append({"ability_id": iid, "game_time_s": entry.get("game_time_s"), "tier": tier})
+		else:
+			for entry in entries:
+				if entry.get("sold_time_s", 0) == 0 and iid not in seen_item_ids:
+					seen_item_ids.add(iid)
+					unsold_item_ids.append(iid)
+					build_items.append({"item_id": iid, "game_time_s": entry.get("game_time_s")})
+	build_items.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
+	ability_events.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
 	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
+	item_build_json = json.dumps(build_items) if build_items else None
+	ability_order_json = json.dumps(ability_events) if ability_events else None
+	# Store the complete raw items list so the build endpoint can re-classify
+	# using the item catalog (required because upgrade_id semantics changed in API).
+	raw_items_json = json.dumps(raw_items) if raw_items else None
 	if account_id is not None:
 		upsert_user(conn, account_id, name_by_id.get(account_id, "Unknown"))
 
 	conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order, raw_items_json) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items, item_build=excluded.item_build, ability_order=excluded.ability_order, raw_items_json=excluded.raw_items_json"
 		),
 		(
 			match_id,
@@ -727,6 +760,9 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 			pings_count,
 			result,
 			items_json,
+			item_build_json,
+			ability_order_json,
+			raw_items_json,
 		),
 	)
 	upsert_player_snapshots(conn, match_id, account_id, player.get("stats"))
@@ -1068,35 +1104,47 @@ async def upsert_player_async(
 		result = "Win" if int(team) == int(winning_team) else "Loss"
 
 	raw_items = player.get("items") or []
-	unsold = [
-		i for i in raw_items
-		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None
-	]
-	unsold.sort(key=lambda i: i.get("game_time_s") or 0, reverse=True)
+	item_groups: Dict[Any, list] = {}
+	for i in raw_items:
+		if isinstance(i, dict) and i.get("item_id") is not None:
+			iid = i["item_id"]
+			if iid not in item_groups:
+				item_groups[iid] = []
+			item_groups[iid].append(i)
 	seen_item_ids: set = set()
 	unsold_item_ids = []
-	for i in unsold:
-		iid = i["item_id"]
-		if iid not in seen_item_ids:
-			seen_item_ids.add(iid)
-			unsold_item_ids.append(iid)
-			if len(unsold_item_ids) == 12:
-				break
+	build_items = []
+	ability_events = []
+	for iid, entries in item_groups.items():
+		is_ability = len(entries) > 1 or any(e.get("upgrade_id", 0) != 0 for e in entries)
+		if is_ability:
+			for tier, entry in enumerate(sorted(entries, key=lambda x: x.get("game_time_s") or 0)):
+				ability_events.append({"ability_id": iid, "game_time_s": entry.get("game_time_s"), "tier": tier})
+		else:
+			for entry in entries:
+				if entry.get("sold_time_s", 0) == 0 and iid not in seen_item_ids:
+					seen_item_ids.add(iid)
+					unsold_item_ids.append(iid)
+					build_items.append({"item_id": iid, "game_time_s": entry.get("game_time_s")})
+	build_items.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
+	ability_events.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
 	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
+	item_build_json = json.dumps(build_items) if build_items else None
+	ability_order_json = json.dumps(ability_events) if ability_events else None
 
 	if account_id is not None:
 		await upsert_user_async(conn, account_id, name_by_id.get(account_id, "Unknown"))
 
 	await conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items, item_build=excluded.item_build, ability_order=excluded.ability_order"
 		),
 		(
 			match_id,
@@ -1122,6 +1170,8 @@ async def upsert_player_async(
 			pings_count,
 			result,
 			items_json,
+			item_build_json,
+			ability_order_json,
 		),
 	)
 	await upsert_player_snapshots_async(conn, match_id, account_id, player.get("stats"))

@@ -53,6 +53,9 @@ export function MatchAdmin() {
   const [error, setError] = useState('');
   const [backfillingNames, setBackfillingNames] = useState(false);
   const [backfillNotice, setBackfillNotice] = useState('');
+  const [backfillingItems, setBackfillingItems] = useState(false);
+  const [backfillItemsNotice, setBackfillItemsNotice] = useState('');
+  const [backfillItemsJobId, setBackfillItemsJobId] = useState(null);
   const [previews, setPreviews] = useState({});
 
   const [treeLoading, setTreeLoading] = useState(false);
@@ -230,6 +233,47 @@ export function MatchAdmin() {
     }
   };
 
+  const backfillItems = async () => {
+    setBackfillItemsNotice('');
+    setBackfillItemsJobId(null);
+    setBackfillingItems(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/match/backfill-items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await readJsonOrThrow(res, 'Backfill items failed');
+      if (!data.job_id) {
+        setBackfillItemsNotice(data.message || 'No matches need backfilling.');
+        setBackfillingItems(false);
+        return;
+      }
+      setBackfillItemsJobId(data.job_id);
+      setBackfillItemsNotice(`Queued — ${data.total} matches to process…`);
+    } catch (err) {
+      setBackfillItemsNotice(err?.message || 'Backfill items failed');
+      setBackfillingItems(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!backfillItemsJobId) return undefined;
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/admin/match/job/${backfillItemsJobId}`, { credentials: 'include' });
+        const data = await readJsonOrThrow(res, 'Job status failed');
+        setBackfillItemsNotice(data.message || '');
+        if (data.status === 'done' || data.status === 'error') {
+          clearInterval(timer);
+          setBackfillingItems(false);
+          setBackfillItemsJobId(null);
+        }
+      } catch { /* ignore polling errors */ }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [backfillItemsJobId]);
+
   useEffect(() => {
     if (!jobId) return undefined;
 
@@ -273,6 +317,7 @@ export function MatchAdmin() {
                 team_a: match.context?.team_a || '',
                 team_b: match.context?.team_b || '',
                 game_label: match.context?.game_label || '',
+                set_title: match.context?.set_title || '',
                 team_a_side: Number(match.team_a_side ?? 0),
                 winner_team: match.winner_team || 'team_a',
               });
@@ -318,6 +363,7 @@ export function MatchAdmin() {
       team_a: match.context?.team_a || '',
       team_b: match.context?.team_b || '',
       game_label: match.context?.game_label || '',
+      set_title: match.context?.set_title || '',
       team_a_side: Number(match.team_a_side ?? 0),
       winner_team: match.winner_team || 'team_a',
     });
@@ -339,6 +385,7 @@ export function MatchAdmin() {
           week: Number(editForm.week),
           team_a_side: Number(editForm.team_a_side),
           winner_team: editForm.winner_team,
+          set_title: editForm.set_title || '',
         }),
       });
       const data = await readJsonOrThrow(res, 'Failed to save match edit');
@@ -367,9 +414,22 @@ export function MatchAdmin() {
           >
             {backfillingNames ? 'Backfilling Names...' : 'Backfill Unknown Names'}
           </button>
+          <button
+            type="button"
+            onClick={backfillItems}
+            disabled={backfillingItems}
+            className="text-xs px-3 py-2 rounded border border-blue-500/50 text-blue-200 hover:bg-blue-700/20 disabled:opacity-50"
+          >
+            {backfillingItems ? 'Backfilling Items…' : 'Backfill Missing Items'}
+          </button>
           {backfillNotice && (
             <div className="text-xs rounded border border-gray-700/60 bg-gray-900/40 px-3 py-2 text-gray-200">
               {backfillNotice}
+            </div>
+          )}
+          {backfillItemsNotice && (
+            <div className="text-xs rounded border border-gray-700/60 bg-gray-900/40 px-3 py-2 text-gray-200">
+              {backfillItemsNotice}
             </div>
           )}
         </div>
@@ -823,6 +883,15 @@ export function MatchAdmin() {
                     onChange={(e) => setEditForm((prev) => ({ ...prev, game_label: e.target.value }))}
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
                     required
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-gray-300">Set Title <span className="text-gray-500 font-normal">(optional)</span></span>
+                  <input
+                    value={editForm.set_title || ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, set_title: e.target.value }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    placeholder="e.g. Upper Bracket"
                   />
                 </label>
                 <label className="space-y-1 text-sm">

@@ -1708,11 +1708,6 @@
               "team_b": "Floormen",
               "matches": [
                 {
-                  "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 55344908
-                },
-                {
                   "game": "Game 2",
                   "team_a_side": 1,
                   "match_id": 55360944
@@ -1721,6 +1716,12 @@
                   "game": "Game 3",
                   "team_a_side": 0,
                   "match_id": 55377634
+                },
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 55344908,
+                  "match_vod": "https://www.youtube.com/watch?v=-NiTws3XE6g&pp=0gcJCcMKAYcqIYzv"
                 }
               ],
               "region": "NA",
@@ -2447,6 +2448,155 @@
             }
           ],
           "vod_link": "https://youtu.be/nV2qBzzH-V0?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
+        },
+        {
+          "week": 35,
+          "games": [
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 77625424
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=Vs7PCzLiX6I",
+              "region": "EU",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 77638857
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 77649372
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=Hivcva2rEcY",
+              "title": "Finals Match"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Floormen",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 77661335
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=swHmy1KCb14",
+              "region": "NA",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "FPS Lounge",
+              "team_b": "Melee Creeps",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 77673941
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 77684531
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 77695548
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=8yeWjrtBaKM&pp=0gcJCd8KAYcqIYzv",
+              "region": "NA",
+              "title": "Finals Match"
+            }
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=iVb3icTtsFw"
+        },
+        {
+          "week": 36,
+          "games": [
+            {
+              "team_a": "Leviathan",
+              "team_b": "Abrahams",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 79201343
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 79209596
+                }
+              ],
+              "region": "EU",
+              "title": "Finals Match",
+              "match_vod": "https://www.youtube.com/watch?v=P8LMHHAZcsk&pp=0gcJCd8KAYcqIYzv"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Floormen",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 79221309
+                }
+              ],
+              "region": "NA",
+              "title": "Challenger Match",
+              "match_vod": "https://www.youtube.com/watch?v=fAJHpCaeBOk"
+            },
+            {
+              "team_a": "FPS Lounge",
+              "team_b": "Floormen",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 79235607
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 79245948
+                }
+              ],
+              "region": "NA",
+              "title": "Finals Match",
+              "match_vod": "https://www.youtube.com/watch?v=ttACy3o6_3c"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Abrahams",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 79186569,
+                  "match_vod": "https://www.youtube.com/watch?v=1q9hRuookwk"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=1q9hRuookwk",
+              "title": "Challenger Match"
+            }
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=qh2F8DBT32M&t=1s&pp=0gcJCd8KAYcqIYzv"
         }
       ]
     }

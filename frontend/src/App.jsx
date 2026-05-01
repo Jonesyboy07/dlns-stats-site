@@ -150,6 +150,7 @@ function App() {
             </div>
             <div className="border-t border-gray-700/50 text-center text-xs py-4 text-gray-600">
               Built with React + Flask + Tailwind CSS
+              <p>v0.0.1</p>
             </div>
           </footer>
         </div>

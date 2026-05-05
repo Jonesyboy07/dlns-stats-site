@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from flask import Blueprint, render_template, current_app, jsonify, request
+from cache import cache
 from utils.auth import require_admin, get_current_user, get_all_privileged_users, is_admin, require_submit_perms
 from main import (
     SkipMatchSilent,
@@ -136,6 +137,7 @@ def _build_match_tree(
                                 "team_a": team_a,
                                 "team_b": team_b,
                                 "game_label": game_label,
+                                "set_title": (game.get("title") or ""),
                             },
                         }
                     )
@@ -182,6 +184,7 @@ def _apply_match_edit(
     vod_link: str,
     match_vod: str = "",
     region: str = "",
+    set_title: str = "",
 ) -> Dict[str, Any]:
     loc = _find_match_location(data, match_id)
     if not loc:
@@ -229,6 +232,10 @@ def _apply_match_edit(
         target_game["match_vod"] = match_vod
     elif "match_vod" not in target_game:
         target_game["match_vod"] = ""
+    if set_title:
+        target_game["title"] = set_title
+    else:
+        target_game.pop("title", None)
 
     target_matches = target_game.setdefault("matches", [])
     target_matches[:] = [m for m in target_matches if int(m.get("match_id") or -1) != int(match_id)]
@@ -250,6 +257,7 @@ def _apply_match_edit(
         "vod_link": vod_link or "",
         "match_vod": match_vod or "",
         "region": region or "",
+        "set_title": set_title or "",
     }
 
 
@@ -944,6 +952,138 @@ def admin_backfill_unknown_names():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+def _run_backfill_items_job(job_id: str, match_ids: List[int], app_obj: Any) -> None:
+    try:
+        with app_obj.app_context():
+            db_path = Path(current_app.config.get('DB_PATH', './data/dlns.sqlite3'))
+            conn = db_connect(db_path)
+            try:
+                db_init(conn)
+                total = len(match_ids)
+                updated_matches = 0
+                updated_players = 0
+                skipped = 0
+                errors = 0
+
+                for idx, match_id in enumerate(match_ids, start=1):
+                    _set_job(job_id, status='running', message=f'Processing {idx}/{total} — match {match_id}')
+                    try:
+                        mi = fetch_match_metadata(match_id)
+                    except SkipMatchSilent:
+                        skipped += 1
+                        continue
+                    except Exception as e:
+                        app_obj.logger.warning('Backfill items: failed to fetch match %s: %s', match_id, e)
+                        errors += 1
+                        continue
+
+                    players = mi.get('players') or []
+                    if not players:
+                        skipped += 1
+                        continue
+
+                    winning_team = mi.get('winning_team')
+                    match_updated = False
+                    for player in players:
+                        account_id = player.get('account_id')
+                        if account_id is None:
+                            continue
+
+                        raw_items = player.get('items') or []
+                        # Store raw items for catalog-based classification in /build endpoint
+                        raw_items_json = json.dumps(raw_items) if raw_items else None
+
+                        conn.execute(
+                            '''
+                            UPDATE players
+                            SET raw_items_json = ?
+                            WHERE match_id = ? AND account_id = ?
+                            ''',
+                            (raw_items_json, match_id, account_id),
+                        )
+                        updated_players += 1
+                        match_updated = True
+
+                    if match_updated:
+                        updated_matches += 1
+
+                conn.commit()
+            finally:
+                conn.close()
+
+            # Clear Flask's in-memory cache so the /build and /items endpoints
+            # serve fresh data on the next request instead of stale cached responses.
+            try:
+                cache.clear()
+            except Exception:
+                pass
+
+            msg = f'Done. Updated {updated_players} players across {updated_matches} matches.'
+            if skipped:
+                msg += f' Skipped {skipped} (not indexed).'
+            if errors:
+                msg += f' {errors} fetch errors.'
+            _set_job(job_id, status='done', message=msg,
+                     updated_matches=updated_matches, updated_players=updated_players,
+                     skipped=skipped, errors=errors)
+    except Exception as e:
+        app_obj.logger.exception('Backfill items job failed')
+        _set_job(job_id, status='error', message=str(e))
+
+
+@admin_bp.route('/match/backfill-items', methods=['POST'])
+@require_admin
+def admin_backfill_items():
+    """Re-fetch item/ability data from the API for all matches that are missing it."""
+    db_path = Path(current_app.config.get('DB_PATH', './data/dlns.sqlite3'))
+    payload = request.get_json(silent=True) or {}
+
+    conn: Optional[sqlite3.Connection] = None
+    try:
+        conn = db_connect(db_path)
+        db_init(conn)
+
+        # If specific match IDs provided, use those; otherwise find all matches
+        # where at least one player is missing item_build data.
+        explicit_ids = payload.get('match_ids')
+        if isinstance(explicit_ids, list) and explicit_ids:
+            try:
+                match_ids = [int(m) for m in explicit_ids]
+            except Exception:
+                conn.close()
+                return jsonify({'ok': False, 'error': 'match_ids must be numeric'}), 400
+        else:
+            rows = conn.execute(
+                '''
+                SELECT DISTINCT match_id FROM players
+                WHERE match_id > 0
+                  AND (raw_items_json IS NULL OR raw_items_json = '[]')
+                ORDER BY match_id DESC
+                '''
+            ).fetchall()
+            match_ids = [int(r[0]) for r in rows]
+
+        conn.close()
+    except Exception as e:
+        if conn is not None:
+            conn.close()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    if not match_ids:
+        return jsonify({'ok': True, 'message': 'No matches need backfilling.', 'job_id': None})
+
+    job_id = str(uuid.uuid4())
+    _set_job(job_id, status='queued', message=f'Queued — {len(match_ids)} matches to process', total=len(match_ids))
+    app_obj = current_app._get_current_object()
+    thread = threading.Thread(
+        target=_run_backfill_items_job,
+        args=(job_id, match_ids, app_obj),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({'ok': True, 'job_id': job_id, 'total': len(match_ids)})
+
+
 @admin_bp.route('/match/tree')
 @require_admin
 def admin_match_tree():
@@ -1003,6 +1143,7 @@ def admin_match_edit():
     vod_link = (payload.get('vod_link') or '').strip()
     match_vod = (payload.get('match_vod') or '').strip()
     region = (payload.get('region') or '').strip()
+    set_title = (payload.get('set_title') or '').strip()
 
     if not series_title:
         return jsonify({'ok': False, 'error': 'series_title is required'}), 400
@@ -1091,6 +1232,7 @@ def admin_match_edit():
                 vod_link=vod_link,
                 match_vod=match_vod,
                 region=region,
+                set_title=set_title,
             )
             _write_matches_json(matches_path, data)
 

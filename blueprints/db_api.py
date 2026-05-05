@@ -557,48 +557,229 @@ def match_items(match_id: int):  # type: ignore
             current_app.logger.warning("Item catalog unavailable: %s", e)
             return jsonify({})
 
-    # Build id -> {name, item_slot_type, item_tier} lookup
+    # Build id -> {name, item_slot_type, item_tier, type, image} lookup
     item_lookup: dict = {}
     for item in (item_catalog if isinstance(item_catalog, list) else []):
         iid = item.get("id")
         if iid is not None:
             item_lookup[int(iid)] = {
                 "name": item.get("name", ""),
+                "image": item.get("image", ""),
                 "item_slot_type": item.get("item_slot_type", ""),
                 "item_tier": item.get("item_tier"),
+                "type": item.get("type", ""),
             }
 
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT account_id, items FROM players WHERE match_id = ?",
+            "SELECT account_id, items, raw_items_json FROM players WHERE match_id = ?",
             (match_id,),
         )
         rows = cur.fetchall()
 
     result: dict = {}
-    for account_id, items_json in rows:
-        if not items_json:
-            continue
-        try:
-            item_ids = json.loads(items_json)
-        except Exception:
-            continue
+    for account_id, items_json, raw_items_json in rows:
         enriched = []
-        seen_ids: set = set()
-        for iid in item_ids:
-            iid_int = int(iid)
-            if iid_int in seen_ids:
-                continue
-            seen_ids.add(iid_int)
-            meta = item_lookup.get(iid_int)
-            if meta and meta.get("name"):
-                enriched.append(meta)
-        # Sort higher-tier items first, then cap at 12 to handle existing data
-        # where sold/consumed items may have been stored with sold_time_s=0.
+        if raw_items_json:
+            # New path: classify using catalog so abilities are never included
+            try:
+                raw_entries = json.loads(raw_items_json)
+            except Exception:
+                raw_entries = []
+            seen_ids: set = set()
+            for entry in raw_entries:
+                iid = entry.get("item_id")
+                if iid is None:
+                    continue
+                iid_int = int(iid)
+                if iid_int in seen_ids:
+                    continue
+                if entry.get("sold_time_s", 0) != 0:
+                    continue
+                meta = item_lookup.get(iid_int)
+                if meta and meta.get("name") and meta.get("type") != "ability":
+                    seen_ids.add(iid_int)
+                    enriched.append(meta)
+        elif items_json:
+            # Legacy path: pre-stored item_id list
+            try:
+                item_ids = json.loads(items_json)
+            except Exception:
+                item_ids = []
+            seen_ids = set()
+            for iid in item_ids:
+                iid_int = int(iid)
+                if iid_int in seen_ids:
+                    continue
+                seen_ids.add(iid_int)
+                meta = item_lookup.get(iid_int)
+                if meta and meta.get("name") and meta.get("type") != "ability":
+                    enriched.append(meta)
+        if not enriched:
+            continue
         enriched.sort(key=lambda x: x.get("item_tier") or 0, reverse=True)
         enriched = enriched[:12]
-        if enriched:
-            result[str(account_id)] = enriched
+        result[str(account_id)] = enriched
+
+    return jsonify(result)
+
+
+@bp.get("/matches/<int:match_id>/build")
+@cache.cached(timeout=300)
+def match_build(match_id: int):  # type: ignore
+    item_catalog = cache.get("dlns_items_list")
+    if item_catalog is None:
+        try:
+            resp = requests.get(
+                "https://assets.deadlock-api.com/v2/items",
+                params={"language": "english"},
+                timeout=3,
+            )
+            resp.raise_for_status()
+            item_catalog = resp.json()
+            cache.set("dlns_items_list", item_catalog, timeout=600)
+        except Exception as e:
+            current_app.logger.warning("Item catalog unavailable: %s", e)
+            return jsonify({})
+
+    item_lookup: dict = {}
+    ability_lookup: dict = {}
+    for item in (item_catalog if isinstance(item_catalog, list) else []):
+        iid = item.get("id")
+        if iid is None:
+            continue
+        iid_int = int(iid)
+        item_type = item.get("type", "")
+        if item_type == "ability":
+            ability_lookup[iid_int] = {
+                "name": item.get("name", ""),
+                "image": item.get("image", ""),
+                "ability_type": item.get("ability_type", ""),
+                "hero": item.get("hero"),
+            }
+        else:
+            item_lookup[iid_int] = {
+                "name": item.get("name", ""),
+                "image": item.get("image", ""),
+                "item_slot_type": item.get("item_slot_type", ""),
+                "item_tier": item.get("item_tier"),
+                "type": item_type,
+            }
+
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            "SELECT account_id, item_build, items, ability_order, raw_items_json FROM players WHERE match_id = ?",
+            (match_id,),
+        )
+        rows = cur.fetchall()
+
+    result: dict = {}
+    for account_id, item_build_json, items_json, ability_order_json, raw_items_json in rows:
+        # --- items + abilities ---
+        # Prefer raw_items_json (full API data) + catalog for reliable classification.
+        # Fall back to pre-processed item_build / ability_order for older rows.
+        if raw_items_json:
+            try:
+                raw_entries = json.loads(raw_items_json)
+            except Exception:
+                raw_entries = []
+
+            # Group by item_id
+            item_groups: dict = {}
+            for entry in raw_entries:
+                iid = entry.get("item_id")
+                if iid is None:
+                    continue
+                iid_int = int(iid)
+                if iid_int not in item_groups:
+                    item_groups[iid_int] = []
+                item_groups[iid_int].append(entry)
+
+            enriched_items = []
+            enriched_abilities_raw: dict = {}
+            for iid_int, entries in item_groups.items():
+                if iid_int in item_lookup:
+                    # Shop item: take the earliest unsold entry for purchase timestamp
+                    unsold = [e for e in entries if e.get("sold_time_s", 0) == 0]
+                    if not unsold:
+                        continue
+                    first = min(unsold, key=lambda e: e.get("game_time_s") or 0)
+                    enriched_items.append({**item_lookup[iid_int], "game_time_s": first.get("game_time_s")})
+                elif iid_int in ability_lookup:
+                    # Hero ability: collect tier upgrades
+                    unsold = [e for e in entries if e.get("sold_time_s", 0) == 0]
+                    if not unsold:
+                        continue
+                    upgrades = [
+                        {"tier": i, "game_time_s": e.get("game_time_s")}
+                        for i, e in enumerate(sorted(unsold, key=lambda e: e.get("game_time_s") or 0))
+                    ]
+                    enriched_abilities_raw[iid_int] = upgrades
+                # items not in catalog are silently ignored
+
+            enriched_items.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
+
+            enriched_abilities = []
+            for aid_int, upgrades in enriched_abilities_raw.items():
+                meta = ability_lookup.get(aid_int)
+                if meta and meta.get("name"):
+                    enriched_abilities.append({**meta, "ability_id": aid_int, "upgrades": upgrades})
+            enriched_abilities.sort(
+                key=lambda a: (a["upgrades"][0]["game_time_s"] is None, a["upgrades"][0]["game_time_s"] or 0)
+                if a["upgrades"] else (True, 0)
+            )
+
+        else:
+            # Legacy path: use pre-processed columns
+            if item_build_json:
+                try:
+                    build = json.loads(item_build_json)
+                except Exception:
+                    build = []
+            elif items_json:
+                try:
+                    build = [{"item_id": iid, "game_time_s": None} for iid in json.loads(items_json)]
+                except Exception:
+                    build = []
+            else:
+                build = []
+            enriched_items = []
+            for entry in build:
+                try:
+                    iid_int = int(entry["item_id"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                meta = item_lookup.get(iid_int)
+                if meta and meta.get("name") and meta.get("type") != "ability":
+                    enriched_items.append({**meta, "game_time_s": entry.get("game_time_s")})
+
+            ability_events = []
+            if ability_order_json:
+                try:
+                    ability_events = json.loads(ability_order_json)
+                except Exception:
+                    ability_events = []
+            grouped: dict = {}
+            for ev in ability_events:
+                aid = ev.get("ability_id")
+                if aid is None:
+                    continue
+                aid_int = int(aid)
+                if aid_int not in grouped:
+                    grouped[aid_int] = []
+                grouped[aid_int].append({"tier": ev.get("tier", 0), "game_time_s": ev.get("game_time_s")})
+            enriched_abilities = []
+            for aid_int, upgrades in grouped.items():
+                meta = ability_lookup.get(aid_int)
+                if meta and meta.get("name"):
+                    enriched_abilities.append({**meta, "ability_id": aid_int, "upgrades": upgrades})
+            enriched_abilities.sort(
+                key=lambda a: (a["upgrades"][0]["game_time_s"] is None, a["upgrades"][0]["game_time_s"] or 0)
+                if a["upgrades"] else (True, 0)
+            )
+
+        if enriched_items or enriched_abilities:
+            result[str(account_id)] = {"items": enriched_items, "abilities": enriched_abilities}
 
     return jsonify(result)
 

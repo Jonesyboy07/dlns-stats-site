@@ -26,6 +26,7 @@ function MatchDetail() {
   const [weekMeta, setWeekMeta] = useState(null);
   const [heroes, setHeroes] = useState({});
   const [itemsByPlayer, setItemsByPlayer] = useState({});
+  const [buildByPlayer, setBuildByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("stats");
@@ -36,6 +37,7 @@ function MatchDetail() {
     fetchMatchPlayers();
     fetchAdjacentMatches();
     fetchMatchItems();
+    fetchMatchBuild();
     fetchWeekMeta();
     fetchTimeline();
   }, [matchId]);
@@ -104,6 +106,25 @@ function MatchDetail() {
     }
   };
 
+  const fetchMatchBuild = async () => {
+    try {
+      const response = await fetch(`/db/matches/${matchId}/build`);
+      if (response.ok) {
+        const data = await response.json();
+        setBuildByPlayer(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch match build:", err);
+    }
+  };
+
+  const formatGameTime = (s) => {
+    if (s == null) return "";
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, "0")}`;
+  };
+
   const fetchWeekMeta = async () => {
     try {
       const response = await fetch('/db/weeks');
@@ -123,10 +144,10 @@ function MatchDetail() {
   };
 
   const getLocalItemImage = (item) => {
-    if (!item.name) return null;
+    if (!item.name) return item.image || null;
     const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
     const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
-    return folder ? `/static/images/items/${folder}/${filename}` : null;
+    return folder ? `/static/images/items/${folder}/${filename}` : (item.image || null);
   };
 
   const getHeroName = (heroId) => {
@@ -342,9 +363,9 @@ function MatchDetail() {
                   <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_b)}`} className="hover:underline">{adjacentMatches.event_team_b}</Link>
                 ) : "—"}
                 {adjacentMatches.event_game && (
-                  <p className="text-gray-500 text-base font-normal">
+                  <span className="text-gray-500 text-base font-normal block">
                     {adjacentMatches.event_game}
-                  </p>
+                  </span>
                 )}
               </p>
             )}
@@ -386,7 +407,7 @@ function MatchDetail() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 border-b border-gray-700">
-        {["stats", "graphs"].map((tab) => (
+        {["stats", "graphs", "build"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -561,6 +582,160 @@ function MatchDetail() {
         </div>
       )}
 
+      {/* Build tab */}
+      {activeTab === "build" && (
+        <div className="mb-6 space-y-6">
+          {[{ players: amberPlayers, teamName: amberTeamName, teamColor: "amber" }, { players: sapphirePlayers, teamName: sapphireTeamName, teamColor: "sapphire" }].map(({ players: teamPlayers, teamName, teamColor }) => (
+            <div key={teamColor} className="bg-gray-800 rounded-lg p-4">
+              <h3 className={`font-bold text-xl mb-4 uppercase ${teamColor === "amber" ? "text-amber-300" : "text-blue-300"}`}>
+                {teamName || (teamColor === "amber" ? "Amber" : "Sapphire")}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teamPlayers.map((player) => {
+                  const playerBuildRaw = buildByPlayer[String(player.account_id)];
+                  // Handle both old cached format (array) and new format ({items, abilities})
+                  const buildItems = Array.isArray(playerBuildRaw) ? playerBuildRaw : (playerBuildRaw?.items || []);
+                  const buildAbilities = Array.isArray(playerBuildRaw) ? [] : (playerBuildRaw?.abilities || []);
+                  return (
+                    <div key={player.account_id} className="bg-gray-700/50 rounded-lg p-3">
+                      {/* Player header */}
+                      <div className="flex items-center gap-2 mb-3">
+                        {player.hero_id && (
+                          <img
+                            src={getHeroIcon(player.hero_id)}
+                            alt={getHeroName(player.hero_id)}
+                            className="w-8 h-8 rounded-md object-cover"
+                            onError={(e) => { e.target.style.display = "none"; }}
+                          />
+                        )}
+                        <div>
+                          <div className="text-gray-200 font-semibold text-sm">
+                            {player.persona_name || "Anonymous"}
+                          </div>
+                          <div className="text-gray-400 text-xs">{getHeroName(player.hero_id)}</div>
+                        </div>
+                      </div>
+
+                      {/* Ability Point Order */}
+                      {buildAbilities.length > 0 && (() => {
+                        // Flatten all upgrades, tag with ability index, sort by time → assign slot 0–15
+                        const allEvents = buildAbilities
+                          .flatMap((ability, ai) =>
+                            ability.upgrades.map(upg => ({ ai, ability, upg }))
+                          )
+                          .sort((a, b) => (a.upg.game_time_s ?? 0) - (b.upg.game_time_s ?? 0));
+                        // slotMap[ai][slotIndex] = upg
+                        const slotMap = Object.fromEntries(buildAbilities.map((_, ai) => [ai, {}]));
+                        allEvents.forEach(({ ai, upg }, slot) => {
+                          slotMap[ai][slot] = upg;
+                        });
+                        const SLOTS = 16;
+                        return (
+                          <div className="mb-3">
+                            <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Ability Point Order</p>
+                            <div className="space-y-0.5">
+                              {buildAbilities.map((ability, ai) => (
+                                <div key={ai} className="flex items-center gap-0.5 bg-gray-800/40">
+                                  <img
+                                    src={ability.image}
+                                    alt={ability.name}
+                                    title={ability.name}
+                                    className="w-6 h-6 object-contain rounded shrink-0 bg-white/20"
+                                    onError={(e) => { e.target.style.display = "none"; }}
+                                  />
+                                  <div className="grid gap-0.5 flex-1" style={{ gridTemplateColumns: `repeat(${SLOTS}, minmax(0, 1fr))` }}>
+                                    {Array.from({ length: SLOTS }, (_, slot) => {
+                                      const upg = slotMap[ai][slot];
+                                      if (!upg) {
+                                        return <div key={slot} className="h-6" />;
+                                      }
+                                      return (
+                                        <div
+                                          key={slot}
+                                          className="flex p-0.5 items-center justify-center h-6"
+                                          title={`${ability.name} – ${upg.tier === 0 ? "Unlocked" : `Tier ${upg.tier}`}${upg.game_time_s != null ? ` at ${formatGameTime(upg.game_time_s)}` : ""}`}
+                                        >
+                                          {upg.tier === 0 ? (
+                                            <img
+                                              src="/static/images/abilities/AP_Upgrades/ghost_reward_ap_png.png"
+                                              alt="unlock"
+                                              className="w-4 h-4 object-contain"
+                                            />
+                                          ) : (
+                                            <div className="flex items-center justify-center gap-1 bg-gray-900/60 rounded py-0.5 px-2">
+                                              <img
+                                                src="/static/images/abilities/AP_Upgrades/ap_icon_psd.png"
+                                                alt=""
+                                                className="w-4 h-4 object-contain opacity-80"
+                                              />
+                                              <span className="text-[12px] font-bold text-white leading-none opacity-80">
+                                                {upg.tier === 1 ? "1" : upg.tier === 2 ? "2" : "5"}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Items */}
+                      {buildItems.length === 0 ? (
+                        <p className="text-gray-500 text-xs">No item data available.</p>
+                      ) : (
+                        <>
+                          <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Items</p>
+                          <div className="flex flex-wrap gap-2">
+                            {buildItems.map((item, i) => {
+                              const src = getLocalItemImage(item);
+                              return (
+                                <div key={i} className="flex flex-col items-center gap-0.5">
+                                  {src ? (
+                                    <img
+                                      src={src}
+                                      alt={item.name}
+                                      title={item.name}
+                                      width={36}
+                                      height={36}
+                                      loading="lazy"
+                                      decoding="async"
+                                      className="w-9 h-9 rounded object-contain bg-slate-700/50"
+                                      onError={(e) => {
+                                        if (item.image && e.target.src !== item.image) {
+                                          e.target.src = item.image;
+                                        } else {
+                                          e.target.style.display = "none";
+                                        }
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-9 h-9 rounded bg-slate-700/50 flex items-center justify-center text-xs text-gray-500 text-center leading-tight p-0.5" title={item.name}>
+                                      {item.name?.slice(0, 4)}
+                                    </div>
+                                  )}
+                                  {item.game_time_s != null && (
+                                    <span className="text-gray-400 text-xs leading-none">{formatGameTime(item.game_time_s)}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Stats tab */}
       {activeTab === "stats" && (
         <div className="mb-6">
@@ -726,7 +901,11 @@ function MatchDetail() {
                               decoding="async"
                               className="w-7 h-7 rounded object-contain bg-slate-700/50"
                               onError={(e) => {
-                                e.target.style.display = "none";
+                                if (item.image && e.target.src !== item.image) {
+                                  e.target.src = item.image;
+                                } else {
+                                  e.target.style.display = "none";
+                                }
                               }}
                             />
                           ) : null;
@@ -913,7 +1092,11 @@ function MatchDetail() {
                               decoding="async"
                               className="w-7 h-7 rounded object-contain bg-slate-700/50"
                               onError={(e) => {
-                                e.target.style.display = "none";
+                                if (item.image && e.target.src !== item.image) {
+                                  e.target.src = item.image;
+                                } else {
+                                  e.target.style.display = "none";
+                                }
                               }}
                             />
                           ) : null;

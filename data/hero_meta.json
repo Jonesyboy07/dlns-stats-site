@@ -24,7 +24,7 @@
       {
         "name": "Concussive Combustion",
         "image": "static\\images\\abilities\\infernus\\inferno_bomb_psd.png",
-        "invert": false
+        "invert": true
       }
     ]
   },
@@ -96,7 +96,7 @@
       {
         "name": "Essence Bomb",
         "image": "static\\images\\abilities\\lady_geist\\blood_bomb_psd.png",
-        "invert": false
+        "invert": true
       },
       {
         "name": "Life Drain",
@@ -241,7 +241,7 @@
       {
         "name": "Kinetic Pulse",
         "image": "static\\images\\abilities\\dynamo\\sumo_stomp_psd.png",
-        "invert": false
+        "invert": true
       },
       {
         "name": "Quantum Entanglement",
@@ -357,7 +357,7 @@
       {
         "name": "Exploding Uppercut",
         "image": "static\\images\\abilities\\bebop\\bebop_uppercut_psd.png",
-        "invert": false
+        "invert": true
       },
       {
         "name": "Sticky Bomb",
@@ -372,7 +372,7 @@
       {
         "name": "Hyper Beam",
         "image": "static\\images\\abilities\\bebop\\bebop_hyper_beam_psd.png",
-        "invert": false
+        "invert": true
       }
     ]
   },
@@ -384,23 +384,23 @@
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "image": "",
+        "name": "Gloom Bomb",
+        "image": "static\\images\\abilities\\calico\\nano_clustergrenade_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "image": "",
+        "name": "Leaping Slash",
+        "image": "static\\images\\abilities\\calico\\nano_dash_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "image": "",
+        "name": "Ava",
+        "image": "static\\images\\abilities\\calico\\nano_catform_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "image": "",
+        "name": "Return to Shadows",
+        "image": "static\\images\\abilities\\calico\\nano_shadow_pulse_psd.png",
         "invert": true
       }
     ]
@@ -444,7 +444,7 @@
       {
         "name": "Scorn",
         "image": "static\\images\\abilities\\mo_and_krill\\grappler_regen_psd.png",
-        "invert": false
+        "invert": true
       },
       {
         "name": "Burrow",
@@ -618,7 +618,7 @@
       {
         "name": "Splatter",
         "image": "static\\images\\abilities\\viscous\\viscous_goo_ball_psd.png",
-        "invert": false
+        "invert": true
       },
       {
         "name": "The Cube",

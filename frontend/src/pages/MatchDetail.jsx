@@ -616,49 +616,73 @@ function MatchDetail() {
                         </div>
                       </div>
 
-                      {/* Ability upgrades */}
-                      {buildAbilities.length > 0 && (
-                        <div className="mb-3">
-                          <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Ability Upgrades</p>
-                          <div className="space-y-1.5">
-                            {buildAbilities.map((ability, ai) => (
-                              <div key={ai} className="flex items-center gap-2">
-                                <img
-                                  src={ability.image}
-                                  alt={ability.name}
-                                  title={ability.name}
-                                  width={28}
-                                  height={28}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-7 h-7 rounded object-cover bg-slate-800/70 shrink-0"
-                                  onError={(e) => { e.target.style.display = "none"; }}
-                                />
-                                <span className="text-gray-300 text-xs w-36 truncate shrink-0" title={ability.name}>{ability.name}</span>
-                                <div className="flex gap-1 flex-wrap">
-                                  {ability.upgrades.map((upg, ui) => (
-                                    <span
-                                      key={ui}
-                                      title={upg.tier === 0 ? `Unlocked at ${formatGameTime(upg.game_time_s)}` : `Tier ${upg.tier} at ${formatGameTime(upg.game_time_s)}`}
-                                      className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                                        upg.tier === 0
-                                          ? "bg-gray-600/60 text-gray-300"
-                                          : upg.tier === 1
-                                          ? "bg-green-900/60 text-green-300"
-                                          : upg.tier === 2
-                                          ? "bg-blue-900/60 text-blue-300"
-                                          : "bg-purple-900/60 text-purple-300"
-                                      }`}
-                                    >
-                                      {upg.tier === 0 ? "▶" : `T${upg.tier}`}{upg.game_time_s != null ? ` ${formatGameTime(upg.game_time_s)}` : ""}
-                                    </span>
-                                  ))}
+                      {/* Ability Point Order */}
+                      {buildAbilities.length > 0 && (() => {
+                        // Flatten all upgrades, tag with ability index, sort by time → assign slot 0–15
+                        const allEvents = buildAbilities
+                          .flatMap((ability, ai) =>
+                            ability.upgrades.map(upg => ({ ai, ability, upg }))
+                          )
+                          .sort((a, b) => (a.upg.game_time_s ?? 0) - (b.upg.game_time_s ?? 0));
+                        // slotMap[ai][slotIndex] = upg
+                        const slotMap = Object.fromEntries(buildAbilities.map((_, ai) => [ai, {}]));
+                        allEvents.forEach(({ ai, upg }, slot) => {
+                          slotMap[ai][slot] = upg;
+                        });
+                        const SLOTS = 16;
+                        return (
+                          <div className="mb-3">
+                            <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Ability Point Order</p>
+                            <div className="space-y-0.5">
+                              {buildAbilities.map((ability, ai) => (
+                                <div key={ai} className="flex items-center gap-0.5 bg-gray-800/40">
+                                  <img
+                                    src={ability.image}
+                                    alt={ability.name}
+                                    title={ability.name}
+                                    className="w-6 h-6 object-contain rounded shrink-0 bg-white/20"
+                                    onError={(e) => { e.target.style.display = "none"; }}
+                                  />
+                                  <div className="grid gap-0.5 flex-1" style={{ gridTemplateColumns: `repeat(${SLOTS}, minmax(0, 1fr))` }}>
+                                    {Array.from({ length: SLOTS }, (_, slot) => {
+                                      const upg = slotMap[ai][slot];
+                                      if (!upg) {
+                                        return <div key={slot} className="h-6" />;
+                                      }
+                                      return (
+                                        <div
+                                          key={slot}
+                                          className="flex p-0.5 items-center justify-center h-6"
+                                          title={`${ability.name} – ${upg.tier === 0 ? "Unlocked" : `Tier ${upg.tier}`}${upg.game_time_s != null ? ` at ${formatGameTime(upg.game_time_s)}` : ""}`}
+                                        >
+                                          {upg.tier === 0 ? (
+                                            <img
+                                              src="/static/images/abilities/AP_Upgrades/ghost_reward_ap_png.png"
+                                              alt="unlock"
+                                              className="w-4 h-4 object-contain"
+                                            />
+                                          ) : (
+                                            <div className="flex items-center justify-center gap-1 bg-gray-900/60 rounded py-0.5 px-2">
+                                              <img
+                                                src="/static/images/abilities/AP_Upgrades/ap_icon_psd.png"
+                                                alt=""
+                                                className="w-4 h-4 object-contain opacity-80"
+                                              />
+                                              <span className="text-[12px] font-bold text-white leading-none opacity-80">
+                                                {upg.tier === 1 ? "1" : upg.tier === 2 ? "2" : "5"}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Items */}
                       {buildItems.length === 0 ? (

@@ -1,0 +1,21 @@
+/* Namespaced styles to avoid global conflicts */
+:root { --dlns-bg:#0f172a; --dlns-panel:#111827; --dlns-muted:#94a3b8; --dlns-text:#e5e7eb; --dlns-accent:#22c55e; }
+.dlns-body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--dlns-bg); color:var(--dlns-text); }
+.dlns-container { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+.dlns-card { background: var(--dlns-panel); border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.dlns-title { margin: 0 0 12px; font-size: 22px; }
+.dlns-row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+.dlns-input { flex:1; min-width: 240px; background:#0b1220; color:var(--dlns-text); border:1px solid #1f2937; border-radius: 8px; padding: 10px 12px; outline:none; }
+.dlns-input:focus { border-color:#334155; box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
+.dlns-btn, .dlns-btn-secondary { background:var(--dlns-accent); color:#052e16; border:none; border-radius:8px; padding:10px 14px; font-weight:600; cursor:pointer; text-decoration:none; }
+.dlns-btn:disabled, .dlns-btn-secondary.dlns-disabled { background:#334155; color:var(--dlns-muted); cursor:not-allowed; }
+.dlns-progress { margin-top:12px; font-size: 14px; color: var(--dlns-muted); white-space: pre-line; background:#0b1220; border:1px solid #1f2937; border-radius:8px; padding:10px; min-height: 64px; }
+.dlns-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.dlns-table-wrap { margin-top:16px; overflow:auto; border:1px solid #1f2937; border-radius: 8px; }
+table.dlns-table { width:100%; border-collapse: collapse; font-size: 14px; }
+thead.dlns-thead { background:#0b1220; position: sticky; top:0; }
+th.dlns-th, td.dlns-td { border-bottom:1px solid #1f2937; padding:8px 10px; text-align:left; }
+tr.dlns-tr:nth-child(even) td.dlns-td { background:#0f1627; }
+.dlns-note { font-size: 12px; color: var(--dlns-muted); margin-top: 6px; }
+.dlns-instructions { margin-top: 16px; padding: 12px; background: #0b1220; border: 1px solid #1f2937; border-radius: 8px; }
+.dlns-instructions .dlns-note { margin: 4px 0; }

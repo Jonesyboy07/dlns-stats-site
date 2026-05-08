@@ -32,31 +32,37 @@ Thumbs.db
 build/
 dist/
 
-# Logs
+# Generated caches
+/_cache/
+data/_cache/
+
+# Frontend builds
+frontend/dist/
+public/react-app/
+static/react-app/
+
+# Logs and temp files
 *.log
+logs/recorded/
 data/temp.json
 data/dlns.sqlite3-shm
 data/dlns.sqlite3-wal
 data/matches_status.json
-static/apple-touch-icon.png
-static/css/dlns-style.css
-static/favicon.png
-static/favicon.ico
-static/og.png
 data/dlns.sqlite3
 data/cache
 data/vo_uploads
-testing.py
-static/sounds/
-_cache/
-# Ignore uploaded recordings
 data/recorded/
-
-# Ignore Filehub
 data/filehub/
+testing.py
+
+# Public generated files
+public/apple-touch-icon.png
+public/favicon.png
+public/favicon.ico
+public/og.png
+
+# Filehub
 /filehub/
-/temp
-/static/mods
 /instance
 
 # Unneeded Data Files
@@ -64,4 +70,6 @@ data/guesstherank.json
 data/rank_submission.json
 data/team_assignment.json
 data/sounds_uploads.sqlite3
-/static/react-app
+
+# Backups
+backups/

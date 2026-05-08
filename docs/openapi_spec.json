@@ -1,0 +1,1335 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DLNS Stats API",
+    "version": "2026.04",
+    "description": "Current OpenAPI description for the DLNS Stats site. The primary JSON API lives under /db, with additional community endpoints under /api/community and /community.json.",
+    "contact": {
+      "name": "DLNS Stats",
+      "url": "https://dlns-stats.co.uk"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://dlns-stats.co.uk",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:5050",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Stats",
+      "description": "Aggregated and event-level statistics."
+    },
+    {
+      "name": "Matches",
+      "description": "Recent matches and per-match detail."
+    },
+    {
+      "name": "Users",
+      "description": "User profiles, aggregates, and match history."
+    },
+    {
+      "name": "Search",
+      "description": "Typeahead search suggestions."
+    },
+    {
+      "name": "Heroes",
+      "description": "Hero dictionaries and hero-specific stats."
+    },
+    {
+      "name": "Community",
+      "description": "Community link and metadata endpoints."
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "per_page",
+          "total",
+          "total_pages"
+        ]
+      },
+      "Match": {
+        "type": "object",
+        "properties": {
+          "match_id": {
+            "type": "integer"
+          },
+          "duration_s": {
+            "type": "integer",
+            "nullable": true
+          },
+          "winning_team": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "nullable": true
+          },
+          "match_outcome": {
+            "type": "integer",
+            "nullable": true
+          },
+          "game_mode": {
+            "type": "integer",
+            "nullable": true
+          },
+          "match_mode": {
+            "type": "integer",
+            "nullable": true
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "match_id"
+        ]
+      },
+      "MatchPlayerSummary": {
+        "type": "object",
+        "properties": {
+          "match_id": {
+            "type": "integer"
+          },
+          "team": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "nullable": true
+          },
+          "hero_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "hero_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id"
+        ]
+      },
+      "MatchWithPlayers": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Match"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "players": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MatchPlayerSummary"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Player": {
+        "type": "object",
+        "properties": {
+          "match_id": {
+            "type": "integer"
+          },
+          "account_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_slot": {
+            "type": "integer",
+            "nullable": true
+          },
+          "team": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "nullable": true
+          },
+          "hero_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "level": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "deaths": {
+            "type": "integer",
+            "nullable": true
+          },
+          "assists": {
+            "type": "integer",
+            "nullable": true
+          },
+          "net_worth": {
+            "type": "integer",
+            "nullable": true
+          },
+          "last_hits": {
+            "type": "integer",
+            "nullable": true
+          },
+          "denies": {
+            "type": "integer",
+            "nullable": true
+          },
+          "creep_kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_hit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_missed": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "obj_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_healing": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pings_count": {
+            "type": "integer",
+            "nullable": true
+          },
+          "result": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "string",
+            "nullable": true,
+            "description": "Serialized item JSON if present"
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "hero_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "integer"
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "UserStats": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "integer"
+          },
+          "matches_played": {
+            "type": "integer",
+            "nullable": true
+          },
+          "wins": {
+            "type": "integer",
+            "nullable": true
+          },
+          "losses": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "deaths": {
+            "type": "integer",
+            "nullable": true
+          },
+          "assists": {
+            "type": "integer",
+            "nullable": true
+          },
+          "last_hits": {
+            "type": "integer",
+            "nullable": true
+          },
+          "denies": {
+            "type": "integer",
+            "nullable": true
+          },
+          "creep_kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_hit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_missed": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "obj_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_healing": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pings_count": {
+            "type": "integer",
+            "nullable": true
+          },
+          "avg_kda": {
+            "type": "number",
+            "nullable": true
+          },
+          "winrate": {
+            "type": "number",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "UserMatch": {
+        "type": "object",
+        "properties": {
+          "match_id": {
+            "type": "integer"
+          },
+          "team": {
+            "type": "integer",
+            "nullable": true
+          },
+          "result": {
+            "type": "string",
+            "nullable": true
+          },
+          "hero_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "deaths": {
+            "type": "integer",
+            "nullable": true
+          },
+          "assists": {
+            "type": "integer",
+            "nullable": true
+          },
+          "last_hits": {
+            "type": "integer",
+            "nullable": true
+          },
+          "denies": {
+            "type": "integer",
+            "nullable": true
+          },
+          "creep_kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_hit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_missed": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "obj_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_healing": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pings_count": {
+            "type": "integer",
+            "nullable": true
+          },
+          "duration_s": {
+            "type": "integer",
+            "nullable": true
+          },
+          "winning_team": {
+            "type": "integer",
+            "nullable": true
+          },
+          "game_mode": {
+            "type": "integer",
+            "nullable": true
+          },
+          "match_mode": {
+            "type": "integer",
+            "nullable": true
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "hero_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id"
+        ]
+      },
+      "UserPagedMatch": {
+        "type": "object",
+        "properties": {
+          "match_id": {
+            "type": "integer"
+          },
+          "team": {
+            "type": "integer",
+            "nullable": true
+          },
+          "result": {
+            "type": "string",
+            "nullable": true
+          },
+          "hero_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "deaths": {
+            "type": "integer",
+            "nullable": true
+          },
+          "assists": {
+            "type": "integer",
+            "nullable": true
+          },
+          "creep_kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "last_hits": {
+            "type": "integer",
+            "nullable": true
+          },
+          "denies": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_hit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "shots_missed": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "obj_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "player_healing": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pings_count": {
+            "type": "integer",
+            "nullable": true
+          },
+          "duration_s": {
+            "type": "integer",
+            "nullable": true
+          },
+          "winning_team": {
+            "type": "integer",
+            "nullable": true
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "hero_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id"
+        ]
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "match",
+              "user"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text",
+          "url"
+        ]
+      },
+      "WeekDetail": {
+        "type": "object",
+        "properties": {
+          "series": {
+            "type": "string"
+          },
+          "week": {
+            "type": "integer",
+            "nullable": true
+          },
+          "team_a": {
+            "type": "string",
+            "nullable": true
+          },
+          "team_b": {
+            "type": "string",
+            "nullable": true
+          },
+          "game": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OverviewStats": {
+        "type": "object",
+        "properties": {
+          "total_matches": {
+            "type": "integer"
+          },
+          "amber_wins": {
+            "type": "integer",
+            "nullable": true
+          },
+          "sapphire_wins": {
+            "type": "integer",
+            "nullable": true
+          },
+          "avg_duration": {
+            "type": "number",
+            "nullable": true
+          },
+          "max_duration": {
+            "type": "integer",
+            "nullable": true
+          },
+          "min_duration": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "WeeklyStats": {
+        "type": "object",
+        "properties": {
+          "event_week": {
+            "type": "integer"
+          },
+          "total_matches": {
+            "type": "integer"
+          },
+          "amber_wins": {
+            "type": "integer",
+            "nullable": true
+          },
+          "sapphire_wins": {
+            "type": "integer",
+            "nullable": true
+          },
+          "avg_duration_min": {
+            "type": "number"
+          },
+          "amber_win_pct": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "event_week",
+          "total_matches"
+        ]
+      },
+      "RecordEntry": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number",
+            "nullable": true
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "hero_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "match_id": {
+            "type": "integer"
+          },
+          "duration_s": {
+            "type": "integer",
+            "nullable": true
+          },
+          "event_week": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "match_id"
+        ]
+      },
+      "AverageEntry": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "games_played": {
+            "type": "integer"
+          },
+          "top_hero_id": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "value",
+          "games_played"
+        ]
+      },
+      "MatchAdjacent": {
+        "type": "object",
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "winning_team": {
+            "type": "integer",
+            "nullable": true
+          },
+          "event_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "event_week": {
+            "type": "integer",
+            "nullable": true
+          },
+          "previous_match_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "next_match_id": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "MatchItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "item_slot_type": {
+            "type": "string"
+          },
+          "item_tier": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "item_slot_type"
+        ]
+      },
+      "HeroStats": {
+        "type": "object",
+        "properties": {
+          "games_played": {
+            "type": "integer"
+          },
+          "wins": {
+            "type": "integer",
+            "nullable": true
+          },
+          "avg_kills": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_deaths": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_assists": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_kda": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_damage": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_obj_damage": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_healing": {
+            "type": "number",
+            "nullable": true
+          },
+          "avg_souls": {
+            "type": "number",
+            "nullable": true
+          },
+          "max_kills": {
+            "type": "integer",
+            "nullable": true
+          },
+          "max_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "max_healing": {
+            "type": "integer",
+            "nullable": true
+          },
+          "max_obj_damage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pick_rate": {
+            "type": "number"
+          },
+          "win_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "games_played",
+          "pick_rate",
+          "win_rate"
+        ]
+      },
+      "HeroItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "item_slot_type": {
+            "type": "string"
+          },
+          "item_tier": {
+            "type": "integer",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer"
+          },
+          "pick_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "count",
+          "pick_rate"
+        ]
+      },
+      "HeroMatchup": {
+        "type": "object",
+        "properties": {
+          "hero_id": {
+            "type": "integer"
+          },
+          "games": {
+            "type": "integer"
+          },
+          "wins": {
+            "type": "integer"
+          },
+          "win_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "hero_id",
+          "games",
+          "wins",
+          "win_rate"
+        ]
+      },
+      "HeroTopPlayer": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "games_played": {
+            "type": "integer"
+          },
+          "wins": {
+            "type": "integer"
+          },
+          "win_rate": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "games_played",
+          "wins",
+          "win_rate"
+        ]
+      },
+      "GlobalPlayer": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "integer"
+          },
+          "persona_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "match_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_id",
+          "match_count"
+        ]
+      },
+      "CommunityEntry": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "CommunityGroup": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommunityEntry"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommunityGroup"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/db/weeks": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Get week and event mappings",
+        "description": "Returns match-to-week mapping and event details derived from matches.json.",
+        "responses": {
+          "200": {
+            "description": "Week mapping response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "weeks": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer",
+                        "nullable": true
+                      }
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/WeekDetail"
+                      }
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/stats/overview": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Get aggregate match overview",
+        "parameters": [
+          {
+            "name": "event_title",
+            "in": "query",
+            "required": false,
+            "description": "Optional event title filter.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Overview stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "overview": {
+                      "$ref": "#/components/schemas/OverviewStats"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/stats/weekly": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Get weekly event stats",
+        "parameters": [
+          {
+            "name": "event_title",
+            "in": "query",
+            "required": false,
+            "description": "Event title filter. Defaults to Night Shift.",
+            "schema": {
+              "type": "string",
+              "default": "Night Shift"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Weekly aggregated stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "weeks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WeeklyStats"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/stats/records": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Get single-game records",
+        "parameters": [
+          {
+            "name": "event_title",
+            "in": "query",
+            "required": false,
+            "description": "Optional event title filter.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top single-game records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "records": {
+                      "type": "object",
+                      "properties": {
+                        "kills": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecordEntry"
+                          }
+                        },
+                        "assists": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecordEntry"
+                          }
+                        },
+                        "deaths": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecordEntry"
+                          }
+                        },
+                        "obj_damage": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecordEntry"
+                          }
+                        },
+                        "healing": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecordEntry"
+                          }
+                        },
+                        "souls": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecordEntry"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/stats/averages": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Get top average player stats",
+        "parameters": [
+          {
+            "name": "event_title",
+            "in": "query",
+            "required": false,
+            "description": "Optional event title filter.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top average stats by player",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "averages": {
+                      "type": "object",
+                      "properties": {
+                        "kills": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AverageEntry"
+                          }
+                        },
+                        "assists": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AverageEntry"
+                          }
+                        },
+                        "deaths": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AverageEntry"
+                          }
+                        },
+                        "obj_damage": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AverageEntry"
+                          }
+                        },
+                        "healing": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AverageEntry"
+                          }
+                        },
+                        "souls": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AverageEntry"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/matches/latest": {
+      "get": {
+        "tags": ["Matches"],
+        "summary": "Get latest matches",
+        "responses": {
+          "200": {
+            "description": "Latest matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Match"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/matches/latest/paged": {
+      "get": {
+        "tags": ["Matches"],
+        "summary": "Get paginated latest matches",
+        "parameters": [
+          {"name": "page", "in": "query", "required": false, "description": "Page number.", "schema": {"type": "integer", "default": 1, "minimum": 1}},
+          {"name": "per_page", "in": "query", "required": false, "description": "Items per page, max 20.", "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 20}},
+          {"name": "order", "in": "query", "required": false, "description": "Sort order.", "schema": {"type": "string", "enum": ["asc", "desc"], "default": "desc"}},
+          {"name": "team", "in": "query", "required": false, "description": "Winning team filter.", "schema": {"type": "string", "enum": ["0", "1"]}},
+          {"name": "game_mode", "in": "query", "required": false, "description": "Exact game mode filter.", "schema": {"type": "string"}},
+          {"name": "match_mode", "in": "query", "required": false, "description": "Exact match mode filter.", "schema": {"type": "string"}},
+          {"name": "hero", "in": "query", "required": false, "description": "Case-insensitive hero name substring.", "schema": {"type": "string"}},
+          {"name": "player", "in": "query", "required": false, "description": "Persona name substring.", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated recent matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {"$ref": "#/components/schemas/Pagination"},
+                    {"type": "object", "properties": {"matches": {"type": "array", "items": {"$ref": "#/components/schemas/MatchWithPlayers"}}}}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db/matches/{match_id}/adjacent": {"get": {"tags": ["Matches"], "summary": "Get adjacent match IDs", "parameters": [{"name": "match_id", "in": "path", "required": true, "description": "Match ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Adjacent match info", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MatchAdjacent"}}}}}}},
+    "/db/matches/{match_id}/players": {"get": {"tags": ["Matches"], "summary": "Get players for a match", "parameters": [{"name": "match_id", "in": "path", "required": true, "description": "Match ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Players for the match", "content": {"application/json": {"schema": {"type": "object", "properties": {"players": {"type": "array", "items": {"$ref": "#/components/schemas/Player"}}}}}}}}}},
+    "/db/matches/{match_id}/items": {"get": {"tags": ["Matches"], "summary": "Get purchased items for a match", "parameters": [{"name": "match_id", "in": "path", "required": true, "description": "Match ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Items grouped by account ID", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": {"type": "array", "items": {"$ref": "#/components/schemas/MatchItem"}}}}}}}}},
+    "/db/matches/{match_id}/users/{account_id}": {"get": {"tags": ["Matches"], "summary": "Get one player's stats in a match", "parameters": [{"name": "match_id", "in": "path", "required": true, "description": "Match ID.", "schema": {"type": "integer"}}, {"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Player match stats", "content": {"application/json": {"schema": {"type": "object", "properties": {"player": {"$ref": "#/components/schemas/Player"}}}}}}, "404": {"description": "Player not found in match", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/db/users/{account_id}": {"get": {"tags": ["Users"], "summary": "Get user info", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "User info", "content": {"application/json": {"schema": {"type": "object", "properties": {"user": {"$ref": "#/components/schemas/User"}}}}}}, "404": {"description": "User not found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/db/users/{account_id}/stats": {"get": {"tags": ["Users"], "summary": "Get aggregated user stats", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "User aggregate stats", "content": {"application/json": {"schema": {"type": "object", "properties": {"stats": {"$ref": "#/components/schemas/UserStats", "nullable": true}}}}}}}}},
+    "/db/users/{account_id}/matches": {"get": {"tags": ["Users"], "summary": "Get all matches for a user", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "User match history", "content": {"application/json": {"schema": {"type": "object", "properties": {"matches": {"type": "array", "items": {"$ref": "#/components/schemas/UserMatch"}}}}}}}}}},
+    "/db/users/{account_id}/matches/paged": {"get": {"tags": ["Users"], "summary": "Get paginated matches for a user", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}, {"name": "page", "in": "query", "required": false, "description": "Page number.", "schema": {"type": "integer", "default": 1, "minimum": 1}}, {"name": "per_page", "in": "query", "required": false, "description": "Items per page, max 20.", "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 20}}, {"name": "order", "in": "query", "required": false, "description": "Sort order.", "schema": {"type": "string", "enum": ["asc", "desc"], "default": "desc"}}, {"name": "res", "in": "query", "required": false, "description": "Filter by result.", "schema": {"type": "string", "enum": ["win", "loss"]}}, {"name": "team", "in": "query", "required": false, "description": "Filter by team.", "schema": {"type": "string", "enum": ["0", "1"]}}], "responses": {"200": {"description": "Paginated user match history", "content": {"application/json": {"schema": {"allOf": [{"$ref": "#/components/schemas/Pagination"}, {"type": "object", "properties": {"matches": {"type": "array", "items": {"$ref": "#/components/schemas/UserPagedMatch"}}}}]}}}}}}},
+    "/db/search/suggest": {"get": {"tags": ["Search"], "summary": "Get match and user suggestions", "parameters": [{"name": "q", "in": "query", "required": true, "description": "Search query.", "schema": {"type": "string"}}], "responses": {"200": {"description": "Search suggestions", "content": {"application/json": {"schema": {"type": "object", "properties": {"results": {"type": "array", "items": {"$ref": "#/components/schemas/SearchResult"}}}}}}}}}},
+    "/db/heroes": {"get": {"tags": ["Heroes"], "summary": "Get hero ID to name mapping", "responses": {"200": {"description": "Hero dictionary", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": {"type": "string"}}}}}}}},
+    "/db/heroes/{hero_id}/stats": {"get": {"tags": ["Heroes"], "summary": "Get hero aggregate stats", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Hero stats", "content": {"application/json": {"schema": {"type": "object", "properties": {"stats": {"$ref": "#/components/schemas/HeroStats", "nullable": true}}}}}}}}},
+    "/db/heroes/{hero_id}/top_items": {"get": {"tags": ["Heroes"], "summary": "Get top purchased items for a hero", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Top hero items", "content": {"application/json": {"schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/HeroItem"}}, "total_games": {"type": "integer"}}}}}}}}},
+    "/db/heroes/{hero_id}/matchups": {"get": {"tags": ["Heroes"], "summary": "Get hero matchup summaries", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Hero matchup data", "content": {"application/json": {"schema": {"type": "object", "properties": {"effective_with": {"type": "array", "items": {"$ref": "#/components/schemas/HeroMatchup"}}, "effective_against": {"type": "array", "items": {"$ref": "#/components/schemas/HeroMatchup"}}}}}}}}}},
+    "/db/heroes/{hero_id}/top_players": {"get": {"tags": ["Heroes"], "summary": "Get top players for a hero", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Hero top players", "content": {"application/json": {"schema": {"type": "object", "properties": {"players": {"type": "array", "items": {"$ref": "#/components/schemas/HeroTopPlayer"}}}}}}}}}},
+    "/db/heroes/{hero_id}/meta": {"get": {"tags": ["Heroes"], "summary": "Get curated hero metadata", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Hero metadata entry", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": true}}}}, "404": {"description": "Hero metadata not found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}, "503": {"description": "Hero metadata unavailable", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
+    "/db/players": {"get": {"tags": ["Users"], "summary": "Get ranked global player list", "responses": {"200": {"description": "Global player list", "content": {"application/json": {"schema": {"type": "object", "properties": {"players": {"type": "array", "items": {"$ref": "#/components/schemas/GlobalPlayer"}}}}}}}}}},
+    "/api/community": {"get": {"tags": ["Community"], "summary": "Get community groups", "responses": {"200": {"description": "Community groups", "content": {"application/json": {"schema": {"type": "object", "properties": {"groups": {"type": "array", "items": {"$ref": "#/components/schemas/CommunityGroup"}}}}}}}}}},
+    "/community.json": {"get": {"tags": ["Community"], "summary": "Get cacheable community groups", "responses": {"200": {"description": "Community groups with cache headers", "content": {"application/json": {"schema": {"type": "object", "properties": {"groups": {"type": "array", "items": {"$ref": "#/components/schemas/CommunityGroup"}}}}}}}}, "304": {"description": "Not modified"}}}
+  }
+}

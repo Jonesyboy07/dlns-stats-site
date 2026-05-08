@@ -2597,6 +2597,81 @@
             }
           ],
           "vod_link": "https://www.youtube.com/watch?v=qh2F8DBT32M&t=1s&pp=0gcJCd8KAYcqIYzv"
+        },
+        {
+          "week": 37,
+          "games": [
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 80711016
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=LQUMmy29SN0",
+              "region": "EU",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 80722130
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 80734022
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 1,
+                  "match_id": 80742063
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=2oaD0o-dsAA",
+              "region": "EU"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Bird With Clock",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 80755126
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=riv_4Juve5E",
+              "region": "NA",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Melee Creeps",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 80767479
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 80778694
+                }
+              ],
+              "match_vod": "https://youtu.be/XLzUlJAvuf8",
+              "region": "NA"
+            }
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=sUtSYeG1Z-w"
         }
       ]
     }

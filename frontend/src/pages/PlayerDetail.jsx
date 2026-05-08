@@ -111,6 +111,26 @@ function PlayerDetail() {
       .sort((a, b) => b.games - a.games);
   };
 
+  const getPlayerStats = () => {
+    const played = matches.filter((m) => m.kills != null || m.deaths != null);
+    if (played.length === 0) return null;
+    const fields = [
+      { key: "kills", label: "Kills" },
+      { key: "deaths", label: "Deaths" },
+      { key: "assists", label: "Assists" },
+      { key: "net_worth", label: "Net Worth" },
+      { key: "player_damage", label: "Player Dmg" },
+      { key: "obj_damage", label: "Obj Dmg" },
+      { key: "player_healing", label: "Healing" },
+    ];
+    return fields.map(({ key, label }) => {
+      const values = played.map((m) => m[key] || 0);
+      const highest = Math.max(...values);
+      const avg = values.reduce((s, v) => s + v, 0) / played.length;
+      return { key, label, highest, avg };
+    });
+  };
+
   const getMostPlayedHeroes = () => {
     const heroMap = {};
     for (const match of matches) {
@@ -317,6 +337,46 @@ function PlayerDetail() {
           </div>
         </div>
       )}
+
+      {/* Stats Summary */}
+      {(() => {
+        const playerStats = getPlayerStats();
+        if (!playerStats) return null;
+        const fmtK = (v) => v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toFixed(0);
+        return (
+          <div className="bg-panel text-gray-300 shadow rounded-lg p-6 mb-6">
+            <h2 className="text-2xl font-bold mb-4">Stats Summary</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700">
+                    <th className="text-left py-2 pr-4 text-gray-400 font-semibold">Stat</th>
+                    <th className="text-right py-2 px-4 text-gray-400 font-semibold">Highest</th>
+                    <th className="text-right py-2 pl-4 text-gray-400 font-semibold">Average</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {playerStats.map(({ key, label, highest, avg }) => (
+                    <tr key={key} className="border-b border-gray-700/50 hover:bg-gray-800/40">
+                      <td className="py-2 pr-4 text-gray-300 font-medium">{label}</td>
+                      <td className="py-2 px-4 text-right">
+                        <span className="text-yellow-300 font-semibold" title={highest.toLocaleString()}>
+                          {fmtK(highest)}
+                        </span>
+                      </td>
+                      <td className="py-2 pl-4 text-right">
+                        <span className="text-gray-200" title={avg.toLocaleString()}>
+                          {fmtK(avg)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Recent Matches */}
       <div className="bg-panel text-gray-300 shadow rounded-lg p-6">

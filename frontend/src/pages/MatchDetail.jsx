@@ -11,9 +11,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import zoomPlugin from "chartjs-plugin-zoom";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, zoomPlugin);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend);
 
 function MatchDetail() {
   const { matchId } = useParams();
@@ -29,8 +28,10 @@ function MatchDetail() {
   const [buildByPlayer, setBuildByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("stats");
+  const [activeTab, setActiveTab] = useState("overall");
   const [timeline, setTimeline] = useState(null);
+  const [soulsTooltip, setSoulsTooltip] = useState(null);
+  const [teamTooltip, setTeamTooltip] = useState(null);
 
   useEffect(() => {
     fetchHeroes();
@@ -407,7 +408,7 @@ function MatchDetail() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 border-b border-gray-700">
-        {["stats", "graphs", "build"].map((tab) => (
+        {["overall", "graphs", "build"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -499,19 +500,48 @@ function MatchDetail() {
             });
 
             const lineDatasets = playerList.map((p) => {
-              const isAmber = p.team === 0;
-              const baseColor = isAmber ? "245,158,11" : "59,130,246";
+              const rgb = p.team === 0 ? "245,158,11" : "59,130,246";
               return {
                 label: p.persona_name || getHeroName(p.hero_id) || `Player ${p.account_id}`,
+                heroId: p.hero_id,
+                team: p.team,
+                color: rgb,
                 data: p.snapshots.map((s) => s.net_worth ?? null),
-                borderColor: `rgba(${baseColor},0.9)`,
-                backgroundColor: `rgba(${baseColor},0.15)`,
+                borderColor: `rgba(${rgb},0.9)`,
+                backgroundColor: `rgba(${rgb},0.15)`,
                 borderWidth: 2,
                 pointRadius: 2,
                 tension: 0.3,
                 fill: false,
               };
             });
+
+            const buildSoulsTooltip = (context) => {
+              const { chart, tooltip } = context;
+              if (tooltip.opacity === 0) {
+                setSoulsTooltip(null);
+                return;
+              }
+              const dataIndex = tooltip.dataPoints?.[0]?.dataIndex;
+              if (dataIndex == null) return;
+              const timeLabel = labels[dataIndex];
+              const entries = lineDatasets
+                .map((ds) => ({
+                  label: ds.label,
+                  heroId: ds.heroId,
+                  team: ds.team,
+                  color: ds.color,
+                  souls: ds.data[dataIndex] ?? 0,
+                }))
+                .sort((a, b) => b.souls - a.souls);
+              const totalSouls = entries.reduce((sum, e) => sum + e.souls, 0);
+              const canvasRect = chart.canvas.getBoundingClientRect();
+              const containerRect = chart.canvas.parentElement.getBoundingClientRect();
+              const x = tooltip.caretX + canvasRect.left - containerRect.left;
+              const y = tooltip.caretY + canvasRect.top - containerRect.top;
+              const flipLeft = x + 240 > containerRect.width;
+              setSoulsTooltip({ x, y, timeLabel, entries, totalSouls, flipLeft });
+            };
 
             const lineOptions = {
               responsive: true,
@@ -523,20 +553,10 @@ function MatchDetail() {
                   labels: { color: "#d1d5db", boxWidth: 12, font: { size: 11 } },
                 },
                 tooltip: {
-                  callbacks: {
-                    label: (ctx) => ` ${ctx.dataset.label}: ${(ctx.raw || 0).toLocaleString()} souls`,
-                  },
-                },
-                zoom: {
-                  pan: {
-                    enabled: true,
-                    mode: "x",
-                  },
-                  zoom: {
-                    wheel: { enabled: true },
-                    pinch: { enabled: true },
-                    mode: "x",
-                  },
+                  enabled: false,
+                  external: buildSoulsTooltip,
+                  mode: "index",
+                  intersect: false,
                 },
               },
               scales: {
@@ -555,24 +575,201 @@ function MatchDetail() {
             };
 
             return (
+              <>
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-gray-400 text-sm font-semibold">Souls Over Time</h4>
-                  <button
-                    onClick={() => {
-                      const chart = ChartJS.getChart("soulsOverTime");
-                      chart?.resetZoom();
-                    }}
-                    className="text-xs text-gray-400 hover:text-gray-200 border border-gray-600 hover:border-gray-400 px-2 py-1 rounded transition-colors"
-                  >
-                    Reset zoom
-                  </button>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">Scroll to zoom · drag to pan</p>
-                <div style={{ height: "320px" }}>
+                <div style={{ height: "320px", position: "relative" }} onMouseLeave={() => setSoulsTooltip(null)}>
                   <Line id="soulsOverTime" data={{ labels, datasets: lineDatasets }} options={lineOptions} />
+                  {soulsTooltip && (() => {
+                    const { flipLeft } = soulsTooltip;
+                    return (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: Math.max(0, soulsTooltip.y - 10),
+                          left: flipLeft ? soulsTooltip.x - 228 : soulsTooltip.x + 12,
+                          pointerEvents: "none",
+                          zIndex: 50,
+                          minWidth: "180px",
+                        }}
+                        className="bg-gray-900 border border-gray-600 rounded-lg shadow-xl overflow-hidden"
+                      >
+                        <div className="text-center text-white font-bold text-sm py-1.5 px-3 bg-gray-800 border-b border-gray-600">
+                          {soulsTooltip.timeLabel}
+                        </div>
+                        <div className="py-1">
+                          {soulsTooltip.entries.map((entry, i) => {
+                            const pct = soulsTooltip.totalSouls > 0
+                              ? Math.round((entry.souls / soulsTooltip.totalSouls) * 100)
+                              : 0;
+                            const rgb = entry.color || "156,163,175";
+                            const teamRgb = entry.team === 0 ? "245,158,11" : "59,130,246";
+                            return (
+                              <div
+                                key={entry.label}
+                                style={{ backgroundColor: `rgba(${teamRgb},0.08)` }}
+                                className="flex items-center gap-0 py-1 overflow-hidden"
+                              >
+                                {/* individual graph colour stripe on the left */}
+                                <span
+                                  className="shrink-0 self-stretch w-1 mr-2"
+                                  style={{ background: `rgba(${rgb},0.9)` }}
+                                />
+                                <img
+                                  src={getHeroIcon(entry.heroId)}
+                                  alt={entry.label}
+                                  className="w-7 h-7 rounded-sm object-cover shrink-0"
+                                  onError={(e) => { e.target.style.display = "none"; }}
+                                />
+                                <span
+                                  className="text-xs text-white font-roboto tracking-wide font-semibold flex-1 truncate ml-2"
+                                >
+                                  {entry.souls.toLocaleString()}
+                                </span>
+                                <span className="text-xs text-gray-400 shrink-0 w-8 text-right pr-2">{pct}%</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
+
+              {/* Team souls over time chart */}
+              {(() => {
+                const teamDefs = [
+                  { team: 0, name: amberTeamName || "Amber", rgb: "245,158,11" },
+                  { team: 1, name: sapphireTeamName || "Sapphire", rgb: "59,130,246" },
+                ];
+                const teamDatasets = teamDefs.map(({ team, name, rgb }) => ({
+                  label: name,
+                  rgb,
+                  data: Array.from({ length: maxSnaps }, (_, i) =>
+                    playerList
+                      .filter((p) => p.team === team)
+                      .reduce((sum, p) => sum + (p.snapshots[i]?.net_worth ?? 0), 0)
+                  ),
+                  borderColor: `rgba(${rgb},0.9)`,
+                  backgroundColor: `rgba(${rgb},0.1)`,
+                  borderWidth: 2,
+                  pointRadius: 0,
+                  tension: 0.3,
+                  fill: false,
+                }));
+
+                const buildTeamTooltip = (context) => {
+                  const { chart, tooltip } = context;
+                  if (tooltip.opacity === 0) { setTeamTooltip(null); return; }
+                  const dataIndex = tooltip.dataPoints?.[0]?.dataIndex;
+                  if (dataIndex == null) return;
+                  const timeLabel = labels[dataIndex];
+                  const entries = teamDatasets
+                    .map((ds) => ({ label: ds.label, rgb: ds.rgb, souls: ds.data[dataIndex] ?? 0 }))
+                    .sort((a, b) => b.souls - a.souls);
+                  const totalSouls = entries.reduce((sum, e) => sum + e.souls, 0);
+                  const canvasRect = chart.canvas.getBoundingClientRect();
+                  const containerRect = chart.canvas.parentElement.getBoundingClientRect();
+                  const x = tooltip.caretX + canvasRect.left - containerRect.left;
+                  const y = tooltip.caretY + canvasRect.top - containerRect.top;
+                  const flipLeft = x + 240 > containerRect.width;
+                  setTeamTooltip({ x, y, timeLabel, entries, totalSouls, flipLeft });
+                };
+
+                const teamOptions = {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      display: true,
+                      position: "bottom",
+                      labels: { color: "#d1d5db", boxWidth: 12, font: { size: 11 } },
+                    },
+                    tooltip: {
+                      enabled: false,
+                      external: buildTeamTooltip,
+                      mode: "index",
+                      intersect: false,
+                    },
+                  },
+                  scales: {
+                    x: {
+                      grid: { color: "rgba(255,255,255,0.05)" },
+                      ticks: { color: "#9ca3af", font: { size: 11 } },
+                    },
+                    y: {
+                      grid: { color: "rgba(255,255,255,0.05)" },
+                      ticks: {
+                        color: "#9ca3af",
+                        callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
+                      },
+                    },
+                  },
+                };
+
+                return (
+                  <div className="mt-8">
+                    <h4 className="text-gray-400 text-sm font-semibold mb-3">Team Souls Over Time</h4>
+                    <div style={{ height: "200px", position: "relative" }} onMouseLeave={() => setTeamTooltip(null)}>
+                      <Line data={{ labels, datasets: teamDatasets }} options={teamOptions} />
+                      {teamTooltip && (() => {
+                        const { flipLeft } = teamTooltip;
+                        return (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: Math.max(0, teamTooltip.y - 10),
+                              left: flipLeft ? teamTooltip.x - 180 : teamTooltip.x + 12,
+                              pointerEvents: "none",
+                              zIndex: 50,
+                              minWidth: "160px",
+                            }}
+                            className="bg-gray-900 border border-gray-600 rounded-lg shadow-xl overflow-hidden"
+                          >
+                            <div className="text-center text-white font-bold text-sm py-1.5 px-3 bg-gray-800 border-b border-gray-600">
+                              {teamTooltip.timeLabel}
+                            </div>
+                            <div className="py-1">
+                              {teamTooltip.entries.map((entry, i) => {
+                                const pct = teamTooltip.totalSouls > 0
+                                  ? Math.round((entry.souls / teamTooltip.totalSouls) * 100)
+                                  : 0;
+                                const isTop = i === 0;
+                                return (
+                                  <div
+                                    key={entry.label}
+                                    style={isTop ? { backgroundColor: `rgba(${entry.rgb},0.15)` } : {}}
+                                    className="flex items-center gap-2 px-3 py-1.5"
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                                      style={{ background: `rgba(${entry.rgb},0.9)` }}
+                                    />
+                                    <span
+                                      style={{ color: `rgba(${entry.rgb},1)` }}
+                                      className="text-xs font-semibold flex-1 truncate"
+                                    >
+                                      {entry.label}
+                                    </span>
+                                    <span className="text-xs text-gray-200 font-semibold shrink-0">
+                                      {entry.souls.toLocaleString()}
+                                    </span>
+                                    <span className="text-xs text-gray-400 shrink-0 w-8 text-right">{pct}%</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
             );
           })() : (
             <p className="text-gray-500 text-sm mt-6 text-center">
@@ -604,7 +801,7 @@ function MatchDetail() {
                           <img
                             src={getHeroIcon(player.hero_id)}
                             alt={getHeroName(player.hero_id)}
-                            className="w-8 h-8 rounded-md object-cover"
+                            className="w-8 h-8 rounded-md object-cover" 
                             onError={(e) => { e.target.style.display = "none"; }}
                           />
                         )}
@@ -737,7 +934,7 @@ function MatchDetail() {
       )}
 
       {/* Stats tab */}
-      {activeTab === "stats" && (
+      {activeTab === "overall" && (
         <div className="mb-6">
         <div className="text-gray-300 shadow py-6 ">
           <table className="w-full table-auto rounded-lg ">

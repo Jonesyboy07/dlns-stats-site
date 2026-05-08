@@ -1,1 +1,0 @@
-import{a as e,i as t,n,r,t as i}from"./chunks/ErrorBoundary.js";import{t as a}from"./chunks/sounds.js";var o=e(t(),1),s=e(r(),1),c=n();s.createRoot(document.getElementById(`root`)).render((0,c.jsx)(o.StrictMode,{children:(0,c.jsx)(i,{children:(0,c.jsx)(a,{})})}));

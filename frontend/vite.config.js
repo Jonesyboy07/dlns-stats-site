@@ -5,7 +5,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: path.resolve(__dirname, '../static/react-app'),
+    outDir: path.resolve(__dirname, '../public/react-app'),
     emptyOutDir: true,
     rollupOptions: {
       input: {

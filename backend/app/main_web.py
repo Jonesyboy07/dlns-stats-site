@@ -5,6 +5,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, make_response, Response
 from flask_compress import Compress
 from flask_cors import CORS
+from werkzeug.exceptions import NotFound
 try:
     import markdown
 except ImportError:
@@ -31,8 +32,16 @@ def create_app() -> Flask:
     project_root = Path(__file__).parent.parent.parent
     template_folder = str(project_root / 'templates')
     static_folder = str(project_root / 'public')
+    fallback_static_folder = project_root / 'static'
     
     app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+
+    def _send_static_with_fallback(filename: str, mimetype: str | None = None):
+        # Primary static root is /public; fall back to /static for migrated assets.
+        try:
+            return send_from_directory(app.static_folder, filename, mimetype=mimetype)
+        except NotFound:
+            return send_from_directory(str(fallback_static_folder), filename, mimetype=mimetype)
     
     # Configure MIME types for static files
     import mimetypes
@@ -576,12 +585,20 @@ def create_app() -> Flask:
 
     @app.route('/favicon.ico')
     def favicon():  # type: ignore
-        return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+        return _send_static_with_fallback('favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+    @app.route('/public/react-app/<path:filename>')
+    def public_react_app_static(filename: str):  # type: ignore
+        # Handle migrated bundle locations without breaking generated /public URLs.
+        try:
+            return send_from_directory(str(Path(app.static_folder) / 'react-app'), filename)
+        except NotFound:
+            return send_from_directory(str(fallback_static_folder / 'react-app'), filename)
 
     @app.route('/static/<path:filename>')
     def legacy_static(filename: str):  # type: ignore
         # Backward compatibility: older templates/chunks still request /static/* assets.
-        return send_from_directory(app.static_folder, filename)
+        return _send_static_with_fallback(filename)
 
     @app.get("/help")
     @cache.cached(timeout=300)

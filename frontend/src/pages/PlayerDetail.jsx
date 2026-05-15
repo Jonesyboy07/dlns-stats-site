@@ -72,17 +72,18 @@ function PlayerDetail() {
     for (const match of matches) {
       const { event_team_a, event_team_b, event_team_a_ingame_side, team, result, event_week } = match;
       if (!event_team_a && !event_team_b) continue;
-      let teamName = null;
+      let rawTeamName = null;
       if (event_team_a_ingame_side != null) {
-        teamName = team === event_team_a_ingame_side ? event_team_a : event_team_b;
+        rawTeamName = team === event_team_a_ingame_side ? event_team_a : event_team_b;
       }
-      if (!teamName) continue;
-      if (!teamMap[teamName]) {
-        teamMap[teamName] = { name: teamName, games: 0, wins: 0, weeks: new Set() };
+      if (!rawTeamName) continue;
+      const key = rawTeamName.toLowerCase();
+      if (!teamMap[key]) {
+        teamMap[key] = { name: rawTeamName, games: 0, wins: 0, weeks: new Set() };
       }
-      teamMap[teamName].games++;
-      if (result === "Win") teamMap[teamName].wins++;
-      if (event_week != null) teamMap[teamName].weeks.add(event_week);
+      teamMap[key].games++;
+      if (result === "Win") teamMap[key].wins++;
+      if (event_week != null) teamMap[key].weeks.add(event_week);
     }
     return Object.values(teamMap)
       .map((t) => ({
@@ -98,7 +99,7 @@ function PlayerDetail() {
                   m.event_team_a_ingame_side != null &&
                   (m.team === m.event_team_a_ingame_side
                     ? m.event_team_a
-                    : m.event_team_b) === t.name
+                    : m.event_team_b)?.toLowerCase() === t.name.toLowerCase()
               );
               return {
                 games: wMatches.length,

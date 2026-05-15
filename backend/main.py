@@ -617,6 +617,9 @@ def upsert_match(
 	match_vod: Optional[str] = None,
 	event_region: Optional[str] = None,
 ) -> None:
+	# Normalize team names to title case so casing variants are treated as the same team
+	event_team_a = event_team_a.strip().title() if event_team_a else None
+	event_team_b = event_team_b.strip().title() if event_team_b else None
 	# Try to locate a start time from API payload with several fallback keys
 	st = (
 		mi.get("start_time")

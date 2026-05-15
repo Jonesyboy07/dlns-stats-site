@@ -35,7 +35,8 @@ _matches_json_lock = threading.Lock()
 
 
 def _matches_json_path() -> Path:
-    return Path(current_app.root_path) / "matches.json"
+    db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3"))
+    return db_path.parent / "matches.json"
 
 
 def _load_matches_json(matches_path: Path) -> Dict[str, Any]:
@@ -438,7 +439,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
             conn = db_connect(db_path)
             try:
                 db_init(conn)
-                matches_path = Path(current_app.root_path) / "matches.json"
+                matches_path = db_path.parent / "matches.json"
                 user_cache_path = db_path.parent / "user_cache.json"
                 user_cache = load_json(user_cache_path, {}) or {}
 

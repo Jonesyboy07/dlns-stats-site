@@ -1163,7 +1163,7 @@ def hero_top_players(hero_id: int):
 @cache.cached(timeout=60)
 def hero_meta(hero_id: int):
     """Return curated metadata (tagline + abilities) for a specific hero."""
-    meta_path = Path(current_app.root_path) / "data" / "hero_meta.json"
+    meta_path = Path(current_app.root_path).parent.parent.parent / "data" / "hero_meta.json"
     try:
         with open(meta_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -1271,7 +1271,7 @@ def get_teams():
     with get_ro_conn() as conn:
         cur = conn.execute(
             """
-            SELECT team_name, COUNT(DISTINCT match_id) AS matches
+            SELECT MIN(team_name) AS team_name, COUNT(DISTINCT match_id) AS matches
             FROM (
                 SELECT event_team_a AS team_name, match_id FROM matches
                 WHERE event_team_a IS NOT NULL AND event_team_a != ''
@@ -1279,8 +1279,8 @@ def get_teams():
                 SELECT event_team_b AS team_name, match_id FROM matches
                 WHERE event_team_b IS NOT NULL AND event_team_b != ''
             )
-            GROUP BY team_name
-            ORDER BY team_name ASC
+            GROUP BY LOWER(team_name)
+            ORDER BY LOWER(team_name) ASC
             """
         )
         return jsonify({"teams": _rows_to_dicts(cur)})
@@ -1291,10 +1291,30 @@ def get_teams():
 def get_team_detail(team_name: str):
     """Return team detail: players sorted by appearances and full match history."""
     with get_ro_conn() as conn:
+        canonical_row = conn.execute(
+            """
+            SELECT MIN(event_team_a) FROM matches
+            WHERE LOWER(event_team_a) = LOWER(?) AND event_team_a IS NOT NULL
+            """,
+            (team_name,),
+        ).fetchone()
+        if canonical_row and canonical_row[0]:
+            team_name = canonical_row[0]
+        else:
+            canonical_row2 = conn.execute(
+                """
+                SELECT MIN(event_team_b) FROM matches
+                WHERE LOWER(event_team_b) = LOWER(?) AND event_team_b IS NOT NULL
+                """,
+                (team_name,),
+            ).fetchone()
+            if canonical_row2 and canonical_row2[0]:
+                team_name = canonical_row2[0]
+
         row = conn.execute(
             """
             SELECT MAX(event_week) FROM matches
-            WHERE (event_team_a = ? OR event_team_b = ?) AND event_week IS NOT NULL
+            WHERE (LOWER(event_team_a) = LOWER(?) OR LOWER(event_team_b) = LOWER(?)) AND event_week IS NOT NULL
             """,
             (team_name, team_name),
         ).fetchone()
@@ -1317,11 +1337,11 @@ def get_team_detail(team_name: str):
             LEFT JOIN users u ON u.account_id = p.account_id
             WHERE p.account_id IS NOT NULL
               AND (
-                (m.event_team_a = ? AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
                 OR
-                (m.event_team_b = ? AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
+                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
                 OR
-                (m.event_team_a_ingame_side IS NULL AND (m.event_team_a = ? OR m.event_team_b = ?))
+                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
               )
             GROUP BY p.account_id, u.persona_name
             ORDER BY appearances DESC, u.persona_name ASC
@@ -1338,7 +1358,7 @@ def get_team_detail(team_name: str):
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
                 m.winning_team, m.duration_s, m.start_time
             FROM matches m
-            WHERE m.event_team_a = ? OR m.event_team_b = ?
+            WHERE LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)
             ORDER BY m.start_time DESC
             """,
             (team_name, team_name),

@@ -4,7 +4,7 @@
 @font-face {
   font-family: "Valve Pulp";
   src: url("/static/fonts/valvepulp-bold.ttf") format("truetype");
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }

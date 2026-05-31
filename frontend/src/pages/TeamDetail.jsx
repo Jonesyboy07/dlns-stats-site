@@ -34,7 +34,7 @@ function TeamDetail() {
   if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
   if (!data) return null;
 
-  const { team_name, max_week, total_matches, players, matches } = data;
+  const { team_name, max_week, total_matches, players, matches, hero_picks } = data;
 
   // Split current roster (appeared in latest week) vs alumni
   const currentPlayers = players.filter((p) => p.last_week === max_week);
@@ -56,6 +56,32 @@ function TeamDetail() {
     else losses++;
   }
   const hasRecord = wins + losses > 0;
+
+  // Group matches into series and count Night Shift series wins (excluding Challenger Match titles)
+  const seriesMap = new Map();
+  for (const m of matches) {
+    const key = [m.event_team_a, m.event_team_b, m.event_title, m.event_week].join("||");
+    if (!seriesMap.has(key)) seriesMap.set(key, []);
+    seriesMap.get(key).push(m);
+  }
+  let nsSeriesWins = 0,
+    nsSeriesLosses = 0;
+  for (const games of seriesMap.values()) {
+    const first = games[0];
+    if (first.event_title?.toLowerCase().includes("challenger")) continue;
+    let sw = 0, sl = 0;
+    for (const m of games) {
+      const side = m.event_team_a_ingame_side;
+      if (side == null || m.winning_team == null) continue;
+      const isTeamA = m.event_team_a?.toLowerCase() === team_name.toLowerCase();
+      const won = isTeamA ? m.winning_team === side : m.winning_team !== side;
+      if (won) sw++; else sl++;
+    }
+    if (sw + sl === 0) continue;
+    if (sw > sl) nsSeriesWins++;
+    else if (sl > sw) nsSeriesLosses++;
+  }
+  const hasNsRecord = nsSeriesWins + nsSeriesLosses > 0;
 
   return (
     <div className="w-full px-4">
@@ -103,6 +129,10 @@ function TeamDetail() {
           wins={wins}
           losses={losses}
           hasRecord={hasRecord}
+          nsWins={nsSeriesWins}
+          nsLosses={nsSeriesLosses}
+          hasNsRecord={hasNsRecord}
+          heroPicks={hero_picks || []}
         />
       )}
       {activeTab === "Series" && (

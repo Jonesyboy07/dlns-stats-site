@@ -193,7 +193,7 @@ def fetch_match_metadata(match_id: int) -> Dict[str, Any]:
 	return data["match_info"]
 
 
-def fetch_player_summaries(steam_api_key: str, steam_ids64: List[str]) -> Dict[str, str]:
+def fetch_player_summaries(steam_api_key: str, steam_ids64: List[str]) -> Dict[str, Dict[str, str]]:
 	if not steam_ids64:
 		return {}
 	params = {"key": steam_api_key, "steamids": ",".join(steam_ids64)}
@@ -201,12 +201,15 @@ def fetch_player_summaries(steam_api_key: str, steam_ids64: List[str]) -> Dict[s
 	r.raise_for_status()
 	data = r.json() or {}
 	players = ((data.get("response") or {}).get("players") or [])
-	result: Dict[str, str] = {}
+	result: Dict[str, Dict[str, str]] = {}
 	for p in players:
 		sid = p.get("steamid")
 		persona = p.get("personaname") or p.get("realname")
 		if sid and persona:
-			result[str(sid)] = str(persona)
+			result[str(sid)] = {
+				"persona_name": str(persona),
+				"avatar_url": str(p.get("avatarfull") or ""),
+			}
 	return result
 
 
@@ -274,7 +277,12 @@ def http_get_with_retries(
 			continue
 
 
-def resolve_names_with_cache(account_ids: List[int], cache: Dict[str, str], steam_api_key: str) -> Dict[int, str]:
+def resolve_names_with_cache(
+	account_ids: List[int],
+	cache: Dict[str, str],
+	steam_api_key: str,
+	avatar_cache: Optional[Dict[str, str]] = None,
+) -> Dict[int, str]:
 	# cache maps account_id (as string) -> persona
 	to_lookup: List[int] = []
 	for aid in account_ids:
@@ -287,14 +295,19 @@ def resolve_names_with_cache(account_ids: List[int], cache: Dict[str, str], stea
 	resolved: Dict[int, str] = {}
 	if to_lookup:
 		steam_ids64 = [to_steamid64(a) for a in to_lookup]
-		name_by_sid: Dict[str, str] = {}
+		data_by_sid: Dict[str, Dict[str, str]] = {}
 		for chunk in chunked(steam_ids64, 100):
-			name_by_sid.update(fetch_player_summaries(steam_api_key, chunk))
+			data_by_sid.update(fetch_player_summaries(steam_api_key, chunk))
 		for a in to_lookup:
 			sid64 = to_steamid64(a)
-			persona = name_by_sid.get(sid64, "Unknown")
+			entry = data_by_sid.get(sid64) or {}
+			persona = entry.get("persona_name") or "Unknown"
 			cache[str(a)] = persona
 			resolved[a] = persona
+			if avatar_cache is not None:
+				avatar_url = entry.get("avatar_url") or ""
+				if avatar_url:
+					avatar_cache[str(a)] = avatar_url
 
 	# fill any already-cached values
 	for aid in account_ids:
@@ -306,18 +319,27 @@ def resolve_names_with_cache(account_ids: List[int], cache: Dict[str, str], stea
 	return resolved
 
 
-def refetch_all_cached_users(cache: Dict[str, str], steam_api_key: str) -> Dict[str, str]:
+def refetch_all_cached_users(
+	cache: Dict[str, str],
+	steam_api_key: str,
+	avatar_cache: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
 	ids = [int(k) for k in cache.keys() if k.isdigit()]
 	steam_ids64 = [to_steamid64(a) for a in ids]
-	new_names: Dict[str, str] = {}
+	new_data: Dict[str, Dict[str, str]] = {}
 	for chunk in chunked(steam_ids64, 100):
-		new_names.update(fetch_player_summaries(steam_api_key, chunk))
+		new_data.update(fetch_player_summaries(steam_api_key, chunk))
 	# update cache in place
 	for aid in ids:
 		sid64 = to_steamid64(aid)
-		persona = new_names.get(sid64)
+		entry = new_data.get(sid64) or {}
+		persona = entry.get("persona_name")
 		if persona:
 			cache[str(aid)] = persona
+		if avatar_cache is not None:
+			avatar_url = entry.get("avatar_url") or ""
+			if avatar_url:
+				avatar_cache[str(aid)] = avatar_url
 	return cache
 
 
@@ -330,6 +352,7 @@ PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS users (
   account_id INTEGER PRIMARY KEY,
   persona_name TEXT,
+  avatar_url TEXT,
   updated_at TEXT
 );
 
@@ -490,6 +513,14 @@ def db_init(conn: sqlite3.Connection) -> bool:
 	except Exception:
 		pass
 	try:
+		cur = conn.execute("PRAGMA table_info(users)")
+		cols = {r[1] for r in cur.fetchall()}
+		if "avatar_url" not in cols:
+			conn.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+		conn.commit()
+	except Exception:
+		pass
+	try:
 		cur = conn.execute("PRAGMA table_info(players)")
 		cols = {r[1] for r in cur.fetchall()}
 		if "items" not in cols:
@@ -597,11 +628,12 @@ async def upsert_player_snapshots_async(conn: Any, match_id: int, account_id: Op
 		)
 
 
-def upsert_user(conn: sqlite3.Connection, account_id: int, persona_name: Optional[str]) -> None:
+def upsert_user(conn: sqlite3.Connection, account_id: int, persona_name: Optional[str], avatar_url: Optional[str] = None) -> None:
 	conn.execute(
-		"INSERT INTO users(account_id, persona_name, updated_at) VALUES(?, ?, ?) "
-		"ON CONFLICT(account_id) DO UPDATE SET persona_name=excluded.persona_name, updated_at=excluded.updated_at",
-		(account_id, persona_name or "Unknown", now_iso()),
+		"INSERT INTO users(account_id, persona_name, avatar_url, updated_at) VALUES(?, ?, ?, ?) "
+		"ON CONFLICT(account_id) DO UPDATE SET persona_name=excluded.persona_name, "
+		"avatar_url=COALESCE(excluded.avatar_url, avatar_url), updated_at=excluded.updated_at",
+		(account_id, persona_name or "Unknown", avatar_url or None, now_iso()),
 	)
 
 
@@ -999,6 +1031,16 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 	except Exception:
 		pass
 	try:
+		cur = await conn.execute("PRAGMA table_info(users)")
+		rows = await cur.fetchall()
+		await cur.close()
+		cols = {r[1] for r in rows}
+		if "avatar_url" not in cols:
+			await conn.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+		await conn.commit()
+	except Exception:
+		pass
+	try:
 		cur = await conn.execute("PRAGMA table_info(players)")
 		rows = await cur.fetchall()
 		await cur.close()
@@ -1027,11 +1069,12 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 	return large_table_change
 
 
-async def upsert_user_async(conn: asqlite.Connection, account_id: int, persona_name: Optional[str]) -> None:
+async def upsert_user_async(conn: asqlite.Connection, account_id: int, persona_name: Optional[str], avatar_url: Optional[str] = None) -> None:
 	await conn.execute(
-		"INSERT INTO users(account_id, persona_name, updated_at) VALUES(?, ?, ?) "
-		"ON CONFLICT(account_id) DO UPDATE SET persona_name=excluded.persona_name, updated_at=excluded.updated_at",
-		(account_id, persona_name or "Unknown", now_iso()),
+		"INSERT INTO users(account_id, persona_name, avatar_url, updated_at) VALUES(?, ?, ?, ?) "
+		"ON CONFLICT(account_id) DO UPDATE SET persona_name=excluded.persona_name, "
+		"avatar_url=COALESCE(excluded.avatar_url, avatar_url), updated_at=excluded.updated_at",
+		(account_id, persona_name or "Unknown", avatar_url or None, now_iso()),
 	)
 
 
@@ -1536,7 +1579,8 @@ def process_match_into_db(
 	players = (match_info.get("players") or [])
 	account_ids = [p.get("account_id") for p in players if p.get("account_id") is not None]
 	account_ids_int = [int(a) for a in account_ids]
-	name_map = resolve_names_with_cache(account_ids_int, cache, steam_api_key)
+	avatar_cache: Dict[str, str] = {}
+	name_map = resolve_names_with_cache(account_ids_int, cache, steam_api_key, avatar_cache)
 
 	winning_team = match_info.get("winning_team")
 
@@ -1545,7 +1589,7 @@ def process_match_into_db(
 
 	# Also persist updated users from cache to DB
 	for aid in account_ids_int:
-		upsert_user(conn, aid, name_map.get(aid) or cache.get(str(aid)))
+		upsert_user(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
 
 	# Recompute aggregates for all users in this match
 	recompute_user_stats_bulk(conn, account_ids_int)
@@ -1576,7 +1620,8 @@ async def process_match_into_db_async(
 	account_ids_int = [int(a) for a in account_ids]
 
 	async with cache_lock:
-		name_map = await asyncio.to_thread(resolve_names_with_cache, account_ids_int, cache, steam_api_key)
+		avatar_cache: Dict[str, str] = {}
+		name_map = await asyncio.to_thread(resolve_names_with_cache, account_ids_int, cache, steam_api_key, avatar_cache)
 
 	winning_team = match_info.get("winning_team")
 
@@ -1598,7 +1643,7 @@ async def process_match_into_db_async(
 			await upsert_player_async(conn, match_id, p, winning_team, name_map)
 
 		for aid in account_ids_int:
-			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)))
+			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
 
 		await recompute_user_stats_bulk_async(conn, account_ids_int)
 		await conn.commit()
@@ -1677,14 +1722,15 @@ def refresh_user_cache_only(conn: sqlite3.Connection, cache_path: Path, steam_ap
 	cache = load_json(cache_path, default={})
 	if not isinstance(cache, dict):
 		cache = {}
-	refetch_all_cached_users(cache, steam_api_key)
+	avatar_cache: Dict[str, str] = {}
+	refetch_all_cached_users(cache, steam_api_key, avatar_cache)
 	save_json(cache_path, cache)
 
 	# Mirror to DB users table
 	for k, v in cache.items():
 		if not str(k).isdigit():
 			continue
-		upsert_user(conn, int(k), str(v) if v is not None else "Unknown")
+		upsert_user(conn, int(k), str(v) if v is not None else "Unknown", avatar_cache.get(str(k)))
 	# Recompute aggregates for all cached users
 	ids = [int(k) for k in cache.keys() if str(k).isdigit()]
 	recompute_user_stats_bulk(conn, ids)

@@ -812,13 +812,13 @@ def match_user_stats(match_id: int, account_id: int):  # type: ignore
 def user_info(account_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT account_id, persona_name, updated_at FROM users WHERE account_id = ?",
+            "SELECT account_id, persona_name, avatar_url, updated_at FROM users WHERE account_id = ?",
             (account_id,),
         )
         row = cur.fetchone()
         if not row:
             return jsonify({"error": "not_found"}), 404
-        return jsonify({"user": {"account_id": row[0], "persona_name": row[1], "updated_at": row[2]}})
+        return jsonify({"user": {"account_id": row[0], "persona_name": row[1], "avatar_url": row[2], "updated_at": row[3]}})
 
 
 @bp.get("/users/<int:account_id>/stats")
@@ -1365,12 +1365,47 @@ def get_team_detail(team_name: str):
         )
         matches = _rows_to_dicts(cur2)
 
+        cur3 = conn.execute(
+            """
+            SELECT
+                p.hero_id,
+                COUNT(*) AS picks
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.hero_id IS NOT NULL
+              AND (
+                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+                OR
+                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
+                OR
+                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
+              )
+            GROUP BY p.hero_id
+            ORDER BY picks DESC
+            LIMIT 20
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        hero_picks_raw = _rows_to_dicts(cur3)
+
+        from ..heroes import get_all_hero_names
+        all_names = get_all_hero_names()
+        hero_picks = [
+            {
+                "hero_id": row["hero_id"],
+                "hero_name": all_names.get(str(row["hero_id"]), f"Hero {row['hero_id']}"),
+                "picks": row["picks"],
+            }
+            for row in hero_picks_raw
+        ]
+
         return jsonify({
             "team_name": team_name,
             "max_week": max_week,
             "total_matches": len(matches),
             "players": players,
             "matches": matches,
+            "hero_picks": hero_picks,
         })
 
 

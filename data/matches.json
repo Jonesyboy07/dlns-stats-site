@@ -51,14 +51,15 @@
               "team_b": "1win Team",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "gAME 1",
                   "match_id": 38782020,
                   "team_a_side": 1,
                   "match_vod": "https://youtu.be/k9u-ZXvALj4"
                 }
               ],
               "region": "EU",
-              "match_vod": "https://youtu.be/k9u-ZXvALj4"
+              "match_vod": "https://youtu.be/k9u-ZXvALj4",
+              "title": "CHALLENGER MATCH"
             },
             {
               "team_a": "Valhalla",
@@ -72,7 +73,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=UNI7d3h4f5E"
+              "match_vod": "https://www.youtube.com/watch?v=UNI7d3h4f5E",
+              "title": "CHALLENGER MATCH"
             }
           ],
           "vod_link": "https://www.youtube.com/live/Rw7dSjhC8lY?si=-AlGwES9mySQY9Bq"
@@ -128,14 +130,15 @@
               "team_b": "Lotos",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "gAME 1",
                   "match_id": 39080962,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=fOabCLabNaw"
                 }
               ],
               "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=fOabCLabNaw"
+              "match_vod": "https://www.youtube.com/watch?v=fOabCLabNaw",
+              "title": "CHALLENGER MATCH"
             }
           ],
           "vod_link": "https://youtu.be/t3Mn968kD7M?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -163,20 +166,6 @@
               "region": "EU"
             },
             {
-              "team_a": "PKP",
-              "team_b": "Lil Troops",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 39943414,
-                  "team_a_side": 0,
-                  "match_vod": "https://www.youtube.com/watch?v=OokpkfiyjZM"
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=OokpkfiyjZM",
-              "region": "NA"
-            },
-            {
               "team_a": "Hydra Nation",
               "team_b": "Lil Troops",
               "matches": [
@@ -196,18 +185,34 @@
               "region": "NA"
             },
             {
+              "team_a": "PKP",
+              "team_b": "Lil Troops",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 39943414,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=OokpkfiyjZM"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=OokpkfiyjZM",
+              "title": "Challenger Match"
+            },
+            {
               "team_a": "Abrahams",
               "team_b": "Lotos",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "game 1",
                   "match_id": 39915107,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=JIm2SB6K8hY"
                 }
               ],
               "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=JIm2SB6K8hY"
+              "match_vod": "https://www.youtube.com/watch?v=JIm2SB6K8hY",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/vG2yp4VLB40?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -215,19 +220,6 @@
         {
           "week": 4,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lotos",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 40937186,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=8ZBLzAWUi94",
-              "region": "EU"
-            },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Abrahams",
@@ -252,33 +244,53 @@
               "region": "EU"
             },
             {
+              "team_a": "Hydra Nation",
+              "team_b": "Lil Troops",
+              "matches": [
+                {
+                  "game": "Game 2",
+                  "match_id": 40973442,
+                  "team_a_side": 0
+                },
+                {
+                  "game": "Game 1",
+                  "match_id": 40968590,
+                  "team_a_side": 0,
+                  "match_vod": ""
+                }
+              ],
+              "region": "NA",
+              "match_vod": ""
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lotos",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 40937186,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=8ZBLzAWUi94"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=8ZBLzAWUi94",
+              "title": "Challenger Match"
+            },
+            {
               "team_a": "Melee Creeps",
               "team_b": "Lil Troops",
               "matches": [
                 {
                   "game": "Game 1",
                   "match_id": 40961317,
-                  "team_a_side": 0
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=2c3GnKt25Gs"
                 }
               ],
+              "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=2c3GnKt25Gs",
-              "region": "NA"
-            },
-            {
-              "team_a": "Hydra Nation",
-              "team_b": "Lil Troops",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "match_id": 40968590,
-                  "team_a_side": 0
-                },
-                {
-                  "game": "Game 2",
-                  "match_id": 40973442,
-                  "team_a_side": 0
-                }
-              ]
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/SVTJahJGYJ0?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -286,19 +298,6 @@
         {
           "week": 5,
           "games": [
-            {
-              "team_a": "Buff Enjoyers",
-              "team_b": "Lotos",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 41768032,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=V2V6Ri7mO1Y&pp=0gcJCdMKAYcqIYzv",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Buff Enjoyers",
@@ -323,19 +322,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Sneaky Golem",
-              "team_b": "Maht's Fan Club",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 41787534,
-                  "team_a_side": 1
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=zkSX9d0CR2g",
-              "region": "NA"
-            },
-            {
               "team_a": "Hydra Nation",
               "team_b": "Sneaky Golem",
               "matches": [
@@ -352,6 +338,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=4Unbji8V8kA",
               "region": "NA"
+            },
+            {
+              "team_a": "Buff Enjoyers",
+              "team_b": "Lotos",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 41768032,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=V2V6Ri7mO1Y&pp=0gcJCdMKAYcqIYzv"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=V2V6Ri7mO1Y&pp=0gcJCdMKAYcqIYzv",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Sneaky Golem",
+              "team_b": "Maht's Fan Club",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 41787534,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=zkSX9d0CR2g"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=zkSX9d0CR2g",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/gKRxXr69L8I?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -359,19 +375,6 @@
         {
           "week": 6,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "BOTs",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 42485898,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=6wUr5CLAXP8",
-              "region": "EU"
-            },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Abrahams",
@@ -396,19 +399,6 @@
               "region": "EU"
             },
             {
-              "team_a": "The Baroness Hotel",
-              "team_b": "Maht's Fan Club",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 42502377,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=i4MlsjGYcvQ",
-              "region": "NA"
-            },
-            {
               "team_a": "Hydra Nation",
               "team_b": "The Baroness Hotel",
               "matches": [
@@ -425,6 +415,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=N0x_E6eo5vM",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "BOTs",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 42485898,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=6wUr5CLAXP8"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=6wUr5CLAXP8",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "The Baroness Hotel",
+              "team_b": "Maht's Fan Club",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 42502377,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=i4MlsjGYcvQ"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=i4MlsjGYcvQ",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/VqXQrcGxpLE?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -432,19 +452,6 @@
         {
           "week": 7,
           "games": [
-            {
-              "team_a": "Buff Enjoyers",
-              "team_b": "Lotos",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 43163800,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=NW8Ks0yZF0g",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Buff Enjoyers",
@@ -462,19 +469,6 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=eV0bpu5TBOk&pp=0gcJCdMKAYcqIYzv",
               "region": "EU"
-            },
-            {
-              "team_a": "Hydra Nation",
-              "team_b": "Chain Gang",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 43176704,
-                  "team_a_side": 1
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=n8jzzgUtCS0",
-              "region": "NA"
             },
             {
               "team_a": "The Baroness Hotel",
@@ -498,6 +492,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=ytqQNxwI_9c",
               "region": "NA"
+            },
+            {
+              "team_a": "Buff Enjoyers",
+              "team_b": "Lotos",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 43163800,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=NW8Ks0yZF0g"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=NW8Ks0yZF0g",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Hydra Nation",
+              "team_b": "Chain Gang",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 43176704,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=n8jzzgUtCS0"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=n8jzzgUtCS0",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/wOy9kxCYb7o?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -505,19 +529,6 @@
         {
           "week": 8,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lotos",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 43817512,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=JmWJMHh79uQ",
-              "region": "EU"
-            },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Abrahams",
@@ -542,19 +553,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Hydra Nation",
-              "team_b": "Chain Gang",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 43832797,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=oFbHwWJdfIE",
-              "region": "NA"
-            },
-            {
               "team_a": "The Baroness Hotel",
               "team_b": "Hydra Nation",
               "matches": [
@@ -571,6 +569,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=7f2IkSAhIUs&pp=0gcJCdMKAYcqIYzv",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lotos",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 43817512,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=JmWJMHh79uQ"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=JmWJMHh79uQ",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Hydra Nation",
+              "team_b": "Chain Gang",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 43832797,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=oFbHwWJdfIE"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=oFbHwWJdfIE",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/gArI-NjIZlA?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -578,19 +606,6 @@
         {
           "week": 9,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Bots",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 44452567,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=kIeLRzR0BZw",
-              "region": "EU"
-            },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Abrahams",
@@ -608,19 +623,6 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=YRH33rSB09Y",
               "region": "EU"
-            },
-            {
-              "team_a": "Melee Creeps",
-              "team_b": "Chain Gang",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 44464516,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=S8N3wL0Q3tM",
-              "region": "NA"
             },
             {
               "team_a": "Sneaky Golem",
@@ -644,6 +646,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=mqkmMgTmbQ8",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Bots",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 44452567,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=kIeLRzR0BZw"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=kIeLRzR0BZw",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Chain Gang",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 44464516,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=S8N3wL0Q3tM"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=S8N3wL0Q3tM",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/38DbnxOFFvg?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -651,19 +683,6 @@
         {
           "week": 10,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lotos",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 45038801,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=kPOMm1HCX4I&pp=0gcJCdMKAYcqIYzv",
-              "region": "EU"
-            },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Abrahams",
@@ -683,19 +702,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Melee Creeps",
-              "team_b": "The Uncs",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 45049175,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=n_uDEMn4vyc&pp=0gcJCdMKAYcqIYzv",
-              "region": "NA"
-            },
-            {
               "team_a": "Sneaky Golem",
               "team_b": "Melee Creeps",
               "matches": [
@@ -712,6 +718,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=QFh__x7viO8",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lotos",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 45038801,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=kPOMm1HCX4I&pp=0gcJCdMKAYcqIYzv"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=kPOMm1HCX4I&pp=0gcJCdMKAYcqIYzv",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "The Uncs",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 45049175,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=n_uDEMn4vyc&pp=0gcJCdMKAYcqIYzv"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=n_uDEMn4vyc&pp=0gcJCdMKAYcqIYzv",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/zX0wjXd64t0?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -719,19 +755,6 @@
         {
           "week": 11,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lotos",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 45588473,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=NYW9us111cM",
-              "region": "EU"
-            },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Abrahams",
@@ -756,19 +779,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Melee Creeps",
-              "team_b": "Kawaii Crew",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 45602770,
-                  "team_a_side": 0
-                }
-              ],
-              "region": "NA",
-              "title": "https://www.youtube.com/watch?v=oiI2IOsHzsk"
-            },
-            {
               "team_a": "Sneaky Golem",
               "team_b": "Melee Creeps",
               "matches": [
@@ -785,6 +795,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=h1vJwWjCpgc",
               "region": "NA"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Kawaii Crew",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 45602770,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=oiI2IOsHzsk"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=oiI2IOsHzsk",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lotos",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 45588473,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=NYW9us111cM"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=NYW9us111cM",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/ggrLRtENdLs?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -845,28 +885,30 @@
               "team_b": "Gooballs",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "GAME 1",
                   "match_id": 46132383,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=hEFkUMjLujI"
                 }
               ],
               "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=hEFkUMjLujI"
+              "match_vod": "https://www.youtube.com/watch?v=hEFkUMjLujI",
+              "title": "Challenger Match"
             },
             {
               "team_a": "Melee Creeps",
               "team_b": "Kawaii Crew",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "GAME 1",
                   "match_id": 46145955,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=fFJUSG-oOZM"
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=fFJUSG-oOZM"
+              "match_vod": "https://www.youtube.com/watch?v=fFJUSG-oOZM",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/CaV0CQ4-gTU?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -874,19 +916,6 @@
         {
           "week": 13,
           "games": [
-            {
-              "team_a": "Fearless Furies",
-              "team_b": "Gooballs",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 46601607,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=VeY1yZiUL7g",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Gooballs",
@@ -911,19 +940,6 @@
               "region": "EU"
             },
             {
-              "team_a": "The Uncs",
-              "team_b": "Bunny With Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 46611968,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=nTrDBEIW36I",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "The Uncs",
               "matches": [
@@ -940,6 +956,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=KWQEpNTloQ8",
               "region": "NA"
+            },
+            {
+              "team_a": "Fearless Furies",
+              "team_b": "Gooballs",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 46601607,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=VeY1yZiUL7g"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=VeY1yZiUL7g",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "The Uncs",
+              "team_b": "Bunny With Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 46611968,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=nTrDBEIW36I"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=nTrDBEIW36I",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/G_Td-MMELB4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -947,19 +993,6 @@
         {
           "week": 14,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Fearless Furies",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 47054324,
-                  "team_a_side": 1
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=ZubnVOrpJII",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -977,19 +1010,6 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=fHU-WfbzdPw",
               "region": "EU"
-            },
-            {
-              "team_a": "Sneaky Golem",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 47062957,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=dq99i6Rm_sE",
-              "region": "NA"
             },
             {
               "team_a": "Melee Creeps",
@@ -1013,6 +1033,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=ouYVWEGatmc",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Fearless Furies",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 47054324,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=ZubnVOrpJII"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=ZubnVOrpJII",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Sneaky Golem",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 47062957,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=dq99i6Rm_sE"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=dq99i6Rm_sE",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/sEEt9-cMSdc?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1020,19 +1070,6 @@
         {
           "week": 15,
           "games": [
-            {
-              "team_a": "Buff Enjoyers",
-              "team_b": "Fearless Furies",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 47472140,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=WSHPfkEd1fA",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Buff Enjoyers",
@@ -1057,19 +1094,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Boston Tea Party",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 47481210,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=2H4njLtPoSI",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bunny with Clock",
               "matches": [
@@ -1091,6 +1115,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=1L68TfD4daI",
               "region": "NA"
+            },
+            {
+              "team_a": "Buff Enjoyers",
+              "team_b": "Fearless Furies",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 47472140,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=WSHPfkEd1fA"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=WSHPfkEd1fA",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Boston Tea Party",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 47481210,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=2H4njLtPoSI"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=2H4njLtPoSI",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/Usd3Zb0ecWQ?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1098,19 +1152,6 @@
         {
           "week": 16,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Fearless Furies",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 47916125,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=GNtAmQd431k",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1130,19 +1171,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Sneaky Golem",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 47923808,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=PXyyXNf5Mmw",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bunny with Clock",
               "matches": [
@@ -1159,6 +1187,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=HwKhWXQ-sxc",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Fearless Furies",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 47916125,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=GNtAmQd431k"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=GNtAmQd431k",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Sneaky Golem",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 47923808,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=PXyyXNf5Mmw"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=PXyyXNf5Mmw",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/r2n5R1TwrYc?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1166,19 +1224,6 @@
         {
           "week": 17,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Fearless Furies",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 48340171,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=QEMHWgexG-s",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1198,41 +1243,60 @@
               "region": "EU"
             },
             {
-              "team_a": "Sneaky Golem",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 48347919,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=325gfN-qE-c",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bunny with Clock",
               "matches": [
                 {
+                  "game": "Game 3",
+                  "match_id": 48355611,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=QibO7xTxbu4"
+                },
+                {
                   "game": "Game 1",
                   "match_id": 48350635,
-                  "team_a_side": 1
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=QibO7xTxbu4"
                 },
                 {
                   "game": "Game 2",
                   "match_id": 48353265,
-                  "team_a_side": 1
-                },
-                {
-                  "game": "Game 3",
-                  "match_id": 48355611,
-                  "team_a_side": 1,
+                  "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=QibO7xTxbu4"
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=QibO7xTxbu4",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Fearless Furies",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 48340171,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=QEMHWgexG-s"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=QEMHWgexG-s",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Sneaky Golem",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 48347919,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=325gfN-qE-c"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=325gfN-qE-c",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/tgaUqSznN_4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1240,19 +1304,6 @@
         {
           "week": 18,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 48751843,
-                  "team_a_side": 1
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=IxIeBtXcaa4",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1272,19 +1323,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Sneaky Golem",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 48759374,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=53WEqQaQ_rI",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bunny with Clock",
               "matches": [
@@ -1301,6 +1339,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=VbtaXYgMDSI",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 48751843,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=IxIeBtXcaa4"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=IxIeBtXcaa4",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Sneaky Golem",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 48759374,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=53WEqQaQ_rI"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=53WEqQaQ_rI",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/CL_cL_BvD0U?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1308,19 +1376,6 @@
         {
           "week": 19,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 49151181,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=DJEZRzZ0fzM",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1340,19 +1395,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Kawaii Crew",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 49159907,
-                  "team_a_side": 1
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=yoOefGgEwGY&pp=0gcJCdMKAYcqIYzv",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bunny with Clock",
               "matches": [
@@ -1369,6 +1411,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=wZ4koNzm9lc",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 49151181,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=DJEZRzZ0fzM"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=DJEZRzZ0fzM",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Kawaii Crew",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 49159907,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=yoOefGgEwGY&pp=0gcJCdMKAYcqIYzv"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=yoOefGgEwGY&pp=0gcJCdMKAYcqIYzv",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/sedjk6kChd8?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1376,19 +1448,6 @@
         {
           "week": 20,
           "games": [
-            {
-              "team_a": "Fearless Furies",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 50425489,
-                  "team_a_side": 0
-                }
-              ],
-              "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=wvvR8s-Xvck"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1406,19 +1465,6 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=3AxyKVDgErI"
-            },
-            {
-              "team_a": "Floormen",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 50433990,
-                  "team_a_side": 1
-                }
-              ],
-              "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=PwjyipU23RM"
             },
             {
               "team_a": "Melee Creeps",
@@ -1442,6 +1488,36 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=_nVWJrs4hVE&t=7745s"
+            },
+            {
+              "team_a": "Fearless Furies",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 50425489,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=wvvR8s-Xvck"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=wvvR8s-Xvck",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 50433990,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=PwjyipU23RM"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=PwjyipU23RM",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/FnwOBF-HQxE?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1449,19 +1525,6 @@
         {
           "week": 21,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 50870550,
-                  "team_a_side": 0
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=slt_cTN3egk",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1486,19 +1549,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "match_id": 50881282,
-                  "team_a_side": 1
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=N8NmvU3Q34M",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -1515,6 +1565,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=Ku2GLeH07U0",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 50870550,
+                  "team_a_side": 0,
+                  "match_vod": "https://www.youtube.com/watch?v=slt_cTN3egk"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=slt_cTN3egk",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "match_id": 50881282,
+                  "team_a_side": 1,
+                  "match_vod": "https://www.youtube.com/watch?v=N8NmvU3Q34M"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=N8NmvU3Q34M",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/invYf05fUqE?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1542,19 +1622,6 @@
               "match_vod": "https://www.youtube.com/watch?v=s9Yk7gHwdoE"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 51316473
-                }
-              ],
-              "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -1573,18 +1640,34 @@
               "region": "NA"
             },
             {
+              "team_a": "Floormen",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 51316473,
+                  "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI",
+              "title": "Challenger Match"
+            },
+            {
               "team_a": "Fearless Furies",
               "team_b": "Leviathan",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "GAME 1",
                   "match_id": 51307580,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=GiNOcyuzcV8"
                 }
               ],
               "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=GiNOcyuzcV8"
+              "match_vod": "https://www.youtube.com/watch?v=GiNOcyuzcV8",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/yJbMdjnlrT4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1592,19 +1675,6 @@
         {
           "week": 23,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "Fearless Furies",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 53056350
-                }
-              ],
-              "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=Ad6o7pdExYE"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1624,19 +1694,6 @@
               "match_vod": "https://www.youtube.com/watch?v=xQ3M4pxQfCM"
             },
             {
-              "team_a": "No Earnings",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 53102141
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=ZBercMjpVbo",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bunny with Clock",
               "matches": [
@@ -1653,6 +1710,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=oqpAH8iUAO4",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Fearless Furies",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 53056350,
+                  "match_vod": "https://www.youtube.com/watch?v=Ad6o7pdExYE"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=Ad6o7pdExYE",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "No Earnings",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 53102141,
+                  "match_vod": "https://www.youtube.com/watch?v=ZBercMjpVbo"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=ZBercMjpVbo",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/yJbMdjnlrT4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1660,19 +1747,6 @@
         {
           "week": 24,
           "games": [
-            {
-              "team_a": "Lowkey W",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 55276851
-                }
-              ],
-              "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=JK5Ww2kKpG4"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Lowkey W",
@@ -1689,19 +1763,6 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=B7G2p-Lz8Ro"
-            },
-            {
-              "team_a": "Floormen",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 55326187
-                }
-              ],
-              "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=AnTXesU5Y2g"
             },
             {
               "team_a": "Melee Creeps",
@@ -1726,6 +1787,36 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=-NiTws3XE6g&pp=0gcJCcMKAYcqIYzv"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 55276851,
+                  "match_vod": "https://www.youtube.com/watch?v=JK5Ww2kKpG4"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=JK5Ww2kKpG4",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 55326187,
+                  "match_vod": "https://www.youtube.com/watch?v=AnTXesU5Y2g"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=AnTXesU5Y2g",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/Y6OAkd6Ra3U?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1733,19 +1824,6 @@
         {
           "week": 25,
           "games": [
-            {
-              "team_a": "Lowkey W",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 57586402
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=BXSIO_15edA",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Lowkey W",
@@ -1765,19 +1843,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "Bunny with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 57633259
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=EvR1i-44hQQ&pp=0gcJCcMKAYcqIYzv",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -1794,6 +1859,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=9FiFV0jH1h4",
               "region": "NA"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 57586402,
+                  "match_vod": "https://www.youtube.com/watch?v=BXSIO_15edA"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=BXSIO_15edA",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bunny with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 57633259,
+                  "match_vod": "https://www.youtube.com/watch?v=EvR1i-44hQQ&pp=0gcJCcMKAYcqIYzv"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=EvR1i-44hQQ&pp=0gcJCcMKAYcqIYzv",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/N51U7s_ld78?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1801,19 +1896,6 @@
         {
           "week": 26,
           "games": [
-            {
-              "team_a": "Lowkey W",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 59792207
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=y40WY-KY2Xo",
-              "region": "EU"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Lowkey W",
@@ -1833,19 +1915,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "No Earnings",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 59846915
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=Ydi7D9OBaAg",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -1862,6 +1931,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=b_fGPPvLnEY",
               "region": "NA"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 59792207,
+                  "match_vod": "https://www.youtube.com/watch?v=y40WY-KY2Xo"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=y40WY-KY2Xo",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "No Earnings",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 59846915,
+                  "match_vod": "https://www.youtube.com/watch?v=Ydi7D9OBaAg"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=Ydi7D9OBaAg",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/n-oc6wDE62M?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1917,28 +2016,30 @@
               "team_b": "Leviathan",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "GAME 1",
                   "team_a_side": 1,
                   "match_id": 62062786,
                   "match_vod": "https://www.youtube.com/watch?v=lQdYcbarmo8"
                 }
               ],
               "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=lQdYcbarmo8"
+              "match_vod": "https://www.youtube.com/watch?v=lQdYcbarmo8",
+              "title": "Challenger Match"
             },
             {
               "team_a": "Floormen",
               "team_b": "Bird with Clock",
               "matches": [
                 {
-                  "game": "Challenger Match",
+                  "game": "GAME 1",
                   "team_a_side": 0,
                   "match_id": 62133731,
                   "match_vod": "https://www.youtube.com/watch?v=RRRhr__mTLE&pp=0gcJCcMKAYcqIYzv"
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=RRRhr__mTLE&pp=0gcJCcMKAYcqIYzv"
+              "match_vod": "https://www.youtube.com/watch?v=RRRhr__mTLE&pp=0gcJCcMKAYcqIYzv",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/RBeEwaNXjRQ?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1946,19 +2047,6 @@
         {
           "week": 28,
           "games": [
-            {
-              "team_a": "Leviathan",
-              "team_b": "No Mercy",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 64221871
-                }
-              ],
-              "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=wC5IvyxQfNA"
-            },
             {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
@@ -1978,19 +2066,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "Bird with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 64270120
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=ecFNru3pfMc",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Bird with Clock",
               "matches": [
@@ -2007,6 +2082,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=L6Wa3na-ic8",
               "region": "NA"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "No Mercy",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 64221871,
+                  "match_vod": "https://www.youtube.com/watch?v=wC5IvyxQfNA"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=wC5IvyxQfNA",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bird with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 64270120,
+                  "match_vod": "https://www.youtube.com/watch?v=ecFNru3pfMc"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=ecFNru3pfMc",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/sbq5RIHgwEs?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2014,19 +2119,6 @@
         {
           "week": 29,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 66383499
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=Wg7iFcXA4bE",
-              "region": "EU"
-            },
             {
               "team_a": "Leviathan",
               "team_b": "Abrahams",
@@ -2051,19 +2143,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "Bird with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 66447214
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=42BdBHKixYk",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -2085,6 +2164,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=pHFCVtsSGm0",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 66383499,
+                  "match_vod": "https://www.youtube.com/watch?v=Wg7iFcXA4bE"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=Wg7iFcXA4bE",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bird with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 66447214,
+                  "match_vod": "https://www.youtube.com/watch?v=42BdBHKixYk"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=42BdBHKixYk",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/H6I-tkiR4Es?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2092,19 +2201,6 @@
         {
           "week": 30,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 68525762
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=76teWaeJCU8",
-              "region": "EU"
-            },
             {
               "team_a": "Leviathan",
               "team_b": "Lowkey W",
@@ -2122,19 +2218,6 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=8UPrZlL-Jtw",
               "region": "EU"
-            },
-            {
-              "team_a": "Floormen",
-              "team_b": "No Earnings",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 68577039
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=gmYFeklsoSw",
-              "region": "NA"
             },
             {
               "team_a": "Melee Creeps",
@@ -2158,6 +2241,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=OMhnF3Z_QrI",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 68525762,
+                  "match_vod": "https://www.youtube.com/watch?v=76teWaeJCU8"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=76teWaeJCU8",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "No Earnings",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 68577039,
+                  "match_vod": "https://www.youtube.com/watch?v=gmYFeklsoSw"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=gmYFeklsoSw",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/76vRnids4QY?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2165,19 +2278,6 @@
         {
           "week": 31,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 70457488
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=vP1JEWLktsk",
-              "region": "EU"
-            },
             {
               "team_a": "Leviathan",
               "team_b": "Abrahams",
@@ -2202,19 +2302,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Melee Creeps",
-              "team_b": "FPS Lounge",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 70518888
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=MWeTMKFKhL4",
-              "region": "NA"
-            },
-            {
               "team_a": "Floormen",
               "team_b": "Melee Creeps",
               "matches": [
@@ -2236,6 +2323,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=TZ6VrTGW7Yg",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 70457488,
+                  "match_vod": "https://www.youtube.com/watch?v=vP1JEWLktsk"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=vP1JEWLktsk",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "FPS Lounge",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 70518888,
+                  "match_vod": "https://www.youtube.com/watch?v=MWeTMKFKhL4"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=MWeTMKFKhL4",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/Di-WzNs5YPk?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2243,19 +2360,6 @@
         {
           "week": 32,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Lowkey W",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 72318302
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=H-9x6NB4ssQ",
-              "region": "EU"
-            },
             {
               "team_a": "Leviathan",
               "team_b": "Lowkey W",
@@ -2275,19 +2379,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "Bird with Clock",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 72362504
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=pcHcvXveHPA",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -2304,6 +2395,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=1knvMsayrAo",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 72318302,
+                  "match_vod": "https://www.youtube.com/watch?v=H-9x6NB4ssQ"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=H-9x6NB4ssQ",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Bird with Clock",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 72362504,
+                  "match_vod": "https://www.youtube.com/watch?v=pcHcvXveHPA"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=pcHcvXveHPA",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/iJrd3XxkU08?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2311,19 +2432,6 @@
         {
           "week": 33,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 74148164
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=6oQD5GLKCWw",
-              "region": "EU"
-            },
             {
               "team_a": "Lowkey W",
               "team_b": "Abrahams",
@@ -2343,19 +2451,6 @@
               "region": "EU"
             },
             {
-              "team_a": "Floormen",
-              "team_b": "FPS Lounge",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 1,
-                  "match_id": 74191976
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=tOXMKyYajno",
-              "region": "NA"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "Floormen",
               "matches": [
@@ -2372,6 +2467,36 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 74148164,
+                  "match_vod": "https://www.youtube.com/watch?v=6oQD5GLKCWw"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=6oQD5GLKCWw",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "FPS Lounge",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 74191976,
+                  "match_vod": "https://www.youtube.com/watch?v=tOXMKyYajno"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=tOXMKyYajno",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/mQTNWkVYcxM?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2379,19 +2504,6 @@
         {
           "week": 34,
           "games": [
-            {
-              "team_a": "Abrahams",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 75968492
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE",
-              "region": "EU"
-            },
             {
               "team_a": "Lowkey W",
               "team_b": "Abrahams",
@@ -2409,19 +2521,6 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=MLDb2-QjMUA",
               "region": "EU"
-            },
-            {
-              "team_a": "Melee Creeps",
-              "team_b": "FPS Lounge",
-              "matches": [
-                {
-                  "game": "Challenger Match",
-                  "team_a_side": 0,
-                  "match_id": 76008292
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=kvMpEjfYgOM",
-              "region": "NA"
             },
             {
               "team_a": "Floormen",
@@ -2445,6 +2544,36 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=xUB_tllNLkc",
               "region": "NA"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 75968492,
+                  "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "FPS Lounge",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 0,
+                  "match_id": 76008292,
+                  "match_vod": "https://www.youtube.com/watch?v=kvMpEjfYgOM"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=kvMpEjfYgOM",
+              "title": "Challenger Match"
             }
           ],
           "vod_link": "https://youtu.be/nV2qBzzH-V0?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2730,6 +2859,151 @@
               "title": "NA - FINALS"
             }
           ]
+        },
+        {
+          "week": 39,
+          "games": [
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 83657240
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=HO3QVSSwZEI&pp=0gcJCR4LAYcqIYzv",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Abrahams",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 83665998
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 83675828
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 1,
+                  "match_id": 83684506
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=EQkc7-5AoEw",
+              "region": "EU"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "FPS Lounge",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 83695045
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=J3tTScuI-lI",
+              "region": "NA",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Melee Creeps",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 83705359
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 83714773
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=pyHPEYfOuGk",
+              "region": "NA"
+            }
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=_FqdOl7yA2s"
+        },
+        {
+          "week": 40,
+          "games": [
+            {
+              "team_a": "aBRAHAMS",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 85202927
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=Rn8odTSuvl0",
+              "region": "EU",
+              "title": "challenger match"
+            },
+            {
+              "team_a": "LOWKEY W",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 85214988
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 85225088
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 1,
+                  "match_id": 85234319
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=dzTBAt8Ec7c",
+              "region": "EU"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "FPS LOUNGE",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 85246298
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=jhVqZ55MsFg",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "floormen",
+              "team_b": "melee creeps",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 85256685
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
+              "region": "NA"
+            }
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=1UNNg2o-JIs"
         }
       ]
     }

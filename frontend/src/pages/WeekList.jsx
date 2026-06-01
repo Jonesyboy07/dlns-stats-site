@@ -4,18 +4,22 @@ import { Link } from "react-router-dom";
 function WeekList() {
   const [weeks, setWeeks] = useState([]);
   const [title, setTitle] = useState("");
+  const [events, setEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState("Night Shift");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("/db/weeks")
+    const url = `/db/weeks?event_title=${encodeURIComponent(selectedEvent)}`;
+    fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to load weeks");
         return r.json();
       })
       .then((data) => {
         const details = data.details || {};
-        setTitle(data.title || "Night Shift");
+        setTitle(data.title || selectedEvent || "Night Shift");
+        setEvents(Array.isArray(data.series_titles) ? data.series_titles : []);
 
         // Build a map of week -> { series, matchCount, seriesSet }
         const weekMap = {};
@@ -33,7 +37,7 @@ function WeekList() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedEvent]);
 
   if (loading)
     return <div className="p-8 text-center text-gray-300">Loading…</div>;
@@ -45,13 +49,31 @@ function WeekList() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white mb-1">{title}</h1>
         <p className="text-gray-400 text-sm">{weeks.length} week{weeks.length !== 1 ? "s" : ""}</p>
+        {events.length > 0 && (
+          <div className="mt-4 max-w-xs">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              Event
+            </label>
+            <select
+              value={selectedEvent}
+              onChange={(e) => setSelectedEvent(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+            >
+              {events.map((eventTitle) => (
+                <option key={eventTitle} value={eventTitle}>
+                  {eventTitle}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2 max-w-lg">
         {weeks.map(({ week, series, matchCount }) => (
           <Link
             key={week}
-            to={`/week/${week}`}
+            to={`/week/${week}?event_title=${encodeURIComponent(selectedEvent)}`}
             className="flex items-center justify-between px-5 py-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:bg-gray-700/50 hover:border-purple-500/50 transition-all group"
           >
             <div>

@@ -3006,6 +3006,328 @@
           "vod_link": "https://www.youtube.com/watch?v=1UNNg2o-JIs"
         }
       ]
+    },
+    {
+      "title": "Night Shift Open 1",
+      "weeks": [
+        {
+          "week": 1,
+          "games": [
+            {
+              "game": "Qualifier R1 · match-3",
+              "match_id": 85619599
+            },
+            {
+              "game": "Qualifier R1 · match-6",
+              "match_id": 85620300
+            },
+            {
+              "game": "Qualifier R1 · match-8",
+              "match_id": 85619107
+            },
+            {
+              "game": "Qualifier R1 · match-9",
+              "match_id": 85619489
+            },
+            {
+              "game": "Qualifier R1 · match-14",
+              "match_id": 85617616
+            },
+            {
+              "game": "Qualifier R1 · match-17",
+              "match_id": 85620955
+            },
+            {
+              "game": "Qualifier R1 · match-18",
+              "match_id": 85619471
+            },
+            {
+              "game": "Qualifier R1 · match-23",
+              "match_id": 85617626
+            },
+            {
+              "game": "Qualifier R1 · match-29",
+              "match_id": 85620640
+            },
+            {
+              "game": "Qualifier R1 · match-30",
+              "match_id": 85617998
+            },
+            {
+              "game": "Qualifier R1 · match-35",
+              "match_id": 85629515
+            },
+            {
+              "game": "Qualifier R1 · match-57",
+              "match_id": 85627229
+            },
+            {
+              "game": "Qualifier R1 · match-60",
+              "match_id": 85625710
+            },
+            {
+              "game": "Qualifier R1 · match-61",
+              "match_id": 85625714
+            },
+            {
+              "game": "Qualifier R1 · match-63",
+              "match_id": 85626189
+            },
+            {
+              "game": "Qualifier R2 · match-36",
+              "match_id": 85630888
+            },
+            {
+              "game": "Qualifier R2 · match-50",
+              "match_id": 85629684
+            },
+            {
+              "game": "Qualifier R2 · match-51",
+              "match_id": 85629676
+            },
+            {
+              "game": "Qualifier R2 · match-65",
+              "match_id": 85634881
+            },
+            {
+              "game": "Qualifier R2 · match-66",
+              "match_id": 85637829
+            },
+            {
+              "game": "Qualifier R2 · match-76",
+              "match_id": 85638248
+            },
+            {
+              "game": "Qualifier R2 · match-77",
+              "match_id": 85639101
+            },
+            {
+              "game": "Qualifier R2 · match-78",
+              "match_id": 85637879
+            },
+            {
+              "game": "Qualifier R2 · match-80",
+              "match_id": 85635571
+            },
+            {
+              "game": "Qualifier R2 · match-82",
+              "match_id": 85647807
+            },
+            {
+              "game": "Qualifier R2 · match-84",
+              "match_id": 85643125
+            },
+            {
+              "game": "Qualifier R2 · match-86",
+              "match_id": 85649500
+            },
+            {
+              "game": "Qualifier R2 · match-87",
+              "match_id": 85647027
+            },
+            {
+              "game": "Qualifier R2 · match-90",
+              "match_id": 85639009
+            },
+            {
+              "game": "Qualifier R2 · match-93",
+              "match_id": 85636487
+            },
+            {
+              "game": "Qualifier R2 · match-103",
+              "match_id": 85652167
+            },
+            {
+              "game": "Qualifier R2 · match-109",
+              "match_id": 85648634
+            },
+            {
+              "game": "Qualifier R2 · match-112",
+              "match_id": 85642195
+            },
+            {
+              "game": "Qualifier R2 · match-120",
+              "match_id": 85651768
+            },
+            {
+              "game": "Qualifier R3-4 · match-98",
+              "match_id": 85658880
+            },
+            {
+              "game": "Qualifier R3-4 · match-106",
+              "match_id": 85661737
+            },
+            {
+              "game": "Qualifier R3-4 · match-108",
+              "match_id": 85660948
+            },
+            {
+              "game": "Qualifier R3-4 · match-116",
+              "match_id": 85675099
+            },
+            {
+              "game": "Qualifier R3-4 · match-117",
+              "match_id": 85678971
+            },
+            {
+              "game": "Qualifier R3-4 · match-118",
+              "match_id": 85681808
+            },
+            {
+              "game": "Qualifier R3-4 · match-119",
+              "match_id": 85656129
+            },
+            {
+              "game": "Group Stage · match-1",
+              "match_id": 85799534
+            },
+            {
+              "game": "Group Stage · match-2",
+              "match_id": 85799258
+            },
+            {
+              "game": "Group Stage · match-4",
+              "match_id": 85799486
+            },
+            {
+              "game": "Group Stage · match-5",
+              "match_id": 85811171
+            },
+            {
+              "game": "Group Stage · match-6",
+              "match_id": 85809077
+            },
+            {
+              "game": "Group Stage · match-7",
+              "match_id": 85822371
+            },
+            {
+              "game": "Group Stage · unlabelled-1",
+              "match_id": 85820137
+            },
+            {
+              "game": "Group Stage · unlabelled-2",
+              "match_id": 85818100
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Bird With Clock",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 85800473
+                }
+              ],
+              "title": "On Stream"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Abrahams",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 85811699
+                },
+                {
+                  "game": "Game 2",
+                  "match_id": 85822371
+                }
+              ],
+              "title": "On Stream"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Floormen",
+              "matches": [
+                {
+                  "game": "Game 3",
+                  "match_id": 85835174
+                }
+              ],
+              "title": "On Stream"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Bird With Clock",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 85847276
+                },
+                {
+                  "game": "Game 2",
+                  "match_id": 85856135
+                },
+                {
+                  "game": "Game 3",
+                  "match_id": 85864001
+                }
+              ],
+              "title": "On Stream"
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 85874532
+                },
+                {
+                  "game": "Game 2",
+                  "match_id": 85883575
+                }
+              ],
+              "title": "On Stream"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 86025639
+                },
+                {
+                  "game": "Game 2",
+                  "match_id": 86038944
+                }
+              ],
+              "title": "Finals"
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Melee Creeps",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 86052756
+                },
+                {
+                  "game": "Game 2",
+                  "match_id": 86066035
+                }
+              ],
+              "title": "Finals"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Lowkey W",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "match_id": 86081409
+                },
+                {
+                  "game": "Game 2",
+                  "match_id": 86090653
+                }
+              ],
+              "title": "Finals"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

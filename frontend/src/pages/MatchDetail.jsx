@@ -378,7 +378,7 @@ function MatchDetail() {
             <p className="text-gray-300 text-lg font-semibold mb-1">
               {displayEventWeek != null ? (
                 <Link
-                  to={`/week/${displayEventWeek}`}
+                  to={`/week/${displayEventWeek}?event_title=${encodeURIComponent(displayEventTitle)}`}
                   className="hover:underline"
                 >
                   {displayEventTitle} #{displayEventWeek}

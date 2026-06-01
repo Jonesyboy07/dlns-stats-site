@@ -20,6 +20,10 @@ function MatchList() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [weekMap, setWeekMap] = useState({});
+  const [seriesOptions, setSeriesOptions] = useState([]);
+  const [seriesFilter, setSeriesFilter] = useState("");
+  const [weekOptions, setWeekOptions] = useState([]);
+  const [weekFilter, setWeekFilter] = useState("");
   const perPage = 20;
 
   // Hero filter state
@@ -40,13 +44,43 @@ function MatchList() {
   const [allPlayers, setAllPlayers] = useState([]);
   const playerRef = useRef(null);
 
-  // Load week map from matches.json
+  // Load available series list from matches.json-derived API
   useEffect(() => {
     fetch("/db/weeks")
       .then((r) => r.json())
-      .then((data) => setWeekMap(data.weeks || {}))
+      .then((data) => {
+        setSeriesOptions(Array.isArray(data.series_titles) ? data.series_titles : []);
+      })
       .catch(() => {});
   }, []);
+
+  // Load week map and week options for the selected series
+  useEffect(() => {
+    const url = seriesFilter
+      ? `/db/weeks?event_title=${encodeURIComponent(seriesFilter)}`
+      : "/db/weeks";
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        setWeekMap(data.weeks || {});
+
+        const weeks = new Set();
+        for (const entry of Object.values(data.details || {})) {
+          if (entry?.week != null) {
+            weeks.add(entry.week);
+          }
+        }
+        const sortedWeeks = Array.from(weeks).sort((a, b) => Number(b) - Number(a));
+        setWeekOptions(sortedWeeks);
+        if (weekFilter && !sortedWeeks.includes(Number(weekFilter))) {
+          setWeekFilter("");
+        }
+      })
+      .catch(() => {
+        setWeekMap({});
+        setWeekOptions([]);
+      });
+  }, [seriesFilter]);
 
   // Load hero and player lists for autocomplete
   useEffect(() => {
@@ -81,7 +115,7 @@ function MatchList() {
 
   useEffect(() => {
     fetchMatches();
-  }, [page, heroFilter, playerFilter]);
+  }, [page, heroFilter, playerFilter, seriesFilter, weekFilter]);
 
   // Update hero suggestions
   useEffect(() => {
@@ -115,6 +149,8 @@ function MatchList() {
       let url = `/db/matches/latest/paged?page=${page}&per_page=${perPage}`;
       if (heroFilter) url += `&hero=${encodeURIComponent(heroFilter)}`;
       if (playerFilter) url += `&player=${encodeURIComponent(playerFilter)}`;
+      if (seriesFilter) url += `&event_title=${encodeURIComponent(seriesFilter)}`;
+      if (weekFilter) url += `&event_week=${encodeURIComponent(weekFilter)}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch matches");
       const data = await response.json();
@@ -150,6 +186,15 @@ function MatchList() {
     setPlayerSearch("");
     setPlayerFilter("");
     setShowPlayerDropdown(false);
+    setPage(1);
+  };
+  const clearSeries = () => {
+    setSeriesFilter("");
+    setWeekFilter("");
+    setPage(1);
+  };
+  const clearWeek = () => {
+    setWeekFilter("");
     setPage(1);
   };
 
@@ -262,6 +307,65 @@ function MatchList() {
 
       {/* Filters */}
       <div className="flex gap-4 mb-4 flex-wrap">
+        <div className="relative w-64">
+          <div className="flex">
+            <select
+              value={seriesFilter}
+              onChange={(e) => {
+                setSeriesFilter(e.target.value);
+                setWeekFilter("");
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 bg-input border border-border-light rounded-l text-white text-sm focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Filter by series...</option>
+              {seriesOptions.map((series) => (
+                <option key={series} value={series}>
+                  {series}
+                </option>
+              ))}
+            </select>
+            {seriesFilter && (
+              <button
+                onClick={clearSeries}
+                className="px-2 bg-input border-y border-border-light text-gray-400 hover:text-white text-sm"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+
+        {seriesFilter && weekOptions.length > 0 && (
+          <div className="relative w-56">
+            <div className="flex">
+              <select
+                value={weekFilter}
+                onChange={(e) => {
+                  setWeekFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full px-3 py-2 bg-input border border-border-light rounded-l text-white text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="">Filter by week...</option>
+                {weekOptions.map((week) => (
+                  <option key={week} value={week}>
+                    Week {week}
+                  </option>
+                ))}
+              </select>
+              {weekFilter && (
+                <button
+                  onClick={clearWeek}
+                  className="px-2 bg-input border-y border-border-light text-gray-400 hover:text-white text-sm"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Hero filter combobox */}
         <div ref={heroRef} className="relative w-64">
           <div className="flex">
@@ -428,7 +532,7 @@ function MatchList() {
                       <td className="p-4 text-gray-400 text-sm">
                         {weekDisplay ? (
                           <Link
-                            to={`/week/${weekDisplay.week}`}
+                            to={`/week/${weekDisplay.week}?event_title=${encodeURIComponent(weekDisplay.title)}`}
                             className="hover:underline hover:text-gray-200"
                           >
                             {weekDisplay.title} #{weekDisplay.week}

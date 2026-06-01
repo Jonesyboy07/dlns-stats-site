@@ -1509,30 +1509,45 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 					try:
 						mid = int(value)
 						ids.append(mid)
-						# Keep first-seen context in case an ID appears multiple times.
-						if mid not in context_by_id:
-							# team_a_side: 0 = team_a played Amber, 1 = team_a played Sapphire
-							# Can be set per-game on the match entry or per-series on the series object
-							team_a_side: Optional[int] = None
-							nested = series.get("matches") or series.get("games")
-							if isinstance(nested, list):
-								for g in nested:
-									if isinstance(g, dict) and (g.get("match_id") or g.get("id")) == mid:
-										if "team_a_side" in g:
-											team_a_side = extract_int(g["team_a_side"])
-										break
-							if team_a_side is None and "team_a_side" in series:
-								team_a_side = extract_int(series["team_a_side"])
-							context_by_id[mid] = {
-								"event_title": event_title,
-								"event_week": week,
-								"event_team_a": team_a,
-								"event_team_b": team_b,
-								"event_game": game_label,
-								"event_team_a_ingame_side": team_a_side,
-								"match_vod": _clean_str(series.get("match_vod")),
-								"event_region": _clean_str(series.get("region")),
-							}
+						# team_a_side: 0 = team_a played Amber, 1 = team_a played Sapphire
+						# Can be set per-game on the match entry or per-series on the series object
+						team_a_side: Optional[int] = None
+						nested = series.get("matches") or series.get("games")
+						if isinstance(nested, list):
+							for g in nested:
+								if isinstance(g, dict) and (g.get("match_id") or g.get("id")) == mid:
+									if "team_a_side" in g:
+										team_a_side = extract_int(g["team_a_side"])
+									break
+						if team_a_side is None and "team_a_side" in series:
+							team_a_side = extract_int(series["team_a_side"])
+
+						new_ctx = {
+							"event_title": event_title,
+							"event_week": week,
+							"event_team_a": team_a,
+							"event_team_b": team_b,
+							"event_game": game_label,
+							"event_team_a_ingame_side": team_a_side,
+							"match_vod": _clean_str(series.get("match_vod")),
+							"event_region": _clean_str(series.get("region")),
+						}
+
+						existing_ctx = context_by_id.get(mid)
+						if existing_ctx is None:
+							context_by_id[mid] = new_ctx
+						else:
+							existing_has_teams = bool(existing_ctx.get("event_team_a") and existing_ctx.get("event_team_b"))
+							new_has_teams = bool(new_ctx.get("event_team_a") and new_ctx.get("event_team_b"))
+							# Prefer richer duplicate metadata when an earlier entry was teamless.
+							if (not existing_has_teams and new_has_teams) or (
+								existing_ctx.get("event_team_a_ingame_side") is None and new_ctx.get("event_team_a_ingame_side") is not None
+							):
+								merged = dict(existing_ctx)
+								for k in ("event_title", "event_week", "event_team_a", "event_team_b", "event_game", "event_team_a_ingame_side", "match_vod", "event_region"):
+									if new_ctx.get(k) is not None:
+										merged[k] = new_ctx[k]
+								context_by_id[mid] = merged
 					except (TypeError, ValueError):
 						# Skip invalid placeholders such as "No Match".
 						continue

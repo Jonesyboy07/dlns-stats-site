@@ -70,8 +70,10 @@ def matches_tree():
 
 
 @bp.get("/weeks")
-@cache.cached(timeout=300)
+@cache.cached(timeout=300, query_string=True)
 def weeks_map():  # type: ignore
+    event_title_filter = (request.args.get("event_title") or "").strip()
+    event_title_filter_lc = event_title_filter.lower()
     matches_file = _matches_json_path()
     try:
         # Accept UTF-8 files with or without BOM.
@@ -81,6 +83,7 @@ def weeks_map():  # type: ignore
         return jsonify({"weeks": {}, "title": ""})
     result: Dict[str, Any] = {}
     details: Dict[str, Any] = {}
+    available_series_titles: List[str] = []
 
     week_sources: List[tuple[str, List[Any]]] = []
     root_series = data.get("series")
@@ -89,10 +92,14 @@ def weeks_map():  # type: ignore
             if not isinstance(series_obj, dict):
                 continue
             series_title = str(series_obj.get("title") or "").strip()
+            if series_title:
+                available_series_titles.append(series_title)
             entries = series_obj.get("weeks")
             if not isinstance(entries, list):
                 entries = series_obj.get("events")
             if isinstance(entries, list):
+                if event_title_filter_lc and series_title.lower() != event_title_filter_lc:
+                    continue
                 week_sources.append((series_title, entries))
 
     if not week_sources:
@@ -181,7 +188,32 @@ def weeks_map():  # type: ignore
                         "game": series.get("game") or series.get("game_label"),
                     }
 
-    return jsonify({"weeks": result, "details": details, "title": data.get("title", "")})
+    if not event_title_filter_lc:
+        for _, entries in week_sources:
+            for entry in entries:
+                if isinstance(entry, dict):
+                    t = str(entry.get("title") or "").strip()
+                    if t:
+                        available_series_titles.append(t)
+
+    seen_titles: set[str] = set()
+    deduped_titles: List[str] = []
+    for t in available_series_titles:
+        key = t.lower()
+        if not t or key in seen_titles:
+            continue
+        seen_titles.add(key)
+        deduped_titles.append(t)
+
+    return jsonify(
+        {
+            "weeks": result,
+            "details": details,
+            "title": event_title_filter or data.get("title", ""),
+            "series_titles": deduped_titles,
+            "selected_event_title": event_title_filter or None,
+        }
+    )
 
 
 @bp.get("/stats/overview")
@@ -229,6 +261,16 @@ def stats_weekly():
     """Return per-week aggregated stats for an event. ?event_title= defaults to Night Shift."""
     event_title = request.args.get("event_title", "Night Shift")
     with get_ro_conn() as conn:
+        events_cur = conn.execute(
+            """
+            SELECT DISTINCT event_title
+            FROM matches
+            WHERE event_title IS NOT NULL AND TRIM(event_title) != '' AND event_week IS NOT NULL
+            ORDER BY LOWER(event_title) ASC
+            """
+        )
+        available_event_titles = [row[0] for row in events_cur.fetchall()]
+
         cur = conn.execute(
             """
             SELECT
@@ -248,7 +290,7 @@ def stats_weekly():
             (event_title,),
         )
         rows = _rows_to_dicts(cur)
-    return jsonify({"weeks": rows})
+    return jsonify({"weeks": rows, "event_title": event_title, "available_event_titles": available_event_titles})
 
 
 @bp.get("/stats/records")
@@ -382,6 +424,14 @@ def latest_matches_paged():  # type: ignore
     mm = request.args.get("match_mode") or ""
     hero_filter = request.args.get("hero") or ""
     player_filter = request.args.get("player") or ""
+    event_title = (request.args.get("event_title") or "").strip()
+    event_week_raw = (request.args.get("event_week") or "").strip()
+    event_week: int | None = None
+    if event_week_raw:
+        try:
+            event_week = int(event_week_raw)
+        except Exception:
+            event_week = None
 
     offset = (page - 1) * per_page
     params = []
@@ -397,6 +447,12 @@ def latest_matches_paged():  # type: ignore
     if mm:
         conds.append("m.match_mode = ?")
         params.append(mm)
+    if event_title:
+        conds.append("m.event_title = ?")
+        params.append(event_title)
+    if event_week is not None:
+        conds.append("m.event_week = ?")
+        params.append(event_week)
 
     # Hero filter: resolve name to hero_ids, then JOIN players table
     if hero_filter:

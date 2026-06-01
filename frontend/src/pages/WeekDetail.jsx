@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 const formatDuration = (s) => {
   if (!s) return "—";
@@ -60,6 +60,8 @@ function MatchRow({ match }) {
 
 function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods }) {
   const [showPlayers, setShowPlayers] = useState(false);
+  const teamALabel = teamA || "Team A";
+  const teamBLabel = teamB || "Team B";
 
   // Tally series wins per team
   const { teamAWins, teamBWins, seriesWinner } = useMemo(() => {
@@ -110,12 +112,16 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
       <div className="bg-input grid grid-cols-[1fr_auto_1fr] mb-4 border-b border-gray-700 overflow-hidden">
         {/* Team A */}
         <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
-          <Link
-            to={`/team/${encodeURIComponent(teamA)}`}
-            className="text-3xl font-bold text-white hover:underline decoration-white text-center"
-          >
-            {teamA}
-          </Link>
+          {teamA ? (
+            <Link
+              to={`/team/${encodeURIComponent(teamA)}`}
+              className="text-3xl font-bold text-white hover:underline decoration-white text-center"
+            >
+              {teamA}
+            </Link>
+          ) : (
+            <span className="text-3xl font-bold text-white text-center">{teamALabel}</span>
+          )}
           {seriesWinner === "a" && (
             <span className="text-[10px] font-bold uppercase tracking-wider text-success border border-success-border px-1.5 py-0.5 rounded">
               Winner
@@ -134,12 +140,16 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
 
         {/* Team B */}
         <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
-          <Link
-            to={`/team/${encodeURIComponent(teamB)}`}
-            className="text-3xl font-bold text-white hover:underline decoration-white text-center"
-          >
-            {teamB}
-          </Link>
+          {teamB ? (
+            <Link
+              to={`/team/${encodeURIComponent(teamB)}`}
+              className="text-3xl font-bold text-white hover:underline decoration-white text-center"
+            >
+              {teamB}
+            </Link>
+          ) : (
+            <span className="text-3xl font-bold text-white text-center">{teamBLabel}</span>
+          )}
           {seriesWinner === "b" && (
             <span className="text-[10px] font-bold uppercase tracking-wider text-success border border-success-border px-1.5 py-0.5 rounded">
               Winner
@@ -213,7 +223,7 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
               {/* Team A */}
               <div className="bg-gray-800/40 p-3 space-y-1">
                 <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider mb-2">
-                  {teamA}
+                  {teamALabel}
                 </p>
                 {teamAPlayers.map((p) => (
                   <Link
@@ -234,7 +244,7 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
               {/* Team B */}
               <div className="bg-gray-800/40 p-3 space-y-1">
                 <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">
-                  {teamB}
+                  {teamBLabel}
                 </p>
                 {teamBPlayers.map((p) => (
                   <Link
@@ -262,21 +272,28 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
 export default function WeekDetail() {
   const { week } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const weekNum = week != null ? parseInt(week, 10) : null;
+  const eventTitleParam = (searchParams.get("event_title") || "").trim();
+  const eventTitle = eventTitleParam || "Night Shift";
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [availableEvents, setAvailableEvents] = useState([]);
 
   useEffect(() => {
     // No week param — fetch available weeks and redirect to the latest
     if (weekNum == null) {
-      fetch("/db/stats/weekly")
+      fetch(`/db/stats/weekly?event_title=${encodeURIComponent(eventTitle)}`)
         .then((r) => r.json())
         .then((d) => {
+          if (Array.isArray(d.available_event_titles)) {
+            setAvailableEvents(d.available_event_titles);
+          }
           const weeks = d.weeks;
           if (weeks && weeks.length > 0) {
-            navigate(`/week/${weeks[weeks.length - 1].event_week}`, {
+            navigate(`/week/${weeks[weeks.length - 1].event_week}?event_title=${encodeURIComponent(eventTitle)}`, {
               replace: true,
             });
           }
@@ -288,26 +305,43 @@ export default function WeekDetail() {
     setLoading(true);
     setData(null);
     setError(null);
-    fetch(`/db/nightshift/${weekNum}`)
+    fetch(`/db/nightshift/${weekNum}?event_title=${encodeURIComponent(eventTitle)}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Week ${weekNum} not found`);
         return r.json();
       })
-      .then(setData)
+      .then((payload) => {
+        setData(payload);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [weekNum]);
+  }, [weekNum, eventTitle]);
+
+  useEffect(() => {
+    fetch(`/db/stats/weekly?event_title=${encodeURIComponent(eventTitle)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.available_event_titles)) {
+          setAvailableEvents(d.available_event_titles);
+        }
+      })
+      .catch(() => {});
+  }, [eventTitle]);
 
   // Group matches into series blocks by team pairing
   const series = useMemo(() => {
     if (!data?.matches) return [];
     const map = new Map();
     for (const m of data.matches) {
-      const key = `${m.event_team_a ?? ""}__${m.event_team_b ?? ""}`;
+      const hasTeams = Boolean(m.event_team_a || m.event_team_b);
+      const key = hasTeams
+        ? `${m.event_team_a ?? ""}__${m.event_team_b ?? ""}`
+        : `__match__${m.match_id}`;
       if (!map.has(key))
         map.set(key, {
           teamA: m.event_team_a,
           teamB: m.event_team_b,
+          hasTeams,
           matches: [],
         });
       map.get(key).matches.push(m);
@@ -339,6 +373,40 @@ export default function WeekDetail() {
         <h1 className="text-3xl font-bold text-white mb-2">
           {event_title} #{weekNum}
         </h1>
+        {availableEvents.length > 0 && (
+          <div className="max-w-xs mb-3">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              Event
+            </label>
+            <select
+              value={event_title || eventTitle}
+              onChange={(e) => {
+                const nextEvent = e.target.value;
+                fetch(`/db/stats/weekly?event_title=${encodeURIComponent(nextEvent)}`)
+                  .then((r) => r.json())
+                  .then((d) => {
+                    const weeks = Array.isArray(d.weeks) ? d.weeks : [];
+                    if (weeks.length > 0) {
+                      const latest = weeks[weeks.length - 1].event_week;
+                      navigate(`/week/${latest}?event_title=${encodeURIComponent(nextEvent)}`);
+                    } else {
+                      navigate(`/week?event_title=${encodeURIComponent(nextEvent)}`);
+                    }
+                  })
+                  .catch(() => {
+                    navigate(`/week?event_title=${encodeURIComponent(nextEvent)}`);
+                  });
+              }}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+            >
+              {availableEvents.map((et) => (
+                <option key={et} value={et}>
+                  {et}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {stats.first_match_time && (
           <p className="text-sm text-gray-400">
             {formatDate(stats.first_match_time)}
@@ -373,7 +441,11 @@ export default function WeekDetail() {
             teamB={s.teamB}
             matches={s.matches}
             eventTitle={event_title}
-            seriesVod={series_vods?.[`${s.teamA}__${s.teamB}`] ?? null}
+            seriesVod={
+              s.hasTeams
+                ? (series_vods?.[`${s.teamA ?? ""}__${s.teamB ?? ""}`] ?? null)
+                : null
+            }
             gameVods={game_vods ?? {}}
           />
         ))}
@@ -384,7 +456,7 @@ export default function WeekDetail() {
         <div className="flex justify-between mt-10 pt-6 border-t border-gray-700/50 text-sm">
           {prevWeek != null ? (
             <Link
-              to={`/week/${prevWeek}`}
+              to={`/week/${prevWeek}?event_title=${encodeURIComponent(event_title || eventTitle)}`}
               className="text-gray-400 hover:text-white transition-colors"
             >
               ← Week {prevWeek}
@@ -394,7 +466,7 @@ export default function WeekDetail() {
           )}
           {nextWeek != null && (
             <Link
-              to={`/week/${nextWeek}`}
+              to={`/week/${nextWeek}?event_title=${encodeURIComponent(event_title || eventTitle)}`}
               className="text-gray-400 hover:text-white transition-colors"
             >
               Week {nextWeek} →

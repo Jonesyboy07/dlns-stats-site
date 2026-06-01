@@ -38,12 +38,41 @@ def format_player_data(player_row):
     return player
 
 
+def _matches_json_path() -> Path:
+    db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3")).resolve()
+    candidates = [
+        db_path.parent / "matches.json",
+        Path(current_app.root_path).parent / "matches.json",
+        Path(current_app.root_path).parent / "data" / "matches.json",
+        Path("./data/matches.json").resolve(),
+        Path("matches.json").resolve(),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+@bp.get("/matches/tree")
+@cache.cached(timeout=120)
+def matches_tree():
+    """Return the full matches.json payload without reshaping."""
+    matches_file = _matches_json_path()
+    try:
+        # Accept UTF-8 files with or without BOM.
+        with open(matches_file, encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return jsonify({"error": "matches.json not found"}), 404
+    except Exception as e:
+        return jsonify({"error": f"Failed to load matches.json: {e}"}), 500
+    return jsonify(data)
+
+
 @bp.get("/weeks")
 @cache.cached(timeout=300)
 def weeks_map():  # type: ignore
-    matches_file = Path(current_app.root_path).parent / "matches.json"
-    if not matches_file.exists():
-        matches_file = Path("matches.json").resolve()
+    matches_file = _matches_json_path()
     try:
         # Accept UTF-8 files with or without BOM.
         with open(matches_file, encoding="utf-8-sig") as f:
@@ -1491,9 +1520,7 @@ def nightshift_week(week: int):
         series_vods: dict = {}  # key: "team_a__team_b" -> vod url
         game_vods: dict = {}    # key: str(match_id) -> vod url
         try:
-            matches_file = Path(current_app.root_path).parent / "matches.json"
-            if not matches_file.exists():
-                matches_file = Path("matches.json").resolve()
+            matches_file = _matches_json_path()
             with open(matches_file, encoding="utf-8-sig") as f:
                 mdata = json.load(f)
             week_entries: list = []

@@ -1040,6 +1040,29 @@
         }
       }
     },
+    "/db/matches/tree": {
+      "get": {
+        "tags": ["Matches"],
+        "summary": "Get raw matches tree",
+        "description": "Returns the full matches.json payload without reshaping.",
+        "responses": {
+          "200": {
+            "description": "Raw matches.json payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "matches.json was not found"
+          }
+        }
+      }
+    },
     "/db/stats/overview": {
       "get": {
         "tags": ["Stats"],

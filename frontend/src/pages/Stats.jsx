@@ -88,11 +88,8 @@ function Stats() {
         fetch(`/db/stats/records${query}`),
         fetch(`/db/stats/averages${query}`),
         fetch("/db/heroes"),
+        fetch(`/db/stats/weekly${query}`),
       ];
-
-      if (eventTitle) {
-        requests.push(fetch(`/db/stats/weekly${query}`));
-      }
 
       const responses = await Promise.all(requests);
       const [overviewRes, recordsRes, averagesRes, heroesRes, weeklyRes] = responses;

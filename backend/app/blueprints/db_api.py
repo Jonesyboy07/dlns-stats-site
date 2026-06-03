@@ -419,8 +419,8 @@ def stats_overview():
 @bp.get("/stats/weekly")
 @cache.cached(timeout=120, query_string=True)
 def stats_weekly():
-    """Return per-week aggregated stats for an event. ?event_title= defaults to Night Shift."""
-    event_title = request.args.get("event_title", "Night Shift")
+    """Return per-week aggregated stats for an event or combined across all events."""
+    event_title = (request.args.get("event_title") or "").strip()
     with get_ro_conn() as conn:
         events_cur = conn.execute(
             """
@@ -432,26 +432,44 @@ def stats_weekly():
         )
         available_event_titles = [row[0] for row in events_cur.fetchall()]
 
-        cur = conn.execute(
+        if event_title:
+            sql = """
+                SELECT
+                    event_week,
+                    COUNT(*) as total_matches,
+                    SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) as amber_wins,
+                    SUM(CASE WHEN winning_team = 1 THEN 1 ELSE 0 END) as sapphire_wins,
+                    ROUND(AVG(duration_s) / 60.0, 2) as avg_duration_min,
+                    ROUND(
+                        100.0 * SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) / COUNT(*), 1
+                    ) as amber_win_pct
+                FROM matches
+                WHERE event_title = ? AND event_week IS NOT NULL AND match_id > 0
+                GROUP BY event_week
+                ORDER BY event_week ASC
             """
-            SELECT
-                event_week,
-                COUNT(*) as total_matches,
-                SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) as amber_wins,
-                SUM(CASE WHEN winning_team = 1 THEN 1 ELSE 0 END) as sapphire_wins,
-                ROUND(AVG(duration_s) / 60.0, 2) as avg_duration_min,
-                ROUND(
-                    100.0 * SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) / COUNT(*), 1
-                ) as amber_win_pct
-            FROM matches
-            WHERE event_title = ? AND event_week IS NOT NULL AND match_id > 0
-            GROUP BY event_week
-            ORDER BY event_week ASC
-            """,
-            (event_title,),
-        )
+            params = (event_title,)
+        else:
+            sql = """
+                SELECT
+                    event_week,
+                    COUNT(*) as total_matches,
+                    SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) as amber_wins,
+                    SUM(CASE WHEN winning_team = 1 THEN 1 ELSE 0 END) as sapphire_wins,
+                    ROUND(AVG(duration_s) / 60.0, 2) as avg_duration_min,
+                    ROUND(
+                        100.0 * SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) / COUNT(*), 1
+                    ) as amber_win_pct
+                FROM matches
+                WHERE event_week IS NOT NULL AND match_id > 0
+                GROUP BY event_week
+                ORDER BY event_week ASC
+            """
+            params = ()
+
+        cur = conn.execute(sql, params)
         rows = _rows_to_dicts(cur)
-    return jsonify({"weeks": rows, "event_title": event_title, "available_event_titles": available_event_titles})
+    return jsonify({"weeks": rows, "event_title": event_title or None, "available_event_titles": available_event_titles})
 
 
 @bp.get("/stats/records")

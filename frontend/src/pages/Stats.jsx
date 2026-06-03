@@ -23,18 +23,18 @@ ChartJS.register(
 );
 
 function Stats() {
-  const [activeTab, setActiveTab] = useState("nightshift");
-  const [overviewAll, setOverviewAll] = useState(null);
-  const [overviewNS, setOverviewNS] = useState(null);
+  const [selectedSeries, setSelectedSeries] = useState("Night Shift");
+  const [seriesOptions, setSeriesOptions] = useState([]);
+  const [overview, setOverview] = useState(null);
   const [weeklyData, setWeeklyData] = useState([]);
-  const [recordsAll, setRecordsAll] = useState(null);
-  const [recordsNS, setRecordsNS] = useState(null);
-  const [averagesAll, setAveragesAll] = useState(null);
-  const [averagesNS, setAveragesNS] = useState(null);
+  const [records, setRecords] = useState(null);
+  const [averages, setAverages] = useState(null);
   const [heroes, setHeroes] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loadingSeriesOptions, setLoadingSeriesOptions] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [expandedRecords, setExpandedRecords] = useState(new Set());
   const [expandedAverages, setExpandedAverages] = useState(new Set());
+  const loading = loadingSeriesOptions || loadingStats;
   const toggleRecord = (key) =>
     setExpandedRecords((prev) => {
       const next = new Set(prev);
@@ -49,34 +49,67 @@ function Stats() {
     });
 
   useEffect(() => {
-    fetchData();
+    fetchSeriesOptions();
   }, []);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    fetchData(selectedSeries);
+  }, [selectedSeries]);
+
+  const fetchSeriesOptions = async () => {
     try {
-      setLoading(true);
-      const [allRes, nsRes, weeklyRes, recAllRes, recNSRes, avgAllRes, avgNSRes, heroesRes] = await Promise.all([
-        fetch("/db/stats/overview"),
-        fetch("/db/stats/overview?event_title=Night%20Shift"),
-        fetch("/db/stats/weekly"),
-        fetch("/db/stats/records"),
-        fetch("/db/stats/records?event_title=Night%20Shift"),
-        fetch("/db/stats/averages"),
-        fetch("/db/stats/averages?event_title=Night%20Shift"),
+      setLoadingSeriesOptions(true);
+      const res = await fetch("/db/stats/weekly");
+      if (!res.ok) return;
+      const data = await res.json();
+      const titles = Array.isArray(data.available_event_titles)
+        ? data.available_event_titles
+        : [];
+      setSeriesOptions(titles);
+      if (titles.length > 0 && selectedSeries && !titles.includes(selectedSeries)) {
+        setSelectedSeries(titles[0]);
+      } else if (titles.length === 0 && selectedSeries !== "") {
+        setSelectedSeries("");
+      }
+    } catch (err) {
+      console.error("Failed to fetch series options:", err);
+    } finally {
+      setLoadingSeriesOptions(false);
+    }
+  };
+
+  const fetchData = async (seriesTitle) => {
+    try {
+      setLoadingStats(true);
+      const eventTitle = seriesTitle || "";
+      const query = eventTitle ? `?event_title=${encodeURIComponent(eventTitle)}` : "";
+      const requests = [
+        fetch(`/db/stats/overview${query}`),
+        fetch(`/db/stats/records${query}`),
+        fetch(`/db/stats/averages${query}`),
         fetch("/db/heroes"),
-      ]);
-      if (allRes.ok) setOverviewAll((await allRes.json()).overview);
-      if (nsRes.ok) setOverviewNS((await nsRes.json()).overview);
-      if (weeklyRes.ok) setWeeklyData((await weeklyRes.json()).weeks ?? []);
-      if (recAllRes.ok) setRecordsAll((await recAllRes.json()).records);
-      if (recNSRes.ok) setRecordsNS((await recNSRes.json()).records);
-      if (avgAllRes.ok) setAveragesAll((await avgAllRes.json()).averages);
-      if (avgNSRes.ok) setAveragesNS((await avgNSRes.json()).averages);
+      ];
+
+      if (eventTitle) {
+        requests.push(fetch(`/db/stats/weekly${query}`));
+      }
+
+      const responses = await Promise.all(requests);
+      const [overviewRes, recordsRes, averagesRes, heroesRes, weeklyRes] = responses;
+
+      if (overviewRes.ok) setOverview((await overviewRes.json()).overview);
+      if (recordsRes.ok) setRecords((await recordsRes.json()).records);
+      if (averagesRes.ok) setAverages((await averagesRes.json()).averages);
       if (heroesRes.ok) setHeroes(await heroesRes.json());
+      if (weeklyRes?.ok) {
+        setWeeklyData((await weeklyRes.json()).weeks ?? []);
+      } else if (!eventTitle) {
+        setWeeklyData([]);
+      }
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     } finally {
-      setLoading(false);
+      setLoadingStats(false);
     }
   };
 
@@ -88,9 +121,7 @@ function Stats() {
     );
   }
 
-  const overview = activeTab === "nightshift" ? overviewNS : overviewAll;
-  const records = activeTab === "nightshift" ? recordsNS : recordsAll;
-  const averages = activeTab === "nightshift" ? averagesNS : averagesAll;
+  const selectedSeriesLabel = selectedSeries || "Combined";
 
   const totalMatches = overview?.total_matches ?? 0;
   const amberWins = overview?.amber_wins ?? 0;
@@ -104,30 +135,34 @@ function Stats() {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const tabs = [
-    { id: "nightshift", label: "Night Shift" },
-    { id: "overall", label: "Overall" },
-  ];
-
   return (
     <div className="w-full p-8">
       <h1 className="text-3xl text-white font-bold mb-6">Statistics</h1>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b-3 border-slate-700">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? "border-blue-400 text-blue-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-gray-500 mb-1">
+            Series filter
+          </p>
+          <label className="inline-flex items-center gap-3 bg-panel border border-slate-700 rounded-lg px-4 py-3 text-sm text-gray-300">
+            <span className="text-gray-400 font-semibold">Series</span>
+            <select
+              value={selectedSeries}
+              onChange={(e) => setSelectedSeries(e.target.value)}
+              className="bg-transparent text-white outline-none min-w-48"
+            >
+              <option value="">Combined</option>
+              {seriesOptions.map((series) => (
+                <option key={series} value={series}>
+                  {series}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="text-sm text-gray-500">
+          Showing {selectedSeriesLabel} stats.
+        </p>
       </div>
 
       <div className="">
@@ -257,8 +292,8 @@ function Stats() {
           </div>
         </div>
 
-        {/* Duration Trend — Night Shift only */}
-        {activeTab === "nightshift" && weeklyData.length > 0 && (
+        {/* Duration Trend */}
+        {selectedSeries && weeklyData.length > 0 && (
           <div className="bg-panel text-gray-300 shadow rounded-lg p-6 my-8">
             <h2 className="text-xl font-bold mb-4">
               Avg Match Duration per Week
@@ -266,7 +301,7 @@ function Stats() {
             <div className="relative h-56">
               <Line
                 data={{
-                  labels: weeklyData.map((w) => `N.S. #${w.event_week}`),
+                  labels: weeklyData.map((w) => `${selectedSeriesLabel} #${w.event_week}`),
                   datasets: [
                     {
                       label: "Avg Duration (min)",
@@ -357,7 +392,9 @@ function Stats() {
                       )}
                       {durationMin && <span className="text-xs text-gray-500">{durationMin}</span>}
                       {r?.event_week != null && (
-                        <span className="text-xs text-gray-500">Night Shift #{r.event_week}</span>
+                        <span className="text-xs text-gray-500">
+                          {r?.event_title || selectedSeriesLabel} #{r.event_week}
+                        </span>
                       )}
                     </div>
                   </div>

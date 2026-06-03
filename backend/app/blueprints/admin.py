@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -129,6 +130,7 @@ def _build_match_tree(
                             "game": game_label,
                             "team_a_side": team_a_side,
                             "winner_team": winner_team,
+                            "forfeit": bool(match.get("forfeit")),
                             "context": {
                                 "series_title": title,
                                 "week": week_num,
@@ -175,6 +177,7 @@ def _build_match_tree(
 def _apply_match_edit(
     data: Dict[str, Any],
     *,
+    current_match_id: int,
     match_id: int,
     series_title: str,
     week: int,
@@ -186,10 +189,11 @@ def _apply_match_edit(
     match_vod: str = "",
     region: str = "",
     set_title: str = "",
+    forfeit: bool = False,
 ) -> Dict[str, Any]:
-    loc = _find_match_location(data, match_id)
+    loc = _find_match_location(data, current_match_id)
     if not loc:
-        raise ValueError(f"Match {match_id} was not found in matches.json")
+        raise ValueError(f"Match {current_match_id} was not found in matches.json")
 
     series_list = data.setdefault("series", [])
     old_series = series_list[loc["si"]]
@@ -245,6 +249,10 @@ def _apply_match_edit(
     match_entry["game"] = game_label
     match_entry["team_a_side"] = int(team_a_side)
     match_entry["match_vod"] = match_vod or ""
+    if forfeit:
+        match_entry["forfeit"] = True
+    else:
+        match_entry.pop("forfeit", None)
     target_matches.append(match_entry)
 
     return {
@@ -259,6 +267,7 @@ def _apply_match_edit(
         "match_vod": match_vod or "",
         "region": region or "",
         "set_title": set_title or "",
+        "forfeit": bool(forfeit),
     }
 
 
@@ -345,8 +354,8 @@ def _detect_team_a_side_from_history(
 def _upsert_matches_json(
     matches_path: Path,
     series_title: str,
-    week: int,
-    vod_link: str,
+    week: Optional[int],
+    vod_links: List[Dict[str, str]],
     items: List[Dict[str, Any]],
 ) -> None:
     with _matches_json_lock:
@@ -369,13 +378,18 @@ def _upsert_matches_json(
             series_list.append(series_obj)
 
         weeks = series_obj.setdefault("weeks", [])
-        week_obj = next((w for w in weeks if int(w.get("week", -1)) == int(week)), None)
+        if week is None:
+            week_key = None
+            week_obj = next((w for w in weeks if w.get("week") is None), None)
+        else:
+            week_key = int(week)
+            week_obj = next((w for w in weeks if w.get("week") is not None and int(w.get("week", -1)) == week_key), None)
         if week_obj is None:
-            week_obj = {"week": int(week), "games": []}
+            week_obj = {"week": week_key, "games": []}
             weeks.append(week_obj)
 
-        if vod_link:
-            week_obj["vod_link"] = vod_link
+        if vod_links:
+            week_obj["vod_links"] = vod_links
 
         games = week_obj.setdefault("games", [])
         for item in items:
@@ -418,10 +432,14 @@ def _upsert_matches_json(
             if existing:
                 existing["game"] = game_label
                 existing["team_a_side"] = int(team_a_side)
+                if item.get("forfeit"):
+                    existing["forfeit"] = True
             else:
                 entry: Dict[str, Any] = {"game": game_label, "team_a_side": int(team_a_side)}
                 if match_id is not None:
                     entry["match_id"] = match_id
+                if item.get("forfeit"):
+                    entry["forfeit"] = True
                 matches.append(entry)
 
         tmp = matches_path.with_suffix(".json.tmp")
@@ -444,8 +462,18 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                 user_cache = load_json(user_cache_path, {}) or {}
 
                 series_title = payload["title"]
-                week = int(payload["week"])
-                vod_link = (payload.get("vod_link") or "").strip()
+                week = payload.get("week")
+                if week is not None:
+                    try:
+                        week = int(week)
+                    except Exception:
+                        week = None
+                raw_vod_links = payload.get("vod_links") or []
+                vod_links = [
+                    {"title": (v.get("title") or "").strip(), "url": (v.get("url") or "").strip()}
+                    for v in raw_vod_links
+                    if isinstance(v, dict) and (v.get("url") or "").strip()
+                ]
                 sets = payload["sets"]
 
                 account_ids: set[int] = set()
@@ -463,8 +491,9 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                         winner_hint = match.get("winner")
                         game_label = (match.get("game") or f"Game {idx}").strip()
                         is_skip = bool(match.get("skip"))
+                        is_forfeit = bool(match.get("forfeit"))
     
-                        if is_skip:
+                        if is_skip or is_forfeit:
                             skip_match_id = int(raw_mid) if raw_mid not in (None, "") else None
                             # Resolve winner to winning_team (team_a_side fixed at 0)
                             winner_norm = (winner_hint or "").strip().lower().replace("-", " ")
@@ -513,6 +542,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                                     "set_vod_link": set_vod_link,
                                     "region": set_region,
                                     "set_title": set_title,
+                                    "forfeit": is_forfeit,
                                 }
                             )
                             continue
@@ -621,7 +651,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
             except Exception:
                 pass
 
-            _upsert_matches_json(matches_path, series_title, week, vod_link, matches_for_json)
+            _upsert_matches_json(matches_path, series_title, week, vod_links, matches_for_json)
             skipped = sum(1 for s in sets for m in s.get("matches", []) if m.get("skip"))
             ingested = len(matches_for_json) - skipped
             msg = f"Ingested {ingested} match{'es' if ingested != 1 else ''}"
@@ -717,11 +747,12 @@ def admin_bulk_submit():
     if not title:
         return jsonify({'ok': False, 'error': 'Title is required'}), 400
     if week is None:
-        return jsonify({'ok': False, 'error': 'Week is required'}), 400
-    try:
-        week = int(week)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'Week must be a number'}), 400
+        week = None
+    else:
+        try:
+            week = int(week)
+        except Exception:
+            week = None
     if not isinstance(sets, list) or not sets:
         return jsonify({'ok': False, 'error': 'At least one set is required'}), 400
 
@@ -734,11 +765,12 @@ def admin_bulk_submit():
         if not isinstance(matches, list) or not matches:
             return jsonify({'ok': False, 'error': 'Each set needs at least one match'}), 400
         for match_idx, m in enumerate(matches, start=1):
-            if m.get('skip'):
-                # N/A matches: winner still required, match_id optional
+            if m.get('skip') or m.get('forfeit'):
+                # N/A / forfeited matches: winner still required, match_id optional
                 winner = (m.get('winner') or '').strip()
                 if not winner:
-                    return jsonify({'ok': False, 'error': f'Set {set_idx}, match {match_idx}: winner is required even for N/A matches.'}), 400
+                    label = 'forfeited' if m.get('forfeit') else 'N/A'
+                    return jsonify({'ok': False, 'error': f'Set {set_idx}, match {match_idx}: winner is required even for {label} matches.'}), 400
                 if _winner_hint_to_team_a_side(winner, team_a, team_b, 0) is None:
                     return jsonify({'ok': False, 'error': f'Set {set_idx}, match {match_idx}: invalid winner "{winner}". Accepted: {team_a}, {team_b}, Team A, Team B, A, B.'}), 400
                 continue
@@ -775,7 +807,7 @@ def admin_bulk_submit():
     app_obj = current_app._get_current_object()
     thread = threading.Thread(
         target=_run_bulk_submit_job,
-        args=(job_id, {'title': title, 'week': week, 'vod_link': payload.get('vod_link'), 'sets': sets}, app_obj),
+        args=(job_id, {'title': title, 'week': week, 'vod_links': payload.get('vod_links') or [], 'sets': sets}, app_obj),
         daemon=True,
     )
     thread.start()
@@ -1132,10 +1164,23 @@ def admin_match_tree():
 def admin_match_edit():
     payload = request.get_json(silent=True) or {}
 
+    forfeit = bool(payload.get('forfeit'))
+    raw_match_id = payload.get('match_id')
+    if raw_match_id in (None, ''):
+        if not forfeit:
+            return jsonify({'ok': False, 'error': 'match_id is required unless match is forfeited'}), 400
+        match_id: Optional[int] = None
+    else:
+        try:
+            match_id = int(raw_match_id)
+        except Exception:
+            return jsonify({'ok': False, 'error': 'match_id must be numeric'}), 400
+
     try:
-        match_id = int(payload.get('match_id'))
+        fallback_id = match_id if match_id is not None else payload.get('match_id')
+        current_match_id = int(payload.get('original_match_id') if payload.get('original_match_id') is not None else fallback_id)
     except Exception:
-        return jsonify({'ok': False, 'error': 'match_id must be numeric'}), 400
+        return jsonify({'ok': False, 'error': 'original_match_id must be numeric'}), 400
 
     series_title = (payload.get('series_title') or '').strip()
     team_a = (payload.get('team_a') or '').strip()
@@ -1179,15 +1224,27 @@ def admin_match_edit():
         conn = db_connect(db_path)
         db_init(conn)
 
-        row = conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (match_id,)).fetchone()
+        row = conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (current_match_id,)).fetchone()
         if not row:
             conn.close()
-            return jsonify({'ok': False, 'error': f'Match {match_id} not found in DB'}), 404
+            return jsonify({'ok': False, 'error': f'Match {current_match_id} not found in DB'}), 404
+
+        if match_id is None:
+            match_id = -int(time.time() * 1000)
+            while conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (match_id,)).fetchone():
+                match_id -= 1
+
+        if current_match_id != match_id:
+            existing = conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (match_id,)).fetchone()
+            if existing:
+                conn.close()
+                return jsonify({'ok': False, 'error': f'Match ID {match_id} already exists'}), 400
 
         conn.execute(
             '''
             UPDATE matches
-            SET event_title = ?,
+            SET match_id = ?,
+                event_title = ?,
                 event_week = ?,
                 event_team_a = ?,
                 event_team_b = ?,
@@ -1197,8 +1254,14 @@ def admin_match_edit():
                 event_region = ?
             WHERE match_id = ?
             ''',
-            (series_title, week, team_a, team_b, game_label, team_a_side, match_vod or None, region or None, match_id),
+            (match_id, series_title, week, team_a, team_b, game_label, team_a_side, match_vod or None, region or None, current_match_id),
         )
+
+        if current_match_id != match_id:
+            conn.execute(
+                'UPDATE players SET match_id = ? WHERE match_id = ?',
+                (match_id, current_match_id),
+            )
 
         if winner_team is not None:
             winning_team = team_a_side if winner_team == 'team_a' else (1 - team_a_side)
@@ -1223,6 +1286,7 @@ def admin_match_edit():
             data = _load_matches_json(matches_path)
             updated = _apply_match_edit(
                 data,
+                current_match_id=current_match_id,
                 match_id=match_id,
                 series_title=series_title,
                 week=week,
@@ -1234,6 +1298,7 @@ def admin_match_edit():
                 match_vod=match_vod,
                 region=region,
                 set_title=set_title,
+                forfeit=forfeit,
             )
             _write_matches_json(matches_path, data)
 
@@ -1253,6 +1318,186 @@ def admin_match_edit():
             conn.rollback()
             conn.close()
         current_app.logger.exception('Match edit failed')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/match/add', methods=['POST'])
+@require_admin
+def admin_match_add():
+    payload = request.get_json(silent=True) or {}
+
+    series_title = (payload.get('series_title') or '').strip()
+    team_a = (payload.get('team_a') or '').strip()
+    team_b = (payload.get('team_b') or '').strip()
+    game_label = (payload.get('game_label') or '').strip()
+    vod_link = (payload.get('vod_link') or '').strip()
+    match_vod = (payload.get('match_vod') or '').strip()
+    region = (payload.get('region') or '').strip()
+    set_title = (payload.get('set_title') or '').strip()
+
+    if not series_title:
+        return jsonify({'ok': False, 'error': 'series_title is required'}), 400
+    if not team_a or not team_b:
+        return jsonify({'ok': False, 'error': 'team_a and team_b are required'}), 400
+
+    raw_week = payload.get('week')
+    week: Optional[int] = None
+    if raw_week not in (None, ''):
+        try:
+            week = int(raw_week)
+        except Exception:
+            return jsonify({'ok': False, 'error': 'week must be numeric when provided'}), 400
+
+    if not game_label:
+        game_label = 'Game 1'
+
+    try:
+        team_a_side = int(payload.get('team_a_side', 0))
+    except Exception:
+        return jsonify({'ok': False, 'error': 'team_a_side must be 0 or 1'}), 400
+    if team_a_side not in (0, 1):
+        return jsonify({'ok': False, 'error': 'team_a_side must be 0 or 1'}), 400
+
+    winner_team = str(payload.get('winner_team') or 'team_a').strip().lower()
+    if winner_team not in ('team_a', 'team_b'):
+        return jsonify({'ok': False, 'error': 'winner_team must be team_a or team_b'}), 400
+
+    forfeit = bool(payload.get('forfeit'))
+
+    db_path = Path(current_app.config.get('DB_PATH', './data/dlns.sqlite3'))
+    matches_path = _matches_json_path()
+
+    conn: Optional[sqlite3.Connection] = None
+    try:
+        conn = db_connect(db_path)
+        db_init(conn)
+
+        with _matches_json_lock:
+            data = _load_matches_json(matches_path)
+
+            existing_ids: set[int] = set()
+            for series in data.get('series') or []:
+                for week_obj in series.get('weeks') or []:
+                    for game_obj in week_obj.get('games') or []:
+                        for match_obj in game_obj.get('matches') or []:
+                            try:
+                                existing_ids.add(int(match_obj.get('match_id')))
+                            except Exception:
+                                continue
+
+            new_match_id = -int(time.time() * 1000)
+            while new_match_id in existing_ids:
+                new_match_id -= 1
+            while conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (new_match_id,)).fetchone():
+                new_match_id -= 1
+
+            target_series = next(
+                (s for s in data.get('series') or [] if (s.get('title') or '').strip() == series_title),
+                None,
+            )
+            if target_series is None:
+                target_series = {'title': series_title, 'weeks': []}
+                data.setdefault('series', []).append(target_series)
+
+            target_weeks = target_series.setdefault('weeks', [])
+            if week is None:
+                target_week = next((w for w in target_weeks if w.get('week') is None), None)
+            else:
+                target_week = next(
+                    (w for w in target_weeks if w.get('week') is not None and int(w.get('week')) == int(week)),
+                    None,
+                )
+            if target_week is None:
+                target_week = {'week': week, 'games': []}
+                target_weeks.append(target_week)
+
+            target_week['vod_link'] = vod_link or ''
+
+            target_games = target_week.setdefault('games', [])
+            target_game = next(
+                (
+                    g
+                    for g in target_games
+                    if (g.get('team_a') or '').strip() == team_a
+                    and (g.get('team_b') or '').strip() == team_b
+                ),
+                None,
+            )
+            if target_game is None:
+                target_game = {'team_a': team_a, 'team_b': team_b, 'matches': []}
+                target_games.append(target_game)
+
+            if set_title:
+                target_game['title'] = set_title
+            if region:
+                target_game['region'] = region
+            if match_vod:
+                target_game['match_vod'] = match_vod
+
+            target_matches = target_game.setdefault('matches', [])
+            target_matches.append(
+                {
+                    'match_id': int(new_match_id),
+                    'game': game_label,
+                    'team_a_side': int(team_a_side),
+                    'match_vod': match_vod or '',
+                    'forfeit': bool(forfeit),
+                }
+            )
+
+            _write_matches_json(matches_path, data)
+
+        winning_team = team_a_side if winner_team == 'team_a' else (1 - team_a_side)
+        placeholder_mi = {
+            'match_id': int(new_match_id),
+            'duration_s': None,
+            'winning_team': int(winning_team),
+            'match_outcome': None,
+            'game_mode': None,
+            'match_mode': None,
+            'start_time': None,
+            'players': [],
+        }
+        upsert_match(
+            conn,
+            placeholder_mi,
+            event_title=series_title,
+            event_week=week,
+            event_team_a=team_a,
+            event_team_b=team_b,
+            event_game=game_label,
+            event_team_a_ingame_side=team_a_side,
+            match_vod=match_vod or None,
+            event_region=region or None,
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify(
+            {
+                'ok': True,
+                'created': {
+                    'match_id': int(new_match_id),
+                    'series_title': series_title,
+                    'week': week,
+                    'vod_link': vod_link or '',
+                    'match_vod': match_vod or '',
+                    'region': region or '',
+                    'team_a': team_a,
+                    'team_b': team_b,
+                    'game_label': game_label,
+                    'set_title': set_title or '',
+                    'team_a_side': int(team_a_side),
+                    'winner_team': winner_team,
+                    'forfeit': bool(forfeit),
+                },
+            }
+        )
+    except Exception as e:
+        if conn is not None:
+            conn.rollback()
+            conn.close()
+        current_app.logger.exception('Match add failed')
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 

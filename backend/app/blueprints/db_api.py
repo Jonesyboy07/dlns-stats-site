@@ -1573,6 +1573,7 @@ def nightshift_week(week: int):
 
         # Pull vod_link (week-level), per-series match_vod, and per-game match_vod from matches.json
         vod_link: str | None = None
+        vod_links: list = []
         series_vods: dict = {}  # key: "team_a__team_b" -> vod url
         game_vods: dict = {}    # key: str(match_id) -> vod url
         try:
@@ -1593,6 +1594,10 @@ def nightshift_week(week: int):
             for entry in week_entries:
                 if not vod_link:
                     vod_link = entry.get("vod_link") or None
+                if not vod_links:
+                    raw_vls = entry.get("vod_links")
+                    if isinstance(raw_vls, list) and raw_vls:
+                        vod_links = raw_vls
                 for game in entry.get("games") or []:
                     if not isinstance(game, dict):
                         continue
@@ -1618,6 +1623,7 @@ def nightshift_week(week: int):
             "matches": matches,
             "all_weeks": all_weeks,
             "vod_link": vod_link,
+            "vod_links": vod_links,
             "series_vods": series_vods,
             "game_vods": game_vods,
         })

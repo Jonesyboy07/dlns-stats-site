@@ -59,6 +59,15 @@ def create_app() -> Flask:
     default_db = Path.cwd() / "data" / "dlns.sqlite3"
     app.config["DB_PATH"] = os.getenv("DB_PATH", str(default_db))
     app.config["API_LATEST_LIMIT"] = int(os.getenv("API_LATEST_LIMIT", "20"))
+    app.config["REPLAY_SHARE_API_URL"] = (os.getenv("REPLAY_SHARE_API_URL") or "").strip()
+    app.config["REPLAY_DOWNLOAD_BASE_URL"] = (os.getenv("REPLAY_DOWNLOAD_BASE_URL") or "").strip()
+    app.config["REPLAY_URL_CACHE_TTL_SECONDS"] = int(
+        os.getenv("REPLAY_URL_CACHE_TTL_SECONDS", str(48 * 60 * 60))
+    )
+    app.config["REPLAY_URL_FILE_CACHE_PATH"] = os.getenv(
+        "REPLAY_URL_FILE_CACHE_PATH",
+        str(project_root / "_cache" / "replay_urls.json"),
+    )
     
     #Discord Info
     app.config["DISCORD_CLIENT_ID"] = os.getenv("DISCORD_CLIENT_ID")

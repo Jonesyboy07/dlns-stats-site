@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import quote
 
 import requests
 
@@ -14,6 +17,7 @@ from ..heroes import get_hero_name
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
+_replay_file_cache_lock = threading.Lock()
 
 
 def _rows_to_dicts(cur: sqlite3.Cursor) -> List[Dict[str, Any]]:
@@ -51,6 +55,163 @@ def _matches_json_path() -> Path:
         if candidate.exists():
             return candidate
     return candidates[0]
+
+
+def _replay_share_api_url() -> str:
+    value = str(current_app.config.get("REPLAY_SHARE_API_URL") or "").strip().rstrip("/")
+    if not value:
+        raise ValueError("REPLAY_SHARE_API_URL is not configured")
+    return value
+
+
+def _replay_download_base_url() -> str:
+    value = str(current_app.config.get("REPLAY_DOWNLOAD_BASE_URL") or "").strip().rstrip("/")
+    if not value:
+        raise ValueError("REPLAY_DOWNLOAD_BASE_URL is not configured")
+    return value
+
+
+def _fetch_replay_listing(path: str | None = None) -> list[dict[str, Any]]:
+    url = _replay_share_api_url()
+    params: dict[str, str] = {}
+    if path:
+        params["path"] = path
+    resp = requests.get(url, params=params, timeout=10)
+    resp.raise_for_status()
+    payload = resp.json()
+    items = payload.get("items")
+    if isinstance(items, list):
+        return [item for item in items if isinstance(item, dict)]
+    return []
+
+
+def _build_replay_download_url(item_path: str) -> str:
+    encoded_path = quote(item_path.lstrip("/"), safe="/")
+    return f"{_replay_download_base_url()}/{encoded_path}"
+
+
+def _replay_cache_key(match_id: int) -> str:
+    return f"replay_url:{match_id}"
+
+
+def _replay_cache_ttl_seconds() -> int:
+    # 48 hours default TTL for replay URL lookups.
+    return int(current_app.config.get("REPLAY_URL_CACHE_TTL_SECONDS", 48 * 60 * 60))
+
+
+def _replay_file_cache_path() -> Path:
+    configured = current_app.config.get("REPLAY_URL_FILE_CACHE_PATH")
+    if configured:
+        return Path(str(configured)).resolve()
+    project_root = Path(current_app.root_path).parent.parent
+    return project_root / "_cache" / "replay_urls.json"
+
+
+def _load_replay_file_cache() -> dict[str, Any]:
+    path = _replay_file_cache_path()
+    if not path.exists():
+        return {"version": 1, "entries": {}}
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, dict):
+            entries = raw.get("entries")
+            if isinstance(entries, dict):
+                return {"version": 1, "entries": entries}
+    except Exception:
+        current_app.logger.warning("Replay URL file cache unreadable: %s", path)
+    return {"version": 1, "entries": {}}
+
+
+def _write_replay_file_cache(payload: dict[str, Any]) -> None:
+    path = _replay_file_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+    tmp_path.replace(path)
+
+
+def _get_persisted_replay(match_id: int) -> dict[str, Any] | None:
+    now = int(time.time())
+    key = str(match_id)
+    with _replay_file_cache_lock:
+        cache_payload = _load_replay_file_cache()
+        entries = cache_payload.get("entries") or {}
+        entry = entries.get(key)
+        if not isinstance(entry, dict):
+            return None
+        expires_at = int(entry.get("expires_at") or 0)
+        replay = entry.get("replay")
+        if expires_at <= now or not isinstance(replay, dict):
+            entries.pop(key, None)
+            cache_payload["entries"] = entries
+            _write_replay_file_cache(cache_payload)
+            return None
+        return replay
+
+
+def _set_persisted_replay(match_id: int, replay: dict[str, Any], ttl_seconds: int) -> None:
+    now = int(time.time())
+    key = str(match_id)
+    with _replay_file_cache_lock:
+        cache_payload = _load_replay_file_cache()
+        entries = cache_payload.get("entries") or {}
+        entries[key] = {
+            "cached_at": now,
+            "expires_at": now + max(1, int(ttl_seconds)),
+            "replay": replay,
+        }
+        cache_payload["entries"] = entries
+        _write_replay_file_cache(cache_payload)
+
+
+def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, Any] | None, int]:
+    """Return (matched_item, visited_dir_count) by recursively walking the public share API."""
+    target_prefix = f"{match_id}"
+    visited_dirs = 0
+    seen_dirs: set[str] = set()
+    stack: list[str] = [""]
+
+    while stack and visited_dirs < max_dirs:
+        current_path = stack.pop()
+        norm_path = (current_path or "").strip()
+        if norm_path in seen_dirs:
+            continue
+        seen_dirs.add(norm_path)
+        visited_dirs += 1
+
+        try:
+            items = _fetch_replay_listing(norm_path or None)
+        except Exception:
+            # Ignore unreadable directories and continue scan.
+            continue
+
+        # Prefer deterministic traversal order.
+        dir_paths: list[str] = []
+        for item in items:
+            item_path = str(item.get("path") or "")
+            name = str(item.get("name") or "")
+            is_dir = bool(item.get("isDir"))
+
+            if is_dir:
+                if item_path:
+                    dir_paths.append(item_path)
+                continue
+
+            lower_name = name.lower()
+            if not lower_name.endswith(".zip"):
+                continue
+            if not name.startswith(target_prefix):
+                continue
+
+            return item, visited_dirs
+
+        for next_dir in sorted(dir_paths, reverse=True):
+            if next_dir not in seen_dirs:
+                stack.append(next_dir)
+
+    return None, visited_dirs
 
 
 @bp.get("/matches/tree")
@@ -552,6 +713,98 @@ def match_adjacent(match_id: int):  # type: ignore
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })
+
+
+@bp.get("/matches/<int:match_id>/replay")
+def match_replay(match_id: int):
+    """Resolve a replay ZIP for a match and return a direct filebrowser download URL."""
+    # Match IDs in DB can be placeholders (negative). Replays are only meaningful for positive IDs.
+    if match_id <= 0:
+        return jsonify({"ok": False, "error": "invalid_match_id"}), 400
+
+    try:
+        # Ensure replay endpoints are configured via environment.
+        _replay_share_api_url()
+        _replay_download_base_url()
+    except ValueError as e:
+        return jsonify(
+            {
+                "ok": False,
+                "match_id": match_id,
+                "found": False,
+                "error": "replay_config_missing",
+                "message": str(e),
+            }
+        ), 503
+
+    ttl_seconds = _replay_cache_ttl_seconds()
+    cached_replay = cache.get(_replay_cache_key(match_id))
+    if isinstance(cached_replay, dict) and cached_replay.get("download_url"):
+        return jsonify(
+            {
+                "ok": True,
+                "match_id": match_id,
+                "found": True,
+                "cached": True,
+                "cache_source": "memory",
+                "cache_ttl_seconds": ttl_seconds,
+                "replay": cached_replay,
+            }
+        )
+
+    persisted_replay = _get_persisted_replay(match_id)
+    if isinstance(persisted_replay, dict) and persisted_replay.get("download_url"):
+        cache.set(_replay_cache_key(match_id), persisted_replay, timeout=ttl_seconds)
+        return jsonify(
+            {
+                "ok": True,
+                "match_id": match_id,
+                "found": True,
+                "cached": True,
+                "cache_source": "file",
+                "cache_ttl_seconds": ttl_seconds,
+                "replay": persisted_replay,
+            }
+        )
+
+    item, visited_dirs = _replay_match_item(match_id)
+    if not item:
+        return jsonify(
+            {
+                "ok": False,
+                "match_id": match_id,
+                "found": False,
+                "cached": False,
+                "searched_dirs": visited_dirs,
+                "error": "replay_not_found",
+                "message": "Replay was not found in replay_storage for this match ID.",
+            }
+        ), 404
+
+    item_path = str(item.get("path") or "")
+    filename = str(item.get("name") or "")
+    replay_payload = {
+        "name": filename,
+        "path": item_path,
+        "size": item.get("size"),
+        "modified": item.get("modified"),
+        "download_url": _build_replay_download_url(item_path),
+    }
+    cache.set(_replay_cache_key(match_id), replay_payload, timeout=ttl_seconds)
+    _set_persisted_replay(match_id, replay_payload, ttl_seconds)
+
+    return jsonify(
+        {
+            "ok": True,
+            "match_id": match_id,
+            "found": True,
+            "cached": False,
+            "cache_source": None,
+            "cache_ttl_seconds": ttl_seconds,
+            "searched_dirs": visited_dirs,
+            "replay": replay_payload,
+        }
+    )
 
 
 @bp.get("/matches/<int:match_id>/players")

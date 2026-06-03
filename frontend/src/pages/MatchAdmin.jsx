@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 const API_BASE = '';
 
-const emptyMatch = () => ({ match_id: '', winner: '', game: '', skip: false });
+const emptyMatch = () => ({ match_id: '', winner: '', game: '', skip: false, forfeit: false });
 const emptySet = () => ({ set_title: '', team_a: '', team_b: '', vod_link: '', region: '', matches: [emptyMatch()] });
 
 const formatDuration = (s) => {
@@ -44,8 +44,13 @@ export function MatchAdmin() {
 
   const [title, setTitle] = useState('Night Shift');
   const [week, setWeek] = useState('');
-  const [vodLink, setVodLink] = useState('');
+  const [vodLinks, setVodLinks] = useState([{ title: '', url: '' }]);
   const [sets, setSets] = useState([emptySet()]);
+
+  const addVodLink = () => setVodLinks((prev) => [...prev, { title: '', url: '' }]);
+  const removeVodLink = (i) => setVodLinks((prev) => prev.filter((_, idx) => idx !== i));
+  const updateVodLink = (i, field, value) =>
+    setVodLinks((prev) => prev.map((v, idx) => (idx === i ? { ...v, [field]: value } : v)));
 
   const [submitting, setSubmitting] = useState(false);
   const [jobId, setJobId] = useState('');
@@ -65,6 +70,7 @@ export function MatchAdmin() {
   const [selectedMatchId, setSelectedMatchId] = useState('');
   const [editForm, setEditForm] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [addingMatchKey, setAddingMatchKey] = useState('');
   const [editNotice, setEditNotice] = useState('');
 
   const totalMatches = useMemo(
@@ -175,8 +181,8 @@ export function MatchAdmin() {
 
     const payload = {
       title: title.trim(),
-      week: Number(week),
-      vod_link: vodLink.trim(),
+      week: week !== '' ? Number(week) : null,
+      vod_links: vodLinks.filter((v) => v.url.trim()).map((v) => ({ title: v.title.trim(), url: v.url.trim() })),
       sets: sets.map((s) => ({
         set_title: (s.set_title || '').trim(),
         team_a: s.team_a.trim(),
@@ -184,12 +190,13 @@ export function MatchAdmin() {
         vod_link: (s.vod_link || '').trim(),
         region: (s.region || '').trim(),
         matches: s.matches
-          .filter((m) => m.skip || String(m.match_id || '').trim())
+          .filter((m) => m.skip || m.forfeit || String(m.match_id || '').trim())
           .map((m, idx) => ({
-            match_id: m.skip && !String(m.match_id || '').trim() ? null : Number(m.match_id),
+            match_id: (m.skip || m.forfeit) && !String(m.match_id || '').trim() ? null : Number(m.match_id),
             winner: m.winner.trim(),
             game: m.game.trim() || `Game ${idx + 1}`,
             skip: m.skip || false,
+            forfeit: m.forfeit || false,
           })),
       })),
     };
@@ -308,6 +315,7 @@ export function MatchAdmin() {
           for (const match of game.matches || []) {
             if (String(match.match_id) === String(targetMatchId)) {
               setEditForm({
+                original_match_id: match.match_id,
                 match_id: match.match_id,
                 series_title: match.context?.series_title || '',
                 week: match.context?.week || '',
@@ -320,6 +328,7 @@ export function MatchAdmin() {
                 set_title: match.context?.set_title || '',
                 team_a_side: Number(match.team_a_side ?? 0),
                 winner_team: match.winner_team || 'team_a',
+                forfeit: !!match.forfeit,
               });
               return;
             }
@@ -354,6 +363,7 @@ export function MatchAdmin() {
     setSelectedMatchId(String(match.match_id));
     setEditNotice('');
     setEditForm({
+      original_match_id: match.match_id,
       match_id: match.match_id,
       series_title: match.context?.series_title || '',
       week: match.context?.week || '',
@@ -366,12 +376,81 @@ export function MatchAdmin() {
       set_title: match.context?.set_title || '',
       team_a_side: Number(match.team_a_side ?? 0),
       winner_team: match.winner_team || 'team_a',
+      forfeit: !!match.forfeit,
     });
+  };
+
+  const addMatchInEditor = async (series, weekNode, game, gameKey) => {
+    setEditNotice('');
+    setAddingMatchKey(gameKey);
+    const nextGameNumber = (game.matches?.length || 0) + 1;
+    try {
+      const res = await fetch(`${API_BASE}/admin/match/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          series_title: series.title || '',
+          week: weekNode.week ?? null,
+          vod_link: weekNode.vod_link || '',
+          match_vod: game.match_vod || '',
+          region: game.region || '',
+          set_title: game.title || '',
+          team_a: game.team_a || '',
+          team_b: game.team_b || '',
+          game_label: `Game ${nextGameNumber}`,
+          team_a_side: 0,
+          winner_team: 'team_a',
+        }),
+      });
+      const data = await readJsonOrThrow(res, 'Failed to add match');
+      const created = data?.created;
+      if (!created) throw new Error('Match created but response was missing payload');
+
+      setSelectedMatchId(String(created.match_id));
+      setEditForm({
+        original_match_id: created.match_id,
+        match_id: created.match_id,
+        series_title: created.series_title || '',
+        week: created.week ?? '',
+        vod_link: created.vod_link || '',
+        match_vod: created.match_vod || '',
+        region: created.region || '',
+        team_a: created.team_a || '',
+        team_b: created.team_b || '',
+        game_label: created.game_label || '',
+        set_title: created.set_title || '',
+        team_a_side: Number(created.team_a_side ?? 0),
+        winner_team: created.winner_team || 'team_a',
+        forfeit: !!created.forfeit,
+      });
+      setEditNotice(`Added placeholder match ${created.match_id}. You can now edit and save details.`);
+      await loadMatchTree();
+    } catch (err) {
+      setEditNotice(err?.message || 'Failed to add match');
+    } finally {
+      setAddingMatchKey('');
+    }
   };
 
   const saveEdit = async (e) => {
     e.preventDefault();
     if (!editForm) return;
+    const rawMatchId = String(editForm.match_id ?? '').trim();
+    if (!rawMatchId && !editForm.forfeit) {
+      setEditNotice('Match ID is required unless this match is marked as forfeited.');
+      return;
+    }
+    const parsedMatchId = rawMatchId ? Number(rawMatchId) : null;
+    if (rawMatchId && !Number.isFinite(parsedMatchId)) {
+      setEditNotice('Match ID must be numeric when provided.');
+      return;
+    }
+    const originalMatchId = Number(editForm.original_match_id ?? editForm.match_id);
+    if (!Number.isFinite(originalMatchId)) {
+      setEditNotice('Original match ID is invalid. Reload the match and try again.');
+      return;
+    }
     setEditSaving(true);
     setEditNotice('');
     try {
@@ -381,14 +460,20 @@ export function MatchAdmin() {
         credentials: 'include',
         body: JSON.stringify({
           ...editForm,
-          match_id: Number(editForm.match_id),
+          original_match_id: originalMatchId,
+          match_id: parsedMatchId,
           week: Number(editForm.week),
           team_a_side: Number(editForm.team_a_side),
           winner_team: editForm.winner_team,
           set_title: editForm.set_title || '',
+          forfeit: !!editForm.forfeit,
         }),
       });
       const data = await readJsonOrThrow(res, 'Failed to save match edit');
+      if (data?.updated?.match_id != null) {
+        setSelectedMatchId(String(data.updated.match_id));
+        setEditForm((prev) => (prev ? { ...prev, original_match_id: data.updated.match_id, match_id: data.updated.match_id } : prev));
+      }
       setEditNotice(`Saved changes for match ${data.updated?.match_id || editForm.match_id}.`);
       await loadMatchTree();
     } catch (err) {
@@ -450,25 +535,53 @@ export function MatchAdmin() {
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="text-gray-300">Week</span>
+              <span className="text-gray-300">Week <span className="text-gray-500 font-normal"></span></span>
               <input
                 type="number"
                 value={week}
                 onChange={(e) => setWeek(e.target.value)}
                 className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
                 placeholder="34"
-                required
               />
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-gray-300">VOD Link (optional)</span>
-              <input
-                value={vodLink}
-                onChange={(e) => setVodLink(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
-                placeholder="https://..."
-              />
-            </label>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-300">VOD Links <span className="text-gray-500 font-normal"></span></span>
+              <button
+                type="button"
+                onClick={addVodLink}
+                className="text-xs px-2 py-1 rounded border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/20"
+              >
+                + Add VOD Link
+              </button>
+            </div>
+            {vodLinks.map((vl, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                <input
+                  value={vl.title}
+                  onChange={(e) => updateVodLink(i, 'title', e.target.value)}
+                  className="col-span-3 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                  placeholder="Day 1"
+                />
+                <input
+                  value={vl.url}
+                  onChange={(e) => updateVodLink(i, 'url', e.target.value)}
+                  className="col-span-8 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                  placeholder="https://..."
+                />
+                {vodLinks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeVodLink(i)}
+                    className="col-span-1 text-xs px-2 py-2 rounded border border-red-600/40 text-red-300 hover:bg-red-700/20"
+                    title="Remove"
+                  >
+                    X
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </section>
 
@@ -487,7 +600,7 @@ export function MatchAdmin() {
 
             <div className="grid md:grid-cols-2 gap-3">
               <label className="space-y-1 text-sm md:col-span-2">
-                <span className="text-gray-300">Set Title <span className="text-gray-500 font-normal">(optional)</span></span>
+                <span className="text-gray-300">Set Title <span className="text-gray-500 font-normal"></span></span>
                 <input
                   value={setItem.set_title || ''}
                   onChange={(e) => updateSet(setIndex, (s) => ({ ...s, set_title: e.target.value }))}
@@ -516,7 +629,7 @@ export function MatchAdmin() {
                 />
               </label>
               <label className="space-y-1 text-sm md:col-span-2">
-                <span className="text-gray-300">Set VOD Link (optional)</span>
+                <span className="text-gray-300">Set VOD Link</span>
                 <input
                   value={setItem.vod_link || ''}
                   onChange={(e) => updateSet(setIndex, (s) => ({ ...s, vod_link: e.target.value }))}
@@ -525,7 +638,7 @@ export function MatchAdmin() {
                 />
               </label>
               <label className="space-y-1 text-sm">
-                <span className="text-gray-300">Region <span className="text-gray-500 font-normal">(optional)</span></span>
+                <span className="text-gray-300">Region <span className="text-gray-500 font-normal"></span></span>
                 <select
                   value={setItem.region || ''}
                   onChange={(e) => updateSet(setIndex, (s) => ({ ...s, region: e.target.value }))}
@@ -540,7 +653,7 @@ export function MatchAdmin() {
 
             <div className="space-y-2">
               {setItem.matches.map((match, matchIndex) => (
-                <div key={matchIndex} className={`rounded-lg border p-3 space-y-3 ${match.skip ? 'border-yellow-700/50 bg-yellow-900/10' : 'border-gray-700/60 bg-gray-900/40'}`}>
+                <div key={matchIndex} className={`rounded-lg border p-3 space-y-3 ${match.forfeit ? 'border-orange-700/50 bg-orange-900/10' : match.skip ? 'border-yellow-700/50 bg-yellow-900/10' : 'border-gray-700/60 bg-gray-900/40'}`}>
                   <div className="grid md:grid-cols-12 gap-2 items-end">
                     <label className="md:col-span-4 space-y-1 text-sm">
                       <span className="text-gray-300">Match ID</span>
@@ -550,13 +663,13 @@ export function MatchAdmin() {
                           ...s,
                           matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, match_id: e.target.value } : m)),
                         }))}
-                        className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white ${match.skip ? 'opacity-50' : ''}`}
-                        placeholder={match.skip ? 'N/A — no ID' : '75968492'}
-                        required={!match.skip}
+                        className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white ${(match.skip || match.forfeit) ? 'opacity-50' : ''}`}
+                        placeholder={match.forfeit ? 'Forfeited — no ID' : match.skip ? 'N/A — no ID' : '75968492'}
+                        required={!match.skip && !match.forfeit}
                       />
                     </label>
                     <label className="md:col-span-4 space-y-1 text-sm">
-                      <span className="text-gray-300">{match.skip ? <span className="text-yellow-400">Winner (N/A match)</span> : 'Winner (required)'}</span>
+                      <span className="text-gray-300">{match.forfeit ? <span className="text-orange-400">Winner (forfeited match)</span> : match.skip ? <span className="text-yellow-400">Winner (N/A match)</span> : 'Winner (required)'}</span>
                       <select
                         value={match.winner}
                         onChange={(e) => updateSet(setIndex, (s) => ({
@@ -596,12 +709,23 @@ export function MatchAdmin() {
                         type="button"
                         onClick={() => updateSet(setIndex, (s) => ({
                           ...s,
-                          matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, skip: !m.skip } : m)),
+                          matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, skip: !m.skip, forfeit: false } : m)),
                         }))}
                         className={`text-xs px-2 py-2 rounded border ${match.skip ? 'border-yellow-500/60 bg-yellow-900/30 text-yellow-300' : 'border-yellow-700/40 text-yellow-600 hover:bg-yellow-900/20'}`}
                         title={match.skip ? 'Mark as fetchable' : 'Mark as N/A (skip API fetch)'}
                       >
                         N/A
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateSet(setIndex, (s) => ({
+                          ...s,
+                          matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, forfeit: !m.forfeit, skip: false } : m)),
+                        }))}
+                        className={`text-xs px-2 py-2 rounded border ${match.forfeit ? 'border-orange-500/60 bg-orange-900/30 text-orange-300' : 'border-orange-700/40 text-orange-600 hover:bg-orange-900/20'}`}
+                        title={match.forfeit ? 'Mark as fetchable' : 'Mark as forfeited (no match data)'}
+                      >
+                        FF
                       </button>
                       <button
                         type="button"
@@ -741,7 +865,7 @@ export function MatchAdmin() {
                     <div className="p-2 space-y-2">
                       {(series.weeks || []).map((weekNode, wi) => {
                         const wKey = `${sKey}-w-${wi}-${weekNode.week}`;
-                        const wOpen = expanded[wKey] !== false;
+                        const wOpen = expanded[wKey] === true;
                         return (
                           <div key={wKey} className="border border-gray-700/40 rounded">
                             <button
@@ -756,15 +880,27 @@ export function MatchAdmin() {
                                 {(weekNode.games || []).map((game, gi) => {
                                   const gKey = `${wKey}-g-${gi}`;
                                   const gOpen = expanded[gKey] !== false;
+                                  const addingThisGame = addingMatchKey === gKey;
                                   return (
                                     <div key={gKey} className="border border-gray-700/30 rounded">
-                                      <button
-                                        type="button"
-                                        className="w-full text-left px-2 py-1 text-xs text-gray-300 bg-gray-900/20"
-                                        onClick={() => toggleExpand(gKey)}
-                                      >
-                                        {gOpen ? '▾' : '▸'} {game.team_a} vs {game.team_b}
-                                      </button>
+                                      <div className="w-full px-2 py-1 text-xs text-gray-300 bg-gray-900/20 flex items-center justify-between gap-2">
+                                        <button
+                                          type="button"
+                                          className="text-left flex-1"
+                                          onClick={() => toggleExpand(gKey)}
+                                        >
+                                          {gOpen ? '▾' : '▸'} {game.team_a} vs {game.team_b}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => addMatchInEditor(series, weekNode, game, gKey)}
+                                          disabled={addingThisGame}
+                                          className="px-2 py-0.5 rounded border border-emerald-600/40 text-emerald-300 hover:bg-emerald-700/20 disabled:opacity-50"
+                                          title="Add match"
+                                        >
+                                          {addingThisGame ? 'Adding...' : '+ Match'}
+                                        </button>
+                                      </div>
                                       {gOpen && (
                                         <div className="p-1 space-y-1">
                                           {(game.matches || []).map((match) => {
@@ -780,7 +916,7 @@ export function MatchAdmin() {
                                                     : 'bg-gray-900/30 border-gray-700/40 text-gray-300 hover:bg-gray-900/50'
                                                 }`}
                                               >
-                                                #{match.match_id} - {match.game}
+                                                #{match.match_id} - {match.game}{match.forfeit ? ' (FF)' : ''}
                                               </button>
                                             );
                                           })}
@@ -809,6 +945,16 @@ export function MatchAdmin() {
             <form onSubmit={saveEdit} className="space-y-4">
               <div className="text-xs text-gray-400">Editing match #{editForm.match_id}</div>
               <div className="grid md:grid-cols-2 gap-3">
+                <label className="space-y-1 text-sm">
+                  <span className="text-gray-300">Match ID</span>
+                  <input
+                    type="number"
+                    value={editForm.match_id}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, match_id: e.target.value }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    required={!editForm.forfeit}
+                  />
+                </label>
                 <label className="space-y-1 text-sm">
                   <span className="text-gray-300">Series Title</span>
                   <input
@@ -847,7 +993,7 @@ export function MatchAdmin() {
                   />
                 </label>
                 <label className="space-y-1 text-sm">
-                  <span className="text-gray-300">Region <span className="text-gray-500 font-normal">(optional)</span></span>
+                  <span className="text-gray-300">Region <span className="text-gray-500 font-normal"></span></span>
                   <select
                     value={editForm.region || ''}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, region: e.target.value }))}
@@ -914,6 +1060,17 @@ export function MatchAdmin() {
                   >
                     <option value="team_a">Team A ({editForm.team_a || 'Team A'})</option>
                     <option value="team_b">Team B ({editForm.team_b || 'Team B'})</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-gray-300">Forfeit</span>
+                  <select
+                    value={editForm.forfeit ? 'yes' : 'no'}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, forfeit: e.target.value === 'yes' }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
                   </select>
                 </label>
               </div>

@@ -27,6 +27,7 @@ function Stats() {
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [overview, setOverview] = useState(null);
   const [weeklyData, setWeeklyData] = useState([]);
+  const [heroSelection, setHeroSelection] = useState([]);
   const [records, setRecords] = useState(null);
   const [averages, setAverages] = useState(null);
   const [heroes, setHeroes] = useState({});
@@ -59,11 +60,11 @@ function Stats() {
   const fetchSeriesOptions = async () => {
     try {
       setLoadingSeriesOptions(true);
-      const res = await fetch("/db/stats/weekly");
+      const res = await fetch("/db/weeks");
       if (!res.ok) return;
       const data = await res.json();
-      const titles = Array.isArray(data.available_event_titles)
-        ? data.available_event_titles
+      const titles = Array.isArray(data.series_titles)
+        ? data.series_titles
         : [];
       setSeriesOptions(titles);
       if (titles.length > 0 && selectedSeries && !titles.includes(selectedSeries)) {
@@ -87,16 +88,18 @@ function Stats() {
         fetch(`/db/stats/overview${query}`),
         fetch(`/db/stats/records${query}`),
         fetch(`/db/stats/averages${query}`),
+        fetch(`/db/stats/hero-selection${query}`),
         fetch("/db/heroes"),
         fetch(`/db/stats/weekly${query}`),
       ];
 
       const responses = await Promise.all(requests);
-      const [overviewRes, recordsRes, averagesRes, heroesRes, weeklyRes] = responses;
+      const [overviewRes, recordsRes, averagesRes, heroSelectionRes, heroesRes, weeklyRes] = responses;
 
       if (overviewRes.ok) setOverview((await overviewRes.json()).overview);
       if (recordsRes.ok) setRecords((await recordsRes.json()).records);
       if (averagesRes.ok) setAverages((await averagesRes.json()).averages);
+      if (heroSelectionRes.ok) setHeroSelection((await heroSelectionRes.json()).heroes ?? []);
       if (heroesRes.ok) setHeroes(await heroesRes.json());
       if (weeklyRes?.ok) {
         setWeeklyData((await weeklyRes.json()).weeks ?? []);
@@ -337,6 +340,74 @@ function Stats() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="mt-8">
+        <h1 className="text-xl text-white font-bold mb-4 uppercase flex items-center gap-2">
+          <span className="text-red-400" aria-hidden="true">🦸</span>
+          Hero Selection
+        </h1>
+        <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
+          <div className="mb-4 text-sm text-gray-500">
+            Most popular heroes across {selectedSeriesLabel} matches.
+          </div>
+          {heroSelection.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-separate border-spacing-y-2">
+                <thead>
+                  <tr className="text-xs uppercase tracking-widest text-gray-500">
+                    <th className="text-left font-semibold pb-2">Hero</th>
+                    <th className="text-left font-semibold pb-2 hidden sm:table-cell">Picks</th>
+                    <th className="text-left font-semibold pb-2 hidden sm:table-cell">Win Rate</th>
+                    <th className="text-left font-semibold pb-2">Popularity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heroSelection.map((hero) => {
+                    const heroName = heroes[hero.hero_id]?.name || heroes[hero.hero_id] || `Hero ${hero.hero_id}`;
+                    const popularity = Number(hero.pick_percentage || 0) * 100;
+                    const winRate = Number(hero.win_rate || 0) * 100;
+                    return (
+                      <tr key={hero.hero_id} className="align-middle">
+                        <td className="py-2 pr-4">
+                          <div className="font-semibold text-white">{heroName}</div>
+                          <div className="text-xs text-gray-500 sm:hidden mt-1">
+                            {hero.pick_count} picks • {winRate.toFixed(1)}% wins
+                          </div>
+                        </td>
+                        <td className="py-2 pr-4 hidden sm:table-cell">
+                          <span className="inline-flex min-w-14 justify-center rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold text-gray-200">
+                            {hero.pick_count}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 hidden sm:table-cell">
+                          <span className={`inline-flex min-w-14 justify-center rounded-full px-3 py-1 text-xs font-semibold ${winRate >= 50 ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "bg-red-500/15 text-red-300 border border-red-500/30"}`}>
+                            {winRate.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-3">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-700/70">
+                              <div
+                                className="h-full rounded-full bg-blue-400"
+                                style={{ width: `${Math.max(4, popularity)}%` }}
+                              />
+                            </div>
+                            <span className="w-14 text-right text-xs text-gray-400">
+                              {popularity.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No hero selection data available for this series.</div>
+          )}
+        </div>
       </div>
 
       <div className="">

@@ -572,6 +572,56 @@ def stats_averages():
     return jsonify({"averages": averages})
 
 
+@bp.get("/stats/hero-selection")
+@cache.cached(timeout=120, query_string=True)
+def stats_hero_selection():
+    """Return hero pick rates and win rates, optionally filtered by event title."""
+    event_title = request.args.get("event_title")
+    conditions = ["p.hero_id IS NOT NULL"]
+    params = []
+    if event_title:
+      conditions.append("m.event_title = ?")
+      params.append(event_title)
+    where = "WHERE " + " AND ".join(conditions)
+
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            f"""
+            SELECT
+                p.hero_id,
+                COUNT(*) as pick_count,
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) as win_count
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            {where}
+            GROUP BY p.hero_id
+            ORDER BY pick_count DESC, p.hero_id ASC
+            """,
+            tuple(params),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return jsonify({"heroes": []})
+
+        cols = [c[0] for c in cur.description]
+        total_picks = sum(row[1] or 0 for row in rows)
+        heroes = []
+        for row in rows:
+            data = dict(zip(cols, row))
+            pick_count = int(data.get("pick_count") or 0)
+            win_count = int(data.get("win_count") or 0)
+            heroes.append(
+                {
+                    "hero_id": data.get("hero_id"),
+                    "pick_count": pick_count,
+                    "win_rate": round(win_count / pick_count, 4) if pick_count else 0,
+                    "pick_percentage": round(pick_count / total_picks, 4) if total_picks else 0,
+                }
+            )
+
+    return jsonify({"heroes": heroes})
+
+
 @bp.get("/matches/latest")
 @cache.cached(timeout=30)
 def latest_matches():  # type: ignore

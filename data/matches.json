@@ -3018,6 +3018,81 @@
             }
           ],
           "vod_link": "https://www.youtube.com/watch?v=1UNNg2o-JIs"
+        },
+        {
+          "week": 41,
+          "games": [
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "LOWKEY W",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 86651825
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=arpvTexdw2Q",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "LEVIATHAN",
+              "team_b": "LOWKEY W",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 86664959
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 86673919
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=S0qs1PC7594",
+              "region": "EU"
+            },
+            {
+              "team_a": "WORK IN PROGRESS",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 86682921
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=sEQNVfHoVDM",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "WORK IN PROGRESS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 86693715
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 86702129
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=O1K98j9mYw4",
+              "region": "NA"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=puhZur2y-g8"
+            }
+          ]
         }
       ]
     },

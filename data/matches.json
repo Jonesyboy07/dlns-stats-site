@@ -2455,14 +2455,16 @@
               "team_b": "Floormen",
               "matches": [
                 {
-                  "game": "Game 1",
+                  "game": "Game 2",
                   "team_a_side": 1,
-                  "match_id": 74204633
+                  "match_id": 74217659,
+                  "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s"
                 },
                 {
-                  "game": "Game 2",
+                  "game": "Game 1",
                   "team_a_side": 0,
-                  "match_id": 74217659
+                  "match_id": 74204633,
+                  "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s"
                 }
               ],
               "region": "NA",
@@ -2994,11 +2996,6 @@
               "team_b": "melee creeps",
               "matches": [
                 {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 85256685
-                },
-                {
                   "match_id": -1780498501917,
                   "game": "Game 2",
                   "team_a_side": 0,
@@ -3011,6 +3008,12 @@
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
                   "forfeit": true
+                },
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 85256685,
+                  "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv"
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
@@ -3097,7 +3100,7 @@
         {
           "week": 42,
           "games": [
-              {
+            {
               "team_a": "LEVIATHAN",
               "team_b": "ABRAHAMS",
               "matches": [

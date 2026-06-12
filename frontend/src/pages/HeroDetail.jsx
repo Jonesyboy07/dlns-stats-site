@@ -125,7 +125,7 @@ function HeroDetail() {
                 />
                 {ability?.image ? (
                   <img
-                    src={ability.image.startsWith("/") ? ability.image : `/${ability.image}`}
+                    src={(ability.image.startsWith("/") ? ability.image : `/${ability.image}`).replace(/\\/g, "/")}
                     alt={ability.name ?? ""}
                     className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/5 h-2/5 object-contain opacity-75 ${ability.invert ? " invert" : ""}`}
                   />
@@ -268,7 +268,7 @@ function HeroDetail() {
                 <li key={p.account_id} className="flex items-center gap-3">
                   <span className="text-gray-500 text-sm w-5 text-right">{i + 1}.</span>
                   <Link
-                    to={`/players/${p.account_id}`}
+                    to={`/player/${p.account_id}`}
                     className="flex-1 text-blue-400 hover:underline truncate"
                   >
                     {p.persona_name ?? p.account_id}

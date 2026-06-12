@@ -26,9 +26,8 @@ function DLNS_Header({ className = "" }) {
     { path: "/players", label: "Players" },
     { path: "/teams", label: "Teams" },
     { path: "/heroes", label: "Heroes" },
-    { path: "/items", label: "Items" },
     { path: "/stats", label: "Stats" },
-    { path: "/weeks", label: "Night Shift" },
+    { path: "/community", label: "Community" },
   ];
 
   const secondaryNav = [

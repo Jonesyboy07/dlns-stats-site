@@ -3093,6 +3093,78 @@
               "url": "https://www.youtube.com/watch?v=puhZur2y-g8"
             }
           ]
+        },
+        {
+          "week": 42,
+          "games": [
+            {
+              "team_a": "LEVIATHAN",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 88062417
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=6-wCzQDICMI",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "LOWKEY W",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 88043911
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 88052543
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=cMkM0aXWBM4"
+            },
+            {
+              "team_a": "FPS LOUNGE",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 88062417
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=QzODgYRWSW4",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 88070651
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 88077726
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=C56U-uZZ0Ps",
+              "region": "NA"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=WdJCme7y1qo"
+            }
+          ]
         }
       ]
     },

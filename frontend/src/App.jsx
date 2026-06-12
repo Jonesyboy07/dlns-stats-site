@@ -4,7 +4,6 @@ import {
   Routes,
   Route,
   Link,
-  useLocation,
 } from "react-router-dom";
 import MatchList from "./pages/MatchList";
 import MatchDetail from "./pages/MatchDetail";
@@ -28,46 +27,6 @@ import { VoAdmin } from "./pages/vo_admin.jsx";
 import DLNS_Header from "./components/DLNS_Header";
 import "./App.css";
 
-function Navigation() {
-  const location = useLocation();
-
-  const navItems = [
-    { path: "/", label: "Matches" },
-    { path: "/players", label: "Players" },
-    { path: "/teams", label: "Teams" },
-    { path: "/heroes", label: "Heroes" },
-    { path: "/items", label: "Items" },
-    { path: "/stats", label: "Stats" },
-    { path: "/weeks", label: "Night Shift" },
-    { path: "/sounds", label: "Sounds" },
-    { path: "/sounds-dev", label: "Sounds Dev" },
-    { path: "/vo", label: "VO Hub" },
-    { path: "/vo-admin", label: "VO Admin" },
-  ];
-
-  return (
-    <nav className="bg-white border-b border-gray-200">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center space-x-8 h-14">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`text-sm font-medium transition-colors hover:text-purple-600 ${
-                location.pathname === item.path
-                  ? "text-purple-600 border-b-2 border-purple-600"
-                  : "text-gray-600"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </nav>
-  );
-}
-
 function App() {
   return (
     <BrowserRouter>
@@ -81,7 +40,7 @@ function App() {
         <div className="relative z-10 flex flex-col flex-1">
           <DLNS_Header />
 
-          <main className="w-full max-w-7xl mx-auto flex-1 py-8">
+          <main className="w-full max-w-7xl mx-auto flex-1 py-4 sm:py-8">
             <Routes>
               <Route path="/" element={<MatchList />} />
               <Route path="/matchlist" element={<MatchList />} />

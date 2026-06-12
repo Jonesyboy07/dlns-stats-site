@@ -302,12 +302,12 @@ function MatchList() {
   }
 
   return (
-    <div className="w-full p-8">
-      <h1 className="text-gray-100 text-3xl font-bold mb-6">Match List</h1>
+    <div className="w-full px-4 sm:p-8">
+      <h1 className="text-gray-100 text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Match List</h1>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-4 flex-wrap">
-        <div className="relative w-64">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">
+        <div className="relative w-full sm:w-64">
           <div className="flex">
             <select
               value={seriesFilter}
@@ -337,7 +337,7 @@ function MatchList() {
         </div>
 
         {seriesFilter && weekOptions.length > 0 && (
-          <div className="relative w-56">
+          <div className="relative w-full sm:w-56">
             <div className="flex">
               <select
                 value={weekFilter}
@@ -367,7 +367,7 @@ function MatchList() {
         )}
 
         {/* Hero filter combobox */}
-        <div ref={heroRef} className="relative w-64">
+        <div ref={heroRef} className="relative w-full sm:w-64">
           <div className="flex">
             <input
               type="text"
@@ -424,7 +424,7 @@ function MatchList() {
         </div>
 
         {/* Player filter combobox */}
-        <div ref={playerRef} className="relative w-64">
+        <div ref={playerRef} className="relative w-full sm:w-64">
           <div className="flex">
             <input
               type="text"
@@ -480,7 +480,8 @@ function MatchList() {
             Loading matches...
           </div>
         ) : (
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full min-w-[600px] sm:min-w-0">
             <thead>
               <tr className="border-b border-border-light text-white">
                 <th className="text-left p-4 w-[10%]">Week</th>
@@ -561,6 +562,7 @@ function MatchList() {
               )}
             </tbody>
           </table>
+        </div>
         )}
 
         {/* Pagination Controls */}

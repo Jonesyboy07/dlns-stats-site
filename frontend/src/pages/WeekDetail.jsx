@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useParams,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 
 const formatDuration = (s) => {
   if (!s) return "—";
@@ -15,53 +20,15 @@ const formatDate = (iso) => {
   });
 };
 
-function MatchRow({ match }) {
-  const teamAName = match.event_team_a || "Team A";
-  const teamBName = match.event_team_b || "Team B";
-  const winnerSide =
-    match.winning_team === 0
-      ? "amber"
-      : match.winning_team === 1
-        ? "sapphire"
-        : null;
-
-  return (
-    <Link
-      to={`/series/${match.match_id}`}
-      className="flex items-center gap-4 px-4 py-3 rounded-lg border border-gray-700/60 bg-gray-800/30 hover:bg-gray-700/50 hover:border-gray-600 transition-all"
-    >
-
-      <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        {/* Team A */}
-        <span className="text-sm font-semibold truncate text-right text-gray-200">
-          {teamAName}
-        </span>
-
-        {/* Game label / score centre */}
-        <div className="flex flex-col items-center shrink-0">
-          {match.event_game && (
-            <span className="text-xs text-gray-500">{match.event_game}</span>
-          )}
-          <span className="text-xs text-gray-600">
-            {formatDuration(match.duration_s)}
-          </span>
-        </div>
-
-        {/* Team B */}
-        <span className="text-sm font-semibold truncate text-gray-200">
-          {teamBName}
-        </span>
-      </div>
-
-      <span className="text-xs text-gray-600 shrink-0">#{match.match_id}</span>
-    </Link>
-  );
-}
-
-function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods }) {
+function SeriesBlock({
+  teamA,
+  teamB,
+  matches,
+  eventTitle,
+  seriesVod,
+  gameVods,
+}) {
   const [showPlayers, setShowPlayers] = useState(false);
-  const teamALabel = teamA || "Team A";
-  const teamBLabel = teamB || "Team B";
 
   // Tally series wins per team
   const { teamAWins, teamBWins, seriesWinner } = useMemo(() => {
@@ -82,7 +49,7 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
     return { teamAWins: aWins, teamBWins: bWins, seriesWinner: winner };
   }, [matches]);
 
-  // Deduplicate players per team across all games in the series
+  // Deduplicate players per team
   const { teamAPlayers, teamBPlayers } = useMemo(() => {
     const aMap = new Map();
     const bMap = new Map();
@@ -101,161 +68,131 @@ function SeriesBlock({ teamA, teamB, matches, eventTitle, seriesVod, gameVods })
     };
   }, [matches]);
 
-  const hasPlayers = teamAPlayers.length > 0 || teamBPlayers.length > 0;
-  const seriesDate = matches[0]?.start_time ?? null;
-  const hasScore = teamAWins > 0 || teamBWins > 0;
-
   return (
-    <div className="rounded-b-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
-
-      {/* Team vs Score row */}
-      <div className="bg-input grid grid-cols-[1fr_auto_1fr] mb-4 border-b border-gray-700 overflow-hidden">
-        {/* Team A */}
-        <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
-          {teamA ? (
-            <Link
-              to={`/team/${encodeURIComponent(teamA)}`}
-              className="text-3xl font-bold text-white hover:underline decoration-white text-center"
-            >
-              {teamA}
-            </Link>
-          ) : (
-            <span className="text-3xl font-bold text-white text-center">{teamALabel}</span>
-          )}
-          {seriesWinner === "a" && (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-success border border-success-border px-1.5 py-0.5 rounded">
-              Winner
-            </span>
-          )}
-        </div>
-
-        {/* Score */}
-        <div className="bg-panel flex items-center justify-center px-6 py-4 border-x border-gray-700">
-          {hasScore && (
-            <span className="text-xl font-bold text-stroke-1 [--text-stroke-color:#000] text-white tabular-nums">
-              {teamAWins} – {teamBWins}
-            </span>
-          )}
-        </div>
-
-        {/* Team B */}
-        <div className="flex flex-col items-center justify-center px-4 py-4 gap-1">
-          {teamB ? (
-            <Link
-              to={`/team/${encodeURIComponent(teamB)}`}
-              className="text-3xl font-bold text-white hover:underline decoration-white text-center"
-            >
-              {teamB}
-            </Link>
-          ) : (
-            <span className="text-3xl font-bold text-white text-center">{teamBLabel}</span>
-          )}
-          {seriesWinner === "b" && (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-success border border-success-border px-1.5 py-0.5 rounded">
-              Winner
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Game buttons + series VOD */}
-      <div className="flex flex-wrap justify-center gap-2 px-4 pb-4">
-        {matches.map((m, i) => {
-          const gvod = gameVods?.[String(m.match_id)];
-          return (
-            <div key={m.match_id} className="inline-flex items-center">
-              <Link
-                to={`/match/${m.match_id}`}
-                className={`px-4 py-1.5 text-sm text-gray-300 border border-gray-600 hover:bg-gray-700/60 hover:text-white hover:border-gray-500 transition-all ${gvod ? "rounded-l-lg border-r-0" : "rounded-lg"}`}
-              >
-                {m.event_game || `Match ${i + 1}`}
-              </Link>
-              {gvod && (
-                <a
-                  href={gvod}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Watch VOD"
-                  className="px-2 py-1.5 text-red-400 border border-gray-600 rounded-r-lg hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/40 transition-all"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
-                  </svg>
-                </a>
-              )}
-            </div>
-          );
-        })}
+    <div className="rounded-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
+      {/* Series header — team names + score */}
+      <div className="grid grid-cols-7 gap-6 px-5 py-4 bg-gray-900/40 border-b border-gray-700/50">
         {seriesVod && (
           <a
             href={seriesVod}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm text-red-400 border border-red-500/40 rounded-lg hover:bg-red-500/10 hover:text-red-300 transition-all"
+            title="Series VOD"
+            className="justify-self-start self-center text-red-400 hover:text-red-300 transition-colors"
           >
-            <svg
-              className="w-3.5 h-3.5"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zM8 16V8l8 4-8 4z" />
             </svg>
-            VOD
           </a>
+        )}
+        <div className="flex items-center gap-3 col-span-5 col-start-2">
+          <span className="text-lg font-bold text-gray-100 text-right flex-1 truncate">
+            {teamA || "Team A"}
+          </span>
+          <div className="flex items-center gap-3 shrink-0">
+            {teamAWins > 0 || teamBWins > 0 ? (
+              <span className="text-xl font-bold text-white tabular-nums">
+                {teamAWins} – {teamBWins}
+              </span>
+            ) : null}
+          </div>
+          <span className="text-lg font-bold text-gray-100 text-left flex-1 truncate">
+            {teamB || "Team B"}
+          </span>
+        </div>
+        {matches.length > 0 && (
+          <Link
+            to={`/series/${matches[0].match_id}`}
+            className="justify-self-end self-center text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            Full details →
+          </Link>
         )}
       </div>
 
-      {/* Players accordion */}
-      {hasPlayers && (
-        <div className="border-t border-gray-700/60">
+      {/* Series winner badge */}
+      {seriesWinner && (
+        <div className="text-center text-xs font-semibold uppercase tracking-wider py-1 text-green-400 bg-green-400/10">
+          {seriesWinner === "a" ? teamA || "Team A" : teamB || "Team B"} wins
+        </div>
+      )}
+
+      {/* Match list */}
+      <div className="divide-y divide-gray-700/30">
+        {matches.map((m, i) => {
+          const gvod = gameVods?.[String(m.match_id)];
+          return (
+            <div
+              key={m.match_id}
+              className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-700/30 transition-colors"
+            >
+              <Link
+                to={`/match/${m.match_id}`}
+                className="flex-1 flex items-center gap-3 min-w-0"
+              >
+                <span className="text-xs font-medium text-gray-400 w-14 shrink-0">
+                  {m.event_game || `Game ${i + 1}`}
+                </span>
+                <span className="text-xs text-gray-500 w-12 shrink-0">
+                  {formatDuration(m.duration_s)}
+                </span>
+                {m.winning_team != null && (
+                  <span className="text-xs font-semibold text-green-400">
+                    {m.winning_team === m.event_team_a_ingame_side
+                      ? m.event_team_a || "Team A"
+                      : m.event_team_b || "Team B"}
+                  </span>
+                )}
+              </Link>
+              <span className="text-xs text-gray-600 shrink-0">
+                #{m.match_id}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Toggle players */}
+      {teamAPlayers.length + teamBPlayers.length > 0 && (
+        <div className="border-t border-gray-700/40">
           <button
             onClick={() => setShowPlayers((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-400 hover:bg-gray-700/40 hover:text-gray-200 transition-all"
+            className="w-full flex items-center justify-between px-5 py-2 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-700/30 transition-colors"
           >
             <span className="font-semibold uppercase tracking-wider">
-              View Players
+              Players
             </span>
             <span>{showPlayers ? "▲" : "▼"}</span>
           </button>
-
           {showPlayers && (
-            <div className="grid grid-cols-2 gap-px bg-gray-700/30 border-t border-gray-700/60">
-              {/* Team A */}
-              <div className="bg-gray-800/40 p-3 space-y-1">
-                <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider mb-2">
-                  {teamALabel}
-                </p>
+            <div className="grid grid-cols-2 gap-px bg-gray-700/20">
+              <div className="bg-gray-800/30 p-3 space-y-1">
                 {teamAPlayers.map((p) => (
                   <Link
                     key={p.account_id}
                     to={`/player/${p.account_id}`}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 transition-all"
+                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700/40 transition-colors"
                   >
-                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
+                    <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[10px] font-bold text-amber-300 shrink-0">
                       {(p.persona_name || "?")[0].toUpperCase()}
                     </div>
-                    <span className="text-sm text-gray-200 truncate hover:underline">
+                    <span className="text-sm text-gray-300 truncate hover:underline">
                       {p.persona_name || `Player ${p.account_id}`}
                     </span>
                   </Link>
                 ))}
               </div>
-
-              {/* Team B */}
-              <div className="bg-gray-800/40 p-3 space-y-1">
-                <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">
-                  {teamBLabel}
-                </p>
+              <div className="bg-gray-800/30 p-3 space-y-1">
                 {teamBPlayers.map((p) => (
                   <Link
                     key={p.account_id}
                     to={`/player/${p.account_id}`}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 transition-all"
+                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700/40 transition-colors"
                   >
-                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
+                    <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-300 shrink-0">
                       {(p.persona_name || "?")[0].toUpperCase()}
                     </div>
-                    <span className="text-sm text-gray-200 truncate hover:underline">
+                    <span className="text-sm text-gray-300 truncate hover:underline">
                       {p.persona_name || `Player ${p.account_id}`}
                     </span>
                   </Link>
@@ -283,7 +220,6 @@ export default function WeekDetail() {
   const [availableEvents, setAvailableEvents] = useState([]);
 
   useEffect(() => {
-    // No week param — fetch available weeks and redirect to the latest
     if (weekNum == null) {
       fetch(`/db/stats/weekly?event_title=${encodeURIComponent(eventTitle)}`)
         .then((r) => r.json())
@@ -293,9 +229,12 @@ export default function WeekDetail() {
           }
           const weeks = d.weeks;
           if (weeks && weeks.length > 0) {
-            navigate(`/week/${weeks[weeks.length - 1].event_week}?event_title=${encodeURIComponent(eventTitle)}`, {
-              replace: true,
-            });
+            navigate(
+              `/week/${weeks[weeks.length - 1].event_week}?event_title=${encodeURIComponent(eventTitle)}`,
+              {
+                replace: true,
+              },
+            );
           }
         })
         .catch(() => {});
@@ -305,7 +244,9 @@ export default function WeekDetail() {
     setLoading(true);
     setData(null);
     setError(null);
-    fetch(`/db/nightshift/${weekNum}?event_title=${encodeURIComponent(eventTitle)}`)
+    fetch(
+      `/db/nightshift/${weekNum}?event_title=${encodeURIComponent(eventTitle)}`,
+    )
       .then((r) => {
         if (!r.ok) throw new Error(`Week ${weekNum} not found`);
         return r.json();
@@ -328,7 +269,6 @@ export default function WeekDetail() {
       .catch(() => {});
   }, [eventTitle]);
 
-  // Group matches into series blocks by team pairing
   const series = useMemo(() => {
     if (!data?.matches) return [];
     const map = new Map();
@@ -358,7 +298,8 @@ export default function WeekDetail() {
   if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
   if (!data) return null;
 
-  const { stats, all_weeks, event_title, vod_link, series_vods, game_vods } = data;
+  const { stats, all_weeks, event_title, vod_link, series_vods, game_vods } =
+    data;
   const prevWeek = all_weeks
     ? (all_weeks[all_weeks.indexOf(weekNum) - 1] ?? null)
     : null;
@@ -367,70 +308,88 @@ export default function WeekDetail() {
     : null;
 
   return (
-    <div className="w-full p-8">
+    <div className="w-full p-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">
-          {event_title} #{weekNum}
-        </h1>
-        {availableEvents.length > 0 && (
-          <div className="max-w-xs mb-3">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
-              Event
-            </label>
-            <select
-              value={event_title || eventTitle}
-              onChange={(e) => {
-                const nextEvent = e.target.value;
-                fetch(`/db/stats/weekly?event_title=${encodeURIComponent(nextEvent)}`)
-                  .then((r) => r.json())
-                  .then((d) => {
-                    const weeks = Array.isArray(d.weeks) ? d.weeks : [];
-                    if (weeks.length > 0) {
-                      const latest = weeks[weeks.length - 1].event_week;
-                      navigate(`/week/${latest}?event_title=${encodeURIComponent(nextEvent)}`);
-                    } else {
-                      navigate(`/week?event_title=${encodeURIComponent(nextEvent)}`);
-                    }
-                  })
-                  .catch(() => {
-                    navigate(`/week?event_title=${encodeURIComponent(nextEvent)}`);
-                  });
-              }}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
-            >
-              {availableEvents.map((et) => (
-                <option key={et} value={et}>
-                  {et}
-                </option>
-              ))}
-            </select>
+      <div className="mb-6">
+        <Link
+          to="/"
+          className="text-sm text-blue-400 hover:underline mb-2 inline-block"
+        >
+          ← Back
+        </Link>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              {event_title} <span className="text-gray-400">#{weekNum}</span>
+            </h1>
+            {stats?.first_match_time && (
+              <p className="text-sm text-gray-500 mt-1">
+                {formatDate(stats.first_match_time)}
+              </p>
+            )}
           </div>
-        )}
-        {stats.first_match_time && (
-          <p className="text-sm text-gray-400">
-            {formatDate(stats.first_match_time)}
-          </p>
-        )}
-        {vod_link && (
-          <a
-            href={vod_link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 text-sm font-medium text-red-400 border border-red-500/40 rounded-lg hover:bg-red-500/10 transition-colors"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
-            </svg>
-            Watch VOD
-          </a>
-        )}
+          <div className="flex items-center gap-2">
+            {vod_link && (
+              <a
+                href={vod_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zM8 16V8l8 4-8 4z" />
+                </svg>
+                VOD
+              </a>
+            )}
+            {availableEvents.length > 0 && (
+              <select
+                value={event_title || eventTitle}
+                onChange={(e) => {
+                  const nextEvent = e.target.value;
+                  fetch(
+                    `/db/stats/weekly?event_title=${encodeURIComponent(nextEvent)}`,
+                  )
+                    .then((r) => r.json())
+                    .then((d) => {
+                      const weeks = Array.isArray(d.weeks) ? d.weeks : [];
+                      if (weeks.length > 0) {
+                        navigate(
+                          `/week/${weeks[weeks.length - 1].event_week}?event_title=${encodeURIComponent(nextEvent)}`,
+                        );
+                      } else {
+                        navigate(
+                          `/week?event_title=${encodeURIComponent(nextEvent)}`,
+                        );
+                      }
+                    })
+                    .catch(() =>
+                      navigate(
+                        `/week?event_title=${encodeURIComponent(nextEvent)}`,
+                      ),
+                    );
+                }}
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-300"
+              >
+                {availableEvents.map((et) => (
+                  <option key={et} value={et}>
+                    {et}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Series */}
-      <div className="space-y-4">
+      {/* Series list */}
+      <div className="space-y-3">
         {series.length === 0 && (
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-500 text-sm text-center py-8">
             No matches recorded for this week.
           </p>
         )}
@@ -453,11 +412,11 @@ export default function WeekDetail() {
 
       {/* Week navigation */}
       {(prevWeek != null || nextWeek != null) && (
-        <div className="flex justify-between mt-10 pt-6 border-t border-gray-700/50 text-sm">
+        <div className="flex justify-between mt-8 pt-5 border-t border-gray-700/50">
           {prevWeek != null ? (
             <Link
               to={`/week/${prevWeek}?event_title=${encodeURIComponent(event_title || eventTitle)}`}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-sm text-gray-400 hover:text-white transition-colors"
             >
               ← Week {prevWeek}
             </Link>
@@ -467,7 +426,7 @@ export default function WeekDetail() {
           {nextWeek != null && (
             <Link
               to={`/week/${nextWeek}?event_title=${encodeURIComponent(event_title || eventTitle)}`}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-sm text-gray-400 hover:text-white transition-colors"
             >
               Week {nextWeek} →
             </Link>

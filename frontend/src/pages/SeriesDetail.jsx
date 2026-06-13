@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { cdnImage } from "../utils/cdn";
 
 function SeriesDetail() {
   const { matchId } = useParams();
@@ -42,7 +43,7 @@ function SeriesDetail() {
 
   const getHeroIcon = (heroId) => {
     const name = getHeroName(heroId).toLowerCase().replace(/\s+/g, "_");
-    return `/static/images/hero icons/${name}_sm_psd.png`;
+    return cdnImage(`hero icons/${name}_sm_psd.png`);
   };
 
   const formatDuration = (s) => {

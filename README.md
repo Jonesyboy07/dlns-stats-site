@@ -55,6 +55,8 @@ SECRET_KEY=change-me
 BASE_URL=http://localhost:5050
 DB_PATH=./data/dlns.sqlite3
 STEAM_API_KEY=your_steam_api_key
+IMAGE_CDN_BASE=https://cdn.dlns-stats.co.uk/public/images
+VITE_IMAGE_CDN_BASE=https://cdn.dlns-stats.co.uk/public/images
 ```
 
 Useful optional vars:
@@ -66,6 +68,8 @@ CACHE_DEFAULT_TIMEOUT=60
 COMPRESS_LEVEL=6
 COMPRESS_BR_LEVEL=5
 FRONTEND_URL=
+IMAGE_CDN_BASE=
+VITE_IMAGE_CDN_BASE=
 YOUTUBE_URL=
 TWITCH_URL=
 KOFI_URL=

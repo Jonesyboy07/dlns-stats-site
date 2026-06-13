@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { cdnImage } from "../utils/cdn";
 
 // Helper to get hero icon path
 // Filenames are lowercase, underscores, & → and (e.g. "Mo & Krill" → "mo_and_krill_sm_psd.png")
@@ -9,7 +10,7 @@ const getHeroIcon = (heroName) => {
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/\s+/g, "_");
-  return `/static/images/hero icons/${filename}_sm_psd.png`;
+  return cdnImage(`hero icons/${filename}_sm_psd.png`);
 };
 
 function MatchList() {
@@ -489,7 +490,7 @@ function MatchList() {
                 <th className="text-center p-4 w-[20%]">
                   <div className="flex justify-center gap-2">
                     <img
-                      src="/static/images/teamNames/team1_patron_logo_psd.png"
+                      src={cdnImage("teamNames/team1_patron_logo_psd.png")}
                       alt="Hidden King"
                       className="h-10"
                       style={{
@@ -502,7 +503,7 @@ function MatchList() {
                 <th className="p-4 w-[20%]">
                   <div className="flex justify-center gap-2">
                     <img
-                      src="/static/images/teamNames/team2_patron_logo_psd.png"
+                      src={cdnImage("teamNames/team2_patron_logo_psd.png")}
                       alt="Team Sapphire"
                       className="h-10"
                       style={{

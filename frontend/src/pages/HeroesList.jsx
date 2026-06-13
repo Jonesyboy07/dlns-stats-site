@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import heroNamesData from '../../../data/hero_names.json';
+import { cdnImage } from '../utils/cdn';
 
 function HeroesList() {
   const [heroes, setHeroes] = useState({});
@@ -73,12 +74,12 @@ function HeroesList() {
             {/* Hero Portrait */}
             <div className="relative overflow-hidden">
               <img
-                src="/static/images/vertical/card_backer_psd.png"
+                src={cdnImage('vertical/card_backer_psd.png')}
                 alt=""
                 className="w-full h-full object-cover opacity-30"
               />
               <img 
-                src={`/static/images/vertical/${hero.name.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`}
+                src={cdnImage(`vertical/${hero.name.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`)}
                 alt={hero.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => {

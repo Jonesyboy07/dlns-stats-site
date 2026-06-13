@@ -125,7 +125,7 @@
                         class="chip-button contrast bounce-on-click player-button"
                         data-user-url="{{ url_for('user_detail', account_id=p.account_id) }}"
                         style="margin: 0; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-weight: 500;">
-                <img src="{{ url_for('static', filename='images/hero icons/' ~ hero_file) }}"
+                <img src="{{ cdn_image('hero icons/' ~ hero_file) }}"
                      alt="{{ hero_name }}" style="height:40px; width:auto; vertical-align:middle; margin-right:0.5rem;">
                   {{ p.persona_name or 'Unknown Player' }}
                 </button>
@@ -204,7 +204,7 @@
                         class="chip-button contrast bounce-on-click player-button"
                         data-user-url="{{ url_for('user_detail', account_id=p.account_id) }}"
                         style="margin: 0; padding: 0.5rem 0.75rem; font-size: 0.9rem; font-weight: 500;">
-                <img src="{{ url_for('static', filename='images/hero icons/' ~ hero_file) }}"
+                <img src="{{ cdn_image('hero icons/' ~ hero_file) }}"
                      alt="{{ hero_name }}" style="height:40px; width:auto; vertical-align:middle; margin-right:0.5rem;">
                   {{ p.persona_name or 'Unknown Player' }}
                 </button>

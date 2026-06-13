@@ -54,6 +54,7 @@ def create_app() -> Flask:
     app.config['DATABASE_PATH'] = Path('./data/dlns.sqlite3')
     app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5050')  # Use env variable
     app.config['OG_IMAGE'] = os.getenv('OG_IMAGE', 'og.png')  # place og.png in /static
+    app.config['IMAGE_CDN_BASE'] = os.getenv('IMAGE_CDN_BASE', 'https://cdn.dlns-stats.co.uk/public/images')
     
     # Default DB path is ./data/dlns.sqlite3 from current working directory
     default_db = Path.cwd() / "data" / "dlns.sqlite3"
@@ -279,6 +280,17 @@ def create_app() -> Flask:
         except Exception:
             return None, None
 
+    def cdn_image(path: str | None = None) -> str:
+        base = (app.config.get("IMAGE_CDN_BASE", "") or "").strip().rstrip("/")
+        clean_path = str(path or "").lstrip("/")
+        if clean_path.lower().startswith("images/"):
+            clean_path = clean_path[7:]
+        if base:
+            return f"{base}/{clean_path}" if clean_path else base
+        if not clean_path:
+            return url_for("static", filename="images/")
+        return url_for("static", filename=f"images/{clean_path}")
+
     # Expose selected environment-configurable links to templates
     app.config["YOUTUBE_URL"] = os.getenv("YOUTUBE_URL", "https://www.youtube.com/@DeadlockNightShift")
     app.config["TWITCH_URL"] = os.getenv("TWITCH_URL", "https://www.twitch.tv/deadlocknightshift")
@@ -309,6 +321,7 @@ def create_app() -> Flask:
             KOFI_URL=app.config.get("KOFI_URL", ""),
             PATREON_URL=app.config.get("PATREON_URL", ""),
             BASE_URL=app.config.get("BASE_URL", "").rstrip('/'),
+            IMAGE_CDN_BASE=app.config.get("IMAGE_CDN_BASE", "").rstrip('/'),
         )
 
     # Add authentication context processor
@@ -323,7 +336,7 @@ def create_app() -> Flask:
     # If templates call get_hero_name, expose it:
     @app.context_processor
     def inject_helpers():
-        return dict(get_hero_name=get_hero_name)
+        return dict(get_hero_name=get_hero_name, cdn_image=cdn_image)
     
     @app.template_filter("datetime")
     def format_datetime(value):

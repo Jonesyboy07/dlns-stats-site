@@ -1,12 +1,13 @@
 import React from "react";
 import PlayerCard from "./PlayerCard";
+import { cdnImage } from "../../utils/cdn";
 
 const heroIcon = (heroName) => {
   const slug = (heroName || "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/\s+/g, "_");
-  return `/static/images/hero icons/${slug}_sm_psd.png`;
+  return cdnImage(`hero icons/${slug}_sm_psd.png`);
 };
 
 function TeamOverviewTab({ team_name, max_week, currentPlayers, historicPlayers, wins, losses, hasRecord, total_matches, heroPicks, nsWins, nsLosses, hasNsRecord }) {

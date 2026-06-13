@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import { Bar, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -148,7 +149,7 @@ function MatchDetail() {
     if (!item.name) return item.image || null;
     const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
     const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
-    return folder ? `/static/images/items/${folder}/${filename}` : (item.image || null);
+    return folder ? cdnImage(`items/${folder}/${filename}`) : staticImagePathToCdn(item.image || null);
   };
 
   const getHeroName = (heroId) => {
@@ -160,7 +161,7 @@ function MatchDetail() {
     const heroName = getHeroName(heroId);
     // Convert hero name to lowercase and replace spaces with underscores
     const formattedName = heroName.toLowerCase().replace(/\s+/g, "_");
-    return `/static/images/hero icons/${formattedName}_sm_psd.png`;
+    return cdnImage(`hero icons/${formattedName}_sm_psd.png`);
   };
 
   const previousMatchId = adjacentMatches.previous_match_id;
@@ -834,7 +835,7 @@ function MatchDetail() {
                               {buildAbilities.map((ability, ai) => (
                                 <div key={ai} className="flex items-center gap-0.5 bg-gray-800/40">
                                   <img
-                                    src={ability.image}
+                                    src={staticImagePathToCdn(ability.image)}
                                     alt={ability.name}
                                     title={ability.name}
                                     className="w-6 h-6 object-contain rounded shrink-0 bg-white/20"
@@ -854,14 +855,14 @@ function MatchDetail() {
                                         >
                                           {upg.tier === 0 ? (
                                             <img
-                                              src="/static/images/abilities/AP_Upgrades/ghost_reward_ap_png.png"
+                                              src={cdnImage("abilities/AP_Upgrades/ghost_reward_ap_png.png")}
                                               alt="unlock"
                                               className="w-4 h-4 object-contain"
                                             />
                                           ) : (
                                             <div className="flex items-center justify-center gap-1 bg-gray-900/60 rounded py-0.5 px-2">
                                               <img
-                                                src="/static/images/abilities/AP_Upgrades/ap_icon_psd.png"
+                                                src={cdnImage("abilities/AP_Upgrades/ap_icon_psd.png")}
                                                 alt=""
                                                 className="w-4 h-4 object-contain opacity-80"
                                               />

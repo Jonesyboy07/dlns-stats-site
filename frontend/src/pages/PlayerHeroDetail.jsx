@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { cdnImage } from '../utils/cdn';
 
 function PlayerHeroDetail() {
   const { accountId, heroId } = useParams();
@@ -45,7 +46,7 @@ function PlayerHeroDetail() {
 
   const heroCardUrl = (name) => {
     const slug = name.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '_');
-    return `/static/images/cardicons/${slug}_card_psd.png`;
+    return cdnImage(`cardicons/${slug}_card_psd.png`);
   };
 
   const formatDate = (dateString) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { cdnImage } from "../utils/cdn";
 import { Bar, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -177,7 +178,7 @@ function Stats() {
             <div className="flex md:flex-col items-center gap-3 md:w-36 shrink-0">
               <div className="flex flex-col items-center gap-1">
                 <img
-                  src="/static/images/teamNames/team1_patron_logo_psd.png"
+                  src={cdnImage("teamNames/team1_patron_logo_psd.png")}
                   alt="Hidden King"
                   className="h-10"
                   style={{
@@ -270,7 +271,7 @@ function Stats() {
             <div className="flex md:flex-col items-center gap-3 md:w-36 shrink-0">
               <div className="flex flex-col items-center gap-1">
                 <img
-                  src="/static/images/teamNames/team2_patron_logo_psd.png"
+                  src={cdnImage("teamNames/team2_patron_logo_psd.png")}
                   alt="Archmother"
                   className="h-10"
                   style={{
@@ -427,7 +428,7 @@ function Stats() {
             const heroName = r?.hero_id ? (heroes[r.hero_id]?.name || heroes[r.hero_id] || `Hero ${r.hero_id}`) : null;
             const durationMin = r?.duration_s ? `${Math.floor(r.duration_s / 60)}:${String(r.duration_s % 60).padStart(2, '0')}` : null;
             const verticalImg = heroName
-              ? `/static/images/vertical/${heroName.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`
+              ? cdnImage(`vertical/${heroName.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`)
               : null;
             const isExpanded = expandedRecords.has(key);
             return (
@@ -523,7 +524,7 @@ function Stats() {
             const r = list[0] ?? null;
             const heroName = r?.top_hero_id ? (heroes[r.top_hero_id]?.name || heroes[r.top_hero_id] || null) : null;
             const verticalImg = heroName
-              ? `/static/images/vertical/${heroName.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`
+              ? cdnImage(`vertical/${heroName.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`)
               : null;
             const isExpanded = expandedAverages.has(key);
             return (

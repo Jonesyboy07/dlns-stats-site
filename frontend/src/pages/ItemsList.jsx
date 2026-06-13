@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { cdnImage } from "../utils/cdn";
 
 export default function ItemsList() {
   const [items, setItems] = useState([]);
@@ -58,7 +59,7 @@ export default function ItemsList() {
   const getLocalImage = (item) => {
     const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
     const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
-    return folder ? `/static/images/items/${folder}/${filename}` : null;
+    return folder ? cdnImage(`items/${folder}/${filename}`) : null;
   };
 
   if (loading) {

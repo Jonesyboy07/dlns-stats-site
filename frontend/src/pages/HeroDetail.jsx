@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 
 function HeroDetail() {
   const { heroId } = useParams();
@@ -77,7 +78,7 @@ function HeroDetail() {
   const heroIcon = (hid) => {
     const h = heroes[hid];
     const name = (h?.name || h || "").toLowerCase().replace(/\s+/g, "_");
-    return `/static/images/hero icons/${name}_sm_psd.png`;
+    return cdnImage(`hero icons/${name}_sm_psd.png`);
   };
   const heroDisplayName = (hid) => {
     const h = heroes[hid];
@@ -88,7 +89,7 @@ function HeroDetail() {
       {/* Hero Header */}
       <div className="mb-8 col-span-10 flex items-center gap-4">
         <img
-          src={`/static/images/cardicons/${heroName.toLowerCase().replace(/&/g, "and").replace(/\s+/g, "_")}_card_psd.png`}
+          src={cdnImage(`cardicons/${heroName.toLowerCase().replace(/&/g, "and").replace(/\s+/g, "_")}_card_psd.png`)}
           alt={heroName}
           className="w-16 h-24 object-cover rounded shadow"
           onError={(e) => {
@@ -119,13 +120,13 @@ function HeroDetail() {
             <div key={i} className="shadow rounded-lg p-2 flex flex-col items-center text-center">
               <div className="relative w-24 h-24">
                 <img
-                  src="/static/images/abilities/ability_frame_standard.svg"
+                  src={cdnImage("abilities/ability_frame_standard.svg")}
                   alt=""
                   className="absolute inset-0 w-full h-full"
                 />
                 {ability?.image ? (
                   <img
-                    src={ability.image.startsWith("/") ? ability.image : `/${ability.image}`}
+                    src={staticImagePathToCdn(ability.image.startsWith("/") ? ability.image : `/${ability.image}`)}
                     alt={ability.name ?? ""}
                     className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/5 h-2/5 object-contain opacity-75 ${ability.invert ? " invert" : ""}`}
                   />
@@ -303,7 +304,7 @@ function HeroDetail() {
             {(showMoreItems ? topItems : topItems.slice(0, 10)).map((item) => {
               const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
               const imgSrc = folder
-                ? `/static/images/items/${folder}/${item.name.toLowerCase().replace(/ /g, "_")}_psd.png`
+                ? cdnImage(`items/${folder}/${item.name.toLowerCase().replace(/ /g, "_")}_psd.png`)
                 : null;
               const slotColor =
                 item.item_slot_type === "weapon"

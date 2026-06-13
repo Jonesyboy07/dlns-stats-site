@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from .blueprints.db_api import get_ro_conn
 from .blueprints.loader import register_blueprints
 from .cache import cache
+from .cache_warmup import schedule_cache_warmup
 from dotenv import load_dotenv
 from .heroes import get_hero_name
 
@@ -79,14 +80,28 @@ def create_app() -> Flask:
     app.config["DISCORD_GLUTEN_UPLOADER_ID"] = os.getenv("DISCORD_GLUTEN_UPLOADER_ID")
     
     
-    # Configure cache settings on app first
-    app.config['CACHE_TYPE'] = os.getenv("CACHE_TYPE", "SimpleCache")
-    app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.getenv("CACHE_DEFAULT_TIMEOUT", "60"))
+    # Configure cache settings on app first. File-system cache survives process
+    # restarts and allows much larger cache payloads than in-memory defaults.
+    cache_dir = Path(
+        os.getenv("CACHE_DIR", str(project_root / "_cache" / "flask_cache"))
+    ).resolve()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    app.config['CACHE_TYPE'] = os.getenv("CACHE_TYPE", "FileSystemCache")
+    app.config['CACHE_DEFAULT_TIMEOUT'] = int(os.getenv("CACHE_DEFAULT_TIMEOUT", "900"))
+    app.config['CACHE_DIR'] = str(cache_dir)
+    app.config['CACHE_THRESHOLD'] = int(os.getenv("CACHE_THRESHOLD", "50000"))
+    app.config['CACHE_IGNORE_ERRORS'] = True
+    app.config['CACHE_WARMUP_ON_STARTUP'] = os.getenv("CACHE_WARMUP_ON_STARTUP", "true")
+    app.config['CACHE_WARMUP_DELAY_SECONDS'] = float(os.getenv("CACHE_WARMUP_DELAY_SECONDS", "1.0"))
     
     # Initialize cache with config dict - must be BEFORE registering blueprints
     cache.init_app(app, config={
         "CACHE_TYPE": app.config['CACHE_TYPE'],
         "CACHE_DEFAULT_TIMEOUT": app.config['CACHE_DEFAULT_TIMEOUT'],
+        "CACHE_DIR": app.config['CACHE_DIR'],
+        "CACHE_THRESHOLD": app.config['CACHE_THRESHOLD'],
+        "CACHE_IGNORE_ERRORS": app.config['CACHE_IGNORE_ERRORS'],
         })
     
     # Enable response compression site-wide (gzip/deflate, and Brotli if brotli package is present)
@@ -137,6 +152,9 @@ def create_app() -> Flask:
 
     # Register blueprints from blueprints/registry.json
     register_blueprints(app)
+
+    # Prime key endpoints in background so first user request is warm.
+    schedule_cache_warmup(app)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

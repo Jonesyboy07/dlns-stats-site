@@ -891,14 +891,14 @@ def items_list():  # type: ignore
         )
         resp.raise_for_status()
         data = resp.json()
-        cache.set("dlns_items_list", data, timeout=600)
+        cache.set("dlns_items_list", data, timeout=21600)
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
 
 @expo_bp.get("/items/<int:item_id>")
-@cache.cached(timeout=600)
+@cache.cached(timeout=21600)
 def item_detail(item_id: int):  # type: ignore
     params = {"language": "english"}
     if ITEM_CLIENT_VERSION:

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,27 +7,36 @@ import {
   useLocation,
 } from "react-router-dom";
 import MatchList from "./pages/MatchList";
-import MatchDetail from "./pages/MatchDetail";
-import PlayerDetail from "./pages/PlayerDetail";
-import PlayersList from "./pages/PlayersList";
-import HeroDetail from "./pages/HeroDetail";
-import HeroesList from "./pages/HeroesList";
-import PlayerHeroDetail from "./pages/PlayerHeroDetail";
-import ItemsList from "./pages/ItemsList";
-import Stats from "./pages/Stats";
-import SeriesDetail from "./pages/SeriesDetail";
-import TeamsList from "./pages/TeamsList";
-import TeamDetail from "./pages/TeamDetail";
-import WeekDetail from "./pages/WeekDetail";
-import WeekList from "./pages/WeekList";
-import ReactAdmin from "./pages/ReactAdmin";
-import { SoundLibrary } from "./pages/sounds.jsx";
-import { SoundsDev } from "./pages/dev.jsx";
-import { VoHub } from "./pages/vo.jsx";
-import { VoAdmin } from "./pages/vo_admin.jsx";
 import DLNS_Header from "./components/DLNS_Header";
 import { cdnImage } from "./utils/cdn";
 import "./App.css";
+
+const MatchDetail = lazy(() => import("./pages/MatchDetail"));
+const SeriesDetail = lazy(() => import("./pages/SeriesDetail"));
+const PlayersList = lazy(() => import("./pages/PlayersList"));
+const PlayerDetail = lazy(() => import("./pages/PlayerDetail"));
+const HeroesList = lazy(() => import("./pages/HeroesList"));
+const HeroDetail = lazy(() => import("./pages/HeroDetail"));
+const ItemsList = lazy(() => import("./pages/ItemsList"));
+const PlayerHeroDetail = lazy(() => import("./pages/PlayerHeroDetail"));
+const Stats = lazy(() => import("./pages/Stats"));
+const TeamsList = lazy(() => import("./pages/TeamsList"));
+const TeamDetail = lazy(() => import("./pages/TeamDetail"));
+const WeekList = lazy(() => import("./pages/WeekList"));
+const WeekDetail = lazy(() => import("./pages/WeekDetail"));
+const ReactAdmin = lazy(() => import("./pages/ReactAdmin"));
+const SoundLibrary = lazy(() =>
+  import("./pages/sounds.jsx").then((m) => ({ default: m.SoundLibrary })),
+);
+const SoundsDev = lazy(() =>
+  import("./pages/dev.jsx").then((m) => ({ default: m.SoundsDev })),
+);
+const VoHub = lazy(() =>
+  import("./pages/vo.jsx").then((m) => ({ default: m.VoHub })),
+);
+const VoAdmin = lazy(() =>
+  import("./pages/vo_admin.jsx").then((m) => ({ default: m.VoAdmin })),
+);
 
 function Navigation() {
   const location = useLocation();
@@ -84,31 +93,39 @@ function App() {
           <DLNS_Header />
 
           <main className="w-full max-w-7xl mx-auto flex-1 py-8">
-            <Routes>
-              <Route path="/" element={<MatchList />} />
-              <Route path="/matchlist" element={<MatchList />} />
-              <Route path="/match/:matchId" element={<MatchDetail />} />
-              <Route path="/series/:matchId" element={<SeriesDetail />} />
-              <Route path="/players" element={<PlayersList />} />
-              <Route path="/player/:accountId" element={<PlayerDetail />} />
-              <Route path="/heroes" element={<HeroesList />} />
-              <Route path="/hero/:heroId" element={<HeroDetail />} />
-              <Route path="/items" element={<ItemsList />} />
-              <Route
-                path="/player/:accountId/hero/:heroId"
-                element={<PlayerHeroDetail />}
-              />
-              <Route path="/stats" element={<Stats />} />
-              <Route path="/teams" element={<TeamsList />} />
-              <Route path="/team/:teamName" element={<TeamDetail />} />
-              <Route path="/week" element={<WeekList />} />
-              <Route path="/week/:week" element={<WeekDetail />} />
-              <Route path="/react-admin" element={<ReactAdmin />} />
-              <Route path="/sounds" element={<SoundLibrary />} />
-              <Route path="/sounds-dev" element={<SoundsDev />} />
-              <Route path="/vo" element={<VoHub />} />
-              <Route path="/vo-admin" element={<VoAdmin />} />
-            </Routes>
+            <Suspense
+              fallback={
+                <div className="text-center text-xl text-gray-300 py-8">
+                  Loading page...
+                </div>
+              }
+            >
+              <Routes>
+                <Route path="/" element={<MatchList />} />
+                <Route path="/matchlist" element={<MatchList />} />
+                <Route path="/match/:matchId" element={<MatchDetail />} />
+                <Route path="/series/:matchId" element={<SeriesDetail />} />
+                <Route path="/players" element={<PlayersList />} />
+                <Route path="/player/:accountId" element={<PlayerDetail />} />
+                <Route path="/heroes" element={<HeroesList />} />
+                <Route path="/hero/:heroId" element={<HeroDetail />} />
+                <Route path="/items" element={<ItemsList />} />
+                <Route
+                  path="/player/:accountId/hero/:heroId"
+                  element={<PlayerHeroDetail />}
+                />
+                <Route path="/stats" element={<Stats />} />
+                <Route path="/teams" element={<TeamsList />} />
+                <Route path="/team/:teamName" element={<TeamDetail />} />
+                <Route path="/week" element={<WeekList />} />
+                <Route path="/week/:week" element={<WeekDetail />} />
+                <Route path="/react-admin" element={<ReactAdmin />} />
+                <Route path="/sounds" element={<SoundLibrary />} />
+                <Route path="/sounds-dev" element={<SoundsDev />} />
+                <Route path="/vo" element={<VoHub />} />
+                <Route path="/vo-admin" element={<VoAdmin />} />
+              </Routes>
+            </Suspense>
           </main>
 
           <footer className="border-t border-gray-700/50 text-gray-400 mt-16">

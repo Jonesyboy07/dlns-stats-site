@@ -34,6 +34,7 @@ function MatchList() {
   const [showHeroDropdown, setShowHeroDropdown] = useState(false);
   const [heroHighlight, setHeroHighlight] = useState(-1);
   const [allHeroes, setAllHeroes] = useState([]);
+  const [heroesLoaded, setHeroesLoaded] = useState(false);
   const heroRef = useRef(null);
 
   // Player filter state
@@ -43,17 +44,8 @@ function MatchList() {
   const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
   const [playerHighlight, setPlayerHighlight] = useState(-1);
   const [allPlayers, setAllPlayers] = useState([]);
+  const [playersLoaded, setPlayersLoaded] = useState(false);
   const playerRef = useRef(null);
-
-  // Load available series list from matches.json-derived API
-  useEffect(() => {
-    fetch("/db/weeks")
-      .then((r) => r.json())
-      .then((data) => {
-        setSeriesOptions(Array.isArray(data.series_titles) ? data.series_titles : []);
-      })
-      .catch(() => {});
-  }, []);
 
   // Load week map and week options for the selected series
   useEffect(() => {
@@ -63,6 +55,7 @@ function MatchList() {
     fetch(url)
       .then((r) => r.json())
       .then((data) => {
+        setSeriesOptions(Array.isArray(data.series_titles) ? data.series_titles : []);
         setWeekMap(data.weeks || {});
 
         const weeks = new Set();
@@ -78,29 +71,50 @@ function MatchList() {
         }
       })
       .catch(() => {
+        setSeriesOptions([]);
         setWeekMap({});
         setWeekOptions([]);
       });
   }, [seriesFilter]);
 
-  // Load hero and player lists for autocomplete
+  // Load hero list only when hero filter is opened.
+  const ensureHeroesLoaded = async () => {
+    if (heroesLoaded) return;
+    try {
+      const response = await fetch("/db/heroes");
+      const data = await response.json();
+      const heroes = Object.entries(data).map(([id, name]) => ({ id, name }));
+      setAllHeroes(heroes);
+      setHeroesLoaded(true);
+    } catch {
+      setAllHeroes([]);
+    }
+  };
+
+  // Load player list only when player filter is opened.
+  const ensurePlayersLoaded = async () => {
+    if (playersLoaded) return;
+    try {
+      const response = await fetch("/db/players");
+      const data = await response.json();
+      setAllPlayers((data.players || []).map((p) => p.persona_name).filter(Boolean));
+      setPlayersLoaded(true);
+    } catch {
+      setAllPlayers([]);
+    }
+  };
+
   useEffect(() => {
-    fetch("/db/heroes")
-      .then((r) => r.json())
-      .then((data) => {
-        const heroes = Object.entries(data).map(([id, name]) => ({ id, name }));
-        setAllHeroes(heroes);
-      })
-      .catch(() => {});
-    fetch("/db/players")
-      .then((r) => r.json())
-      .then((data) => {
-        setAllPlayers(
-          (data.players || []).map((p) => p.persona_name).filter(Boolean),
-        );
-      })
-      .catch(() => {});
-  }, []);
+    if (showHeroDropdown) {
+      ensureHeroesLoaded();
+    }
+  }, [showHeroDropdown]);
+
+  useEffect(() => {
+    if (showPlayerDropdown) {
+      ensurePlayersLoaded();
+    }
+  }, [showPlayerDropdown]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -273,6 +287,8 @@ function MatchList() {
             alt={p.hero_name || "?"}
             title={p.hero_name || "Unknown"}
             className="w-8 h-8"
+            loading="lazy"
+            decoding="async"
             onError={(e) => {
               e.target.style.display = "none";
             }}
@@ -377,8 +393,12 @@ function MatchList() {
               onChange={(e) => {
                 setHeroSearch(e.target.value);
                 setShowHeroDropdown(true);
+                ensureHeroesLoaded();
               }}
-              onFocus={() => setShowHeroDropdown(true)}
+              onFocus={() => {
+                setShowHeroDropdown(true);
+                ensureHeroesLoaded();
+              }}
               onKeyDown={handleHeroKey}
               className="w-full px-3 py-2 bg-input border border-border-light rounded-l text-white text-sm focus:outline-none focus:border-blue-500"
             />
@@ -391,7 +411,11 @@ function MatchList() {
               </button>
             )}
             <button
-              onClick={() => setShowHeroDropdown(!showHeroDropdown)}
+              onClick={() => {
+                const next = !showHeroDropdown;
+                setShowHeroDropdown(next);
+                if (next) ensureHeroesLoaded();
+              }}
               className="px-2 bg-input border border-border-light rounded-r text-gray-400 hover:text-white text-sm"
             >
               ▾
@@ -413,6 +437,8 @@ function MatchList() {
                     src={getHeroIcon(h.name)}
                     alt=""
                     className="w-5 h-5 rounded"
+                    loading="lazy"
+                    decoding="async"
                     onError={(e) => {
                       e.target.style.display = "none";
                     }}
@@ -434,8 +460,12 @@ function MatchList() {
               onChange={(e) => {
                 setPlayerSearch(e.target.value);
                 setShowPlayerDropdown(true);
+                ensurePlayersLoaded();
               }}
-              onFocus={() => setShowPlayerDropdown(true)}
+              onFocus={() => {
+                setShowPlayerDropdown(true);
+                ensurePlayersLoaded();
+              }}
               onKeyDown={handlePlayerKey}
               className="w-full px-3 py-2 bg-input border border-border-light rounded-l text-white text-sm focus:outline-none focus:border-blue-500"
             />
@@ -448,7 +478,11 @@ function MatchList() {
               </button>
             )}
             <button
-              onClick={() => setShowPlayerDropdown(!showPlayerDropdown)}
+              onClick={() => {
+                const next = !showPlayerDropdown;
+                setShowPlayerDropdown(next);
+                if (next) ensurePlayersLoaded();
+              }}
               className="px-2 bg-input border border-border-light rounded-r text-gray-400 hover:text-white text-sm"
             >
               ▾

@@ -215,7 +215,7 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
 
 
 @bp.get("/matches/tree")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def matches_tree():
     """Return the full matches.json payload without reshaping."""
     matches_file = _matches_json_path()
@@ -231,7 +231,7 @@ def matches_tree():
 
 
 @bp.get("/weeks")
-@cache.cached(timeout=300, query_string=True)
+@cache.cached(timeout=3600, query_string=True)
 def weeks_map():  # type: ignore
     event_title_filter = (request.args.get("event_title") or "").strip()
     event_title_filter_lc = event_title_filter.lower()
@@ -378,7 +378,7 @@ def weeks_map():  # type: ignore
 
 
 @bp.get("/stats/overview")
-@cache.cached(timeout=60, query_string=True)
+@cache.cached(timeout=1800, query_string=True)
 def stats_overview():
     """Return pre-aggregated stats. Optional ?event_title= to filter by event."""
     event_title = request.args.get("event_title")
@@ -417,7 +417,7 @@ def stats_overview():
 
 
 @bp.get("/stats/weekly")
-@cache.cached(timeout=120, query_string=True)
+@cache.cached(timeout=1800, query_string=True)
 def stats_weekly():
     """Return per-week aggregated stats for an event or combined across all events."""
     event_title = (request.args.get("event_title") or "").strip()
@@ -473,7 +473,7 @@ def stats_weekly():
 
 
 @bp.get("/stats/records")
-@cache.cached(timeout=120, query_string=True)
+@cache.cached(timeout=1800, query_string=True)
 def stats_records():
     """Return single-game player records with match context. ?event_title= to filter."""
     event_title = request.args.get("event_title")
@@ -520,7 +520,7 @@ def stats_records():
 
 
 @bp.get("/stats/averages")
-@cache.cached(timeout=120, query_string=True)
+@cache.cached(timeout=1800, query_string=True)
 def stats_averages():
     """Return top players by average stat per game, min 5 games. ?event_title= to filter."""
     event_title = request.args.get("event_title")
@@ -573,7 +573,7 @@ def stats_averages():
 
 
 @bp.get("/stats/hero-selection")
-@cache.cached(timeout=120, query_string=True)
+@cache.cached(timeout=1800, query_string=True)
 def stats_hero_selection():
     """Return hero pick rates and win rates, optionally filtered by event title."""
     event_title = request.args.get("event_title")
@@ -623,7 +623,7 @@ def stats_hero_selection():
 
 
 @bp.get("/matches/latest")
-@cache.cached(timeout=30)
+@cache.cached(timeout=300)
 def latest_matches():  # type: ignore
     limit = int(current_app.config.get("API_LATEST_LIMIT", 50))
     with get_ro_conn() as conn:
@@ -636,7 +636,7 @@ def latest_matches():  # type: ignore
         return jsonify({"matches": data})
 
 @bp.get("/matches/latest/paged")
-@cache.cached(timeout=20, query_string=True)
+@cache.cached(timeout=180, query_string=True)
 def latest_matches_paged():  # type: ignore
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -707,12 +707,16 @@ def latest_matches_paged():  # type: ignore
         params.append(f"%{player_filter}%")
 
     where = (" WHERE " + " AND ".join(conds)) if conds else ""
+    use_distinct = bool(hero_filter or player_filter)
+    count_expr = "COUNT(DISTINCT m.match_id)" if use_distinct else "COUNT(*)"
+    select_distinct = "DISTINCT " if use_distinct else ""
+
     with get_ro_conn() as conn:
         # total count for this filter
-        ccur = conn.execute(f"SELECT COUNT(DISTINCT m.match_id) {sql_base}{joins}{where}", tuple(params))
+        ccur = conn.execute(f"SELECT {count_expr} {sql_base}{joins}{where}", tuple(params))
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.event_team_a_ingame_side, m.start_time, m.created_at {sql_base}{joins}{where} "
+            f"SELECT {select_distinct}m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.event_team_a_ingame_side, m.start_time, m.created_at {sql_base}{joins}{where} "
             f"ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
@@ -728,13 +732,16 @@ def latest_matches_paged():  # type: ignore
                 f"WHERE p.match_id IN ({placeholders}) ORDER BY p.team, p.player_slot",
                 tuple(match_ids)
             )
+            from ..heroes import get_all_hero_names
+
+            hero_name_map = get_all_hero_names()
             players_by_match = {}
             for row in _rows_to_dicts(pcur):
                 mid = row["match_id"]
                 if mid not in players_by_match:
                     players_by_match[mid] = []
                 if row.get("hero_id"):
-                    row["hero_name"] = get_hero_name(row["hero_id"])
+                    row["hero_name"] = hero_name_map.get(str(row["hero_id"]), f"Hero {row['hero_id']}")
                 players_by_match[mid].append(row)
             for m in matches:
                 m["players"] = players_by_match.get(m["match_id"], [])
@@ -749,7 +756,7 @@ def latest_matches_paged():  # type: ignore
 
 
 @bp.get("/matches/<int:match_id>/adjacent")
-@cache.cached(timeout=60)
+@cache.cached(timeout=900)
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
@@ -876,7 +883,7 @@ def match_replay(match_id: int):
 
 
 @bp.get("/matches/<int:match_id>/players")
-@cache.cached(timeout=60)
+@cache.cached(timeout=900)
 def match_players(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
@@ -892,7 +899,7 @@ def match_players(match_id: int):  # type: ignore
 
 
 @bp.get("/matches/<int:match_id>/timeline")
-@cache.cached(timeout=300)
+@cache.cached(timeout=3600)
 def match_timeline(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         # Check if any snapshots exist for this match
@@ -1031,7 +1038,7 @@ def match_items(match_id: int):  # type: ignore
 
 
 @bp.get("/matches/<int:match_id>/build")
-@cache.cached(timeout=300)
+@cache.cached(timeout=3600)
 def match_build(match_id: int):  # type: ignore
     item_catalog = cache.get("dlns_items_list")
     if item_catalog is None:
@@ -1191,7 +1198,7 @@ def match_build(match_id: int):  # type: ignore
 
 
 @bp.get("/matches/<int:match_id>/users/<int:account_id>")
-@cache.cached(timeout=60)
+@cache.cached(timeout=900)
 def match_user_stats(match_id: int, account_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
@@ -1214,7 +1221,7 @@ def match_user_stats(match_id: int, account_id: int):  # type: ignore
 
 
 @bp.get("/users/<int:account_id>")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def user_info(account_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
@@ -1228,7 +1235,7 @@ def user_info(account_id: int):  # type: ignore
 
 
 @bp.get("/users/<int:account_id>/stats")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def user_stats(account_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
@@ -1243,7 +1250,7 @@ def user_stats(account_id: int):  # type: ignore
 
 
 @bp.get("/users/<int:account_id>/matches")
-@cache.cached(timeout=60, query_string=True)
+@cache.cached(timeout=900, query_string=True)
 def user_matches_api(account_id: int):
     with get_ro_conn() as conn:
         cur = conn.execute(
@@ -1261,7 +1268,7 @@ def user_matches_api(account_id: int):
         return jsonify({"matches": data})
 
 @bp.get("/users/<int:account_id>/matches/paged")
-@cache.cached(timeout=60, query_string=True)
+@cache.cached(timeout=900, query_string=True)
 def user_matches_paged_api(account_id: int):
     order = (request.args.get("order") or "desc").lower()
     order = "asc" if order == "asc" else "desc"
@@ -1315,7 +1322,7 @@ def user_matches_paged_api(account_id: int):
         })
 
 @bp.get("/search/suggest")
-@cache.cached(timeout=20, query_string=True)
+@cache.cached(timeout=120, query_string=True)
 def search_suggest():  # type: ignore
     q = (request.args.get("q") or "").strip()
     if not q:
@@ -1347,7 +1354,7 @@ def search_suggest():  # type: ignore
     return jsonify({"results": results})
 
 @bp.get("/heroes")
-@cache.cached(timeout=300)  # Cache for 5 minutes
+@cache.cached(timeout=21600)  # Cache for 6 hours
 def get_heroes():
     """Return hero ID to name mapping for JavaScript."""
     from ..heroes import _load_if_needed, _names, _lock
@@ -1359,7 +1366,7 @@ def get_heroes():
 
 
 @bp.get("/heroes/<int:hero_id>/stats")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def hero_stats(hero_id: int):
     """Return aggregated stats for a specific hero across all matches."""
     with get_ro_conn() as conn:
@@ -1401,7 +1408,7 @@ def hero_stats(hero_id: int):
 
 
 @bp.get("/heroes/<int:hero_id>/top_items")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def hero_top_items(hero_id: int):
     """Return most-purchased items for a specific hero, ranked by frequency."""
     # Reuse cached item catalog
@@ -1477,7 +1484,7 @@ def hero_top_items(hero_id: int):
 
 
 @bp.get("/heroes/<int:hero_id>/matchups")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def hero_matchups(hero_id: int):
     """Return heroes most effective with/against a specific hero."""
     MIN_GAMES = 3
@@ -1538,7 +1545,7 @@ def hero_matchups(hero_id: int):
 
 
 @bp.get("/heroes/<int:hero_id>/top_players")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def hero_top_players(hero_id: int):
     """Return top players by games played on a specific hero."""
     with get_ro_conn() as conn:
@@ -1566,7 +1573,7 @@ def hero_top_players(hero_id: int):
 
 
 @bp.get("/heroes/<int:hero_id>/meta")
-@cache.cached(timeout=60)
+@cache.cached(timeout=21600)
 def hero_meta(hero_id: int):
     """Return curated metadata (tagline + abilities) for a specific hero."""
     meta_path = Path(current_app.root_path).parent.parent.parent / "data" / "hero_meta.json"
@@ -1584,7 +1591,7 @@ def hero_meta(hero_id: int):
 
 
 @bp.get("/players")
-@cache.cached(timeout=60)  # Cache for 1 minute
+@cache.cached(timeout=900)  # Cache for 15 minutes
 def get_players():
     """Return list of all players from match data with their match count."""
     with get_ro_conn() as conn:
@@ -1607,7 +1614,7 @@ def get_players():
 
 
 @bp.get("/series/<int:match_id>")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def series_detail(match_id: int):
     """Return all matches in the same series as match_id (same team_a, team_b, event_title, event_week)."""
     with get_ro_conn() as conn:
@@ -1671,7 +1678,7 @@ def series_detail(match_id: int):
 
 
 @bp.get("/teams")
-@cache.cached(timeout=300)
+@cache.cached(timeout=3600)
 def get_teams():
     """Return list of all unique team names with match counts."""
     with get_ro_conn() as conn:
@@ -1693,7 +1700,7 @@ def get_teams():
 
 
 @bp.get("/team/<path:team_name>")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def get_team_detail(team_name: str):
     """Return team detail: players sorted by appearances and full match history."""
     with get_ro_conn() as conn:
@@ -1816,7 +1823,7 @@ def get_team_detail(team_name: str):
 
 
 @bp.get("/nightshift/<int:week>")
-@cache.cached(timeout=120)
+@cache.cached(timeout=1800)
 def nightshift_week(week: int):
     """Return all matches and summary stats for a given Night Shift week."""
     event_title = request.args.get("event_title", "Night Shift")

@@ -15,6 +15,8 @@ export default defineConfig({
         rank_admin: path.resolve(__dirname, 'src/entries/rank_admin.entry.jsx'),
         vo: path.resolve(__dirname, 'src/entries/vo.entry.jsx'),
         vo_admin: path.resolve(__dirname, 'src/entries/vo_admin.entry.jsx'),
+        interviews: path.resolve(__dirname, 'src/entries/interviews.entry.jsx'),
+        interviews_admin: path.resolve(__dirname, 'src/entries/interviews_admin.entry.jsx'),
         matchlist: path.resolve(__dirname, 'src/entries/matchlist.entry.jsx'),
         match_detail: path.resolve(__dirname, 'src/entries/match_detail.entry.jsx'),
         players: path.resolve(__dirname, 'src/entries/players.entry.jsx'),
@@ -59,6 +61,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/auth': {
+        target: 'http://127.0.0.1:5050',
+        changeOrigin: true,
+      },
+      '/interviews': {
         target: 'http://127.0.0.1:5050',
         changeOrigin: true,
       },

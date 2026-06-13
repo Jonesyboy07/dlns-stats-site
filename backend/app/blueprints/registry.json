@@ -15,5 +15,6 @@
   {"module": "submission_bp", "attr": "submission_bp"},
   {"module": "ranker", "attr": "ranker_bp"},
   {"module": "react_stats", "attr": "react_stats_bp"},
+  {"module": "interviews", "attr": "interviews_bp"},
   {"module": "dmm", "attr": "dmm_bp"}
 ]

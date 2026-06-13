@@ -74,3 +74,4 @@ data/sounds_uploads.sqlite3
 # Backups
 backups/
 /static/sounds
+/data/interviews

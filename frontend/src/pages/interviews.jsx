@@ -161,7 +161,7 @@ export function InterviewsPage() {
         setCanUpload(Boolean(accessRes?.can_upload));
 
         if (!selectedId && loadedEntries.length > 0) {
-          setSelectedId(loadedEntries[0].id);
+          setSelectedId(String(loadedEntries[0].short_id || loadedEntries[0].id || ''));
         }
       } catch (err) {
         setError(err?.message || 'Failed to load interviews.');
@@ -182,7 +182,8 @@ export function InterviewsPage() {
         const entry = await interviewsGetEntry(selectedId);
         setSelected(entry || null);
 
-        const newUrl = `/interviews/${selectedId}`;
+        const canonicalToken = String(entry?.short_id || selectedId || '');
+        const newUrl = `/interviews/${canonicalToken}`;
         if (window.location.pathname !== newUrl) {
           window.history.replaceState({}, '', newUrl);
         }
@@ -216,8 +217,10 @@ export function InterviewsPage() {
   }, [entries, search, sortBy]);
 
   const copyLink = async () => {
-    if (!selectedId) return;
-    const url = `${window.location.origin}/interviews/${selectedId}`;
+    if (!selected) return;
+    const token = String(selected.short_id || selected.id || selectedId || '');
+    if (!token) return;
+    const url = `${window.location.origin}/interviews/${token}`;
     try {
       await navigator.clipboard.writeText(url);
     } catch (_) {
@@ -262,12 +265,12 @@ export function InterviewsPage() {
             {filtered.map((entry) => (
               <button
                 key={entry.id}
-                className={`iv-row ${selectedId === entry.id ? 'active' : ''}`}
-                onClick={() => setSelectedId(entry.id)}
+                className={`iv-row ${selectedId === String(entry.short_id || entry.id) ? 'active' : ''}`}
+                onClick={() => setSelectedId(String(entry.short_id || entry.id || ''))}
                 type="button"
               >
                 <div className="iv-title">{entry.title}</div>
-                <div className="iv-meta">Guest: {entry.guest} | {formatIso(entry.created_at)} | {entry.word_count || 0} words</div>
+                <div className="iv-meta">#{entry.short_id || '-'} | Guest: {entry.guest} | {formatIso(entry.created_at)} | {entry.word_count || 0} words</div>
                 <div className="iv-preview">{entry.preview || 'No preview available.'}</div>
               </button>
             ))}

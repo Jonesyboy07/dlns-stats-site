@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  interviewsCreateCustomLink,
+  interviewsDeleteCustomLink,
   interviewsDeleteEntry,
   interviewsGetAccess,
   interviewsGetEntry,
   interviewsList,
+  interviewsListCustomLinks,
   interviewsUpdateEntry,
   interviewsUpload,
 } from '../utils/api';
@@ -138,13 +141,16 @@ export function InterviewsAdminPage() {
   const [error, setError] = useState('');
   const [okMessage, setOkMessage] = useState('');
   const [canUpload, setCanUpload] = useState(false);
+  const [customLinks, setCustomLinks] = useState([]);
+  const [aliasInput, setAliasInput] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
-        const [access, list] = await Promise.all([interviewsGetAccess(), interviewsList()]);
+        const [access, list, links] = await Promise.all([interviewsGetAccess(), interviewsList(), interviewsListCustomLinks()]);
         setCanUpload(Boolean(access?.can_upload));
         setEntries(Array.isArray(list) ? list : []);
+        setCustomLinks(Array.isArray(links) ? links : []);
       } catch (err) {
         setError(err?.message || 'Failed to load admin data.');
       }
@@ -165,11 +171,53 @@ export function InterviewsAdminPage() {
   };
 
   const refreshList = async (preserveSelection = true) => {
-    const list = await interviewsList();
+    const [list, links] = await Promise.all([interviewsList(), interviewsListCustomLinks()]);
     setEntries(Array.isArray(list) ? list : []);
+    setCustomLinks(Array.isArray(links) ? links : []);
     if (preserveSelection && selectedId) {
       const stillExists = (list || []).some((entry) => entry.id === selectedId);
       if (!stillExists) clearForm();
+    }
+  };
+
+  const handleCreateCustomLink = async () => {
+    setError('');
+    setOkMessage('');
+
+    if (!selectedId) {
+      setError('Select an interview first.');
+      return;
+    }
+    if (!aliasInput.trim()) {
+      setError('Alias is required.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await interviewsCreateCustomLink(aliasInput.trim(), selectedId);
+      setAliasInput('');
+      await refreshList();
+      setOkMessage('Custom link saved.');
+    } catch (err) {
+      setError(err?.message || 'Failed to create custom link.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteCustomLink = async (alias) => {
+    setError('');
+    setOkMessage('');
+    setBusy(true);
+    try {
+      await interviewsDeleteCustomLink(alias);
+      await refreshList();
+      setOkMessage('Custom link removed.');
+    } catch (err) {
+      setError(err?.message || 'Failed to delete custom link.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -314,7 +362,7 @@ export function InterviewsAdminPage() {
                 >
                   <div style={{ fontWeight: 700 }}>{entry.title}</div>
                   <div className="ia-meta">Guest: {entry.guest}</div>
-                  <div className="ia-meta">{formatIso(entry.created_at)} | {entry.word_count || 0} words</div>
+                  <div className="ia-meta">#{entry.short_id || '-'} | {formatIso(entry.created_at)} | {entry.word_count || 0} words</div>
                 </button>
               ))}
             </div>
@@ -368,6 +416,37 @@ export function InterviewsAdminPage() {
                 <button className="ia-btn" type="button" onClick={handleUpdate} disabled={busy || !selectedId}>Save Changes</button>
                 <button className="ia-btn warn" type="button" onClick={handleDelete} disabled={busy || !selectedId}>Delete</button>
               </div>
+
+              <div className="ia-info">
+                Canonical short URL: {selectedId && entries.find((x) => x.id === selectedId)?.short_id
+                  ? `/interviews/${entries.find((x) => x.id === selectedId)?.short_id}`
+                  : '-'}
+              </div>
+
+              <div className="ia-actions">
+                <input
+                  className="ia-input"
+                  value={aliasInput}
+                  onChange={(e) => setAliasInput(e.target.value)}
+                  placeholder="custom alias, e.g. sloan-test"
+                  disabled={busy}
+                />
+                <button className="ia-btn" type="button" onClick={handleCreateCustomLink} disabled={busy || !selectedId}>Add Custom Link</button>
+              </div>
+
+              <div className="ia-info">Custom links for selected interview:</div>
+              {(customLinks.filter((link) => link.entry_id === selectedId)).length === 0 ? (
+                <div className="ia-info">No custom links yet.</div>
+              ) : (
+                customLinks
+                  .filter((link) => link.entry_id === selectedId)
+                  .map((link) => (
+                    <div key={link.alias} className="ia-actions" style={{ alignItems: 'center' }}>
+                      <a className="ia-link" href={link.path} target="_blank" rel="noreferrer">{link.path}</a>
+                      <button className="ia-btn warn" type="button" onClick={() => handleDeleteCustomLink(link.alias)} disabled={busy}>Remove</button>
+                    </div>
+                  ))
+              )}
 
               <div className="ia-preview" dangerouslySetInnerHTML={{ __html: (mdContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br />') }} />
             </div>

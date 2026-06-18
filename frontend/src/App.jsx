@@ -4,7 +4,6 @@ import {
   Routes,
   Route,
   Link,
-  useLocation,
 } from "react-router-dom";
 import MatchList from "./pages/MatchList";
 import DLNS_Header from "./components/DLNS_Header";
@@ -93,39 +92,31 @@ function App() {
           <DLNS_Header />
 
           <main className="w-full max-w-7xl mx-auto flex-1 py-8">
-            <Suspense
-              fallback={
-                <div className="text-center text-xl text-gray-300 py-8">
-                  Loading page...
-                </div>
-              }
-            >
-              <Routes>
-                <Route path="/" element={<MatchList />} />
-                <Route path="/matchlist" element={<MatchList />} />
-                <Route path="/match/:matchId" element={<MatchDetail />} />
-                <Route path="/series/:matchId" element={<SeriesDetail />} />
-                <Route path="/players" element={<PlayersList />} />
-                <Route path="/player/:accountId" element={<PlayerDetail />} />
-                <Route path="/heroes" element={<HeroesList />} />
-                <Route path="/hero/:heroId" element={<HeroDetail />} />
-                <Route path="/items" element={<ItemsList />} />
-                <Route
-                  path="/player/:accountId/hero/:heroId"
-                  element={<PlayerHeroDetail />}
-                />
-                <Route path="/stats" element={<Stats />} />
-                <Route path="/teams" element={<TeamsList />} />
-                <Route path="/team/:teamName" element={<TeamDetail />} />
-                <Route path="/week" element={<WeekList />} />
-                <Route path="/week/:week" element={<WeekDetail />} />
-                <Route path="/react-admin" element={<ReactAdmin />} />
-                <Route path="/sounds" element={<SoundLibrary />} />
-                <Route path="/sounds-dev" element={<SoundsDev />} />
-                <Route path="/vo" element={<VoHub />} />
-                <Route path="/vo-admin" element={<VoAdmin />} />
-              </Routes>
-            </Suspense>
+            <Routes>
+              <Route path="/" element={<MatchList />} />
+              <Route path="/matchlist" element={<MatchList />} />
+              <Route path="/match/:matchId" element={<MatchDetail />} />
+              <Route path="/series/:matchId" element={<SeriesDetail />} />
+              <Route path="/players" element={<PlayersList />} />
+              <Route path="/player/:accountId" element={<PlayerDetail />} />
+              <Route path="/heroes" element={<HeroesList />} />
+              <Route path="/hero/:heroId" element={<HeroDetail />} />
+              <Route path="/items" element={<ItemsList />} />
+              <Route
+                path="/player/:accountId/hero/:heroId"
+                element={<PlayerHeroDetail />}
+              />
+              <Route path="/stats" element={<Stats />} />
+              <Route path="/teams" element={<TeamsList />} />
+              <Route path="/team/:teamName" element={<TeamDetail />} />
+              <Route path="/week" element={<WeekList />} />
+              <Route path="/week/:week" element={<WeekDetail />} />
+              <Route path="/react-admin" element={<ReactAdmin />} />
+              <Route path="/sounds" element={<SoundLibrary />} />
+              <Route path="/sounds-dev" element={<SoundsDev />} />
+              <Route path="/vo" element={<VoHub />} />
+              <Route path="/vo-admin" element={<VoAdmin />} />
+            </Routes>
           </main>
 
           <footer className="border-t border-gray-700/50 text-gray-400 mt-16">

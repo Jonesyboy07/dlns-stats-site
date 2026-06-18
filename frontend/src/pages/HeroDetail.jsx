@@ -85,9 +85,9 @@ function HeroDetail() {
     return h?.name || h || `Hero ${hid}`;
   };
   return (
-    <div className="grid grid-cols-10 grid-rows-[auto_auto] p-8">
+    <div className="grid grid-cols-1 md:grid-cols-10 p-4 sm:p-8">
       {/* Hero Header */}
-      <div className="mb-8 col-span-10 flex items-center gap-4">
+      <div className="mb-6 md:mb-8 col-span-1 md:col-span-10 flex flex-col sm:flex-row items-center sm:items-center gap-4 text-center sm:text-left">
         <img
           src={cdnImage(`cardicons/${heroName.toLowerCase().replace(/&/g, "and").replace(/\s+/g, "_")}_card_psd.png`)}
           alt={heroName}
@@ -113,9 +113,9 @@ function HeroDetail() {
       </div>
 
       {/* Abilities Section */}
-      <div className="mb-8 col-span-4">
-        <h2 className="text-white text-center text-2xl font-bold">Abilities</h2>
-        <div className="flex justify-center gap-2">
+      <div className="mb-6 md:mb-8 col-span-1 md:col-span-4">
+        <h2 className="text-white text-center text-xl md:text-2xl font-bold">Abilities</h2>
+        <div className="flex flex-wrap justify-center gap-3 md:gap-2">
           {(heroMeta?.abilities ?? Array(4).fill(null)).map((ability, i) => (
             <div key={i} className="shadow rounded-lg p-2 flex flex-col items-center text-center">
               <div className="relative w-24 h-24">
@@ -127,6 +127,7 @@ function HeroDetail() {
                 {ability?.image ? (
                   <img
                     src={staticImagePathToCdn(ability.image.startsWith("/") ? ability.image : `/${ability.image}`)}
+                    src={(ability.image.startsWith("/") ? ability.image : `/${ability.image}`).replace(/\\/g, "/")}
                     alt={ability.name ?? ""}
                     className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/5 h-2/5 object-contain opacity-75 ${ability.invert ? " invert" : ""}`}
                   />
@@ -144,47 +145,28 @@ function HeroDetail() {
       </div>
 
       {/* Hero Stats */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-6 row-span-2 ml-4">
-        <h2 className="text-xl font-bold mb-4">Stats</h2>
+      <div className="bg-panel text-gray-300 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-6 row-span-2 md:ml-4 mt-4 md:mt-0">
+        <h2 className="text-lg sm:text-xl font-bold mb-4">Stats</h2>
 
         {/* Row 1 — Averages */}
         <div className="mb-4">
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
             Averages
           </p>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Kills</p>
-              <p className="text-lg font-bold">{heroStats?.avg_kills ?? "-"}</p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Deaths</p>
-              <p className="text-lg font-bold">
-                {heroStats?.avg_deaths ?? "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Assists</p>
-              <p className="text-lg font-bold">
-                {heroStats?.avg_assists ?? "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">KDA</p>
-              <p className="text-lg font-bold">{heroStats?.avg_kda ?? "-"}</p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Damage</p>
-              <p className="text-lg font-bold">
-                {heroStats?.avg_damage?.toLocaleString() ?? "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Souls</p>
-              <p className="text-lg font-bold">
-                {heroStats?.avg_souls?.toLocaleString() ?? "-"}
-              </p>
-            </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
+            {[
+              ["Kills", heroStats?.avg_kills],
+              ["Deaths", heroStats?.avg_deaths],
+              ["Assists", heroStats?.avg_assists],
+              ["KDA", heroStats?.avg_kda],
+              ["Damage", heroStats?.avg_damage?.toLocaleString()],
+              ["Souls", heroStats?.avg_souls?.toLocaleString()],
+            ].map(([label, val]) => (
+              <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
+                <p className="text-gray-500 text-xs">{label}</p>
+                <p className="text-base sm:text-lg font-bold">{val ?? "-"}</p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -193,29 +175,18 @@ function HeroDetail() {
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
             Highest
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Kills</p>
-              <p className="text-lg font-bold">{heroStats?.max_kills ?? "-"}</p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Damage</p>
-              <p className="text-lg font-bold">
-                {heroStats?.max_damage?.toLocaleString() ?? "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Healing</p>
-              <p className="text-lg font-bold">
-                {heroStats?.max_healing?.toLocaleString() ?? "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Obj Damage</p>
-              <p className="text-lg font-bold">
-                {heroStats?.max_obj_damage?.toLocaleString() ?? "-"}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            {[
+              ["Kills", heroStats?.max_kills],
+              ["Damage", heroStats?.max_damage?.toLocaleString()],
+              ["Healing", heroStats?.max_healing?.toLocaleString()],
+              ["Obj Damage", heroStats?.max_obj_damage?.toLocaleString()],
+            ].map(([label, val]) => (
+              <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
+                <p className="text-gray-500 text-xs">{label}</p>
+                <p className="text-base sm:text-lg font-bold">{val ?? "-"}</p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -224,41 +195,24 @@ function HeroDetail() {
           <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
             Rates
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Win Rate</p>
-              <p className="text-lg font-bold">
-                {heroStats?.win_rate != null
-                  ? (heroStats.win_rate * 100).toFixed(1) + "%"
-                  : "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Pick Rate</p>
-              <p className="text-lg font-bold">
-                {heroStats?.pick_rate != null
-                  ? (heroStats.pick_rate * 100).toFixed(2) + "%"
-                  : "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Games Played</p>
-              <p className="text-lg font-bold">
-                {heroStats?.games_played ?? "-"}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded p-3">
-              <p className="text-gray-500 text-xs">Wins</p>
-              <p className="text-lg font-bold text-green-400">
-                {heroStats?.wins ?? "-"}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            {[
+              ["Win Rate", heroStats?.win_rate != null ? (heroStats.win_rate * 100).toFixed(1) + "%" : "-"],
+              ["Pick Rate", heroStats?.pick_rate != null ? (heroStats.pick_rate * 100).toFixed(2) + "%" : "-"],
+              ["Games Played", heroStats?.games_played],
+              ["Wins", heroStats?.wins, "text-green-400"],
+            ].map(([label, val, extraClass]) => (
+              <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
+                <p className="text-gray-500 text-xs">{label}</p>
+                <p className={`text-base sm:text-lg font-bold ${extraClass || ""}`}>{val ?? "-"}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Most Played By */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-4">
+      <div className="bg-panel text-gray-300 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-4">
         <h2 className="text-xl font-bold mb-4">Most Played By</h2>
         {topPlayers.length === 0 ? (
           <p className="text-gray-500 text-sm">No data available.</p>
@@ -269,7 +223,7 @@ function HeroDetail() {
                 <li key={p.account_id} className="flex items-center gap-3">
                   <span className="text-gray-500 text-sm w-5 text-right">{i + 1}.</span>
                   <Link
-                    to={`/players/${p.account_id}`}
+                    to={`/player/${p.account_id}`}
                     className="flex-1 text-blue-400 hover:underline truncate"
                   >
                     {p.persona_name ?? p.account_id}
@@ -294,7 +248,7 @@ function HeroDetail() {
       </div>
 
       {/* Most Bought Items */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-10 mt-4">
+      <div className="bg-panel text-gray-300 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-10 mt-4">
         <h2 className="text-xl font-bold mb-4">Most Bought Items</h2>
         {topItems.length === 0 ? (
           <p className="text-gray-500 text-sm">No item data available.</p>
@@ -342,7 +296,7 @@ function HeroDetail() {
       </div>
 
       {/* Matchups */}
-      <div className="col-span-10 mt-4 grid grid-cols-2 gap-4">
+      <div className="col-span-1 md:col-span-10 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Effective With */}
         <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
           <h2 className="text-xl font-bold mb-4 text-green-400">Most Effective With</h2>

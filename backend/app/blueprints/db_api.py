@@ -1576,7 +1576,7 @@ def hero_top_players(hero_id: int):
 @cache.cached(timeout=21600)
 def hero_meta(hero_id: int):
     """Return curated metadata (tagline + abilities) for a specific hero."""
-    meta_path = Path(current_app.root_path).parent.parent.parent / "data" / "hero_meta.json"
+    meta_path = Path(current_app.root_path).parent.parent / "data" / "hero_meta.json"
     try:
         with open(meta_path, "r", encoding="utf-8") as f:
             data = json.load(f)

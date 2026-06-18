@@ -2455,14 +2455,16 @@
               "team_b": "Floormen",
               "matches": [
                 {
-                  "game": "Game 1",
+                  "game": "Game 2",
                   "team_a_side": 1,
-                  "match_id": 74204633
+                  "match_id": 74217659,
+                  "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s"
                 },
                 {
-                  "game": "Game 2",
+                  "game": "Game 1",
                   "team_a_side": 0,
-                  "match_id": 74217659
+                  "match_id": 74204633,
+                  "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s"
                 }
               ],
               "region": "NA",
@@ -2994,11 +2996,6 @@
               "team_b": "melee creeps",
               "matches": [
                 {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 85256685
-                },
-                {
                   "match_id": -1780498501917,
                   "game": "Game 2",
                   "team_a_side": 0,
@@ -3011,6 +3008,12 @@
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
                   "forfeit": true
+                },
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 85256685,
+                  "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv"
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
@@ -3104,9 +3107,11 @@
                 {
                   "game": "Game 1",
                   "team_a_side": 1,
-                  "match_id": 88062417
+                  "match_id": 88062417,
+                  "match_vod": "https://www.youtube.com/watch?v=6-wCzQDICMI"
                 }
               ],
+              "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=6-wCzQDICMI",
               "title": "CHALLENGER MATCH"
             },
@@ -3115,30 +3120,20 @@
               "team_b": "ABRAHAMS",
               "matches": [
                 {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 88043911
-                },
-                {
                   "game": "Game 2",
                   "team_a_side": 0,
-                  "match_id": 88052543
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=cMkM0aXWBM4"
-            },
-            {
-              "team_a": "FPS LOUNGE",
-              "team_b": "BIRD WITH CLOCK",
-              "matches": [
+                  "match_id": 88052543,
+                  "match_vod": "https://www.youtube.com/watch?v=cMkM0aXWBM4"
+                },
                 {
                   "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 88062417
+                  "team_a_side": 0,
+                  "match_id": 88043911,
+                  "match_vod": "https://www.youtube.com/watch?v=cMkM0aXWBM4"
                 }
               ],
-              "match_vod": "https://www.youtube.com/watch?v=QzODgYRWSW4",
-              "title": "CHALLENGER MATCH"
+              "match_vod": "https://www.youtube.com/watch?v=cMkM0aXWBM4",
+              "region": "EU"
             },
             {
               "team_a": "MELEE CREEPS",
@@ -3157,6 +3152,21 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=C56U-uZZ0Ps",
               "region": "NA"
+            },
+            {
+              "team_a": "FPS LOUNGE",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 88062417,
+                  "match_vod": "https://www.youtube.com/watch?v=QzODgYRWSW4"
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=QzODgYRWSW4",
+              "title": "CHALLENGER MATCH"
             }
           ],
           "vod_links": [
@@ -3164,7 +3174,8 @@
               "title": "",
               "url": "https://www.youtube.com/watch?v=WdJCme7y1qo"
             }
-          ]
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=WdJCme7y1qo"
         }
       ]
     },

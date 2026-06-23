@@ -36,6 +36,7 @@ const VoHub = lazy(() =>
 const VoAdmin = lazy(() =>
   import("./pages/vo_admin.jsx").then((m) => ({ default: m.VoAdmin })),
 );
+const Community = lazy(() => import("./pages/Community"));
 
 function Navigation() {
   const location = useLocation();
@@ -116,6 +117,7 @@ function App() {
               <Route path="/sounds-dev" element={<SoundsDev />} />
               <Route path="/vo" element={<VoHub />} />
               <Route path="/vo-admin" element={<VoAdmin />} />
+              <Route path="/community" element={<Community />} />
             </Routes>
           </main>
 
@@ -154,6 +156,12 @@ function App() {
                     className="hover:text-white transition-colors"
                   >
                     Stats
+                  </Link>
+                  <Link
+                    to="/community"
+                    className="hover:text-white transition-colors"
+                  >
+                    Community
                   </Link>
                 </div>
               </div>

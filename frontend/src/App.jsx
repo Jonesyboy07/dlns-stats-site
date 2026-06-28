@@ -87,7 +87,7 @@ function App() {
         {/* Background image, black & white, fades to bg colour toward bottom */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat grayscale opacity-[0.1] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_5%,transparent_95%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_5%,transparent_95%)]"
+          className="absolute top-0 left-0 right-0 h-[600px] bg-cover bg-top bg-no-repeat grayscale opacity-[0.1] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_30%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_30%,transparent_100%)]"
           style={{ backgroundImage: `url("${cdnImage("background/background_gothic_jpg.jpeg")}")` }}
         />
 

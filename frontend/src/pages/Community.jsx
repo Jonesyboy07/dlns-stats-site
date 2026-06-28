@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 export default function Community() {
   const [groups, setGroups] = useState([]);
@@ -13,11 +14,7 @@ export default function Community() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="bg-panel text-white p-8">
-        <div className="max-w-3xl mx-auto text-center py-20 text-gray-400">Loading…</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="text" />;
   }
 
   return (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { cdnImage } from "../utils/cdn";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 function SeriesDetail() {
   const { matchId } = useParams();
@@ -54,9 +55,7 @@ function SeriesDetail() {
   };
 
   if (loading)
-    return (
-      <div className="p-8 text-center text-gray-300">Loading series...</div>
-    );
+    return <LoadingSkeleton variant="text" />;
   if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
   if (!series) return null;
 

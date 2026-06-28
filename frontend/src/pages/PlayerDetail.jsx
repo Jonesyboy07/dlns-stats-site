@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { cdnImage } from "../utils/cdn";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 function PlayerDetail() {
   const { accountId } = useParams();
@@ -161,11 +162,7 @@ function PlayerDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl">Loading player details...</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="detail" />;
   }
 
   if (error) {

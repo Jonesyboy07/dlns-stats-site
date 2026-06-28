@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 function PlayersList() {
   const [players, setPlayers] = useState([]);
@@ -29,11 +30,7 @@ function PlayersList() {
   };
 
   if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl text-gray-300">Loading players...</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="list-item" />;
   }
 
   if (error) {

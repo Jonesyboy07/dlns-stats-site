@@ -79,3 +79,9 @@ def week_detail(week):
 def react_admin_hub():
     """Serve the React Admin Hub page."""
     return render_template('react.html', page='match_admin')
+
+
+@react_stats_bp.get('/community')
+def community_page():
+    """Serve the React Community page."""
+    return render_template('react.html', page='matchlist')

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import heroNamesData from '../../../data/hero_names.json';
 import { cdnImage } from '../utils/cdn';
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 function HeroesList() {
   const [heroes, setHeroes] = useState({});
@@ -24,11 +25,7 @@ function HeroesList() {
   };
 
   if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl">Loading heroes...</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="card" />;
   }
 
   // Convert heroes object to array and filter by search term and released status

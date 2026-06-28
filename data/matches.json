@@ -3258,6 +3258,81 @@
               "url": "https://www.youtube.com/watch?v=Nb_jV7XKw8Q"
             }
           ]
+        },
+        {
+          "week": 44,
+          "games": [
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "SNEAKY TEAM",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 90541069
+                }
+              ],
+              "region": "EU",
+              "title": "CHALLENGER MATCH",
+              "match_vod": "https://www.youtube.com/watch?v=f7Ldm03lKog"
+            },
+            {
+              "team_a": "BUFF ENJOYERS",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 90549986
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 90557430
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=JkSdcbdA8fc"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 90567850
+                }
+              ],
+              "region": "NA",
+              "title": "CHALLENGER MATCH",
+              "match_vod": "https://www.youtube.com/watch?v=fR7LXnMCkzo"
+            },
+            {
+              "team_a": "FPS LOUNGE",
+              "team_b": "MELEE CREEPS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 90577157
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 90586005
+                }
+              ],
+              "region": "NA",
+              "match_vod": "https://www.youtube.com/watch?v=lW0yldSyuvM"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=AuDrx5G5puI"
+            }
+          ]
         }
       ]
     },

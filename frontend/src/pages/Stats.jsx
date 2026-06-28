@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { cdnImage } from "../utils/cdn";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import ErrorMessage from "../components/ErrorMessage";
 import { Bar, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -34,6 +36,7 @@ function Stats() {
   const [heroes, setHeroes] = useState({});
   const [loadingSeriesOptions, setLoadingSeriesOptions] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [error, setError] = useState(null);
   const [expandedRecords, setExpandedRecords] = useState(new Set());
   const [expandedAverages, setExpandedAverages] = useState(new Set());
   const loading = loadingSeriesOptions || loadingStats;
@@ -74,7 +77,7 @@ function Stats() {
         setSelectedSeries("");
       }
     } catch (err) {
-      console.error("Failed to fetch series options:", err);
+      setError(err.message);
     } finally {
       setLoadingSeriesOptions(false);
     }
@@ -108,18 +111,18 @@ function Stats() {
         setWeeklyData([]);
       }
     } catch (err) {
-      console.error("Failed to fetch stats:", err);
+      setError(err.message);
     } finally {
       setLoadingStats(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl">Loading statistics...</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="text" />;
+  }
+
+  if (error) {
+    return <ErrorMessage message={error} onRetry={() => { fetchSeriesOptions(); fetchData(selectedSeries); }} />;
   }
 
   const selectedSeriesLabel = selectedSeries || "Combined";

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import ErrorMessage from "../components/ErrorMessage";
 
 function HeroDetail() {
   const { heroId } = useParams();
@@ -12,6 +14,7 @@ function HeroDetail() {
   const [effectiveWith, setEffectiveWith] = useState([]);
   const [effectiveAgainst, setEffectiveAgainst] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showMorePlayers, setShowMorePlayers] = useState(false);
   const [showMoreItems, setShowMoreItems] = useState(false);
   const [showMoreWith, setShowMoreWith] = useState(false);
@@ -58,18 +61,18 @@ function HeroDetail() {
         setEffectiveAgainst(data.effective_against ?? []);
       }
     } catch (err) {
-      console.error("Failed to fetch heroes:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl">Loading hero details...</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="detail" />;
+  }
+
+  if (error) {
+    return <ErrorMessage message={error} onRetry={fetchHeroes} />;
   }
 
   const hero = heroes[heroId];

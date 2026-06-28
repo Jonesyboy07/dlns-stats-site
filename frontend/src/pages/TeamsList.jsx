@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 function TeamsList() {
   const [teams, setTeams] = useState([]);
@@ -19,7 +20,7 @@ function TeamsList() {
   }, []);
 
   if (loading)
-    return <div className="p-8 text-center text-gray-300">Loading teams...</div>;
+    return <LoadingSkeleton variant="card" />;
   if (error)
     return <div className="p-8 text-red-400">Error: {error}</div>;
 

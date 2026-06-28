@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import ErrorMessage from "../components/ErrorMessage";
 import { Bar, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -31,6 +33,7 @@ function MatchDetail() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("overall");
   const [timeline, setTimeline] = useState(null);
+  const [fetchErrors, setFetchErrors] = useState([]);
   const [soulsTooltip, setSoulsTooltip] = useState(null);
   const [teamTooltip, setTeamTooltip] = useState(null);
 
@@ -52,7 +55,7 @@ function MatchDetail() {
         setTimeline(data);
       }
     } catch (err) {
-      console.error("Failed to fetch timeline:", err);
+      setFetchErrors((prev) => [...prev, "timeline"]);
     }
   };
 
@@ -64,7 +67,7 @@ function MatchDetail() {
         setHeroes(data);
       }
     } catch (err) {
-      console.error("Failed to fetch heroes:", err);
+      setFetchErrors((prev) => [...prev, "heroes"]);
     }
   };
 
@@ -92,7 +95,7 @@ function MatchDetail() {
         setAdjacentMatches(data);
       }
     } catch (err) {
-      console.error("Failed to fetch adjacent matches:", err);
+      setFetchErrors((prev) => [...prev, "adjacent matches"]);
     }
   };
 
@@ -104,7 +107,7 @@ function MatchDetail() {
         setItemsByPlayer(data);
       }
     } catch (err) {
-      console.error("Failed to fetch match items:", err);
+      setFetchErrors((prev) => [...prev, "items"]);
     }
   };
 
@@ -116,7 +119,7 @@ function MatchDetail() {
         setBuildByPlayer(data);
       }
     } catch (err) {
-      console.error("Failed to fetch match build:", err);
+      setFetchErrors((prev) => [...prev, "build"]);
     }
   };
 
@@ -141,7 +144,7 @@ function MatchDetail() {
         week,
       });
     } catch (err) {
-      console.error('Failed to fetch week metadata:', err);
+      setFetchErrors((prev) => [...prev, "week metadata"]);
     }
   };
 
@@ -203,11 +206,7 @@ function MatchDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl">Loading match details...</div>
-      </div>
-    );
+    return <LoadingSkeleton variant="detail" />;
   }
 
   if (error) {
@@ -323,6 +322,13 @@ function MatchDetail() {
 
   return (
     <div className="w-full p-8">
+      {fetchErrors.length > 0 && (
+        <div className="mb-4 max-w-3xl mx-auto rounded-lg border border-amber-500/40 bg-amber-900/20 p-4 text-center">
+          <p className="text-amber-400 text-sm font-medium">
+            Some data failed to load: {fetchErrors.join(", ")}
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6 hidden">
         <Link to="/" className="text-blue-600 hover:underline">
           ← Back to Match List

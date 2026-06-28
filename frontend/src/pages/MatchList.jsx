@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { cdnImage } from "../utils/cdn";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 // Helper to get hero icon path
 // Filenames are lowercase, underscores, & → and (e.g. "Mo & Krill" → "mo_and_krill_sm_psd.png")
@@ -511,9 +512,7 @@ function MatchList() {
       {/* Match Table */}
       <div className="bg-table border border-border-light shadow rounded-lg p-6">
         {loading ? (
-          <div className="text-center text-xl text-gray-300 py-8">
-            Loading matches...
-          </div>
+          <LoadingSkeleton variant="table-row" />
         ) : (
         <div className="overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full min-w-[600px] sm:min-w-0">

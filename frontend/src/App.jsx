@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Link,
+  useLocation,
 } from "react-router-dom";
 import MatchList from "./pages/MatchList";
 import DLNS_Header from "./components/DLNS_Header";
@@ -37,6 +38,7 @@ const VoAdmin = lazy(() =>
   import("./pages/vo_admin.jsx").then((m) => ({ default: m.VoAdmin })),
 );
 const Community = lazy(() => import("./pages/Community"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function Navigation() {
   const location = useLocation();
@@ -118,6 +120,7 @@ function App() {
               <Route path="/vo" element={<VoHub />} />
               <Route path="/vo-admin" element={<VoAdmin />} />
               <Route path="/community" element={<Community />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
 

@@ -3333,6 +3333,91 @@
               "url": "https://www.youtube.com/watch?v=AuDrx5G5puI"
             }
           ]
+        },
+        {
+          "week": 45,
+          "games": [
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "OBLIVION",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 91699909
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=Y91BOhnuisY",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "buff enjoyers",
+              "team_b": "abrahams",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 91708554
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 91716442
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 1,
+                  "match_id": 91723283
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=hp0IL1__5l0",
+              "region": "EU"
+            },
+            {
+              "team_a": "melee creeps",
+              "team_b": "bird with clock",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 91732882
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=0PHLu1wznZc",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "FPS LOUNGE",
+              "team_b": "MELEE CREEPS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 91742336
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 91751939
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 91760634
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=G6C_I0SHwII",
+              "region": "NA"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=grrTc1ZQIjk"
+            }
+          ]
         }
       ]
     },

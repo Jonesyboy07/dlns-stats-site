@@ -46,11 +46,26 @@ if not log.handlers:
         datefmt="%H:%M:%S",
     )
 
-FFMPEG_BIN = shutil.which("ffmpeg") or "C:\\ffmpeg\\bin\\ffmpeg.exe"
-if not Path(FFMPEG_BIN).exists():
-    log.warning(f"⚠️ FFmpeg not found at {FFMPEG_BIN}")
-else:
+def _resolve_ffmpeg_bin() -> str:
+    # Optional explicit override from environment.
+    env_bin = (os.environ.get("FFMPEG") or "").strip()
+    if env_bin:
+        return env_bin
+
+    detected = shutil.which("ffmpeg")
+    if detected:
+        return detected
+
+    if os.name == "nt":
+        return "C:\\ffmpeg\\bin\\ffmpeg.exe"
+    return "ffmpeg"
+
+
+FFMPEG_BIN = _resolve_ffmpeg_bin()
+if Path(FFMPEG_BIN).exists() or shutil.which(FFMPEG_BIN):
     log.info(f"🎬 Using FFmpeg: {FFMPEG_BIN}")
+else:
+    log.warning(f"⚠️ FFmpeg not found: {FFMPEG_BIN}")
 
 # =====================================================
 # ---------------- BLUEPRINT ----------------

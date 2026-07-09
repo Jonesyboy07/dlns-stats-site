@@ -23,6 +23,7 @@ from .cache import cache
 from .cache_warmup import schedule_cache_warmup
 from dotenv import load_dotenv
 from .heroes import get_hero_name
+from .help_config import load_help_config
 
 
 def create_app() -> Flask:
@@ -355,6 +356,10 @@ def create_app() -> Flask:
     @app.context_processor
     def inject_helpers():
         return dict(get_hero_name=get_hero_name, cdn_image=cdn_image)
+
+    @app.context_processor
+    def inject_help_config():
+        return dict(help_config=load_help_config())
     
     @app.template_filter("datetime")
     def format_datetime(value):
@@ -641,7 +646,7 @@ def create_app() -> Flask:
         return _send_static_with_fallback(filename)
 
     @app.get("/help")
-    @cache.cached(timeout=300)
+    @cache.cached(timeout=30)
     def help_page():  # type: ignore
         return render_template(
             "help.html",

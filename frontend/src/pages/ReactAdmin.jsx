@@ -21,6 +21,11 @@ const adminCards = [
     description: 'Assign teams, review submissions, and manage ranker player state.',
     href: '/rank/admin',
   },
+  {
+    title: 'Help Config Editor',
+    description: 'Edit the modular help page content and the shared help banner.',
+    href: '/react-admin/help-config',
+  },
 ];
 
 export default function ReactAdmin() {

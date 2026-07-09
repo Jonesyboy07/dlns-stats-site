@@ -204,6 +204,79 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    const helpWantedBanner = document.getElementById('helpWantedBanner');
+    const renderHelpWantedBanner = (config) => {
+        if (!helpWantedBanner) return;
+        helpWantedBanner.innerHTML = '';
+
+        const banner = config?.banner || config || {};
+
+        if (!banner || !banner.enabled) {
+            helpWantedBanner.hidden = true;
+            return;
+        }
+
+        const badge = document.createElement('div');
+        badge.className = 'help-wanted-banner__badge';
+        badge.textContent = banner.badge || 'Help wanted';
+
+        const title = document.createElement('h2');
+        title.className = 'help-wanted-banner__title';
+        title.textContent = banner.title || 'Want to help the project?';
+
+        const message = document.createElement('p');
+        message.className = 'help-wanted-banner__message';
+        message.textContent = banner.message || '';
+
+        const details = Array.isArray(banner.details) ? banner.details.filter(Boolean) : [];
+        const list = document.createElement('ul');
+        list.className = 'help-wanted-banner__list';
+        details.forEach((detail) => {
+            const item = document.createElement('li');
+            item.textContent = detail;
+            list.appendChild(item);
+        });
+
+        const ctaConfig = banner.cta || {};
+        const cta = document.createElement('a');
+        cta.className = 'btn accent help-wanted-banner__cta';
+        cta.textContent = ctaConfig.label || 'Read the help page';
+        cta.href = ctaConfig.url || '/help';
+
+        const content = document.createElement('div');
+        content.className = 'help-wanted-banner__content';
+        content.appendChild(badge);
+        content.appendChild(title);
+        content.appendChild(message);
+        if (details.length > 0) {
+            content.appendChild(list);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'help-wanted-banner__actions';
+        actions.appendChild(cta);
+
+        const layout = document.createElement('div');
+        layout.className = 'help-wanted-banner__layout';
+        layout.appendChild(content);
+        layout.appendChild(actions);
+
+        helpWantedBanner.appendChild(layout);
+        helpWantedBanner.hidden = false;
+    };
+
+    const loadHelpWantedBanner = async () => {
+        if (!helpWantedBanner) return;
+        try {
+            renderHelpWantedBanner(window.__DLNS_HELP_CONFIG__ || {});
+        } catch (error) {
+            warn('Could not load help banner:', error);
+            helpWantedBanner.hidden = true;
+        }
+    };
+
+    loadHelpWantedBanner();
+
     // ========================
     // Home Page Pagination
     // ========================

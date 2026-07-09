@@ -14,6 +14,8 @@ from flask import Blueprint, current_app, jsonify, request
 from ..cache import cache
 from dotenv import load_dotenv
 from ..heroes import get_hero_name
+from ..utils.auth import require_admin
+from ..help_config import load_help_config, save_help_config
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -55,6 +57,81 @@ def _matches_json_path() -> Path:
         if candidate.exists():
             return candidate
     return candidates[0]
+
+
+def _site_banner_path() -> Path:
+    configured = current_app.config.get("SITE_BANNER_PATH")
+    if configured:
+        return Path(str(configured)).resolve()
+    project_root = Path(current_app.root_path).parent.parent
+    return project_root / "data" / "site_banner.json"
+
+
+def _default_site_banner() -> dict[str, Any]:
+    return {
+        "enabled": True,
+        "badge": "Help wanted",
+        "title": "Want to help the project?",
+        "message": "We are looking for people who can help improve DLNS Stats with data cleanup, UI polish, and documentation.",
+        "details": [
+            "Match data cleanup and validation",
+            "UI, accessibility, and layout polish",
+            "Documentation, bug fixes, and feature ideas",
+        ],
+        "cta": {
+            "label": "Read the help page",
+            "url": "/help",
+        },
+    }
+
+
+def _normalize_site_banner(raw: Any) -> dict[str, Any]:
+    default = _default_site_banner()
+    if not isinstance(raw, dict):
+        return default
+
+    details = raw.get("details")
+    if not isinstance(details, list):
+        details = default["details"]
+
+    cta = raw.get("cta")
+    if not isinstance(cta, dict):
+        cta = default["cta"]
+
+    return {
+        "enabled": bool(raw.get("enabled", default["enabled"])),
+        "badge": str(raw.get("badge") or default["badge"]).strip(),
+        "title": str(raw.get("title") or default["title"]).strip(),
+        "message": str(raw.get("message") or default["message"]).strip(),
+        "details": [str(item).strip() for item in details if str(item).strip()],
+        "cta": {
+            "label": str(cta.get("label") or default["cta"]["label"]).strip(),
+            "url": str(cta.get("url") or default["cta"]["url"]).strip(),
+        },
+    }
+
+
+def _load_site_banner() -> dict[str, Any]:
+    path = _site_banner_path()
+    try:
+        with path.open("r", encoding="utf-8-sig") as f:
+            raw = json.load(f)
+    except FileNotFoundError:
+        return _default_site_banner()
+    except Exception:
+        return _default_site_banner()
+    return _normalize_site_banner(raw)
+
+
+def _write_site_banner(payload: dict[str, Any]) -> dict[str, Any]:
+    path = _site_banner_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    tmp_path.replace(path)
+    return payload
 
 
 def _replay_share_api_url() -> str:
@@ -375,6 +452,38 @@ def weeks_map():  # type: ignore
             "selected_event_title": event_title_filter or None,
         }
     )
+
+
+@bp.get("/help-config")
+@require_admin
+def help_config():
+    """Return the modular help configuration for admins."""
+    resp = jsonify(load_help_config())
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@bp.route("/help-config", methods=["PUT", "POST"])
+@require_admin
+def update_help_config():
+    """Update the modular help configuration."""
+    raw = request.get_json(silent=True)
+    if not isinstance(raw, dict):
+        return jsonify({"ok": False, "error": "JSON body required"}), 400
+
+    config = save_help_config(raw)
+    resp = jsonify({"ok": True, "help_config": config})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@bp.get("/site-banner")
+@require_admin
+def site_banner_alias():
+    """Deprecated banner alias kept for compatibility."""
+    resp = jsonify({"banner": load_help_config().get("banner", {})})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @bp.get("/stats/overview")

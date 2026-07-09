@@ -201,6 +201,9 @@
   
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
   <script>
+    window.__DLNS_HELP_CONFIG__ = {{ help_config | default({}, true) | tojson }};
+  </script>
+  <script>
     // Sidebar functionality
     document.addEventListener('DOMContentLoaded', function() {
       const menuToggle = document.getElementById('menuToggle');

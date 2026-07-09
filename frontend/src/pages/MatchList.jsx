@@ -48,6 +48,8 @@ function MatchList() {
   const [playersLoaded, setPlayersLoaded] = useState(false);
   const playerRef = useRef(null);
 
+  const [bannerConfig, setBannerConfig] = useState(null);
+
   // Load week map and week options for the selected series
   useEffect(() => {
     const url = seriesFilter
@@ -132,6 +134,11 @@ function MatchList() {
   useEffect(() => {
     fetchMatches();
   }, [page, heroFilter, playerFilter, seriesFilter, weekFilter]);
+
+  useEffect(() => {
+    const injectedConfig = window.__DLNS_HELP_CONFIG__ || {};
+    setBannerConfig(injectedConfig);
+  }, []);
 
   // Update hero suggestions
   useEffect(() => {
@@ -319,9 +326,57 @@ function MatchList() {
     );
   }
 
+  const banner = bannerConfig?.banner || {};
+  const bannerEnabled = !!banner.enabled;
+  const bannerDetails = Array.isArray(banner.details)
+    ? banner.details.filter(Boolean)
+    : [];
+  const bannerCta = banner.cta || {};
+
   return (
     <div className="w-full px-4 sm:p-8">
-      <h1 className="text-gray-100 text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Match List</h1>
+      {bannerEnabled && (
+        <section className="mb-5 rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/18 via-slate-900/95 to-slate-950 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.28)] sm:px-5 sm:py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-4xl">
+              <div className="mb-3 inline-flex items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">
+                {banner.badge || "Help wanted"}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                {banner.title || "Want to help the project?"}
+              </h2>
+              <p className="text-sm sm:text-base text-slate-300 max-w-3xl">
+                {banner.message || "We are looking for contributors who can help improve DLNS Stats."}
+              </p>
+              {bannerDetails.length > 0 && (
+                <ul className="mt-4 grid gap-2 text-sm text-slate-100 sm:grid-cols-2">
+                  {bannerDetails.map((detail) => (
+                    <li
+                      key={detail}
+                      className="flex items-start gap-2 rounded-xl border border-white/5 bg-white/5 px-3 py-2"
+                    >
+                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-300" />
+                      <span>{detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              <a
+                href={bannerCta.url || "/help"}
+                className="inline-flex items-center rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-300"
+              >
+                {bannerCta.label || "Read the help page"}
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="flex items-start justify-between gap-4 mb-4 sm:mb-6">
+        <h1 className="text-gray-100 text-2xl sm:text-3xl font-bold">Match List</h1>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">

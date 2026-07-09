@@ -50,6 +50,9 @@
 </head>
 <body>
   <div id="root"></div>
+  <script>
+    window.__DLNS_HELP_CONFIG__ = {{ help_config | default({}, true) | tojson }};
+  </script>
 
   <!-- React scripts will be injected by Vite -->
   {% if page == "sounds" %}
@@ -86,6 +89,8 @@
     <script type="module" src="{{ url_for('static', filename='react-app/items.js') }}"></script>
   {% elif page == "match_admin" %}
     <script type="module" src="{{ url_for('static', filename='react-app/match_admin.js') }}"></script>
+  {% elif page == "site_banner_admin" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/site_banner_admin.js') }}"></script>
   {% endif %}
 </body>
 </html>

@@ -1,0 +1,99 @@
+{
+  "title": "Help & Contribute",
+  "intro": "Want to help improve DLNS Stats? Pick a task that fits your time and skill level.",
+  "banner": {
+    "enabled": true,
+    "badge": "Help wanted",
+    "title": "Want to help the project?",
+    "message": "We are looking for people who can help improve DLNS Stats with data cleanup, UI polish, and documentation.",
+    "details": [
+      "Match data cleanup and validation",
+      "UI, accessibility, and layout polish",
+      "Documentation, bug fixes, and feature ideas"
+    ],
+    "cta": {
+      "label": "Read the help page",
+      "url": "/help"
+    }
+  },
+  "sections": [
+    {
+      "id": "small",
+      "title": "Small Contributions",
+      "icon": "⚡",
+      "accent": "#6366f1",
+      "body": "Found a bug, typo, or small UI issue? These are the easiest places to start.",
+      "bullets": [
+        "Bug fixes",
+        "UI improvements",
+        "Documentation updates",
+        "Small feature additions",
+        "Code optimizations"
+      ],
+      "cta": {
+        "label": "View Repository",
+        "url": "https://github.com/Jonesyboy07/dlns-stats-site"
+      }
+    },
+    {
+      "id": "major",
+      "title": "Major Contributions",
+      "icon": "🚀",
+      "accent": "#8b5cf6",
+      "body": "Have bigger ideas or want to collaborate regularly? We can use help with larger features.",
+      "bullets": [
+        "New major features",
+        "Architecture discussions",
+        "Long-term project planning",
+        "Regular collaboration",
+        "Backend improvements"
+      ],
+      "cta": {
+        "label": "Message on Discord",
+        "url": "https://discord.com"
+      }
+    },
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "icon": "🛠",
+      "accent": "#10b981",
+      "body": "A practical path to jump in and make a change.",
+      "steps": [
+        "Fork the repository on GitHub",
+        "Clone your fork locally",
+        "Install dependencies with pip install -r requirements.txt",
+        "Make your changes",
+        "Test your changes",
+        "Submit a pull request"
+      ],
+      "subsections": [
+        {
+          "title": "Tech Stack",
+          "bullets": [
+            "Backend: Python Flask",
+            "Templates: Jinja templating engine",
+            "Database: SQLite",
+            "Styling: PicoCSS, CSS (inline & file-based)",
+            "JavaScript: File-based JavaScript",
+            "Caching: Flask-Caching"
+          ]
+        }
+      ]
+    }
+  ],
+  "support": {
+    "title": "Other Ways to Help",
+    "body": "Not a developer? You can still help by supporting the project, sharing it, or sending feedback. You can also subscribe to the DLNS patreon to support them!",
+    "links": [
+      {
+        "label": "Ko-fi",
+        "url": "https://ko-fi.com/jonesy_alr"
+      },
+      {
+        "label": "Patreon",
+        "url": "https://www.patreon.com/deadlocknightshift"
+      }
+    ]
+  }
+}

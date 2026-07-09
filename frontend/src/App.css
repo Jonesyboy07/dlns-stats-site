@@ -225,3 +225,26 @@
     --color-badge-border: oklch(100% 0 none / 0.08);
   }
 
+html.matchlist-theme-dark {
+  --color-base: oklch(0.12 0.015 279.82);
+  --color-panel: oklch(0.16 0.018 279.82);
+  --color-card: oklch(0.10 0.013 279.82);
+  --color-table: oklch(0.075 0.01 279.82);
+  --color-input: oklch(0.155 0.018 279.82);
+  --color-surface: oklch(0.14 0.016 279.82);
+  --color-hover: oklch(0.18 0.02 279.82);
+  --color-border: oklch(100% 0 none / 0.06);
+  --color-border-light: oklch(100% 0 none / 0.09);
+  --color-border-lighter: oklch(100% 0 none / 0.12);
+  --color-primary: oklch(100% 0 none);
+  --color-secondary: oklch(90% 0.005 286.29);
+  --color-muted: oklch(70% 0.007 286.2);
+  --color-dim: oklch(52% 0.011 286.02);
+}
+
+html.matchlist-theme-dark body {
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.03), transparent 28%),
+    linear-gradient(180deg, #050507 0%, #09090d 45%, #08080a 100%);
+}
+

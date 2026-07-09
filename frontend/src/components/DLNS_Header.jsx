@@ -7,7 +7,17 @@ import { Link, useLocation } from 'react-router-dom';
 function DLNS_Header({ className = "" }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(undefined);
+  const [matchDarkMode, setMatchDarkMode] = useState(false);
   const location = useLocation();
+  const darkModeStorageKey = 'dlns.matchlist.darkMode';
+
+  const showMatchThemeToggle =
+    location.pathname === '/' ||
+    location.pathname === '/matchlist' ||
+    location.pathname.startsWith('/match/') ||
+    location.pathname.startsWith('/series/') ||
+    location.pathname === '/week' ||
+    location.pathname.startsWith('/week/');
 
   useEffect(() => {
     fetch('/auth/api/me', { credentials: 'include' })
@@ -15,6 +25,29 @@ function DLNS_Header({ className = "" }) {
       .then(data => setUser(data.ok ? data.user : null))
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(() => {
+    try {
+      setMatchDarkMode(localStorage.getItem(darkModeStorageKey) === '1');
+    } catch {
+      setMatchDarkMode(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('matchlist-theme-dark', matchDarkMode && showMatchThemeToggle);
+
+    try {
+      localStorage.setItem(darkModeStorageKey, matchDarkMode ? '1' : '0');
+    } catch {
+      // Ignore storage failures.
+    }
+
+    return () => {
+      root.classList.remove('matchlist-theme-dark');
+    };
+  }, [matchDarkMode, showMatchThemeToggle]);
 
   // Close menu on navigation
   useEffect(() => {
@@ -67,6 +100,19 @@ function DLNS_Header({ className = "" }) {
 
           {/* Auth + Hamburger */}
           <div className="flex items-center gap-3">
+            {showMatchThemeToggle && (
+              <button
+                type="button"
+                onClick={() => setMatchDarkMode((current) => !current)}
+                className="hidden sm:inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                aria-pressed={matchDarkMode}
+                title="Toggle darker match theme"
+              >
+                <span className={`h-2.5 w-2.5 rounded-full ${matchDarkMode ? 'bg-emerald-300' : 'bg-slate-500'}`} />
+                {matchDarkMode ? 'Lighten matches' : 'Darker matches'}
+              </button>
+            )}
+
             {/* Auth desktop */}
             <div className="hidden sm:flex items-center gap-3">
               {user === undefined ? null : user ? (
@@ -130,6 +176,16 @@ function DLNS_Header({ className = "" }) {
               </Link>
             ))}
             <hr className="border-white/10 my-2" />
+            {showMatchThemeToggle && (
+              <button
+                type="button"
+                onClick={() => setMatchDarkMode((current) => !current)}
+                className="block w-full px-3 py-2 text-left text-sm font-medium rounded-md transition-colors text-white/80 hover:text-white hover:bg-white/10"
+                aria-pressed={matchDarkMode}
+              >
+                {matchDarkMode ? 'Lighten matches' : 'Darker matches'}
+              </button>
+            )}
             {/* Auth mobile */}
             {user === undefined ? null : user ? (
               <div className="flex items-center justify-between px-3 py-2">

@@ -25,6 +25,7 @@ const TeamDetail = lazy(() => import("./pages/TeamDetail"));
 const WeekList = lazy(() => import("./pages/WeekList"));
 const WeekDetail = lazy(() => import("./pages/WeekDetail"));
 const ReactAdmin = lazy(() => import("./pages/ReactAdmin"));
+const SiteBannerAdmin = lazy(() => import("./pages/SiteBannerAdmin"));
 const SoundLibrary = lazy(() =>
   import("./pages/sounds.jsx").then((m) => ({ default: m.SoundLibrary })),
 );
@@ -115,6 +116,8 @@ function App() {
               <Route path="/week" element={<WeekList />} />
               <Route path="/week/:week" element={<WeekDetail />} />
               <Route path="/react-admin" element={<ReactAdmin />} />
+              <Route path="/react-admin/help-config" element={<SiteBannerAdmin />} />
+              <Route path="/react-admin/site-banner" element={<SiteBannerAdmin />} />
               <Route path="/sounds" element={<SoundLibrary />} />
               <Route path="/sounds-dev" element={<SoundsDev />} />
               <Route path="/vo" element={<VoHub />} />

@@ -81,6 +81,18 @@ def react_admin_hub():
     return render_template('react.html', page='match_admin')
 
 
+@react_stats_bp.get('/react-admin/help-config')
+def react_help_config_admin():
+    """Serve the React help config editor page."""
+    return render_template('react.html', page='site_banner_admin')
+
+
+@react_stats_bp.get('/react-admin/site-banner')
+def react_site_banner_admin():
+    """Compatibility alias for the React help config editor page."""
+    return render_template('react.html', page='site_banner_admin')
+
+
 @react_stats_bp.get('/community')
 def community_page():
     """Serve the React Community page."""

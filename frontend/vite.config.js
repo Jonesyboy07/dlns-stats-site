@@ -19,6 +19,7 @@ export default defineConfig({
         interviews_admin: path.resolve(__dirname, 'src/entries/interviews_admin.entry.jsx'),
         matchlist: path.resolve(__dirname, 'src/entries/matchlist.entry.jsx'),
         match_detail: path.resolve(__dirname, 'src/entries/match_detail.entry.jsx'),
+        site_banner_admin: path.resolve(__dirname, 'src/entries/site_banner_admin.entry.jsx'),
         players: path.resolve(__dirname, 'src/entries/players.entry.jsx'),
         player_detail: path.resolve(__dirname, 'src/entries/player_detail.entry.jsx'),
         heroes: path.resolve(__dirname, 'src/entries/heroes.entry.jsx'),

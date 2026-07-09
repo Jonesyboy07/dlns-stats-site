@@ -75,3 +75,7 @@ data/sounds_uploads.sqlite3
 backups/
 /static/sounds
 /data/interviews
+
+# Local server config files
+data/site_banner.json
+data/help_config.json

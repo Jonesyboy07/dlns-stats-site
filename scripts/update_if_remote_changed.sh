@@ -76,6 +76,11 @@ if [ "$MATCHES_CHANGED" = "true" ]; then
   "$APP_DIR/scripts/update_db_from_matches.sh"
 else
   log "Skipping DB update because data/matches.json did not change."
+  log "Refetching all cached users..."
+  python3 "$APP_DIR/backend/main.py" \
+    -db "$APP_DIR/data/dlns.sqlite3" \
+    -cache "$APP_DIR/data/user_cache.json" \
+    -userfetch "true"
 fi
 
 log "Fixing ownership..."

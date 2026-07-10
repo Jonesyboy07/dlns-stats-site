@@ -26,6 +26,7 @@ load_dotenv()
 DEFAULT_DATA_DIR = Path.cwd() / "data"
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "dlns.sqlite3"
 DEFAULT_CACHE_PATH = DEFAULT_DATA_DIR / "user_cache.json"
+DEFAULT_AVATAR_CACHE_PATH = DEFAULT_DATA_DIR / "avatar_cache.json"
 DEFAULT_STATUS_PATH = DEFAULT_DATA_DIR / "matches_status.json"
 DEFAULT_HERO_CACHE_PATH = DEFAULT_DATA_DIR / "hero_names.json"
 DEFAULT_MATCH_CONCURRENCY = 4
@@ -284,12 +285,16 @@ def resolve_names_with_cache(
 	avatar_cache: Optional[Dict[str, str]] = None,
 ) -> Dict[int, str]:
 	# cache maps account_id (as string) -> persona
+	# avatar_cache maps account_id (as string) -> avatar_url (or empty string if none)
 	to_lookup: List[int] = []
 	for aid in account_ids:
 		if aid is None:
 			continue
 		s = str(int(aid))
 		if s not in cache or not cache[s]:
+			to_lookup.append(int(aid))
+		elif avatar_cache is not None and s not in avatar_cache:
+			# Have a cached name but never fetched avatar — re-fetch to get it
 			to_lookup.append(int(aid))
 
 	resolved: Dict[int, str] = {}
@@ -306,8 +311,8 @@ def resolve_names_with_cache(
 			resolved[a] = persona
 			if avatar_cache is not None:
 				avatar_url = entry.get("avatar_url") or ""
-				if avatar_url:
-					avatar_cache[str(a)] = avatar_url
+				# Store even if empty — prevents re-fetching users with no Steam avatar
+				avatar_cache[str(a)] = avatar_url
 
 	# fill any already-cached values
 	for aid in account_ids:
@@ -338,8 +343,8 @@ def refetch_all_cached_users(
 			cache[str(aid)] = persona
 		if avatar_cache is not None:
 			avatar_url = entry.get("avatar_url") or ""
-			if avatar_url:
-				avatar_cache[str(aid)] = avatar_url
+			# Store even if empty — prevents re-fetching users with no Steam avatar
+			avatar_cache[str(aid)] = avatar_url
 	return cache
 
 
@@ -1564,6 +1569,7 @@ def process_match_into_db(
 	conn: sqlite3.Connection,
 	match_id: int,
 	cache: Dict[str, str],
+	cache_path: Path,
 	steam_api_key: str,
 	event_title: Optional[str] = None,
 	event_week: Optional[int] = None,
@@ -1590,11 +1596,16 @@ def process_match_into_db(
 		event_region=event_region,
 	)
 
-	# Resolve names for all players (cached + API as needed)
+	# Load persisted avatar cache
+	avatar_cache_path = Path(cache_path).parent / "avatar_cache.json"
+	avatar_cache: Dict[str, str] = load_json(avatar_cache_path, default={})
+	if not isinstance(avatar_cache, dict):
+		avatar_cache = {}
+
+	# Resolve names for all players (cached + API as needed) — also fetches missing avatars
 	players = (match_info.get("players") or [])
 	account_ids = [p.get("account_id") for p in players if p.get("account_id") is not None]
 	account_ids_int = [int(a) for a in account_ids]
-	avatar_cache: Dict[str, str] = {}
 	name_map = resolve_names_with_cache(account_ids_int, cache, steam_api_key, avatar_cache)
 
 	winning_team = match_info.get("winning_team")
@@ -1606,6 +1617,9 @@ def process_match_into_db(
 	for aid in account_ids_int:
 		upsert_user(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
 
+	# Persist avatar cache to disk
+	save_json(avatar_cache_path, avatar_cache)
+
 	# Recompute aggregates for all users in this match
 	recompute_user_stats_bulk(conn, account_ids_int)
 
@@ -1616,6 +1630,7 @@ async def process_match_into_db_async(
 	conn: asqlite.Connection,
 	match_id: int,
 	cache: Dict[str, str],
+	cache_path: Path,
 	steam_api_key: str,
 	db_lock: asyncio.Lock,
 	cache_lock: asyncio.Lock,
@@ -1635,7 +1650,11 @@ async def process_match_into_db_async(
 	account_ids_int = [int(a) for a in account_ids]
 
 	async with cache_lock:
-		avatar_cache: Dict[str, str] = {}
+		# Load persisted avatar cache
+		avatar_cache_path = Path(cache_path).parent / "avatar_cache.json"
+		avatar_cache: Dict[str, str] = await asyncio.to_thread(load_json, avatar_cache_path, {})
+		if not isinstance(avatar_cache, dict):
+			avatar_cache = {}
 		name_map = await asyncio.to_thread(resolve_names_with_cache, account_ids_int, cache, steam_api_key, avatar_cache)
 
 	winning_team = match_info.get("winning_team")
@@ -1659,6 +1678,9 @@ async def process_match_into_db_async(
 
 		for aid in account_ids_int:
 			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
+
+	async with cache_lock:
+		await asyncio.to_thread(save_json, avatar_cache_path, avatar_cache)
 
 		await recompute_user_stats_bulk_async(conn, account_ids_int)
 		await conn.commit()
@@ -1694,6 +1716,7 @@ async def run_match_ingest_async(
 					conn,
 					mid,
 					cache,
+					cache_path,
 					steam_api_key,
 					db_lock,
 					cache_lock,
@@ -1737,9 +1760,13 @@ def refresh_user_cache_only(conn: sqlite3.Connection, cache_path: Path, steam_ap
 	cache = load_json(cache_path, default={})
 	if not isinstance(cache, dict):
 		cache = {}
-	avatar_cache: Dict[str, str] = {}
+	avatar_cache_path = cache_path.parent / "avatar_cache.json"
+	avatar_cache: Dict[str, str] = load_json(avatar_cache_path, default={})
+	if not isinstance(avatar_cache, dict):
+		avatar_cache = {}
 	refetch_all_cached_users(cache, steam_api_key, avatar_cache)
 	save_json(cache_path, cache)
+	save_json(avatar_cache_path, avatar_cache)
 
 	# Mirror to DB users table
 	for k, v in cache.items():

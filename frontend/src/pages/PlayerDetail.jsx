@@ -10,6 +10,7 @@ function PlayerDetail() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedHero, setExpandedHero] = useState(null);
 
   useEffect(() => {
     fetchPlayerData();
@@ -52,6 +53,13 @@ function PlayerDetail() {
     return new Date(dateString).toLocaleString();
   };
 
+  const formatDuration = (seconds) => {
+    if (seconds == null) return "-";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
   const teamName = (team) => {
     return team === 0 ? "Amber" : team === 1 ? "Sapphire" : "Unknown";
   };
@@ -62,6 +70,11 @@ function PlayerDetail() {
       .replace(/&/g, "and")
       .replace(/\s+/g, "_");
     return cdnImage(`cardicons/${slug}_card_psd.png`);
+  };
+
+  const getHeroIcon = (heroName) => {
+    const slug = heroName.toLowerCase().replace(/\s+/g, "_");
+    return cdnImage(`hero icons/${slug}_sm_psd.png`);
   };
 
   const [expandedTeams, setExpandedTeams] = useState({});
@@ -157,8 +170,7 @@ function PlayerDetail() {
       heroMap[id].assists += match.assists || 0;
     }
     return Object.values(heroMap)
-      .sort((a, b) => b.games - a.games)
-      .slice(0, 5);
+      .sort((a, b) => b.games - a.games);
   };
 
   if (loading) {
@@ -307,8 +319,8 @@ function PlayerDetail() {
           {/* Most Played Heroes */}
           {matches.length > 0 && (
             <div className="bg-panel text-gray-300 shadow rounded-lg p-5">
-              <h2 className="text-lg font-bold mb-3">Most Played Heroes</h2>
-              <div className="overflow-x-auto">
+              <h2 className="text-lg font-bold mb-3">Heroes</h2>
+              <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-700">
@@ -317,57 +329,144 @@ function PlayerDetail() {
                       <th className="text-left py-2">W-L</th>
                       <th className="text-left py-2">Avg KDA</th>
                       <th className="text-left py-2">Win Rate</th>
+                      <th className="text-right py-2"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {getMostPlayedHeroes().map((hero) => (
-                      <tr
-                        key={hero.hero_id}
-                        className="border-b border-gray-700 hover:bg-slate-800/90"
-                      >
-                        <td className="p-2">
-                          <Link
-                            to={`/player/${accountId}/hero/${hero.hero_id}`}
-                            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    {getMostPlayedHeroes().map((hero) => {
+                      const isOpen = expandedHero === hero.hero_id;
+                      const heroMatches = matches.filter(
+                        (m) => m.hero_id === hero.hero_id
+                      );
+                      return (
+                        <React.Fragment key={hero.hero_id}>
+                          <tr
+                            onClick={() =>
+                              setExpandedHero(isOpen ? null : hero.hero_id)
+                            }
+                            className="border-b border-gray-700 hover:bg-slate-800/90 cursor-pointer transition-colors"
                           >
-                            <img
-                              src={heroCardUrl(hero.hero_name)}
-                              alt={hero.hero_name}
-                              className="w-10 h-12 object-cover border border-slate-800/90 rounded-xs"
-                              onError={(e) => { e.target.style.display = "none"; }}
-                            />
-                            <span className="font-medium text-blue-600 hover:underline">
-                              {hero.hero_name}
-                            </span>
-                          </Link>
-                        </td>
-                        <td>{hero.games}</td>
-                        <td>
-                          <span className="text-green-600">{hero.wins}</span>
-                          <span className="text-gray-400"> - </span>
-                          <span className="text-red-600">{hero.games - hero.wins}</span>
-                        </td>
-                        <td>
-                          {((hero.kills + hero.assists) / Math.max(hero.deaths, 1)).toFixed(2)}
-                          <span className="text-gray-400 text-xs ml-1">
-                            ({(hero.kills / hero.games).toFixed(1)} /{" "}
-                            {(hero.deaths / hero.games).toFixed(1)} /{" "}
-                            {(hero.assists / hero.games).toFixed(1)})
-                          </span>
-                        </td>
-                        <td>
-                          <div className="flex items-center gap-2">
-                            <div className="w-20 bg-slate-600 rounded-full h-2">
-                              <div
-                                className="bg-green-500 h-2 rounded-full"
-                                style={{ width: `${((hero.wins / hero.games) * 100).toFixed(0)}%` }}
-                              />
-                            </div>
-                            <span>{((hero.wins / hero.games) * 100).toFixed(0)}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                            <td className="p-2">
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={heroCardUrl(hero.hero_name)}
+                                  alt={hero.hero_name}
+                                  className="w-10 h-12 object-cover border border-slate-800/90 rounded-xs flex-shrink-0"
+                                  onError={(e) => { e.target.style.display = "none"; }}
+                                />
+                                <img
+                                  src={getHeroIcon(hero.hero_name)}
+                                  alt=""
+                                  className="w-7 h-7 rounded object-cover flex-shrink-0"
+                                  onError={(e) => { e.target.style.display = "none"; }}
+                                />
+                                <Link
+                                  to={`/player/${accountId}/hero/${hero.hero_id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="font-medium text-blue-400 hover:underline"
+                                >
+                                  {hero.hero_name}
+                                </Link>
+                              </div>
+                            </td>
+                            <td className="p-2">{hero.games}</td>
+                            <td className="p-2">
+                              <span className="text-green-500">{hero.wins}</span>
+                              <span className="text-gray-500"> - </span>
+                              <span className="text-red-500">{hero.games - hero.wins}</span>
+                            </td>
+                            <td className="p-2">
+                              {((hero.kills + hero.assists) / Math.max(hero.deaths, 1)).toFixed(2)}
+                              <span className="text-gray-500 text-xs ml-1">
+                                ({(hero.kills / hero.games).toFixed(1)} /{" "}
+                                {(hero.deaths / hero.games).toFixed(1)} /{" "}
+                                {(hero.assists / hero.games).toFixed(1)})
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 bg-slate-700 rounded-full h-2">
+                                  <div
+                                    className="bg-green-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${((hero.wins / hero.games) * 100).toFixed(0)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs">{((hero.wins / hero.games) * 100).toFixed(0)}%</span>
+                              </div>
+                            </td>
+                            <td className="p-2 text-right text-xs text-gray-500">
+                              {isOpen ? "▲" : "▼"}
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr>
+                              <td colSpan={6} className="p-0">
+                                <div className="bg-gray-800/60 border-t border-b border-gray-700/60">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-gray-700/50 text-gray-400">
+                                        <th className="text-left py-1.5 px-3 font-semibold">Match</th>
+                                        <th className="text-left py-1.5 px-3 font-semibold">Result</th>
+                                        <th className="text-left py-1.5 px-3 font-semibold">K/D/A</th>
+                                        <th className="text-left py-1.5 px-3 font-semibold">Duration</th>
+                                        <th className="text-left py-1.5 px-3 font-semibold">Date</th>
+                                        <th className="text-left py-1.5 px-3 font-semibold">Week</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {heroMatches.map((m) => (
+                                        <tr key={m.match_id} className="border-b border-gray-700/30 hover:bg-gray-700/40">
+                                          <td className="py-1.5 px-3">
+                                            <Link
+                                              to={`/match/${m.match_id}`}
+                                              className="text-blue-400 hover:underline font-mono"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {m.match_id}
+                                            </Link>
+                                          </td>
+                                          <td className="py-1.5 px-3">
+                                            <span className={`font-semibold ${m.result === "Win" ? "text-green-500" : "text-red-500"}`}>
+                                              {m.result || "-"}
+                                            </span>
+                                          </td>
+                                          <td className="py-1.5 px-3 text-gray-200">
+                                            {m.kills || 0} / {m.deaths || 0} / {m.assists || 0}
+                                          </td>
+                                          <td className="py-1.5 px-3 text-gray-400">
+                                            {formatDuration(m.duration_s)}
+                                          </td>
+                                          <td className="py-1.5 px-3 text-gray-400 whitespace-nowrap">
+                                            {m.start_time
+                                              ? new Date(m.start_time).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                                              : m.created_at
+                                                ? new Date(m.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                                                : "-"}
+                                          </td>
+                                          <td className="py-1.5 px-3">
+                                            {m.event_team_a || m.event_team_b ? (
+                                              <Link
+                                                to={`/series/${m.match_id}`}
+                                                className="text-blue-400 hover:underline"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                {m.event_week != null ? `Night Shift ${m.event_week}` : "Series"}
+                                              </Link>
+                                            ) : (
+                                              <span className="text-gray-500">—</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

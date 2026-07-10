@@ -460,6 +460,8 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                 matches_path = db_path.parent / "matches.json"
                 user_cache_path = db_path.parent / "user_cache.json"
                 user_cache = load_json(user_cache_path, {}) or {}
+                avatar_cache_path = db_path.parent / "avatar_cache.json"
+                avatar_cache = load_json(avatar_cache_path, {}) or {}
 
                 series_title = payload["title"]
                 week = payload.get("week")
@@ -571,7 +573,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                         name_by_id: Dict[int, str] = {}
                         if STEAM_API_KEY and player_account_ids:
                             try:
-                                name_by_id = resolve_names_with_cache(player_account_ids, user_cache, STEAM_API_KEY)
+                                name_by_id = resolve_names_with_cache(player_account_ids, user_cache, STEAM_API_KEY, avatar_cache)
                             except Exception:
                                 # Non-fatal: ingest should still continue with existing DB/cache names.
                                 name_by_id = {}
@@ -579,7 +581,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                         if player_account_ids:
                             placeholders = ",".join("?" * len(player_account_ids))
                             rows = conn.execute(
-                                f"SELECT account_id, persona_name FROM users WHERE account_id IN ({placeholders})",
+                                f"SELECT account_id, persona_name, avatar_url FROM users WHERE account_id IN ({placeholders})",
                                 tuple(player_account_ids),
                             ).fetchall()
                             for row in rows:
@@ -590,6 +592,10 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                                 pname = row[1]
                                 if pname:
                                     name_by_id.setdefault(aid, str(pname))
+                                # Seed avatar_cache from DB so we don't re-fetch unnecessarily
+                                av = row[2]
+                                if av:
+                                    avatar_cache.setdefault(str(aid), str(av))
     
                         side = _winner_hint_to_team_a_side(
                             winner_hint,
@@ -628,6 +634,10 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                                     pass
                             upsert_player(conn, match_id, player, winning_team, name_by_id)
     
+                        # Persist user rows (including avatar_url) to DB
+                        for aid in account_ids:
+                            upsert_user(conn, int(aid), name_by_id.get(int(aid)) or user_cache.get(str(aid)), avatar_cache.get(str(aid)))
+    
                         matches_for_json.append(
                             {
                                 "team_a": team_a,
@@ -648,6 +658,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
 
             try:
                 save_json(user_cache_path, user_cache)
+                save_json(avatar_cache_path, avatar_cache)
             except Exception:
                 pass
 
@@ -883,6 +894,8 @@ def admin_backfill_unknown_names():
     db_path = Path(current_app.config.get('DB_PATH', './data/dlns.sqlite3'))
     user_cache_path = db_path.parent / 'user_cache.json'
     user_cache = load_json(user_cache_path, {}) or {}
+    avatar_cache_path = db_path.parent / 'avatar_cache.json'
+    avatar_cache = load_json(avatar_cache_path, {}) or {}
 
     conn: Optional[sqlite3.Connection] = None
     try:
@@ -949,7 +962,7 @@ def admin_backfill_unknown_names():
         unresolved = [aid for aid in candidate_ids if aid not in name_by_id]
         if unresolved and STEAM_API_KEY:
             try:
-                resolved = resolve_names_with_cache(unresolved, user_cache, STEAM_API_KEY)
+                resolved = resolve_names_with_cache(unresolved, user_cache, STEAM_API_KEY, avatar_cache)
                 for account_id, persona_name in (resolved or {}).items():
                     cleaned = str(persona_name or '').strip()
                     if cleaned and cleaned.lower() not in {'unknown', 'unknown player'}:
@@ -959,7 +972,7 @@ def admin_backfill_unknown_names():
 
         updated = 0
         for account_id, persona_name in name_by_id.items():
-            upsert_user(conn, account_id, persona_name)
+            upsert_user(conn, account_id, persona_name, avatar_cache.get(str(account_id)))
             updated += 1
 
         conn.commit()
@@ -967,6 +980,7 @@ def admin_backfill_unknown_names():
 
         try:
             save_json(user_cache_path, user_cache)
+            save_json(avatar_cache_path, avatar_cache)
         except Exception:
             pass
 

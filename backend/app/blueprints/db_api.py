@@ -594,6 +594,7 @@ def stats_records():
             SELECT
                 p.{order_col} as value,
                 u.persona_name,
+                u.avatar_url,
                 p.account_id,
                 p.hero_id,
                 p.match_id,
@@ -642,6 +643,7 @@ def stats_averages():
             SELECT
                 ROUND(AVG(p.{stat_col}), 2) as value,
                 u.persona_name,
+                u.avatar_url,
                 p.account_id,
                 COUNT(*) as games_played,
                 (SELECT p2.hero_id FROM players p2
@@ -836,7 +838,7 @@ def latest_matches_paged():  # type: ignore
         if match_ids:
             placeholders = ",".join("?" * len(match_ids))
             pcur = conn.execute(
-                f"SELECT p.match_id, p.team, p.hero_id, u.persona_name, p.account_id "
+                f"SELECT p.match_id, p.team, p.hero_id, u.persona_name, u.avatar_url, p.account_id "
                 f"FROM players p LEFT JOIN users u ON u.account_id = p.account_id "
                 f"WHERE p.match_id IN ({placeholders}) ORDER BY p.team, p.player_slot",
                 tuple(match_ids)
@@ -996,7 +998,7 @@ def match_replay(match_id: int):
 def match_players(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT p.*, u.persona_name FROM players p "
+            "SELECT p.*, u.persona_name, u.avatar_url FROM players p "
             "LEFT JOIN users u ON u.account_id = p.account_id "
             "WHERE p.match_id = ? ORDER BY p.team, p.player_slot",
             (match_id,),
@@ -1311,7 +1313,7 @@ def match_build(match_id: int):  # type: ignore
 def match_user_stats(match_id: int, account_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT p.*, u.persona_name FROM players p "
+            "SELECT p.*, u.persona_name, u.avatar_url FROM players p "
             "LEFT JOIN users u ON u.account_id = p.account_id "
             "WHERE p.match_id = ? AND p.account_id = ?",
             (match_id, account_id),
@@ -1663,6 +1665,7 @@ def hero_top_players(hero_id: int):
             SELECT
                 p.account_id,
                 u.persona_name,
+                u.avatar_url,
                 COUNT(*) as games_played,
                 SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) as wins
             FROM players p
@@ -1781,7 +1784,7 @@ def series_detail(match_id: int):
                 f"""
                 SELECT p.match_id, p.team, p.hero_id, p.account_id,
                        p.kills, p.deaths, p.assists, p.result,
-                       u.persona_name
+                       u.persona_name, u.avatar_url
                 FROM players p
                 LEFT JOIN users u ON u.account_id = p.account_id
                 WHERE p.match_id IN ({placeholders})
@@ -1871,6 +1874,7 @@ def get_team_detail(team_name: str):
             SELECT
                 p.account_id,
                 u.persona_name,
+                u.avatar_url,
                 COUNT(DISTINCT m.match_id) AS appearances,
                 MAX(m.event_week) AS last_week,
                 MIN(m.event_week) AS first_week
@@ -1885,7 +1889,7 @@ def get_team_detail(team_name: str):
                 OR
                 (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
               )
-            GROUP BY p.account_id, u.persona_name
+            GROUP BY p.account_id, u.persona_name, u.avatar_url
             ORDER BY appearances DESC, u.persona_name ASC
             LIMIT 200
             """,
@@ -1998,7 +2002,7 @@ def nightshift_week(week: int):
                 f"""
                 SELECT p.match_id, p.team, p.hero_id, p.kills, p.deaths, p.assists,
                        p.net_worth, p.player_damage, p.player_healing,
-                       p.account_id, u.persona_name
+                       p.account_id, u.persona_name, u.avatar_url
                 FROM players p
                 LEFT JOIN users u ON u.account_id = p.account_id
                 WHERE p.match_id IN ({placeholders})

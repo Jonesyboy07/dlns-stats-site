@@ -540,13 +540,13 @@ def create_app() -> Flask:
         limit = 20
         with get_ro_conn() as conn:
             ucur = conn.execute(
-                "SELECT account_id, persona_name, updated_at FROM users WHERE account_id = ?",
+                "SELECT account_id, persona_name, avatar_url, updated_at FROM users WHERE account_id = ?",
                 (account_id,)
             )
             urow = ucur.fetchone()
             if not urow:
                 return render_template("user.html", user=None, stats=None, matches=[]), 404
-            user = {"account_id": urow[0], "persona_name": urow[1], "updated_at": urow[2]}
+            user = {"account_id": urow[0], "persona_name": urow[1], "avatar_url": urow[2], "updated_at": urow[3]}
             scur = conn.execute("SELECT * FROM user_stats WHERE account_id = ?", (account_id,))
             scolumns = [c[0] for c in scur.description] if scur.description else []
             srow = scur.fetchone()

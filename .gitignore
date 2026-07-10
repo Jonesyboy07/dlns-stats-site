@@ -79,3 +79,4 @@ backups/
 # Local server config files
 data/site_banner.json
 data/help_config.json
+data/user_cache.json

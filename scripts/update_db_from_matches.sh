@@ -45,4 +45,12 @@ echo
     -recheckall "$RECHECK"
 
 echo
+echo "Refetching all cached users..."
+
+"$PYTHON_EXE" backend/main.py \
+    -db "$DB_PATH" \
+    -cache "$CACHE_PATH" \
+    -userfetch "true"
+
+echo
 echo "DB update complete."

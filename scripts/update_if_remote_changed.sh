@@ -46,18 +46,6 @@ else
   log "No change detected in data/matches.json."
 fi
 
-BACKUP_DIR="/opt/dlns-runtime-backups/$(date '+%Y%m%d-%H%M%S')"
-mkdir -p "$BACKUP_DIR"
-
-log "Backing up runtime files to $BACKUP_DIR..."
-
-for item in ".env" "data" "filehub" "instance" "public" "static/sounds"; do
-  if [ -e "$APP_DIR/$item" ]; then
-    mkdir -p "$BACKUP_DIR/$(dirname "$item")"
-    cp -a "$APP_DIR/$item" "$BACKUP_DIR/$item"
-  fi
-done
-
 log "Stopping app service before update..."
 systemctl stop "$SERVICE_NAME" || true
 

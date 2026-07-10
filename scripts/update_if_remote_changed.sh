@@ -24,6 +24,11 @@ REMOTE_COMMIT="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
   log "No remote changes."
+  log "Refetching all cached users (no code update path)..."
+  python3 "$APP_DIR/backend/main.py" \
+    -db "$APP_DIR/data/dlns.sqlite3" \
+    -cache "$APP_DIR/data/user_cache.json" \
+    -userfetch "true"
   exit 0
 fi
 

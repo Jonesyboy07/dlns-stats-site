@@ -345,7 +345,7 @@ function MatchList() {
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
                 {banner.title || "Want to help the project?"}
               </h2>
-              <p className="text-sm sm:text-base text-slate-300 max-w-3xl">
+              <p className="text-sm text-white max-w-3xl">
                 {banner.message || "We are looking for contributors who can help improve DLNS Stats."}
               </p>
               {bannerDetails.length > 0 && (

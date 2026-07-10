@@ -92,7 +92,7 @@ function HeroDetail() {
       {/* Hero Header */}
       <div className="mb-6 md:mb-8 col-span-1 md:col-span-10 flex flex-col sm:flex-row items-center sm:items-center gap-4 text-center sm:text-left">
         <img
-          src={cdnImage(`cardicons/${heroName.toLowerCase().replace(/&/g, "and").replace(/\s+/g, "_")}_card_psd.png`)}
+          src={cdnImage(`cardIcons/${heroName.toLowerCase().replace(/&/g, "and").replace(/\s+/g, "_")}_card_psd.png`)}
           alt={heroName}
           className="w-16 h-24 object-cover rounded shadow"
           onError={(e) => {
@@ -118,9 +118,9 @@ function HeroDetail() {
       {/* Abilities Section */}
       <div className="mb-6 md:mb-8 col-span-1 md:col-span-4">
         <h2 className="text-white text-center text-xl md:text-2xl font-bold">Abilities</h2>
-        <div className="flex flex-wrap justify-center gap-3 md:gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {(heroMeta?.abilities ?? Array(4).fill(null)).map((ability, i) => (
-            <div key={i} className="shadow rounded-lg p-2 flex flex-col items-center text-center">
+            <div key={i} className="shadow rounded-lg p-3 flex flex-col items-center text-center">
               <div className="relative w-24 h-24">
                 <img
                   src={cdnImage("abilities/ability_frame_standard.svg")}
@@ -129,8 +129,7 @@ function HeroDetail() {
                 />
                 {ability?.image ? (
                   <img
-                    src={staticImagePathToCdn(ability.image.startsWith("/") ? ability.image : `/${ability.image}`)}
-                    src={(ability.image.startsWith("/") ? ability.image : `/${ability.image}`).replace(/\\/g, "/")}
+                    src={staticImagePathToCdn((ability.image.startsWith("/") ? ability.image : `/${ability.image}`).replace(/\\/g, "/"))}
                     alt={ability.name ?? ""}
                     className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/5 h-2/5 object-contain opacity-75 ${ability.invert ? " invert" : ""}`}
                   />
@@ -148,7 +147,7 @@ function HeroDetail() {
       </div>
 
       {/* Hero Stats */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-6 row-span-2 md:ml-4 mt-4 md:mt-0">
+      <div className="bg-panel text-gray-200 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-6 row-span-2 md:ml-4 mt-4 md:mt-0">
         <h2 className="text-lg sm:text-xl font-bold mb-4">Stats</h2>
 
         {/* Row 1 — Averages */}
@@ -167,7 +166,7 @@ function HeroDetail() {
             ].map(([label, val]) => (
               <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
                 <p className="text-gray-500 text-xs">{label}</p>
-                <p className="text-base sm:text-lg font-bold">{val ?? "-"}</p>
+                <p className="text-base sm:text-lg font-bold text-white">{val ?? "-"}</p>
               </div>
             ))}
           </div>
@@ -187,7 +186,7 @@ function HeroDetail() {
             ].map(([label, val]) => (
               <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
                 <p className="text-gray-500 text-xs">{label}</p>
-                <p className="text-base sm:text-lg font-bold">{val ?? "-"}</p>
+                <p className="text-base sm:text-lg font-bold text-white">{val ?? "-"}</p>
               </div>
             ))}
           </div>
@@ -207,7 +206,7 @@ function HeroDetail() {
             ].map(([label, val, extraClass]) => (
               <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
                 <p className="text-gray-500 text-xs">{label}</p>
-                <p className={`text-base sm:text-lg font-bold ${extraClass || ""}`}>{val ?? "-"}</p>
+                <p className={`text-base sm:text-lg font-bold text-white ${extraClass || ""}`}>{val ?? "-"}</p>
               </div>
             ))}
           </div>

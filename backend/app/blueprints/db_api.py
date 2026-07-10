@@ -1702,18 +1702,38 @@ def hero_meta(hero_id: int):
 @bp.get("/players")
 @cache.cached(timeout=900)  # Cache for 15 minutes
 def get_players():
-    """Return list of all players from match data with their match count."""
+    """Return list of all players from match data with their match count, avatar, primary team, and win rate."""
     with get_ro_conn() as conn:
         cur = conn.execute(
             """
             SELECT 
                 p.account_id,
                 u.persona_name,
-                COUNT(DISTINCT p.match_id) as match_count
+                u.avatar_url,
+                COUNT(DISTINCT p.match_id) AS match_count,
+                COALESCE((
+                    SELECT tt.team_name
+                    FROM (
+                        SELECT
+                            CASE WHEN p2.team = 0 THEN m.event_team_a ELSE m.event_team_b END AS team_name,
+                            COUNT(*) AS cnt
+                        FROM players p2
+                        JOIN matches m ON m.match_id = p2.match_id
+                        WHERE p2.account_id = p.account_id
+                          AND CASE WHEN p2.team = 0 THEN m.event_team_a ELSE m.event_team_b END IS NOT NULL
+                        GROUP BY team_name
+                        ORDER BY cnt DESC
+                        LIMIT 1
+                    ) tt
+                ), 'Unknown') AS team_name,
+                us.winrate,
+                us.wins,
+                us.losses
             FROM players p
             LEFT JOIN users u ON u.account_id = p.account_id
+            LEFT JOIN user_stats us ON us.account_id = p.account_id
             WHERE p.account_id IS NOT NULL
-            GROUP BY p.account_id, u.persona_name
+            GROUP BY p.account_id, u.persona_name, u.avatar_url, us.winrate, us.wins, us.losses
             ORDER BY match_count DESC, u.persona_name ASC
             LIMIT 500
             """

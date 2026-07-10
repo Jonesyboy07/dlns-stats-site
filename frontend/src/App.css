@@ -176,13 +176,14 @@
     --color-hover: oklch(0.32 0.035 279.82);
 
     /* ── Accent / Brand (green) ── */
-    --color-accent: oklch(68.88% 0.187 148.92);
-    --color-accent-light: oklch(76.97% 0.2124 148.67);
-    --color-accent-gradient: linear-gradient(90deg, oklch(68.88% 0.187 148.92), oklch(76.97% 0.2124 148.67));
-    --color-accent-bg: oklch(68.88% 0.187 148.92 / 0.1);
-    --color-accent-bg-strong: oklch(68.88% 0.187 148.92 / 0.15);
-    --color-accent-border: oklch(68.88% 0.187 148.92 / 0.3);
-    --color-accent-border-strong: oklch(68.88% 0.187 148.92 / 0.6);
+    --color-accent: oklch(68.88% 0.187 300);        
+    --color-accent-light: oklch(76.97% 0.2124 300); 
+    --color-accent-gradient: linear-gradient(90deg, oklch(68.88% 0.187 300), oklch(76.97% 0.2124 300));
+    --color-accent-bg: oklch(68.88% 0.187 300 / 0.1);
+    --color-accent-bg-strong: oklch(68.88% 0.187 300 / 0.15);
+    --color-accent-border: oklch(68.88% 0.187 300 / 0.3);
+    --color-accent-border-strong: oklch(68.88% 0.187 300 / 0.6);
+    --color-accent-gradient-wide: linear-gradient(90deg, oklch(68.88% 0.187 300 / 0.9), oklch(81.36% 0.1454 217.11 / 0.9));
 
     /* ── Secondary accent (cyan) ── */
     --color-cyan: oklch(81.36% 0.1454 217.11);

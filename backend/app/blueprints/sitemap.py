@@ -66,13 +66,7 @@ def _build_sitemap_xml() -> str:
     add_url(f'{base}/community', today, 'weekly', '0.6')
     add_url(f'{base}/updates', today, 'weekly', '0.6')
     add_url(f'{base}/stats/', today, 'daily', '0.9')
-    add_url(f'{base}/sounds/', today, 'monthly', '0.5')
     add_url(f'{base}/dlns/', today, 'weekly', '0.6')
-
-    # Optional public tool pages
-    add_url(f'{base}/onelane/', today, 'weekly', '0.5')
-    add_url(f'{base}/gluten/', today, 'weekly', '0.5')
-    add_url(f'{base}/chat/', today, 'weekly', '0.5')
 
     # Dynamic content
     try:

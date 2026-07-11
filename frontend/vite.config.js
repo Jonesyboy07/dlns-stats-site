@@ -9,12 +9,6 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        sounds: path.resolve(__dirname, 'src/entries/sounds.entry.jsx'),
-        dev: path.resolve(__dirname, 'src/entries/dev.entry.jsx'),
-        rank: path.resolve(__dirname, 'src/entries/rank.entry.jsx'),
-        rank_admin: path.resolve(__dirname, 'src/entries/rank_admin.entry.jsx'),
-        vo: path.resolve(__dirname, 'src/entries/vo.entry.jsx'),
-        vo_admin: path.resolve(__dirname, 'src/entries/vo_admin.entry.jsx'),
         interviews: path.resolve(__dirname, 'src/entries/interviews.entry.jsx'),
         interviews_admin: path.resolve(__dirname, 'src/entries/interviews_admin.entry.jsx'),
         matchlist: path.resolve(__dirname, 'src/entries/matchlist.entry.jsx'),
@@ -38,14 +32,6 @@ export default defineConfig({
   server: {
     proxy: {
       '/db': {
-        target: 'http://127.0.0.1:5050',
-        changeOrigin: true,
-      },
-      '/sounds': {
-        target: 'http://127.0.0.1:5050',
-        changeOrigin: true,
-      },
-      '/rank': {
         target: 'http://127.0.0.1:5050',
         changeOrigin: true,
       },

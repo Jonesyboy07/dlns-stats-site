@@ -26,18 +26,6 @@ const WeekList = lazy(() => import("./pages/WeekList"));
 const WeekDetail = lazy(() => import("./pages/WeekDetail"));
 const ReactAdmin = lazy(() => import("./pages/ReactAdmin"));
 const SiteBannerAdmin = lazy(() => import("./pages/SiteBannerAdmin"));
-const SoundLibrary = lazy(() =>
-  import("./pages/sounds.jsx").then((m) => ({ default: m.SoundLibrary })),
-);
-const SoundsDev = lazy(() =>
-  import("./pages/dev.jsx").then((m) => ({ default: m.SoundsDev })),
-);
-const VoHub = lazy(() =>
-  import("./pages/vo.jsx").then((m) => ({ default: m.VoHub })),
-);
-const VoAdmin = lazy(() =>
-  import("./pages/vo_admin.jsx").then((m) => ({ default: m.VoAdmin })),
-);
 const Community = lazy(() => import("./pages/Community"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -52,10 +40,6 @@ function Navigation() {
     { path: "/items", label: "Items" },
     { path: "/stats", label: "Stats" },
     { path: "/weeks", label: "Night Shift" },
-    { path: "/sounds", label: "Sounds" },
-    { path: "/sounds-dev", label: "Sounds Dev" },
-    { path: "/vo", label: "VO Hub" },
-    { path: "/vo-admin", label: "VO Admin" },
   ];
 
   return (
@@ -118,10 +102,6 @@ function App() {
               <Route path="/react-admin" element={<ReactAdmin />} />
               <Route path="/react-admin/help-config" element={<SiteBannerAdmin />} />
               <Route path="/react-admin/site-banner" element={<SiteBannerAdmin />} />
-              <Route path="/sounds" element={<SoundLibrary />} />
-              <Route path="/sounds-dev" element={<SoundsDev />} />
-              <Route path="/vo" element={<VoHub />} />
-              <Route path="/vo-admin" element={<VoAdmin />} />
               <Route path="/community" element={<Community />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

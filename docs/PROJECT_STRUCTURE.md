@@ -39,7 +39,6 @@ dlns-stats-site/
 │   ├── base.html
 │   ├── react.html
 │   ├── admin/
-│   ├── vdata_editor/
 │   └── ... (other templates)
 ├── scripts/                     (utility scripts)
 │   ├── start_web.bat

@@ -6,7 +6,7 @@ It includes:
 - Match ingestion and enrichment pipelines
 - Public web pages for matches, users, and stats
 - Internal and public JSON APIs
-- React-powered sections for sounds, ranker, and VO workflows
+- React-powered sections for match, player, hero, and stats workflows
 
 ## What This Project Does
 
@@ -19,10 +19,7 @@ It includes:
   - Aggregated statistics
 - Exposes API docs through OpenAPI at /api/docs
 - Hosts additional tools:
-  - /sounds
   - /dlns
-  - /rank
-  - /vo
 
 ## Tech Stack
 
@@ -119,7 +116,7 @@ http://localhost:5050
 
 ## Frontend Build (React)
 
-The React app in frontend outputs built files into static/react-app.
+The React app in frontend outputs built files into public/react-app.
 
 ```bash
 cd frontend
@@ -133,9 +130,10 @@ Use this after changing files in frontend/src.
 ```text
 main.py                 Data ingestion/processing
 main_web.py             Flask app factory and route wiring
-blueprints/             Feature blueprints (db, auth, stats, sounds, rank, vo, etc.)
+blueprints/             Feature blueprints (db, auth, stats, interviews, etc.)
 templates/              Server-rendered HTML templates
 static/                 Static files and built React bundles
+public/                 Public static files and built React bundles
 frontend/               React source and Vite config
 data/                   SQLite database and runtime data files
 docs/                   Project docs (schema notes, etc.)
@@ -148,7 +146,6 @@ docs/                   Project docs (schema notes, etc.)
 - /matches/<id>
 - /users/<account_id>
 - /stats/
-- /sounds/
 - /api/docs
 - /api/openapi.json
 - /sitemap.xml

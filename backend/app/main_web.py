@@ -78,7 +78,6 @@ def create_app() -> Flask:
     app.config["DISCORD_OWNER_ID"] = os.getenv("DISCORD_OWNER_ID")
     app.config["DISCORD_REDIRECT_URI"] = os.getenv("DISCORD_REDIRECT_URI")
     app.config["DISCORD_ADMIN_IDS"] = os.getenv("DISCORD_ADMIN_IDS", "")
-    app.config["DISCORD_GLUTEN_UPLOADER_ID"] = os.getenv("DISCORD_GLUTEN_UPLOADER_ID")
     
     
     # Configure cache settings on app first. File-system cache survives process

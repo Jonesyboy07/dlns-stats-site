@@ -17,7 +17,7 @@ start_web.bat / start_web.sh # Production: waitress on port 5050, 12 threads
 cd frontend
 npm install
 npm run dev          # Vite HMR dev server (port 5173, proxies /db/* → localhost:5050)
-npm run build        # Outputs bundles to static/react-app/
+npm run build        # Outputs bundles to public/react-app/
 npm run build:watch  # Watch mode during development
 ```
 
@@ -31,13 +31,13 @@ python main.py -matchfile matches.json -recheckall true  # Re-ingest all
 
 **Hybrid rendering**: Flask serves both Jinja2 templates and React SPAs.
 - **Jinja2** — home, search, profile, static pages. Templates in `templates/`; see `templates/base.html` for the master layout.
-- **React SPA** — matchlist, match detail, players, heroes, stats, sounds, rank, VO. Flask serves `templates/react.html` with a `page` variable; React bundles in `static/react-app/` are loaded per-page.
+- **React SPA** — matchlist, match detail, players, heroes, items, stats, and admin. Flask serves `templates/react.html` with a `page` variable; React bundles in `public/react-app/` are loaded per-page.
 - **Feature decision**: Use React for interactive pages with filtering/pagination; use Jinja2 for simple renders.
 
 ### Backend
 
 - App factory: `create_app()` in `main_web.py`
-- 16 blueprints registered in `main_web.py` — see `blueprints/` for all features
+- Blueprints registered from `backend/app/blueprints/registry.json` via `blueprints/loader.py`
 - Primary read API: `blueprints/db_api.py` at prefix `/db`
 - Auth: Discord OAuth2 in `blueprints/auth.py` at `/auth`
 - Caching: `cache.py` wraps Flask-Caching (`SimpleCache` by default); use `@cache.cached(timeout=N)` on GET endpoints

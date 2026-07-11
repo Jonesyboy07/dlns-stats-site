@@ -63,13 +63,6 @@ function DLNS_Header({ className = "" }) {
     { path: "/community", label: "Community" },
   ];
 
-  const secondaryNav = [
-    { path: "/sounds", label: "Sounds" },
-    { path: "/sounds-dev", label: "Sounds Dev" },
-    { path: "/vo", label: "VO Hub" },
-    { path: "/vo-admin", label: "VO Admin" },
-  ];
-
   const isActive = (path) => location.pathname === path;
 
   return (
@@ -148,21 +141,6 @@ function DLNS_Header({ className = "" }) {
         <div className="sm:hidden border-t border-white/10 bg-slate-800/95">
           <nav className="max-w-7xl mx-auto px-4 py-3 space-y-1">
             {primaryNav.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`block px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  isActive(item.path)
-                    ? 'text-purple-300 bg-purple-500/15'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <hr className="border-white/10 my-2" />
-            <p className="px-3 text-xs text-white/40 uppercase tracking-wider font-semibold">More</p>
-            {secondaryNav.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}

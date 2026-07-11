@@ -55,19 +55,7 @@
   </script>
 
   <!-- React scripts will be injected by Vite -->
-  {% if page == "sounds" %}
-    <script type="module" src="{{ url_for('static', filename='react-app/sounds.js') }}"></script>
-  {% elif page == "dev" %}
-    <script type="module" src="{{ url_for('static', filename='react-app/dev.js') }}"></script>
-  {% elif page == "rank" %}
-    <script type="module" src="{{ url_for('static', filename='react-app/rank.js') }}"></script>
-  {% elif page == "rank_admin" %}
-    <script type="module" src="{{ url_for('static', filename='react-app/rank_admin.js') }}"></script>
-  {% elif page == "vo" %}
-    <script type="module" src="{{ url_for('static', filename='react-app/vo.js') }}"></script>
-  {% elif page == "vo_admin" %}
-    <script type="module" src="{{ url_for('static', filename='react-app/vo_admin.js') }}"></script>
-  {% elif page == "interviews" %}
+  {% if page == "interviews" %}
     <script type="module" src="{{ url_for('static', filename='react-app/interviews.js') }}"></script>
   {% elif page == "interviews_admin" %}
     <script type="module" src="{{ url_for('static', filename='react-app/interviews_admin.js') }}"></script>

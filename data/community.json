@@ -36,11 +36,6 @@
         "name": "Deadlock Mod Manager",
         "url": "https://deadlockmods.app",
         "description": "The most used Mod Manager for Deadlock, developed by the community using open source code and GameBanana API."
-      },
-      {
-        "name": "One Lane Map",
-        "url": "https://gamebanana.com/wips/95034",
-        "description": "A single-lane map for Deadlock, designed for competitive play. Made by jakciechan you can install it through a custom installer by clicking 'OneLane Map' at the top of your screen."
       }
     ]
   },
@@ -61,30 +56,6 @@
         "name": "This Website's Github",
         "url": "https://github.com/Jonesyboy07/dlns-stats-site",
         "description": "View the source code for this website, report issues, or contribute to its development."
-      }
-    ]
-  },
-  {"group": "Content Creators",
-    "groups": [
-      {
-        "group": "Glutensnake",
-        "items": [
-          {
-            "name": "Gluten's Youtube",
-            "url": "https://www.youtube.com/@glutensnake",
-            "description": "Catch Glooten's whacky youtube videos here, these include EVI (Eternus VS Initiate) and other fun modded/vanilla content."
-          },
-          {
-            "name": "Gluten's Twitch",
-            "url": "https://www.twitch.tv/glutensnake",
-            "description": "Watch Glooten's live streams here, these include modded and vanilla content, as well as some other fun shenanigans."
-          },
-          {
-            "name": "Gluten's Discord",
-            "url": "https://discord.gg/VeUwpHDBtJ",
-            "description": "Join Gluten's Discord server for updates, announcements, and the chance to join in his wacky adventures!"
-          }
-        ]
       }
     ]
   }

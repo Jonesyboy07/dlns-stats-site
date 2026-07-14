@@ -1194,20 +1194,21 @@ async def upsert_player_async(
 	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
 	item_build_json = json.dumps(build_items) if build_items else None
 	ability_order_json = json.dumps(ability_events) if ability_events else None
+	raw_items_json = json.dumps(raw_items) if raw_items else None
 
 	if account_id is not None:
 		await upsert_user_async(conn, account_id, name_by_id.get(account_id, "Unknown"))
 
 	await conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order, raw_items_json) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items, item_build=excluded.item_build, ability_order=excluded.ability_order"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items, item_build=excluded.item_build, ability_order=excluded.ability_order, raw_items_json=excluded.raw_items_json"
 		),
 		(
 			match_id,
@@ -1235,9 +1236,76 @@ async def upsert_player_async(
 			items_json,
 			item_build_json,
 			ability_order_json,
+			raw_items_json,
 		),
 	)
 	await upsert_player_snapshots_async(conn, match_id, account_id, player.get("stats"))
+
+
+def backfill_missing_player_raw_items(conn: sqlite3.Connection) -> None:
+	"""Backfill raw_items_json for any historical players missing raw item payloads."""
+	rows = conn.execute(
+		'''
+		SELECT DISTINCT match_id FROM players
+		WHERE match_id > 0
+		  AND (raw_items_json IS NULL OR raw_items_json = '[]')
+		ORDER BY match_id DESC
+		'''
+	).fetchall()
+	match_ids = [int(r[0]) for r in rows]
+	if not match_ids:
+		print("[backfill-items] No matches need item backfill.")
+		return
+
+	print(f"[backfill-items] Found {len(match_ids)} matches with missing raw items.")
+	updated_matches = 0
+	updated_players = 0
+	skipped = 0
+	errors = 0
+
+	for idx, match_id in enumerate(match_ids, start=1):
+		print(f"[backfill-items] {idx}/{len(match_ids)} match {match_id}...")
+		try:
+			mi = fetch_match_metadata(match_id)
+		except SkipMatchSilent:
+			skipped += 1
+			continue
+		except Exception as e:
+			print(f"[backfill-items] Fetch failed for {match_id}: {e}")
+			errors += 1
+			continue
+
+		players = mi.get("players") or []
+		if not players:
+			skipped += 1
+			continue
+
+		match_updated = False
+		for player in players:
+			account_id = player.get("account_id")
+			if account_id is None:
+				continue
+			raw_items = player.get("items") or []
+			raw_items_json = json.dumps(raw_items) if raw_items else None
+			conn.execute(
+				'''
+				UPDATE players
+				SET raw_items_json = ?
+				WHERE match_id = ? AND account_id = ?
+				''',
+				(raw_items_json, match_id, account_id),
+			)
+			updated_players += 1
+			match_updated = True
+
+		if match_updated:
+			updated_matches += 1
+
+	conn.commit()
+	print(
+		f"[backfill-items] Done. Updated {updated_players} players across {updated_matches} matches. "
+		f"Skipped {skipped}. Errors {errors}."
+	)
 
 
 async def recompute_user_stats_async(conn: asqlite.Connection, account_id: int) -> None:
@@ -2040,6 +2108,15 @@ def main(argv: Optional[List[str]] = None) -> int:
 			await aconn.close()
 
 	asyncio.run(_run_async())
+
+	# Ensure historical rows missing item payloads are corrected during normal CLI runs,
+	# removing the need for manual backfill from the React admin page.
+	conn = db_connect(db_path)
+	try:
+		backfill_missing_player_raw_items(conn)
+	finally:
+		conn.close()
+
 	print("All done.")
 	return 0
 

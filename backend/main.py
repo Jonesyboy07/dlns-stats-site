@@ -1242,22 +1242,59 @@ async def upsert_player_async(
 	await upsert_player_snapshots_async(conn, match_id, account_id, player.get("stats"))
 
 
-def backfill_missing_player_raw_items(conn: sqlite3.Connection) -> None:
-	"""Backfill raw_items_json for any historical players missing raw item payloads."""
+def _derive_player_item_payloads(raw_items: Any) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+	"""Return items_json, item_build_json, ability_order_json, raw_items_json from API raw item list."""
+	raw_list = raw_items if isinstance(raw_items, list) else []
+	item_groups: Dict[Any, list] = {}
+	for i in raw_list:
+		if isinstance(i, dict) and i.get("item_id") is not None:
+			iid = i["item_id"]
+			if iid not in item_groups:
+				item_groups[iid] = []
+			item_groups[iid].append(i)
+
+	seen_item_ids: set = set()
+	unsold_item_ids: List[Any] = []
+	build_items: List[Dict[str, Any]] = []
+	ability_events: List[Dict[str, Any]] = []
+
+	for iid, entries in item_groups.items():
+		is_ability = len(entries) > 1 or any(e.get("upgrade_id", 0) != 0 for e in entries)
+		if is_ability:
+			for tier, entry in enumerate(sorted(entries, key=lambda x: x.get("game_time_s") or 0)):
+				ability_events.append({"ability_id": iid, "game_time_s": entry.get("game_time_s"), "tier": tier})
+		else:
+			for entry in entries:
+				if entry.get("sold_time_s", 0) == 0 and iid not in seen_item_ids:
+					seen_item_ids.add(iid)
+					unsold_item_ids.append(iid)
+					build_items.append({"item_id": iid, "game_time_s": entry.get("game_time_s")})
+
+	build_items.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
+	ability_events.sort(key=lambda x: (x["game_time_s"] is None, x["game_time_s"] or 0))
+
+	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
+	item_build_json = json.dumps(build_items) if build_items else None
+	ability_order_json = json.dumps(ability_events) if ability_events else None
+	raw_items_json = json.dumps(raw_list) if raw_list else None
+	return items_json, item_build_json, ability_order_json, raw_items_json
+
+
+def backfill_all_player_items(conn: sqlite3.Connection) -> None:
+	"""Breaking behavior: refresh item columns for every current match on every run."""
 	rows = conn.execute(
 		'''
-		SELECT DISTINCT match_id FROM players
+		SELECT DISTINCT match_id FROM matches
 		WHERE match_id > 0
-		  AND (raw_items_json IS NULL OR raw_items_json = '[]')
 		ORDER BY match_id DESC
 		'''
 	).fetchall()
 	match_ids = [int(r[0]) for r in rows]
 	if not match_ids:
-		print("[backfill-items] No matches need item backfill.")
+		print("[backfill-items] No current matches found.")
 		return
 
-	print(f"[backfill-items] Found {len(match_ids)} matches with missing raw items.")
+	print(f"[backfill-items] Full sweep enabled. Checking {len(match_ids)} matches.")
 	updated_matches = 0
 	updated_players = 0
 	skipped = 0
@@ -1282,21 +1319,21 @@ def backfill_missing_player_raw_items(conn: sqlite3.Connection) -> None:
 
 		match_updated = False
 		for player in players:
-			account_id = player.get("account_id")
+			account_id = extract_int(player.get("account_id"))
 			if account_id is None:
 				continue
-			raw_items = player.get("items") or []
-			raw_items_json = json.dumps(raw_items) if raw_items else None
-			conn.execute(
+			items_json, item_build_json, ability_order_json, raw_items_json = _derive_player_item_payloads(player.get("items") or [])
+			cur = conn.execute(
 				'''
 				UPDATE players
-				SET raw_items_json = ?
+				SET items = ?, item_build = ?, ability_order = ?, raw_items_json = ?
 				WHERE match_id = ? AND account_id = ?
 				''',
-				(raw_items_json, match_id, account_id),
+				(items_json, item_build_json, ability_order_json, raw_items_json, match_id, account_id),
 			)
-			updated_players += 1
-			match_updated = True
+			if cur.rowcount and cur.rowcount > 0:
+				updated_players += 1
+				match_updated = True
 
 		if match_updated:
 			updated_matches += 1
@@ -2109,11 +2146,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 	asyncio.run(_run_async())
 
-	# Ensure historical rows missing item payloads are corrected during normal CLI runs,
-	# removing the need for manual backfill from the React admin page.
+	# Breaking change: always run full item repair across every current match.
 	conn = db_connect(db_path)
 	try:
-		backfill_missing_player_raw_items(conn)
+		backfill_all_player_items(conn)
 	finally:
 		conn.close()
 

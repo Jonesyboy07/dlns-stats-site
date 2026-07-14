@@ -2158,13 +2158,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 	asyncio.run(_run_async())
 
-	# Breaking change: always run full item repair across every current match.
-	conn = db_connect(db_path)
-	try:
-		backfill_all_player_items(conn)
-	finally:
-		conn.close()
-
 	print("All done.")
 	return 0
 

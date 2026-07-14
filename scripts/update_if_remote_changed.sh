@@ -24,10 +24,6 @@ REMOTE_COMMIT="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
   log "No remote changes."
-  log "Running full item backfill sweep (no code update path)..."
-  python3 "$APP_DIR/backend/main.py" \
-    -db "$APP_DIR/data/dlns.sqlite3" \
-    -itembackfill "true"
   log "Refetching all cached users (no code update path)..."
   python3 "$APP_DIR/backend/main.py" \
     -db "$APP_DIR/data/dlns.sqlite3" \
@@ -73,10 +69,6 @@ if [ "$MATCHES_CHANGED" = "true" ]; then
   "$APP_DIR/scripts/update_db_from_matches.sh"
 else
   log "Skipping DB update because data/matches.json did not change."
-  log "Running full item backfill sweep..."
-  python3 "$APP_DIR/backend/main.py" \
-    -db "$APP_DIR/data/dlns.sqlite3" \
-    -itembackfill "true"
   log "Refetching all cached users..."
   python3 "$APP_DIR/backend/main.py" \
     -db "$APP_DIR/data/dlns.sqlite3" \

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { logout } from '../utils/api';
+
+const darkModeStorageKey = 'dlns.matchlist.darkMode';
 
 export function Header({
   onRecordClick,
@@ -17,6 +19,25 @@ export function Header({
   onSearchChange,
 }) {
   const [showSettings, setShowSettings] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDarkMode(localStorage.getItem(darkModeStorageKey) === '1');
+    } catch {
+      setDarkMode(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('matchlist-theme-dark', darkMode);
+    try {
+      localStorage.setItem(darkModeStorageKey, darkMode ? '1' : '0');
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [darkMode]);
 
   return (
     <header className="header" style={{
@@ -175,6 +196,47 @@ export function Header({
                 🚪 Logout
               </button>
             )}
+
+            <button
+              onClick={() => setDarkMode((current) => !current)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '60px',
+                height: '32px',
+                position: 'relative',
+                transition: 'all 0.2s ease',
+              }}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              onMouseEnter={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'rgba(255, 255, 255, 0.08)';
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                left: darkMode ? '4px' : undefined,
+                right: darkMode ? undefined : '4px',
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: darkMode ? '#1e293b' : '#fbbf24',
+                transition: 'all 0.25s ease',
+                zIndex: 1,
+                boxShadow: darkMode ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.2)',
+              }} />
+              <span style={{ position: 'relative', zIndex: 2, width: '100%', display: 'flex', justifyContent: 'space-around', alignItems: 'center', fontSize: '13px', lineHeight: 1 }}>
+                <span style={{ opacity: darkMode ? 1 : 0.4, transition: 'opacity 0.2s' }}>🌙</span>
+                <span style={{ opacity: darkMode ? 0.4 : 1, transition: 'opacity 0.2s' }}>☀️</span>
+              </span>
+            </button>
 
             <div style={{ position: 'relative' }}>
               <button

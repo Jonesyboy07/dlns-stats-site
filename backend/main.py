@@ -2033,6 +2033,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-recheckall", dest="recheckall", type=str, default="false", help="If true, process all IDs from the input file, ignoring checked status")
 	parser.add_argument("-concurrency", dest="concurrency", type=int, default=DEFAULT_MATCH_CONCURRENCY, help="Concurrent match workers for async ingestion")
 	parser.add_argument("-userfetch", dest="userfetch", type=str, default="false", help="If true, only refetch usernames for all cached users")
+	parser.add_argument("-itembackfill", dest="itembackfill", type=str, default="false", help="If true, run full item backfill sweep across all current matches and exit")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
 	parser.add_argument("-cache", dest="cache_path", type=str, default=str(DEFAULT_CACHE_PATH), help="Path to user cache JSON {account_id: persona}")
 	parser.add_argument("-status", dest="status_path", type=str, default=str(DEFAULT_STATUS_PATH), help="Path to matches status JSON")
@@ -2084,6 +2085,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 			print("[userfetch] Refreshing usernames for all users in cache...")
 			refresh_user_cache_only(conn, cache_path, STEAM_API_KEY)
 			print("[userfetch] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.itembackfill):
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[backfill-items] Running full match sweep...")
+			backfill_all_player_items(conn)
+			print("[backfill-items] Done.")
 			return 0
 		finally:
 			conn.close()

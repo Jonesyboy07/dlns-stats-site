@@ -311,12 +311,6 @@ export default function WeekDetail() {
     <div className="w-full p-6">
       {/* Header */}
       <div className="mb-6">
-        <Link
-          to="/"
-          className="text-sm text-blue-400 hover:underline mb-2 inline-block"
-        >
-          ← Back
-        </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white">

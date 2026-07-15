@@ -3539,6 +3539,29 @@
               "url": "https://www.youtube.com/watch?v=RWciLtkp8so"
             }
           ]
+        },
+        {
+          "week": 47,
+          "games": [
+            {
+              "team_a": "LEVIATHAN",
+              "team_b": "SLICE N DICE",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 93806492
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 93812686
+                }
+              ],
+              "region": "EU",
+              "title": "EU QUALIFIERS"
+            }
+          ]
         }
       ]
     },

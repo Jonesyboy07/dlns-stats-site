@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
+import MatchHeader from "../components/MatchHeader";
 import { Bar, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -36,6 +37,8 @@ function MatchDetail() {
   const [fetchErrors, setFetchErrors] = useState([]);
   const [soulsTooltip, setSoulsTooltip] = useState(null);
   const [teamTooltip, setTeamTooltip] = useState(null);
+  const [seriesGames, setSeriesGames] = useState(null);
+  const [seriesTitle, setSeriesTitle] = useState("");
 
   useEffect(() => {
     fetchHeroes();
@@ -45,7 +48,27 @@ function MatchDetail() {
     fetchMatchBuild();
     fetchWeekMeta();
     fetchTimeline();
+    fetchSeriesGames();
   }, [matchId]);
+
+  const fetchSeriesGames = async () => {
+    try {
+      const res = await fetch(`/db/series/${matchId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const matches = data?.matches;
+        setSeriesTitle(data?.series_title || "");
+        if (Array.isArray(matches) && matches.length > 0) {
+          const games = matches
+            .map((m) => ({ game: m.event_game, matchId: m.match_id }))
+            .filter((g) => g.game);
+          setSeriesGames(games);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchTimeline = async () => {
     try {
@@ -329,89 +352,20 @@ function MatchDetail() {
           </p>
         </div>
       )}
-      <div className="flex items-center justify-between mb-6 hidden">
-        <Link to="/" className="text-blue-600 hover:underline">
-          ← Back to Match List
-        </Link>
 
-        {/* Match Navigation */}
-        <div className="flex gap-2 hidden">
-          <button
-            onClick={() =>
-              previousMatchId && navigate(`/match/${previousMatchId}`)
-            }
-            disabled={!previousMatchId}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            ← Previous Match
-          </button>
-          <button
-            onClick={() => nextMatchId && navigate(`/match/${nextMatchId}`)}
-            disabled={!nextMatchId}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            Next Match →
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-4 justify-between items-start bg-gray-800 rounded-lg p-4 mb-2">
-        <div>
-          <h1 className="text-gray-300 text-2xl font-bold mb-4">
-            Match {matchId}
-          </h1>
-          <div className="flex flex-col ">
-            {(adjacentMatches.event_team_a || adjacentMatches.event_team_b) && (
-              <p className="text-gray-300 text-xl font-semibold">
-                {adjacentMatches.event_team_a ? (
-                  <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_a)}`} className="hover:underline">{adjacentMatches.event_team_a}</Link>
-                ) : "—"}
-                <span className="text-gray-500 mx-2 font-normal">vs</span>
-                {adjacentMatches.event_team_b ? (
-                  <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_b)}`} className="hover:underline">{adjacentMatches.event_team_b}</Link>
-                ) : "—"}
-                {adjacentMatches.event_game && (
-                  <span className="text-gray-500 text-base font-normal block">
-                    {adjacentMatches.event_game}
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-end justify-end">
-          {displayEventTitle && (
-            <p className="text-gray-300 text-lg font-semibold mb-1">
-              {displayEventWeek != null ? (
-                <Link
-                  to={`/week/${displayEventWeek}?event_title=${encodeURIComponent(displayEventTitle)}`}
-                  className="hover:underline"
-                >
-                  {displayEventTitle} #{displayEventWeek}
-                </Link>
-              ) : (
-                displayEventTitle
-              )}
-            </p>
-          )}
-
-          {adjacentMatches.start_time && (
-            <p className="text-gray-500 mb-2">
-              {formatDate(adjacentMatches.start_time)}
-            </p>
-          )}
-
-          {adjacentMatches.event_team_a && (
-            <Link
-              to={`/series/${matchId}`}
-              className="text-sm text-blue-400 hover:underline"
-            >
-              View full series →
-            </Link>
-          )}
-        </div>
-      </div>
+      <MatchHeader
+        matchId={matchId}
+        weekLabel={displayEventTitle ? (displayEventWeek != null ? `${displayEventTitle} #${displayEventWeek}` : displayEventTitle) : ""}
+        weekUrl={displayEventTitle && displayEventWeek != null ? `/week/${displayEventWeek}?event_title=${encodeURIComponent(displayEventTitle)}` : undefined}
+        date={adjacentMatches.start_time ? formatDate(adjacentMatches.start_time) : ""}
+        teamA={adjacentMatches.event_team_a || "—"}
+        teamB={adjacentMatches.event_team_b || "—"}
+        winner={winningTeam === 0 ? "teamA" : winningTeam === 1 ? "teamB" : null}
+        games={seriesGames || (adjacentMatches.event_game ? [{ game: adjacentMatches.event_game, matchId }] : [])}
+        activeGame={adjacentMatches.event_game}
+        seriesUrl={`/series/${matchId}`}
+        setTitle={seriesTitle}
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 border-b border-gray-700">
@@ -956,11 +910,6 @@ function MatchDetail() {
                         </h2>
                       </Link>
                     )}
-                    {winningTeam === 0 && (
-                      <span className="pointer-events-none mb-2.5 text-xs font-semibold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider">
-                        WIN
-                      </span>
-                    )}
                   </div>
                 </th>
                 <th className="text-center p-3 w-30 align-bottom">K/D/A</th>
@@ -1147,11 +1096,6 @@ function MatchDetail() {
                           {sapphireTeamName}
                         </h2>
                       </Link>
-                    )}
-                    {winningTeam === 1 && (
-                      <span className="pointer-events-none mb-2.5 text-xs font-semibold px-2 py-0.5 rounded bg-blue-400/20 text-blue-300 border border-blue-400/40 uppercase tracking-wider">
-                        WIN
-                      </span>
                     )}
                   </div>
                 </th>

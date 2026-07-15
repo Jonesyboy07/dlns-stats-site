@@ -667,9 +667,8 @@ def _start_stats_thread():
 
 @stats_bp.get('/')
 def statistics():
-    """Display comprehensive database statistics."""
-    stats_data = _get_cached_statistics()
-    return render_template('statistics.html', stats=stats_data)
+    """Serve stats via React while keeping Flask DB/API routes intact."""
+    return render_template('react.html', page='stats')
 
 # Add a manual refresh endpoint for admins
 @stats_bp.get('/refresh')

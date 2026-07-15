@@ -28,6 +28,9 @@ const WeekDetail = lazy(() => import("./pages/WeekDetail"));
 const ReactAdmin = lazy(() => import("./pages/ReactAdmin"));
 const SiteBannerAdmin = lazy(() => import("./pages/SiteBannerAdmin"));
 const Community = lazy(() => import("./pages/Community"));
+const Help = lazy(() => import("./pages/Help"));
+const Search = lazy(() => import("./pages/Search"));
+const Updates = lazy(() => import("./pages/Updates"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function Navigation() {
@@ -86,9 +89,11 @@ function App() {
               <Route path="/home" element={<HomePage />} />
               <Route path="/matchlist" element={<MatchList />} />
               <Route path="/match/:matchId" element={<MatchDetail />} />
+              <Route path="/matches/:matchId" element={<MatchDetail />} />
               <Route path="/series/:matchId" element={<SeriesDetail />} />
               <Route path="/players" element={<PlayersList />} />
               <Route path="/player/:accountId" element={<PlayerDetail />} />
+              <Route path="/users/:accountId" element={<PlayerDetail />} />
               <Route path="/heroes" element={<HeroesList />} />
               <Route path="/hero/:heroId" element={<HeroDetail />} />
               <Route path="/items" element={<ItemsList />} />
@@ -97,6 +102,7 @@ function App() {
                 element={<PlayerHeroDetail />}
               />
               <Route path="/stats" element={<Stats />} />
+              <Route path="/stats/" element={<Stats />} />
               <Route path="/teams" element={<TeamsList />} />
               <Route path="/team/:teamName" element={<TeamDetail />} />
               <Route path="/week" element={<WeekList />} />
@@ -105,6 +111,9 @@ function App() {
               <Route path="/react-admin/help-config" element={<SiteBannerAdmin />} />
               <Route path="/react-admin/site-banner" element={<SiteBannerAdmin />} />
               <Route path="/community" element={<Community />} />
+              <Route path="/help" element={<Help />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/updates" element={<Updates />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

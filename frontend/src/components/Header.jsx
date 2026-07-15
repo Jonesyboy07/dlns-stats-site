@@ -72,7 +72,7 @@ export function Header({
               borderRadius: '50%',
               animation: 'pulse 2s infinite',
             }}></div>
-            <span>Wavebox</span>
+            <span>DLNS-stats</span>
           </div>
 
           <div className="search" style={{

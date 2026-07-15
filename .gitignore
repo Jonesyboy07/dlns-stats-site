@@ -52,7 +52,6 @@ data/dlns.sqlite3
 data/cache
 data/vo_uploads
 data/recorded/
-data/filehub/
 testing.py
 
 # Public generated files
@@ -61,12 +60,9 @@ public/favicon.png
 public/favicon.ico
 public/og.png
 
-# Filehub
-/filehub/
 /instance
 
 # Unneeded Data Files
-data/guesstherank.json
 data/rank_submission.json
 data/team_assignment.json
 data/sounds_uploads.sqlite3

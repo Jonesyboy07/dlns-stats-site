@@ -17,7 +17,6 @@ from email.utils import formatdate
 from datetime import datetime, timezone
 
 # Import blueprints and registration helpers
-from .blueprints.db_api import get_ro_conn
 from .blueprints.loader import register_blueprints
 from .cache import cache
 from .cache_warmup import schedule_cache_warmup
@@ -379,253 +378,58 @@ def create_app() -> Flask:
         return _abs(url_for('static', filename=app.config['OG_IMAGE']))
 
     @app.get("/")
-    def index():  # Remove the @cache.cached decorator since we need fresh auth state
-        # Filters
-        order = (request.args.get("order") or "desc").lower()
-        order = "asc" if order == "asc" else "desc"
-        team = request.args.get("team") or ""
-        game_mode = request.args.get("game_mode") or ""
-        match_mode = request.args.get("match_mode") or ""
-        limit = 20
-
-        with get_ro_conn() as conn:
-            # Distinct values for select options
-            gms = [r[0] for r in conn.execute("SELECT DISTINCT game_mode FROM matches WHERE game_mode IS NOT NULL ORDER BY 1").fetchall() if r[0]]
-            mms = [r[0] for r in conn.execute("SELECT DISTINCT match_mode FROM matches WHERE match_mode IS NOT NULL ORDER BY 1").fetchall() if r[0]]
-
-            sql = (
-                "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, start_time, created_at FROM matches"
-            )
-            conds = []
-            params = []
-            if team in ("0", "1"):
-                conds.append("winning_team = ?")
-                params.append(int(team))
-            if game_mode:
-                conds.append("game_mode = ?")
-                params.append(game_mode)
-            if match_mode:
-                conds.append("match_mode = ?")
-                params.append(match_mode)
-            if conds:
-                sql += " WHERE " + " AND ".join(conds)
-            sql += f" ORDER BY COALESCE(start_time, created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ?"
-            params.append(limit)
-            cur = conn.execute(sql, tuple(params))
-            latest = [
-                {
-                    "match_id": r[0],
-                    "duration_s": r[1],
-                    "winning_team": r[2],
-                    "match_outcome": r[3],
-                    "game_mode": r[4],
-                    "match_mode": r[5],
-                    "start_time": r[6],
-                    "created_at": r[7],
-                }
-                for r in cur.fetchall()
-            ]
-        
-        response = make_response(render_template(
-            "home.html",
-            latest=latest,
-            order=order,
-            team=team,
-            game_mode=game_mode,
-            match_mode=match_mode,
-            limit=limit,
-            game_modes=gms,
-            match_modes=mms,
-            # SEO
-            meta_title="DLNS Stats • Latest Matches",
-            meta_desc="Fan made site for DLNS (Deadlock Night Shift). Has DLNS + Fight Night games that are possible to grab through API. Explore stats across all logged games.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        ))
-        
-        # Add cache headers but allow for user-specific content
-        response.headers['Cache-Control'] = 'private, max-age=30'
-        return response
+    def index():
+        return render_template("react.html", page="matchlist")
 
     @app.get("/search")
-    @cache.cached(timeout=30, query_string=True)
     def search():  # type: ignore
-        q = (request.args.get("q") or "").strip()
-        if not q:
-            return render_template(
-                "search.html",
-                q="",
-                users=[],
-                meta_title="DLNS Stats • Search",
-                meta_desc="Search DLNS users and matches.",
-                meta_image=_og_image_abs(),
-                meta_url=_abs(request.path),
-            )
-        if q.isdigit():
-            return redirect(url_for("match_detail", match_id=int(q)))
-        # Otherwise, search users by persona
-        with get_ro_conn() as conn:
-            cur = conn.execute(
-                "SELECT account_id, persona_name FROM users WHERE persona_name LIKE ? ORDER BY persona_name LIMIT 50",
-                (f"%{q}%",),
-            )
-            users = [{"account_id": r[0], "persona_name": r[1]} for r in cur.fetchall()]
-        return render_template(
-            "search.html",
-            q=q,
-            users=users,
-            meta_title=f"Search • {q} • DLNS Stats",
-            meta_desc=f"Search results for “{q}” on DLNS Stats.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.full_path.split('?',1)[0] + ('?' + request.query_string.decode() if request.query_string else '')),
-        )
+        return render_template("react.html", page="matchlist")
 
     @app.get("/matches/<int:match_id>")
-    @cache.cached(timeout=60, query_string=True)
     def match_detail(match_id: int):  # type: ignore
-        team_filter = request.args.get("team") or ""
-        with get_ro_conn() as conn:
-            mcur = conn.execute(
-                "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, start_time, created_at FROM matches WHERE match_id = ?",
-                (match_id,)
-            )
-            mrow = mcur.fetchone()
-            if not mrow:
-                return render_template("match.html", match=None, players=[]), 404
-            match = {
-                "match_id": mrow[0],
-                "duration_s": mrow[1],
-                "winning_team": mrow[2],
-                "match_outcome": mrow[3],
-                "game_mode": mrow[4],
-                "match_mode": mrow[5],
-                "start_time": mrow[6],
-                "created_at": mrow[7],
-            }
-            if team_filter in ("0", "1"):
-                pcur = conn.execute(
-                    "SELECT p.*, u.persona_name FROM players p LEFT JOIN users u ON u.account_id = p.account_id WHERE p.match_id = ? AND p.team = ? ORDER BY p.team, p.player_slot",
-                    (match_id, int(team_filter))
-                )
-            else:
-                pcur = conn.execute(
-                    "SELECT p.*, u.persona_name FROM players p LEFT JOIN users u ON u.account_id = p.account_id WHERE p.match_id = ? ORDER BY p.team, p.player_slot",
-                    (match_id,)
-                )
-            cols = [c[0] for c in pcur.description]
-            players = [dict(zip(cols, row)) for row in pcur.fetchall()]
-        # Build a concise description
-        dur = format_duration(match["duration_s"]) if match else "-"
-        wteam = team_name(match["winning_team"]) if match else "Unknown"
-        when = match.get("start_time") or match.get("created_at") if match else None
-        desc_bits = [f"Match {match_id}", f"Duration {dur}", f"Winning Team {wteam}"]
-        if when: 
-            desc_bits.append(f"Played at {when}")
-        meta = dict(
-            meta_title=f"Match {match_id} • DLNS Stats",
-            meta_desc=" • ".join(desc_bits),
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        )
-        return render_template("match.html", match=match, players=players, team_filter=team_filter, **meta)
+        return render_template("react.html", page="match_detail")
 
     @app.get("/users/<int:account_id>")
-    @cache.cached(timeout=60, query_string=True)
     def user_detail(account_id: int):  # type: ignore
-        order = (request.args.get("order") or "desc").lower()
-        order = "asc" if order == "asc" else "desc"
-        res = (request.args.get("res") or "").lower()  # win|loss|''
-        teamf = request.args.get("team") or ""
-        limit = 20
-        with get_ro_conn() as conn:
-            ucur = conn.execute(
-                "SELECT account_id, persona_name, avatar_url, updated_at FROM users WHERE account_id = ?",
-                (account_id,)
-            )
-            urow = ucur.fetchone()
-            if not urow:
-                return render_template("user.html", user=None, stats=None, matches=[]), 404
-            user = {"account_id": urow[0], "persona_name": urow[1], "avatar_url": urow[2], "updated_at": urow[3]}
-            scur = conn.execute("SELECT * FROM user_stats WHERE account_id = ?", (account_id,))
-            scolumns = [c[0] for c in scur.description] if scur.description else []
-            srow = scur.fetchone()
-            stats = dict(zip(scolumns, srow)) if srow else None
-            sql = (
-                "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.creep_kills, p.last_hits, p.denies, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, m.duration_s, m.winning_team, m.start_time, m.created_at "
-                "FROM players p JOIN matches m ON m.match_id = p.match_id WHERE p.account_id = ?"
-            )
-            params = [account_id]
-            if res in ("win", "loss"):
-                sql += " AND p.result = ?"
-                params.append("Win" if res == "win" else "Loss")
-            if teamf in ("0", "1"):
-                sql += " AND p.team = ?"
-                params.append(int(teamf))
-            sql += f" ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ?"
-            params.append(limit)
-            mcur = conn.execute(sql, tuple(params))
-            mcols = [c[0] for c in mcur.description]
-            matches = [dict(zip(mcols, row)) for row in mcur.fetchall()]
-        plays = (stats or {}).get("matches_played", None)
-        kd = (stats or {}).get("avg_kda", None)
-        wr = (stats or {}).get("winrate", None)
-        bits = [f"Player {user['persona_name']}"]
-        if plays is not None: 
-            bits.append(f"Matches {plays}")
-        if wr is not None: 
-            bits.append(f"Winrate {round(wr * 100, 1)}%")
-        if kd is not None: 
-            bits.append(f"Avg KDA {round(kd, 2)}")
-        meta = dict(
-            meta_title=f"{user['persona_name']} • DLNS Stats",
-            meta_desc=" • ".join(bits) or "DLNS player profile and match history.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        )
-        return render_template("user.html", user=user, stats=stats, matches=matches, order=order, res=res, teamf=teamf, limit=limit, **meta)
+        return render_template("react.html", page="player_detail")
+
+    def _load_updates_html() -> str:
+        """Read update.md and convert markdown to HTML for React/Jinja consumers."""
+        updates_file = Path(app.config["DB_PATH"]).parent / "update.md"
+
+        if not updates_file.exists():
+            return "<h1>Updates</h1><p>No updates file found.</p>"
+
+        try:
+            with open(updates_file, 'r', encoding='utf-8') as f:
+                md_content = f.read()
+
+            if markdown:
+                return markdown.markdown(
+                    md_content,
+                    extensions=['extra', 'codehilite', 'toc']
+                )
+
+            content = md_content.replace('\n\n', '</p><p>').replace('\n', '<br>')
+            content = f"<p>{content}</p>"
+            import re
+            content = re.sub(r'^# (.+)$', r'<h1>\1</h1>', content, flags=re.MULTILINE)
+            content = re.sub(r'^## (.+)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
+            content = re.sub(r'^### (.+)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
+            content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
+            content = re.sub(r'\*(.+?)\*', r'<em>\1</em>', content)
+            return content
+        except Exception as e:
+            return f"<h1>Updates</h1><p>Error reading updates file: {e}</p>"
 
     @app.get("/updates")
-    @cache.cached(timeout=300)
     def updates():  # type: ignore
-        """Render the updates page from markdown file."""
-        updates_file = Path(app.config["DB_PATH"]).parent / "update.md"
-        
-        if not updates_file.exists():
-            content = "<h1>Updates</h1><p>No updates file found.</p>"
-        else:
-            try:
-                with open(updates_file, 'r', encoding='utf-8') as f:
-                    md_content = f.read()
-                
-                if markdown:
-                    # Convert markdown to HTML with extensions for better formatting
-                    content = markdown.markdown(
-                        md_content, 
-                        extensions=['extra', 'codehilite', 'toc']
-                    )
-                else:
-                    # Fallback: basic HTML conversion if markdown not available
-                    content = md_content.replace('\n\n', '</p><p>').replace('\n', '<br>')
-                    content = f"<p>{content}</p>"
-                    # Basic markdown-like formatting
-                    import re
-                    content = re.sub(r'^# (.+)$', r'<h1>\1</h1>', content, flags=re.MULTILINE)
-                    content = re.sub(r'^## (.+)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
-                    content = re.sub(r'^### (.+)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
-                    content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
-                    content = re.sub(r'\*(.+?)\*', r'<em>\1</em>', content)
-                    
-            except Exception as e:
-                content = f"<h1>Updates</h1><p>Error reading updates file: {e}</p>"
-        
-        return render_template(
-            "updates.html",
-            content=content,
-            meta_title="Updates • DLNS Stats",
-            meta_desc="Latest updates and changes for DLNS Stats.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        )
+        return render_template("react.html", page="matchlist")
+
+    @app.get("/api/updates")
+    @cache.cached(timeout=300)
+    def updates_api():  # type: ignore
+        return {"content_html": _load_updates_html()}
 
     @app.route('/favicon.ico')
     def favicon():  # type: ignore
@@ -647,33 +451,11 @@ def create_app() -> Flask:
     @app.get("/help")
     @cache.cached(timeout=30)
     def help_page():  # type: ignore
-        return render_template(
-            "help.html",
-            meta_title="Help & Contribute • DLNS Stats",
-            meta_desc="Want to help improve DLNS Stats? Learn how to contribute through GitHub or get involved in the project.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        )
+        return render_template("react.html", page="matchlist")
 
     @app.get("/community")
     def community():  # type: ignore
-        groups = load_community_groups()
-        html = render_template(
-            "community.html",
-            groups=groups,
-            meta_title="Community • DLNS Stats",
-            meta_desc="Support the Deadlock community. Links to YouTube, Twitch, Ko‑fi, Patreon, and more.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        )
-        resp = make_response(html)
-        etag, lastmod = _file_etag_and_lastmod(COMMUNITY_FILE)
-        if etag:
-            resp.headers["ETag"] = etag
-        if lastmod:
-            resp.headers["Last-Modified"] = lastmod
-        resp.headers["Cache-Control"] = "no-cache"
-        return resp
+        return render_template("react.html", page="matchlist")
 
     # Serve raw JSON with ETag/Last-Modified for clients and Discord/Slack unfurls
     @app.get("/community.json")

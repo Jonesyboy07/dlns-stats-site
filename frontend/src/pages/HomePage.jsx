@@ -6,6 +6,11 @@ function HomePage() {
   const [seriesTitle, setSeriesTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const twitchParent =
+    typeof window !== "undefined" && window.location?.hostname
+      ? window.location.hostname
+      : "localhost";
+  const twitchEmbedUrl = `https://player.twitch.tv/?channel=deadlocknightshift&parent=${encodeURIComponent(twitchParent)}&muted=true`;
 
   useEffect(() => {
     fetchRecentSeries();
@@ -153,7 +158,7 @@ function HomePage() {
         <div className="flex-1 bg-panel border border-accent-border rounded-lg overflow-hidden flex flex-col max-w-[600px]">
           <div className="aspect-video w-full bg-black">
             <iframe
-              src="https://player.twitch.tv/?channel=deadlocknightshift&parent=localhost&muted=true"
+              src={twitchEmbedUrl}
               className="w-full h-full"
               allowFullScreen
               title="Twitch stream"

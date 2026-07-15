@@ -59,7 +59,7 @@ function SeriesDetail() {
   if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
   if (!series) return null;
 
-  const { event_title, event_week, event_team_a, event_team_b, matches } =
+  const { event_title, event_week, event_team_a, event_team_b, series_title, matches } =
     series;
 
   // Series score: count wins per event team using team_a_ingame_side
@@ -82,6 +82,7 @@ function SeriesDetail() {
           <p className="text-gray-500 text-sm mb-1">
             {event_title}
             {event_week != null && ` · Week ${event_week}`}
+            {series_title && ` · ${series_title}`}
           </p>
         )}
         <div className="flex items-center gap-3">

@@ -1800,11 +1800,30 @@ def series_detail(match_id: int):
         for m in matches:
             m["players"] = players_by_match.get(m["match_id"], [])
 
+    # Look up series-level title from matches.json (e.g. "EU QUALIFIER", "CHALLENGER MATCH")
+    series_title = ""
+    try:
+        mf = _matches_json_path()
+        if mf.exists():
+            with open(mf, encoding="utf-8-sig") as f:
+                mdata = json.load(f)
+            for s in mdata.get("series") or []:
+                for week in s.get("weeks") or []:
+                    if week.get("week") == event_week:
+                        for game in week.get("games") or []:
+                            if (game.get("team_a") or "").strip().lower() == (event_team_a or "").strip().lower() \
+                               and (game.get("team_b") or "").strip().lower() == (event_team_b or "").strip().lower():
+                                series_title = (game.get("title") or "").strip()
+                                break
+    except Exception:
+        pass
+
     return jsonify({
         "event_title": event_title,
         "event_week": event_week,
         "event_team_a": event_team_a,
         "event_team_b": event_team_b,
+        "series_title": series_title,
         "matches": matches,
     })
 

@@ -13,9 +13,29 @@ else
     PYTHON_EXE="${PYTHON_EXE:-python3}"
 fi
 
+# Start frontend build watcher in the background (auto-rebuild on changes)
+echo "Starting frontend build watcher..."
+cd frontend
+if [ ! -d "node_modules" ]; then
+    echo "Installing frontend dependencies..."
+    npm install
+fi
+npm run build:watch &
+VITE_WATCH_PID=$!
+cd "$SCRIPT_DIR/.."
+
+# Cleanup: kill the vite watcher when this script exits
+cleanup() {
+    echo ""
+    echo "Shutting down frontend watcher..."
+    kill "$VITE_WATCH_PID" 2>/dev/null || true
+    wait "$VITE_WATCH_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
 echo "Starting Waitress on http://127.0.0.1:5050"
 
-exec "$PYTHON_EXE" -m waitress \
+"$PYTHON_EXE" -m waitress \
     --listen=127.0.0.1:5050 \
     --threads=12 \
     --channel-timeout=180 \

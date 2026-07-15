@@ -7,6 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import MatchList from "./pages/MatchList";
+import HomePage from "./pages/HomePage";
 import DLNS_Header from "./components/DLNS_Header";
 import { cdnImage } from "./utils/cdn";
 import "./App.css";
@@ -81,7 +82,8 @@ function App() {
 
           <main className="w-full max-w-7xl mx-auto flex-1 py-8">
             <Routes>
-              <Route path="/" element={<MatchList />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/home" element={<HomePage />} />
               <Route path="/matchlist" element={<MatchList />} />
               <Route path="/match/:matchId" element={<MatchDetail />} />
               <Route path="/series/:matchId" element={<SeriesDetail />} />

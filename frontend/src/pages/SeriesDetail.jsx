@@ -65,7 +65,7 @@ function SeriesDetail() {
   // Series score: count wins per event team using team_a_ingame_side
   let wins_a = 0, wins_b = 0;
   for (const m of matches) {
-    const side = m.event_team_a_ingame_side; // 0 = team_a is Amber, 1 = team_a is Sapphire
+    const side = m.event_team_a_ingame_side; // 0 = team_a is Hidden King, 1 = team_a is Archmother
     if (side === null || side === undefined) continue;
     if (m.winning_team === side) wins_a++;
     else wins_b++;
@@ -76,14 +76,6 @@ function SeriesDetail() {
 
   return (
     <div className="w-full px-4 py-8">
-      {/* Back link */}
-      <Link
-        to="/"
-        className="text-blue-500 hover:underline text-sm mb-6 inline-block"
-      >
-        ← Back to Matches
-      </Link>
-
       {/* Series header */}
       <div className="mb-8">
         {event_title && (
@@ -106,15 +98,15 @@ function SeriesDetail() {
       {/* Games */}
       <div className="flex flex-col gap-6">
         {matches.map((match) => {
-          const side = match.event_team_a_ingame_side; // 0 = team_a is Amber, 1 = team_a is Sapphire
+          const side = match.event_team_a_ingame_side; // 0 = team_a is Hidden King, 1 = team_a is Archmother
           const hasSide = side != null;
-          // team_a's in-game players: if side=0, they're team 0 (Amber); if side=1, they're team 1 (Sapphire)
+          // team_a's in-game players: if side=0, they're team 0 (Hidden King); if side=1, they're team 1 (Archmother)
           const teamAPlayers = hasSide ? match.players.filter((p) => p.team === side) : [];
           const teamBPlayers = hasSide ? match.players.filter((p) => p.team !== side) : [];
-          const teamASide = hasSide ? (side === 0 ? "Amber" : "Sapphire") : null;
-          const teamBSide = hasSide ? (side === 0 ? "Sapphire" : "Amber") : null;
-          const amberPlayers = match.players.filter((p) => p.team === 0);
-          const sapphirePlayers = match.players.filter((p) => p.team === 1);
+          const teamASide = hasSide ? (side === 0 ? "Hidden King" : "Archmother") : null;
+          const teamBSide = hasSide ? (side === 0 ? "Archmother" : "Hidden King") : null;
+          const hiddenKingPlayers = match.players.filter((p) => p.team === 0);
+          const archmotherPlayers = match.players.filter((p) => p.team === 1);
           const winningTeam = match.winning_team ?? null;
           const teamAWon = hasSide ? winningTeam === side : null;
           const teamBWon = hasSide ? winningTeam !== side && winningTeam != null : null;
@@ -216,18 +208,18 @@ function SeriesDetail() {
                 ) : (
                   <>
                     <TeamColumn
-                      teamName="Amber"
-                      sideLabel="Amber"
-                      players={amberPlayers}
+                      teamName="Hidden King"
+                      sideLabel="Hidden King"
+                      players={hiddenKingPlayers}
                       won={winningTeam === 0}
                       side="a"
                       getHeroName={getHeroName}
                       getHeroIcon={getHeroIcon}
                     />
                     <TeamColumn
-                      teamName="Sapphire"
-                      sideLabel="Sapphire"
-                      players={sapphirePlayers}
+                      teamName="Archmother"
+                      sideLabel="Archmother"
+                      players={archmotherPlayers}
                       won={winningTeam === 1}
                       side="b"
                       getHeroName={getHeroName}
@@ -262,7 +254,7 @@ function TeamColumn({
         <span className="font-semibold text-sm text-gray-200">{teamName}</span>
         {sideLabel && (
           <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-            sideLabel === "Amber"
+            sideLabel === "Hidden King"
               ? "bg-amber-900/50 text-amber-300"
               : "bg-blue-900/50 text-blue-300"
           }`}>{sideLabel}</span>

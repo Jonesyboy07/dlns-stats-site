@@ -3,6 +3,13 @@ from flask import Blueprint, render_template
 react_stats_bp = Blueprint('react_stats', __name__)
 
 
+@react_stats_bp.get('/')
+@react_stats_bp.get('/home')
+def react_home():
+    """Serve the React landing / home page."""
+    return render_template('react.html', page='matchlist')
+
+
 @react_stats_bp.get('/matchlist')
 def matchlist():
     """Serve the React match list page."""

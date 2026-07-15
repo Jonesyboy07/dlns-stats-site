@@ -47,7 +47,7 @@ function DLNS_Header({ className = "" }) {
   }, [location.pathname]);
 
   const primaryNav = [
-    { path: "/", label: "Matches" },
+    { path: "/matchlist", label: "Matches" },
     { path: "/players", label: "Players" },
     { path: "/teams", label: "Teams" },
     { path: "/heroes", label: "Heroes" },
@@ -63,7 +63,7 @@ function DLNS_Header({ className = "" }) {
         <div className="flex items-center h-14">
           {/* Brand + Desktop nav together on the left */}
           <div className="flex items-center gap-4">
-            <Link to="/" className="shrink-0 flex items-center" title="Home">
+            <Link to="/home" className="shrink-0 flex items-center" title="Home">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28">
                 <rect x="2" y="12" width="24" height="4" rx="1" fill="#ae7afc" transform="rotate(-12 14 14)"></rect>
                 <rect x="5" y="19" width="18" height="4" rx="1" fill="#cb8eff" transform="rotate(-12 14 21)"></rect>

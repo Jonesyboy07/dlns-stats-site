@@ -407,6 +407,7 @@ def weeks_map():  # type: ignore
                                 "team_a": team_a,
                                 "team_b": team_b,
                                 "game": game_label,
+                                "series_title": (series.get("title") or "").strip(),
                             }
                     continue
 
@@ -424,6 +425,7 @@ def weeks_map():  # type: ignore
                         "team_a": team_a,
                         "team_b": team_b,
                         "game": series.get("game") or series.get("game_label"),
+                        "series_title": (series.get("title") or "").strip(),
                     }
 
     if not event_title_filter_lc:

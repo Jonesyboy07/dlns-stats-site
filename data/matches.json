@@ -3560,6 +3560,74 @@
               ],
               "region": "EU",
               "title": "EU QUALIFIERS"
+            },
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 93998128
+                }
+              ],
+              "region": "EU",
+              "title": "CHALLENGER MATCH",
+              "match_vod": "https://www.youtube.com/watch?v=kDq1LeCnAAw"
+            },
+            {
+              "team_a": "BUFF ENJOYERS",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 94006005
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 94014787
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 1,
+                  "match_id": 94021619
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=X5OgLXP2i3A",
+              "region": "EU",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "POPPERS' PUPILS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 94031068
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 94038881
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 94048508
+                }
+              ],
+              "region": "NA",
+              "title": "FINALS",
+              "match_vod": "https://www.youtube.com/watch?v=e6-_TuYUHXk"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=CoArYAgz9Tk"
             }
           ]
         }

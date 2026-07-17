@@ -20,6 +20,13 @@ const formatDate = (iso) => {
   });
 };
 
+function formatDurationShort(s) {
+  if (!s) return "—";
+  const min = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
 function SeriesBlock({
   teamA,
   teamB,
@@ -49,7 +56,7 @@ function SeriesBlock({
     return { teamAWins: aWins, teamBWins: bWins, seriesWinner: winner };
   }, [matches]);
 
-  // Deduplicate players per team
+  // Deduplicate players per team (merge stats across games)
   const { teamAPlayers, teamBPlayers } = useMemo(() => {
     const aMap = new Map();
     const bMap = new Map();
@@ -59,7 +66,16 @@ function SeriesBlock({
         if (!p.account_id) continue;
         const isTeamA = side != null ? p.team === side : p.team === 0;
         const map = isTeamA ? aMap : bMap;
-        if (!map.has(p.account_id)) map.set(p.account_id, p);
+        if (!map.has(p.account_id)) {
+          map.set(p.account_id, { ...p });
+        } else {
+          // Aggregate stats across games
+          const existing = map.get(p.account_id);
+          existing.kills = (existing.kills || 0) + (p.kills || 0);
+          existing.deaths = (existing.deaths || 0) + (p.deaths || 0);
+          existing.assists = (existing.assists || 0) + (p.assists || 0);
+          existing.gamesPlayed = (existing.gamesPlayed || 1) + 1;
+        }
       }
     }
     return {
@@ -68,96 +84,150 @@ function SeriesBlock({
     };
   }, [matches]);
 
+  // Determine series type label from event_subtitle (e.g. "EU QUALIFIER", "FINALS", "CHALLENGER MATCH")
+  const seriesLabel = useMemo(() => {
+    const sub = matches[0]?.event_subtitle;
+    return sub && sub.trim() ? sub.toUpperCase() : null;
+  }, [matches]);
+
+  const isBo = matches.length >= 3 ? "3" : matches.length >= 2 ? "3" : "1";
+  const bestOf = matches.length >= 3 ? "BEST OF 3" : matches.length >= 2 ? "BEST OF 3" : "BEST OF 1";
+
   return (
-    <div className="rounded-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
+    <div className="rounded-xl border border-gray-700/50 bg-gray-800/10 overflow-hidden">
+      {/* Title badge row */}
+      <div className="flex items-center gap-2 px-5 pt-3 pb-1">
+        {seriesLabel && (
+          <span className="text-[11px] font-bold uppercase tracking-widest text-accent-secondary-light">
+            {seriesLabel}
+          </span>
+        )}
+        {matches.length > 1 && (
+          <>
+            <span className="text-gray-600">·</span>
+            <span className="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+              {bestOf}
+            </span>
+          </>
+        )}
+      </div>
+
       {/* Series header — team names + score */}
-      <div className="grid grid-cols-7 gap-6 px-5 py-4 bg-gray-900/40 border-b border-gray-700/50">
-        {seriesVod && (
+      <div className="flex items-center gap-4 px-5 py-2">
+        {/* Team A */}
+        <div className="flex-1 text-right">
+          <span className={`text-lg font-bold ${seriesWinner === "a" ? "text-green-400" : "text-gray-300"}`}>
+            {teamA || "Team A"}
+          </span>
+        </div>
+
+        {/* Score */}
+        <div className="shrink-0 flex items-center gap-2">
+          <span className={`text-2xl font-extrabold tabular-nums ${seriesWinner === "a" ? "text-green-400" : "text-gray-400"}`}>
+            {teamAWins}
+          </span>
+          <span className="text-lg text-gray-600 font-light">–</span>
+          <span className={`text-2xl font-extrabold tabular-nums ${seriesWinner === "b" ? "text-green-400" : "text-gray-400"}`}>
+            {teamBWins}
+          </span>
+        </div>
+
+        {/* Team B */}
+        <div className="flex-1 text-left">
+          <span className={`text-lg font-bold ${seriesWinner === "b" ? "text-green-400" : "text-gray-300"}`}>
+            {teamB || "Team B"}
+          </span>
+        </div>
+      </div>
+
+      {/* VOD button row */}
+      <div className="flex justify-center px-5 pb-2">
+        {seriesVod ? (
           <a
             href={seriesVod}
             target="_blank"
             rel="noopener noreferrer"
-            title="Series VOD"
-            className="justify-self-start self-center text-red-400 hover:text-red-300 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/30 rounded-md hover:bg-red-500/20 transition-colors"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zM8 16V8l8 4-8 4z" />
             </svg>
+            WATCH VOD
           </a>
-        )}
-        <div className="flex items-center gap-3 col-span-5 col-start-2">
-          <span className="text-lg font-bold text-gray-100 text-right flex-1 truncate">
-            {teamA || "Team A"}
-          </span>
-          <div className="flex items-center gap-3 shrink-0">
-            {teamAWins > 0 || teamBWins > 0 ? (
-              <span className="text-xl font-bold text-white tabular-nums">
-                {teamAWins} – {teamBWins}
-              </span>
-            ) : null}
-          </div>
-          <span className="text-lg font-bold text-gray-100 text-left flex-1 truncate">
-            {teamB || "Team B"}
-          </span>
-        </div>
-        {matches.length > 0 && (
-          <Link
-            to={`/series/${matches[0].match_id}`}
-            className="justify-self-end self-center text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+        ) : (
+          <span
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-gray-600 bg-gray-700/20 border border-gray-700/30 rounded-md cursor-default"
+            title="Have a VOD for this match? Message us to submit it!"
           >
-            Full details →
-          </Link>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zM8 16V8l8 4-8 4z" />
+            </svg>
+            VOD N/A
+          </span>
         )}
       </div>
 
-      {/* Series winner badge */}
+      {/* Series winner banner */}
       {seriesWinner && (
-        <div className="text-center text-xs font-semibold uppercase tracking-wider py-1 text-green-400 bg-green-400/10">
-          {seriesWinner === "a" ? teamA || "Team A" : teamB || "Team B"} wins
+        <div className="mx-5 mb-2 rounded-md text-center text-xs font-bold uppercase tracking-wider py-1.5 text-green-300 bg-green-500/10 border border-green-500/20">
+          {seriesWinner === "a" ? teamA || "Team A" : teamB || "Team B"} WINS
         </div>
       )}
 
       {/* Match list */}
-      <div className="divide-y divide-gray-700/30">
+      <div className="divide-y divide-gray-700/20 border-t border-gray-700/30">
         {matches.map((m, i) => {
           const gvod = gameVods?.[String(m.match_id)];
+          const winnerName = m.winning_team != null
+            ? (m.winning_team === m.event_team_a_ingame_side
+                ? m.event_team_a || "Team A"
+                : m.event_team_b || "Team B")
+            : null;
           return (
-            <div
+            <Link
               key={m.match_id}
-              className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-700/30 transition-colors"
+              to={`/match/${m.match_id}`}
+              className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-700/20 transition-colors group"
             >
-              <Link
-                to={`/match/${m.match_id}`}
-                className="flex-1 flex items-center gap-3 min-w-0"
-              >
-                <span className="text-xs font-medium text-gray-400 w-14 shrink-0">
-                  {m.event_game || `Game ${i + 1}`}
+              <span className="text-xs font-semibold text-gray-400 w-16 shrink-0 group-hover:text-gray-300 transition-colors">
+                {m.event_game || `Game ${i + 1}`}
+              </span>
+              <span className="text-xs text-gray-500 tabular-nums w-12 shrink-0">
+                {formatDurationShort(m.duration_s)}
+              </span>
+              {winnerName && (
+                <span className="text-xs font-bold text-green-400 flex-1 truncate">
+                  {winnerName}
                 </span>
-                <span className="text-xs text-gray-500 w-12 shrink-0">
-                  {formatDuration(m.duration_s)}
-                </span>
-                {m.winning_team != null && (
-                  <span className="text-xs font-semibold text-green-400">
-                    {m.winning_team === m.event_team_a_ingame_side
-                      ? m.event_team_a || "Team A"
-                      : m.event_team_b || "Team B"}
-                  </span>
-                )}
-              </Link>
-              <span className="text-xs text-gray-600 shrink-0">
+              )}
+              <span className="text-xs text-gray-600 shrink-0 font-mono">
                 #{m.match_id}
               </span>
-            </div>
+              {gvod && (
+                <a
+                  href={gvod}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-red-400 hover:text-red-300 transition-colors shrink-0"
+                  title="Game VOD"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zM8 16V8l8 4-8 4z" />
+                  </svg>
+                </a>
+              )}
+            </Link>
           );
         })}
       </div>
 
-      {/* Toggle players */}
+      {/* Toggle players with KDA */}
       {teamAPlayers.length + teamBPlayers.length > 0 && (
         <div className="border-t border-gray-700/40">
           <button
             onClick={() => setShowPlayers((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-2 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-700/30 transition-colors"
+            className="w-full flex items-center justify-between px-5 py-2 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-700/20 transition-colors"
           >
             <span className="font-semibold uppercase tracking-wider">
               Players
@@ -165,38 +235,64 @@ function SeriesBlock({
             <span>{showPlayers ? "▲" : "▼"}</span>
           </button>
           {showPlayers && (
-            <div className="grid grid-cols-2 gap-px bg-gray-700/20">
-              <div className="bg-gray-800/30 p-3 space-y-1">
-                {teamAPlayers.map((p) => (
-                  <Link
-                    key={p.account_id}
-                    to={`/player/${p.account_id}`}
-                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700/40 transition-colors"
-                  >
-                    <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[10px] font-bold text-amber-300 shrink-0">
-                      {(p.persona_name || "?")[0].toUpperCase()}
-                    </div>
-                    <span className="text-sm text-gray-300 truncate hover:underline">
-                      {p.persona_name || `Player ${p.account_id}`}
-                    </span>
-                  </Link>
-                ))}
+            <div className="grid grid-cols-2 divide-x divide-gray-700/30">
+              {/* Team A */}
+              <div className="bg-gray-800/20">
+                <div className="px-4 py-2 border-b border-gray-700/20">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    {teamA || "Team A"}
+                  </span>
+                </div>
+                <div className="divide-y divide-gray-700/10">
+                  {teamAPlayers.map((p) => (
+                    <Link
+                      key={p.account_id}
+                      to={`/player/${p.account_id}`}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700/30 transition-colors group"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-[10px] font-bold text-amber-300 shrink-0">
+                        {(p.persona_name || "?")[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-300 truncate group-hover:underline">
+                          {p.persona_name || `Player ${p.account_id}`}
+                        </div>
+                      </div>
+                      <div className="text-xs font-semibold text-gray-400 tabular-nums shrink-0">
+                        {p.kills ?? "—"}/{p.deaths ?? "—"}/{p.assists ?? "—"}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
-              <div className="bg-gray-800/30 p-3 space-y-1">
-                {teamBPlayers.map((p) => (
-                  <Link
-                    key={p.account_id}
-                    to={`/player/${p.account_id}`}
-                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-700/40 transition-colors"
-                  >
-                    <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-300 shrink-0">
-                      {(p.persona_name || "?")[0].toUpperCase()}
-                    </div>
-                    <span className="text-sm text-gray-300 truncate hover:underline">
-                      {p.persona_name || `Player ${p.account_id}`}
-                    </span>
-                  </Link>
-                ))}
+              {/* Team B */}
+              <div className="bg-gray-800/20">
+                <div className="px-4 py-2 border-b border-gray-700/20">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    {teamB || "Team B"}
+                  </span>
+                </div>
+                <div className="divide-y divide-gray-700/10">
+                  {teamBPlayers.map((p) => (
+                    <Link
+                      key={p.account_id}
+                      to={`/player/${p.account_id}`}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700/30 transition-colors group"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-300 shrink-0">
+                        {(p.persona_name || "?")[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-300 truncate group-hover:underline">
+                          {p.persona_name || `Player ${p.account_id}`}
+                        </div>
+                      </div>
+                      <div className="text-xs font-semibold text-gray-400 tabular-nums shrink-0">
+                        {p.kills ?? "—"}/{p.deaths ?? "—"}/{p.assists ?? "—"}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           )}

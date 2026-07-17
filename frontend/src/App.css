@@ -126,7 +126,9 @@
 }
 
 @layer base {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
   }
 
@@ -137,7 +139,17 @@
   }
 
   html {
-    font-family: "Valve Pulp", "Valve Oracle", "Fira Sans",  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family:
+      "Valve Pulp",
+      "Valve Oracle",
+      "Fira Sans",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      "Helvetica Neue",
+      Arial,
+      sans-serif;
   }
 }
 
@@ -154,82 +166,102 @@
   .text-stroke {
     -webkit-text-stroke: 1px var(--text-stroke-color, currentColor);
   }
-  .text-stroke-0 { -webkit-text-stroke: 0; }
-  .text-stroke-1 { -webkit-text-stroke: 1px var(--text-stroke-color, currentColor); }
-  .text-stroke-2 { -webkit-text-stroke: 2px var(--text-stroke-color, currentColor); }
-  .text-stroke-4 { -webkit-text-stroke: 4px var(--text-stroke-color, currentColor); }
+  .text-stroke-0 {
+    -webkit-text-stroke: 0;
+  }
+  .text-stroke-1 {
+    -webkit-text-stroke: 1px var(--text-stroke-color, currentColor);
+  }
+  .text-stroke-2 {
+    -webkit-text-stroke: 2px var(--text-stroke-color, currentColor);
+  }
+  .text-stroke-4 {
+    -webkit-text-stroke: 4px var(--text-stroke-color, currentColor);
+  }
 }
 
-@theme {   
-    --font-fira-sans: "Fira Sans", sans-serif;
-    --font-valve-pulp: "Valve Pulp", sans-serif;
-    --font-valve-oracle: "Valve Oracle", sans-serif;
-    --font-roboto: "Roboto", sans-serif;
+@theme {
+  --font-fira-sans: "Fira Sans", sans-serif;
+  --font-valve-pulp: "Valve Pulp", sans-serif;
+  --font-valve-oracle: "Valve Oracle", sans-serif;
+  --font-roboto: "Roboto", sans-serif;
 
-     /* ── Core Backgrounds ── */
-    --color-base: oklch(0.2304 0.028 279.82);
-    --color-panel: oklch(0.28 0.030 279.82);
-    --color-card: oklch(0.19 0.025 279.82);
-    --color-table: oklch(0.15 0.018 279.82);
-    --color-input: oklch(0.26 0.032 279.82);
-    --color-surface: oklch(0.25 0.028 279.82);
-    --color-hover: oklch(0.32 0.035 279.82);
+  /* ── Core Backgrounds ── */
+  --color-base: oklch(0.2304 0.028 279.82);
+  --color-panel: oklch(0.28 0.03 279.82);
+  --color-card: oklch(0.19 0.025 279.82);
+  --color-table: oklch(0.15 0.018 279.82);
+  --color-input: oklch(0.26 0.032 279.82);
+  --color-surface: oklch(0.25 0.028 279.82);
+  --color-hover: oklch(0.32 0.035 279.82);
 
-    /* ── Accent / Brand (green) ── */
-    --color-accent: oklch(68.88% 0.187 300);        
-    --color-accent-light: oklch(76.97% 0.2124 300); 
-    --color-accent-gradient: linear-gradient(90deg, oklch(68.88% 0.187 300), oklch(76.97% 0.2124 300));
-    --color-accent-bg: oklch(68.88% 0.187 300 / 0.1);
-    --color-accent-bg-strong: oklch(68.88% 0.187 300 / 0.15);
-    --color-accent-border: oklch(68.88% 0.187 300 / 0.3);
-    --color-accent-border-strong: oklch(68.88% 0.187 300 / 0.6);
-    --color-accent-gradient-wide: linear-gradient(90deg, oklch(68.88% 0.187 300 / 0.9), oklch(81.36% 0.1454 217.11 / 0.9));
+  /* ── Accent — Cyan (current primary; same L/C as the retired violet, hue swapped) ── */
+  --color-accent: oklch(68.88% 0.187 200);
+  --color-accent-light: oklch(76.97% 0.2124 200);
+  --color-accent-gradient: linear-gradient(
+    90deg,
+    oklch(68.88% 0.187 200),
+    oklch(76.97% 0.2124 200)
+  );
+  --color-accent-bg: oklch(68.88% 0.187 200 / 0.1);
+  --color-accent-bg-strong: oklch(68.88% 0.187 200 / 0.15);
+  --color-accent-border: oklch(68.88% 0.187 200 / 0.3);
+  --color-accent-border-strong: oklch(68.88% 0.187 200 / 0.6);
 
-    /* ── Secondary accent (cyan) ── */
-    --color-cyan: oklch(81.36% 0.1454 217.11);
-    --color-accent-gradient-wide: linear-gradient(90deg, oklch(68.88% 0.187 148.92 / 0.9), oklch(81.36% 0.1454 217.11 / 0.9));
+  /* ── Secondary accent — Violet (previous primary, kept for reconsideration) ── */
+  --color-accent-secondary: oklch(68.88% 0.187 300);
+  --color-accent-secondary-light: oklch(76.97% 0.2124 300);
+  --color-accent-secondary-gradient: linear-gradient(
+    90deg,
+    oklch(68.88% 0.187 300),
+    oklch(76.97% 0.2124 300)
+  );
+  --color-accent-secondary-bg: oklch(68.88% 0.187 300 / 0.1);
+  --color-accent-secondary-bg-strong: oklch(68.88% 0.187 300 / 0.15);
+  --color-accent-secondary-border: oklch(68.88% 0.187 300 / 0.3);
+  --color-accent-secondary-border-strong: oklch(68.88% 0.187 300 / 0.6);
 
-    /* ── Text ── */
-    --color-primary: oklch(100% 0 none);
-    --color-secondary: oklch(89.56% 0.0054 286.29);
-    --color-muted: oklch(76.54% 0.0085 286.2);
-    --color-dim: oklch(58.22% 0.0121 286.02);
+  /* ── Text ── */
+  --color-primary: oklch(100% 0 none);
+  --color-secondary: oklch(89.56% 0.0054 286.29);
+  --color-muted: oklch(76.54% 0.0085 286.2);
+  --color-dim: oklch(58.22% 0.0121 286.02);
 
-    /* ── Borders ── */
-    --color-border: oklch(100% 0 none / 0.08);
-    --color-border-light: oklch(100% 0 none / 0.12);
-    --color-border-lighter: oklch(100% 0 none / 0.14);
-    --color-border-dashed: oklch(100% 0 none / 0.06);
+  /* ── Borders ── */
+  --color-border: oklch(100% 0 none / 0.08);
+  --color-border-light: oklch(100% 0 none / 0.12);
+  --color-border-lighter: oklch(100% 0 none / 0.14);
+  --color-border-dashed: oklch(100% 0 none / 0.06);
 
-    /* ── Status ── */
-    --color-success: oklch(68.88% 0.187 148.92);
-    --color-success-bg: oklch(68.88% 0.187 148.92 / 0.12);
-    --color-success-border: oklch(68.88% 0.187 148.92 / 0.4);
-    --color-warning: oklch(78.19% 0.1585 72.33);
-    --color-warning-bg: oklch(78.19% 0.1585 72.33 / 0.12);
-    --color-warning-border: oklch(78.19% 0.1585 72.33 / 0.3);
-    --color-danger: oklch(68.34% 0.2053 24.36);
-    --color-danger-text: oklch(73.63% 0.1614 21.8);
-    --color-danger-bg: oklch(68.34% 0.2053 24.36 / 0.12);
-    --color-danger-border: oklch(68.34% 0.2053 24.36 / 0.3);
+  /* ── Status ── */
+  --color-success: oklch(68.88% 0.187 148.92);
+  --color-success-bg: oklch(68.88% 0.187 148.92 / 0.12);
+  --color-success-border: oklch(68.88% 0.187 148.92 / 0.4);
+  --color-warning: oklch(78.19% 0.1585 72.33);
+  --color-warning-bg: oklch(78.19% 0.1585 72.33 / 0.12);
+  --color-warning-border: oklch(78.19% 0.1585 72.33 / 0.3);
+  --color-danger: oklch(68.34% 0.2053 24.36);
+  --color-danger-text: oklch(73.63% 0.1614 21.8);
+  --color-danger-bg: oklch(68.34% 0.2053 24.36 / 0.12);
+  --color-danger-border: oklch(68.34% 0.2053 24.36 / 0.3);
 
-    /* ── Team Colors ── */
-    --color-team-amber: oklch(0.8016 0.1705 73.27);
-    --color-team-sapphire: oklch(0.5542 0.246471 261.4449);
+  /* ── Team Colors ── */
+  --color-team-amber: oklch(0.8016 0.1705 73.27);
+  --color-team-sapphire: oklch(0.5542 0.246471 261.4449);
 
-    /* ── Shadows ── */
-    --shadow-panel: inset 0 1px 0 oklch(100% 0 none / 0.04);
-    --shadow-heavy: 0 14px 36px oklch(0% 0 none / 0.35);
+  /* ── Shadows ── */
+  --shadow-panel: inset 0 1px 0 oklch(100% 0 none / 0.04);
+  --shadow-heavy: 0 14px 36px oklch(0% 0 none / 0.35);
 
-    /* ── Badge / Tag ── */
-    --color-badge-bg: oklch(100% 0 none / 0.06);
-    --color-badge-border: oklch(100% 0 none / 0.08);
-  }
+  /* ── Badge / Tag ── */
+  --color-badge-bg: oklch(100% 0 none / 0.06);
+  --color-badge-border: oklch(100% 0 none / 0.08);
+}
 
 html.matchlist-theme-dark {
   --color-base: oklch(0.12 0.015 279.82);
   --color-panel: oklch(0.16 0.018 279.82);
-  --color-card: oklch(0.10 0.013 279.82);
+  --color-card: oklch(0.1 0.013 279.82);
   --color-table: oklch(0.075 0.01 279.82);
   --color-input: oklch(0.155 0.018 279.82);
   --color-surface: oklch(0.14 0.016 279.82);
@@ -248,4 +280,3 @@ html.matchlist-theme-dark body {
     radial-gradient(circle at top, rgba(255, 255, 255, 0.03), transparent 28%),
     linear-gradient(180deg, #050507 0%, #09090d 45%, #08080a 100%);
 }
-

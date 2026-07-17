@@ -2006,7 +2006,7 @@ def nightshift_week(week: int):
                 m.match_id, m.duration_s, m.winning_team,
                 m.event_title, m.event_week, m.event_game,
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
-                m.start_time
+                m.start_time, m.event_subtitle
             FROM matches m
             WHERE m.event_title = ? AND m.event_week = ?
             ORDER BY m.start_time ASC, m.match_id ASC

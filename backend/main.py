@@ -299,20 +299,29 @@ def resolve_names_with_cache(
 
 	resolved: Dict[int, str] = {}
 	if to_lookup:
-		steam_ids64 = [to_steamid64(a) for a in to_lookup]
-		data_by_sid: Dict[str, Dict[str, str]] = {}
-		for chunk in chunked(steam_ids64, 100):
-			data_by_sid.update(fetch_player_summaries(steam_api_key, chunk))
-		for a in to_lookup:
-			sid64 = to_steamid64(a)
-			entry = data_by_sid.get(sid64) or {}
-			persona = entry.get("persona_name") or "Unknown"
-			cache[str(a)] = persona
-			resolved[a] = persona
-			if avatar_cache is not None:
-				avatar_url = entry.get("avatar_url") or ""
-				# Store even if empty — prevents re-fetching users with no Steam avatar
-				avatar_cache[str(a)] = avatar_url
+		try:
+			steam_ids64 = [to_steamid64(a) for a in to_lookup]
+			data_by_sid: Dict[str, Dict[str, str]] = {}
+			for chunk in chunked(steam_ids64, 100):
+				data_by_sid.update(fetch_player_summaries(steam_api_key, chunk))
+			for a in to_lookup:
+				sid64 = to_steamid64(a)
+				entry = data_by_sid.get(sid64) or {}
+				persona = entry.get("persona_name") or "Unknown"
+				cache[str(a)] = persona
+				resolved[a] = persona
+				if avatar_cache is not None:
+					avatar_url = entry.get("avatar_url") or ""
+					# Store even if empty — prevents re-fetching users with no Steam avatar
+					avatar_cache[str(a)] = avatar_url
+		except requests.RequestException as e:
+			print(f"[warn] Steam API failed for name resolution ({e}). Using cached/unknown names.")
+			# Fall back: mark uncached IDs as Unknown
+			for a in to_lookup:
+				s = str(int(a))
+				if s not in cache or not cache[s]:
+					cache[str(a)] = "Unknown"
+					resolved[int(a)] = "Unknown"
 
 	# fill any already-cached values
 	for aid in account_ids:
@@ -514,6 +523,9 @@ def db_init(conn: sqlite3.Connection) -> bool:
 		if "event_region" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_region TEXT")
 			large_table_change = True
+		if "event_subtitle" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN event_subtitle TEXT")
+			large_table_change = True
 		conn.commit()
 	except Exception:
 		pass
@@ -653,6 +665,7 @@ def upsert_match(
 	event_team_a_ingame_side: Optional[int] = None,
 	match_vod: Optional[str] = None,
 	event_region: Optional[str] = None,
+	event_subtitle: Optional[str] = None,
 ) -> None:
 	# Normalize team names to title case so casing variants are treated as the same team
 	event_team_a = event_team_a.strip().title() if event_team_a else None
@@ -667,9 +680,9 @@ def upsert_match(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, event_subtitle, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, event_subtitle=excluded.event_subtitle, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -685,6 +698,7 @@ def upsert_match(
 			event_team_a_ingame_side,
 			match_vod or None,
 			event_region or None,
+			event_subtitle or None,
 			start_iso,
 			now_iso(),  # scraped time
 		),
@@ -1032,6 +1046,9 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 		if "event_region" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_region TEXT")
 			large_table_change = True
+		if "event_subtitle" not in cols:
+			await conn.execute("ALTER TABLE matches ADD COLUMN event_subtitle TEXT")
+			large_table_change = True
 		await conn.commit()
 	except Exception:
 		pass
@@ -1094,6 +1111,7 @@ async def upsert_match_async(
 	event_team_a_ingame_side: Optional[int] = None,
 	match_vod: Optional[str] = None,
 	event_region: Optional[str] = None,
+	event_subtitle: Optional[str] = None,
 ) -> None:
 	st = (
 		mi.get("start_time")
@@ -1104,9 +1122,9 @@ async def upsert_match_async(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	await conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, event_subtitle, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, event_subtitle=excluded.event_subtitle, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -1122,6 +1140,7 @@ async def upsert_match_async(
 			event_team_a_ingame_side,
 			match_vod or None,
 			event_region or None,
+			event_subtitle or None,
 			start_iso,
 			now_iso(),
 		),
@@ -1615,6 +1634,7 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 					continue
 				team_a = _clean_str(series.get("team_a") or series.get("team1") or series.get("left_team"))
 				team_b = _clean_str(series.get("team_b") or series.get("team2") or series.get("right_team"))
+				game_title = _clean_str(series.get("title"))
 				for game_label, value in _iter_game_records(series):
 					try:
 						mid = int(value)
@@ -1641,6 +1661,7 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 							"event_team_a_ingame_side": team_a_side,
 							"match_vod": _clean_str(series.get("match_vod")),
 							"event_region": _clean_str(series.get("region")),
+							"event_subtitle": game_title,
 						}
 
 						existing_ctx = context_by_id.get(mid)
@@ -1654,7 +1675,7 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 								existing_ctx.get("event_team_a_ingame_side") is None and new_ctx.get("event_team_a_ingame_side") is not None
 							):
 								merged = dict(existing_ctx)
-								for k in ("event_title", "event_week", "event_team_a", "event_team_b", "event_game", "event_team_a_ingame_side", "match_vod", "event_region"):
+								for k in ("event_title", "event_week", "event_team_a", "event_team_b", "event_game", "event_team_a_ingame_side", "match_vod", "event_region", "event_subtitle"):
 									if new_ctx.get(k) is not None:
 										merged[k] = new_ctx[k]
 								context_by_id[mid] = merged
@@ -1684,6 +1705,7 @@ def process_match_into_db(
 	event_team_a_ingame_side: Optional[int] = None,
 	match_vod: Optional[str] = None,
 	event_region: Optional[str] = None,
+	event_subtitle: Optional[str] = None,
 ) -> None:
 	match_info = fetch_match_metadata(match_id)
 
@@ -1699,6 +1721,7 @@ def process_match_into_db(
 		event_team_a_ingame_side=event_team_a_ingame_side,
 		match_vod=match_vod,
 		event_region=event_region,
+		event_subtitle=event_subtitle,
 	)
 
 	# Load persisted avatar cache
@@ -1747,6 +1770,7 @@ async def process_match_into_db_async(
 	event_team_a_ingame_side: Optional[int] = None,
 	match_vod: Optional[str] = None,
 	event_region: Optional[str] = None,
+	event_subtitle: Optional[str] = None,
 ) -> None:
 	match_info = await asyncio.to_thread(fetch_match_metadata, match_id)
 
@@ -1776,6 +1800,7 @@ async def process_match_into_db_async(
 			event_team_a_ingame_side=event_team_a_ingame_side,
 			match_vod=match_vod,
 			event_region=event_region,
+			event_subtitle=event_subtitle,
 		)
 
 		for p in players:
@@ -1833,6 +1858,7 @@ async def run_match_ingest_async(
 					event_team_a_ingame_side=ctx.get("event_team_a_ingame_side"),
 					match_vod=ctx.get("match_vod"),
 					event_region=ctx.get("event_region"),
+					event_subtitle=ctx.get("event_subtitle"),
 				)
 				async with cache_lock:
 					save_json(cache_path, cache)

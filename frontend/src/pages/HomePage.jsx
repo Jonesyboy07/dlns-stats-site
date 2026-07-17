@@ -155,7 +155,7 @@ function HomePage() {
           </div>
         </div>
 
-        <div className="flex-1 bg-panel border border-accent-border rounded-lg overflow-hidden flex flex-col max-w-[600px]">
+        <div className="flex-1 bg-panel border border-accent-secondary-border rounded-lg overflow-hidden flex flex-col max-w-[600px]">
           <div className="aspect-video w-full bg-black">
             <iframe
               src={twitchEmbedUrl}
@@ -182,13 +182,10 @@ function HomePage() {
               {/* Week header — links to week page */}
               <Link
                 to={weekUrl}
-                className="bg-accent-bg border-b border-accent-border px-5 py-3 flex items-center gap-3 hover:bg-accent-bg-strong transition-colors"
+                className="bg-accent-secondary-bg border-b border-accent-secondary-border px-5 py-3 flex items-center gap-3 hover:bg-accent-secondary-bg-strong transition-colors"
               >
-                <span className="text-[11px] font-mono font-bold text-accent-light bg-accent-bg-strong border border-accent-border rounded px-2 py-0.5 uppercase tracking-[.06em]">
-                  W{weekNum}
-                </span>
-                <span className="text-sm font-heading font-semibold text-accent-light">
-                  {seriesTitle} &mdash; Week {weekNum}
+                <span className="text-sm font-heading font-semibold text-accent-secondary-light">
+                  {seriesTitle} #{weekNum}
                 </span>
               </Link>
 
@@ -294,7 +291,7 @@ function HomePage() {
                         {/* Series link */}
                         <Link
                           to={`/series/${entry.firstMatchId}`}
-                          className="ml-4 shrink-0 text-xs text-accent-light hover:text-accent transition-colors font-heading font-semibold tracking-[.02em]"
+                          className="ml-4 shrink-0 text-xs text-accent-secondary-light hover:text-accent-secondary transition-colors font-heading font-semibold tracking-[.02em]"
                         >
                           View series →
                         </Link>

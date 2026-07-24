@@ -3630,6 +3630,116 @@
               "url": "https://www.youtube.com/watch?v=CoArYAgz9Tk"
             }
           ]
+        },
+        {
+          "week": 48,
+          "games": [
+            {
+              "team_a": "LEVIATHAN",
+              "team_b": "SILENCE",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 94767316
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 94773487
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 94779630
+                }
+              ],
+              "region": "EU",
+              "title": "QUALIFIERS"
+            },
+            {
+              "team_a": "SILENCE",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 95127498
+                }
+              ],
+              "region": "EU",
+              "title": "CHALLENGER MATCH",
+              "match_vod": "https://www.youtube.com/watch?v=zmglSzcD4Uo"
+            },
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "BUFF ENJOYERS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 95138948
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 95147044
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 95154753
+                }
+              ],
+              "region": "EU",
+              "title": "FINALS",
+              "match_vod": "https://www.youtube.com/watch?v=119k2WNI3aw&pp=0gcJCaMLAYcqIYzv"
+            },
+            {
+              "team_a": "BIRD WITH CLOCK",
+              "team_b": "MELEE CREEPS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 95163554
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=-awK24je1oY",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "melee creeps",
+              "team_b": "poppers' pupils",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 95172627
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 95180553
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 95187371
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=mNq5pUF9FmE",
+              "region": "NA",
+              "title": "FINALS"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=Y3s8iqwJhks"
+            }
+          ]
         }
       ]
     },

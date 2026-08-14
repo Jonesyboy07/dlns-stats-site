@@ -3817,6 +3817,100 @@
               "url": "https://www.youtube.com/watch?v=Ir8D2Lsh5IA"
             }
           ]
+        },
+        {
+          "week": 51,
+          "games": [
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 99071555
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=pVW3YcnDEOU",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "BUFF ENJOYERS",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 99082269
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 99093470
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=rc_eorHahMc",
+              "region": "EU",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 99105277
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=09618VYL9hs",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "POPPERS' PUPILS",
+              "team_b": "BIRD WITH CLOCK",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 99116123
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 99124970
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=xPedsJI3x74",
+              "region": "NA",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "SILENCE",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 98867083
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 98874996
+                }
+              ],
+              "title": "QUALIFIERS"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=pG5S3TBu8vs"
+            }
+          ]
         }
       ]
     },

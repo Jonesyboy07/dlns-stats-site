@@ -394,6 +394,8 @@ CREATE TABLE IF NOT EXISTS players (
   account_id INTEGER,
   player_slot INTEGER,
   team INTEGER,
+  lane INTEGER,
+  lane_real INTEGER,
   hero_id INTEGER,
   level INTEGER,
   kills INTEGER,
@@ -548,6 +550,10 @@ def db_init(conn: sqlite3.Connection) -> bool:
 			conn.execute("ALTER TABLE players ADD COLUMN ability_order TEXT")
 		if "raw_items_json" not in cols:
 			conn.execute("ALTER TABLE players ADD COLUMN raw_items_json TEXT")
+		if "lane" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN lane INTEGER")
+		if "lane_real" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN lane_real INTEGER")
 		conn.commit()
 	except Exception:
 		pass
@@ -709,6 +715,7 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	account_id = extract_int(player.get("account_id"))
 	player_slot = extract_int(player.get("player_slot"))
 	team = team_from_slot(player_slot)
+	lane = extract_int(player.get("assigned_lane"))
 	hero_id = extract_int(player.get("hero_id"))
 	level = extract_int(player.get("level")) or extract_int(safe_get_stat(player, "level"))
 
@@ -787,10 +794,10 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 
 	conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order, raw_items_json) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, lane, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order, raw_items_json) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
-			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
+			"player_slot=excluded.player_slot, team=excluded.team, lane=excluded.lane, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
@@ -801,6 +808,7 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 			account_id,
 			player_slot,
 			team,
+			lane,
 			hero_id,
 			level,
 			kills,
@@ -1157,6 +1165,7 @@ async def upsert_player_async(
 	account_id = extract_int(player.get("account_id"))
 	player_slot = extract_int(player.get("player_slot"))
 	team = team_from_slot(player_slot)
+	lane = extract_int(player.get("assigned_lane"))
 	hero_id = extract_int(player.get("hero_id"))
 	level = extract_int(player.get("level")) or extract_int(safe_get_stat(player, "level"))
 
@@ -1220,10 +1229,10 @@ async def upsert_player_async(
 
 	await conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order, raw_items_json) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, lane, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items, item_build, ability_order, raw_items_json) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
-			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
+			"player_slot=excluded.player_slot, team=excluded.team, lane=excluded.lane, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
@@ -1234,6 +1243,7 @@ async def upsert_player_async(
 			account_id,
 			player_slot,
 			team,
+			lane,
 			hero_id,
 			level,
 			kills,
@@ -1360,6 +1370,242 @@ def backfill_all_player_items(conn: sqlite3.Connection) -> None:
 	conn.commit()
 	print(
 		f"[backfill-items] Done. Updated {updated_players} players across {updated_matches} matches. "
+		f"Skipped {skipped}. Errors {errors}."
+	)
+
+
+def backfill_all_player_lanes(conn: sqlite3.Connection) -> None:
+	"""Targeted backfill: populate players.lane from the match metadata's assigned_lane.
+
+	Only visits matches that still have at least one player with a NULL lane, so it is
+	cheap to re-run. Matches that never expose assigned_lane stay NULL (the frontend
+	falls back to deriving the lane from player_slot).
+	"""
+	rows = conn.execute(
+		'''
+		SELECT DISTINCT match_id FROM players
+		WHERE lane IS NULL
+		ORDER BY match_id DESC
+		'''
+	).fetchall()
+	match_ids = [int(r[0]) for r in rows]
+	if not match_ids:
+		print("[backfill-lanes] No matches missing lane data.")
+		return
+
+	print(f"[backfill-lanes] Checking {len(match_ids)} matches missing lane data.")
+	updated_players = 0
+	updated_matches = 0
+	skipped = 0
+	errors = 0
+
+	for idx, match_id in enumerate(match_ids, start=1):
+		print(f"[backfill-lanes] {idx}/{len(match_ids)} match {match_id}...")
+		try:
+			mi = fetch_match_metadata(match_id)
+		except SkipMatchSilent:
+			skipped += 1
+			continue
+		except Exception as e:
+			print(f"[backfill-lanes] Fetch failed for {match_id}: {e}")
+			errors += 1
+			continue
+
+		players = mi.get("players") or []
+		if not players:
+			skipped += 1
+			continue
+
+		match_updated = False
+		for player in players:
+			account_id = extract_int(player.get("account_id"))
+			lane = extract_int(player.get("assigned_lane"))
+			if account_id is None or lane is None:
+				continue
+			cur = conn.execute(
+				"UPDATE players SET lane = ? WHERE match_id = ? AND account_id = ?",
+				(lane, match_id, account_id),
+			)
+			if cur.rowcount and cur.rowcount > 0:
+				updated_players += 1
+				match_updated = True
+
+		if match_updated:
+			updated_matches += 1
+
+	conn.commit()
+	print(
+		f"[backfill-lanes] Done. Updated {updated_players} players across {updated_matches} matches. "
+		f"Skipped {skipped}. Errors {errors}."
+	)
+
+
+# Lane ids for the DLNS 3-lane map (callouts): 1=York(Yellow), 4=Greenwich(Green), 6=Broadway(Blue).
+# Lanes sit at fixed map X positions; from leftmost to rightmost X the corridors are
+# York, Broadway, Greenwich (verified against ground truth on 2026-08-20).
+LANE_BY_XPOS = (1, 6, 4)
+# Laning window used for positional clustering (seconds of game time).
+LANE_INFER_START_S = 120
+LANE_INFER_END_S = 300
+
+
+def infer_lanes_from_paths(mi: Dict[str, Any]) -> Dict[int, int]:
+	"""Infer each player's real lane from match_paths positions during laning.
+
+	Returns {player_slot: lane_id} for players we could infer; empty dict if
+	match_paths is missing or incomplete. Player slots are 1-12 (same numbering as
+	the players array): team0 = 1-6, team1 = 7-12. (The damage/paths indexing slot
+	0 is a non-hero aggregate and is never a real player.)
+
+	Method: mean X per player over the laning window (LANE_INFER_START_S..END_S,
+	2-5 min), split each team's six players into three lane pairs by X order
+	(exactly 2 per lane), pair the two teams' lanes by nearest mean X (same
+	corridor), then label the 3 lanes by fixed map geometry (LANE_BY_XPOS).
+	assigned_lane is NOT used for labeling - it is noise (players swap freely).
+	"""
+	players = mi.get("players") or []
+	by_slot: Dict[int, Dict[str, Any]] = {}
+	for p in players:
+		ps = extract_int(p.get("player_slot"))
+		if ps is not None:
+			by_slot[ps] = p
+
+	mp = mi.get("match_paths") or {}
+	paths: Dict[int, Dict[str, Any]] = {}
+	for p in mp.get("paths") or []:
+		ps = extract_int(p.get("player_slot"))
+		if ps is not None:
+			paths[ps] = p
+	if not paths or len(paths) < 12:
+		return {}
+
+	interval = mp.get("interval_s") or 1.0
+	i0 = int(LANE_INFER_START_S / interval)
+	i1 = int(LANE_INFER_END_S / interval)
+	mean_x: Dict[int, float] = {}
+	for ps, p in paths.items():
+		xs = (p.get("x_pos") or [])[i0:i1]
+		if xs:
+			mean_x[ps] = sum(xs) / len(xs)
+	if len(mean_x) < 12:
+		return {}
+
+	def team_of(ps: int) -> int:
+		return 0 if ps <= 6 else 1
+
+	def cluster_team(tid: int):
+		slots = sorted((s for s in mean_x if s in by_slot and team_of(s) == tid))
+		if len(slots) != 6:
+			return None
+		items = sorted((mean_x[s], s) for s in slots)
+		# Exactly 2 players per lane per team (3 lanes of 2).
+		return [[s for _, s in items[i:i + 2]] for i in range(0, 6, 2)]
+
+	t0_groups = cluster_team(0)
+	t1_groups = cluster_team(1)
+	if not t0_groups or not t1_groups:
+		return {}
+
+	# Pair each team0 lane with the team1 lane whose mean X is nearest (same corridor).
+	lanes = []
+	used1 = set()
+	for g0 in t0_groups:
+		x0 = sum(mean_x[s] for s in g0) / len(g0)
+		best, bestd = None, float("inf")
+		for gi, g1 in enumerate(t1_groups):
+			if gi in used1:
+				continue
+			x1 = sum(mean_x[s] for s in g1) / len(g1)
+			d = abs(x0 - x1)
+			if d < bestd:
+				bestd = d
+				best = gi
+		used1.add(best)
+		lanes.append((g0, t1_groups[best]))
+
+	# Label by fixed map geometry: order the lanes left->right by mean X and map
+	# xpos -> lane id via LANE_BY_XPOS. No assigned_lane involvement.
+	lanes_sorted = sorted(
+		lanes,
+		key=lambda lane: (sum(mean_x[s] for s in lane[0]) + sum(mean_x[s] for s in lane[1]))
+		/ (len(lane[0]) + len(lane[1])),
+	)
+	result: Dict[int, int] = {}
+	for xpos, (g0, g1) in enumerate(lanes_sorted):
+		label = LANE_BY_XPOS[xpos]
+		for s in g0 + g1:
+			result[s] = label
+	return result
+
+
+def backfill_all_player_lanes_real(conn: sqlite3.Connection) -> None:
+	"""Backfill players.lane_real from positional inference over match_paths.
+
+	Only visits matches that still have at least one player with a NULL lane_real,
+	so it is cheap to re-run. Matches without usable match_paths stay NULL (the
+	frontend can fall back to the game's assigned_lane via players.lane).
+	"""
+	rows = conn.execute(
+		'''
+		SELECT DISTINCT match_id FROM players
+		WHERE lane_real IS NULL
+		ORDER BY match_id DESC
+		'''
+	).fetchall()
+	match_ids = [int(r[0]) for r in rows]
+	if not match_ids:
+		print("[laneinfer] No matches missing lane_real data.")
+		return
+
+	print(f"[laneinfer] Checking {len(match_ids)} matches missing lane_real data.")
+	updated_players = 0
+	updated_matches = 0
+	skipped = 0
+	errors = 0
+
+	for idx, match_id in enumerate(match_ids, start=1):
+		print(f"[laneinfer] {idx}/{len(match_ids)} match {match_id}...")
+		try:
+			mi = fetch_match_metadata(match_id)
+		except SkipMatchSilent:
+			skipped += 1
+			continue
+		except Exception as e:
+			print(f"[laneinfer] Fetch failed for {match_id}: {e}")
+			errors += 1
+			continue
+
+		inferred = infer_lanes_from_paths(mi)
+		if not inferred:
+			skipped += 1
+			continue
+
+		slot_to_account = {}
+		for p in mi.get("players") or []:
+			ps = extract_int(p.get("player_slot"))
+			acct = extract_int(p.get("account_id"))
+			if ps is not None and acct is not None:
+				slot_to_account[ps] = acct
+
+		match_updated = False
+		for slot, lane in inferred.items():
+			account_id = slot_to_account.get(slot)
+			if account_id is None:
+				continue
+			cur = conn.execute(
+				"UPDATE players SET lane_real = ? WHERE match_id = ? AND account_id = ?",
+				(lane, match_id, account_id),
+			)
+			if cur.rowcount and cur.rowcount > 0:
+				updated_players += 1
+				match_updated = True
+
+		if match_updated:
+			updated_matches += 1
+
+	conn.commit()
+	print(
+		f"[laneinfer] Done. Updated {updated_players} players across {updated_matches} matches. "
 		f"Skipped {skipped}. Errors {errors}."
 	)
 
@@ -2060,6 +2306,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-concurrency", dest="concurrency", type=int, default=DEFAULT_MATCH_CONCURRENCY, help="Concurrent match workers for async ingestion")
 	parser.add_argument("-userfetch", dest="userfetch", type=str, default="false", help="If true, only refetch usernames for all cached users")
 	parser.add_argument("-itembackfill", dest="itembackfill", type=str, default="false", help="If true, run full item backfill sweep across all current matches and exit")
+	parser.add_argument("-lanebackfill", dest="lanebackfill", type=str, default="false", help="If true, run targeted lane backfill across matches missing lane data and exit")
+	parser.add_argument("-laneinfer", dest="laneinfer", type=str, default="false", help="If true, run positional lane inference backfill (lane_real) from match_paths and exit")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
 	parser.add_argument("-cache", dest="cache_path", type=str, default=str(DEFAULT_CACHE_PATH), help="Path to user cache JSON {account_id: persona}")
 	parser.add_argument("-status", dest="status_path", type=str, default=str(DEFAULT_STATUS_PATH), help="Path to matches status JSON")
@@ -2122,6 +2370,28 @@ def main(argv: Optional[List[str]] = None) -> int:
 			print("[backfill-items] Running full match sweep...")
 			backfill_all_player_items(conn)
 			print("[backfill-items] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.lanebackfill):
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[backfill-lanes] Running targeted lane backfill...")
+			backfill_all_player_lanes(conn)
+			print("[backfill-lanes] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.laneinfer):
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[laneinfer] Running positional lane inference backfill...")
+			backfill_all_player_lanes_real(conn)
+			print("[laneinfer] Done.")
 			return 0
 		finally:
 			conn.close()

@@ -873,7 +873,7 @@ def latest_matches_paged():  # type: ignore
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
-            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, duration_s FROM matches WHERE match_id = ?",
+            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, duration_s, match_vod FROM matches WHERE match_id = ?",
             (match_id,),
         ).fetchone()
         prev_row = conn.execute(
@@ -898,6 +898,7 @@ def match_adjacent(match_id: int):  # type: ignore
         "event_game": cur_row[6] if cur_row else None,
         "event_team_a_ingame_side": cur_row[7] if cur_row else None,
         "duration_s": cur_row[8] if cur_row else None,
+        "match_vod": cur_row[9] if cur_row else None,
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })

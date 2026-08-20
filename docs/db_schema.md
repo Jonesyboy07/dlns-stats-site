@@ -65,6 +65,8 @@ Stores per-player stats for each match.
 | `account_id` | INTEGER | Yes | FK -> `users.account_id` |
 | `player_slot` | INTEGER | Yes | 1-12 in API data |
 | `team` | INTEGER | Yes | 0 or 1 derived from slot |
+| `lane` | INTEGER | Yes | Game-reported lane assignment (`assigned_lane`). DLNS 3-lane callouts: 1=York (Yellow), 4=Greenwich (Green), 6=Broadway (Blue). NULL when unavailable (frontend shows "—"). |
+| `lane_real` | INTEGER | Yes | Inferred real lane from `match_paths` positional clustering during laning (see `-laneinfer`). Same 1/4/6 encoding. NULL when inference unavailable (fall back to `lane`). Corrects in-game lane swaps at game start. |
 | `hero_id` | INTEGER | Yes | Hero identifier |
 | `level` | INTEGER | Yes | Player level |
 | `kills` | INTEGER | Yes | - |

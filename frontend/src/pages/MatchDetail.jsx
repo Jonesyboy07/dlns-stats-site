@@ -529,10 +529,10 @@ function MatchDetail() {
         sapphireKda={sapphireKda}
       />
 
-      {/* Scoreboard (always visible) */}
+      {/* Scoreboard */}
       <div className="mb-6 w-full max-w-[1300px] mx-auto">
-        {/* Mirrored scoreboard */}
-        <div className="text-gray-300 shadow border border-gray-700/60 overflow-x-auto">
+        {/* Mirrored scoreboard (desktop only) */}
+        <div className="hidden lg:block text-gray-300 shadow border border-gray-700/60 overflow-x-auto">
           <table className="w-full table-fixed border-separate border-spacing-0">
             <colgroup>
               <col style={{ width: "6.5%" }} />
@@ -597,6 +597,111 @@ function MatchDetail() {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile scoreboard (stacked per team) */}
+        <div className="lg:hidden space-y-4">
+          {[
+            {
+              teamPlayers: amberSorted,
+              teamName: amberTeamName || "Amber",
+              isAmber: true,
+              totalSouls: amberTotalSouls,
+            },
+            {
+              teamPlayers: sapphireSorted,
+              teamName: sapphireTeamName || "Sapphire",
+              isAmber: false,
+              totalSouls: sapphireTotalSouls,
+            },
+          ].map(({ teamPlayers, teamName, isAmber, totalSouls }) => (
+            <div
+              key={isAmber ? "amber" : "sapphire"}
+              className="bg-gray-900/60 rounded-lg border border-gray-700/60 overflow-hidden"
+            >
+              {/* Team header */}
+              <div
+                className={`px-4 py-2.5 flex items-center justify-between border-b border-gray-700/60 ${
+                  isAmber ? "bg-amber-500/10" : "bg-blue-500/10"
+                }`}
+              >
+                <span
+                  className={`text-sm font-bold uppercase tracking-wide truncate ${
+                    isAmber ? "text-amber-300" : "text-blue-300"
+                  }`}
+                >
+                  {teamName}
+                </span>
+                <span
+                  className={`text-sm font-bold shrink-0 ${
+                    isAmber ? "text-amber-300" : "text-blue-300"
+                  }`}
+                >
+                  {totalSouls.toLocaleString()}
+                  <span className="ml-1 text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                    souls
+                  </span>
+                </span>
+              </div>
+
+              {/* Player table */}
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col style={{ width: "36%" }} />
+                  <col style={{ width: "25%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "19%" }} />
+                </colgroup>
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider text-gray-400 border-b border-gray-700/40">
+                    <th className="font-medium text-left py-1.5 pl-3">Player</th>
+                    <th className="font-medium text-right py-1.5">K/D/A</th>
+                    <th className="font-medium text-right py-1.5">Souls</th>
+                    <th className="font-medium text-right py-1.5 pr-3">DMG</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700/40">
+                  {teamPlayers.map((player) => (
+                    <tr key={player.account_id} className="hover:bg-gray-800/40">
+                      {/* Player */}
+                      <td className="py-2 pl-3">
+                        <Link
+                          to={`/player/${player.account_id}`}
+                          className="flex items-center gap-2 text-gray-100 hover:underline"
+                          title={player.persona_name || "Anonymous"}
+                        >
+                          <HeroIcon
+                            src={getHeroIcon(player.hero_id)}
+                            name={getHeroName(player.hero_id)}
+                            className="w-7 h-7 shrink-0"
+                          />
+                          <span className="truncate">
+                            {player.persona_name || "Anonymous"}
+                          </span>
+                        </Link>
+                      </td>
+                      {/* K/D/A */}
+                      <td className="py-2 text-right whitespace-nowrap">
+                        <span className="text-green-400 font-medium">{player.kills || 0}</span>
+                        <span className="text-gray-500">/</span>
+                        <span className="text-red-400 font-medium">{player.deaths || 0}</span>
+                        <span className="text-gray-500">/</span>
+                        <span className="text-orange-400 font-medium">{player.assists || 0}</span>
+                      </td>
+                      {/* Souls */}
+                      <td className="py-2 text-right text-gray-200 font-medium whitespace-nowrap">
+                        {formatK(player.net_worth).toUpperCase()}
+                      </td>
+                      {/* DMG */}
+                      <td className="py-2 pr-3 text-right text-gray-200 font-medium whitespace-nowrap">
+                        {formatK(player.player_damage).toUpperCase()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
       </div>
 

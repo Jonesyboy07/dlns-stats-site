@@ -3993,6 +3993,42 @@
               "url": "https://www.youtube.com/watch?v=N72J2b2HrBE"
             }
           ]
+        },
+        {
+          "week": 53,
+          "games": [
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 101861610
+                }
+              ],
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "Buff Enjoyers",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 101873227
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 101881862
+                }
+              ],
+              "region": "EU",
+              "title": "FINALS"
+            }
+          ]
         }
       ]
     },

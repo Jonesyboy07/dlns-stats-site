@@ -140,8 +140,8 @@
 
   html {
     font-family:
-      "Valve Pulp",
       "Valve Oracle",
+      "Valve Pulp",
       "Fira Sans",
       -apple-system,
       BlinkMacSystemFont,
@@ -153,6 +153,23 @@
   }
 }
 
+/* Unlayered so it beats the legacy templates' body font (react.html loads
+   css/styles.css which sets body to 'Colus'). This keeps the React app in
+   Valve Oracle on the Flask-served pages too, matching the Vite dev server. */
+body {
+  font-family:
+    "Valve Oracle",
+    "Valve Pulp",
+    "Fira Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
 /* Custom team colors */
 .text-amber-team {
   color: var(--team-amber);
@@ -162,22 +179,50 @@
   color: var(--team-sapphire);
 }
 
-@layer utilities {
-  .text-stroke {
-    -webkit-text-stroke: 1px var(--text-stroke-color, currentColor);
-  }
-  .text-stroke-0 {
-    -webkit-text-stroke: 0;
-  }
-  .text-stroke-1 {
-    -webkit-text-stroke: 1px var(--text-stroke-color, currentColor);
-  }
-  .text-stroke-2 {
-    -webkit-text-stroke: 2px var(--text-stroke-color, currentColor);
-  }
-  .text-stroke-4 {
-    -webkit-text-stroke: 4px var(--text-stroke-color, currentColor);
-  }
+/* ── Text stroke / fill utilities (Tailwind v4) ──
+   Width:  text-stroke-<number>        e.g. text-stroke-0, text-stroke-1, text-stroke-2
+   Color:  text-stroke-color-<color>   e.g. text-stroke-color-black, text-stroke-color-red-500
+   Fill:   text-fill-<color>           e.g. text-fill-transparent (outline text)
+   Bare `text-stroke` = 1px, coloured by --text-stroke-color (defaults to currentColor).
+   NOTE: --value() only resolves `number` for widths and named theme colors for colors;
+   arbitrary lengths/hex like text-stroke-[3px] are NOT supported by Tailwind v4. */
+@utility text-stroke {
+  -webkit-text-stroke: 1px var(--text-stroke-color, currentColor);
+  text-stroke: 1px var(--text-stroke-color, currentColor);
+}
+@utility text-stroke-* {
+  -webkit-text-stroke-width: calc(--value(number) * 1px);
+  -webkit-text-stroke-color: var(--text-stroke-color, currentColor);
+  text-stroke-width: calc(--value(number) * 1px);
+  text-stroke-color: var(--text-stroke-color, currentColor);
+}
+@utility text-stroke-color-* {
+  -webkit-text-stroke-color: --value(--color-*);
+  text-stroke-color: --value(--color-*);
+}
+@utility text-fill-* {
+  -webkit-text-fill-color: --value(--color-*);
+  text-fill-color: --value(--color-*);
+}
+
+/* ── Text shadow (drop shadow) ──
+   Move the shadow angle via CSS vars (set inline or in a class):
+     --text-shadow-x / --text-shadow-y  offsets (px)
+     --text-shadow-blur                 blur (px)
+     --text-shadow-color                shadow colour
+   Defaults = soft shadow cast down-right. */
+@utility text-shadow {
+  text-shadow: var(--text-shadow-x, 1px) var(--text-shadow-y, 2px)
+    var(--text-shadow-blur, 3px) var(--text-shadow-color, rgb(0 0 0 / 0.6));
+}
+
+/* Hover underline that only spans the text glyphs (background-based, so it is
+   not affected by text-shadow). Use as `hover:underline-text` on an inline span. */
+@utility underline-text {
+  background-image: linear-gradient(to top, currentColor, currentColor);
+  background-size: 100% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
 }
 
 @theme {
@@ -185,6 +230,7 @@
   --font-valve-pulp: "Valve Pulp", sans-serif;
   --font-valve-oracle: "Valve Oracle", sans-serif;
   --font-roboto: "Roboto", sans-serif;
+  --color-transparent: transparent;
 
   /* ── Core Backgrounds ── */
   --color-base: oklch(0.2304 0.028 279.82);

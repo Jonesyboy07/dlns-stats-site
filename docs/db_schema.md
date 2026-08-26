@@ -91,6 +91,47 @@ Indexes:
 - `idx_players_match` ON `players(match_id)`
 - `idx_players_account` ON `players(account_id)`
 
+## Table: `player_gold_sources`
+
+Stores each player's soul-income breakdown (from the final stats snapshot's `gold_sources` array). Populated during ingest or via `-goldbackfill`.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` (ON DELETE CASCADE) |
+| `account_id` | INTEGER | Yes | FK -> `users.account_id` |
+| `source` | INTEGER | No | Source id (see `SOUL_SOURCE_LABELS` in the frontend) |
+| `kills` | INTEGER | Yes | Kills contributing to this source |
+| `damage` | INTEGER | Yes | Damage contributing to this source |
+| `gold` | INTEGER | Yes | Gold earned from this source |
+| `gold_orbs` | INTEGER | Yes | Gold-orbs picked up from this source |
+
+Source ids (user-confirmed): 1=Enemy Kills, 2=Troopers, 3=Neutral Enemies, 4=Objectives, 5=Urn, 6=Kill Assists, 7=Denies, 8=Team Catch-Up, 9=Ability Assassinate (Leaping Slash), 10=Trophy Collector (Item), 11=Cultist Sacrifice (Item), 12=Breakable Pickups, 13=Golden Goose Egg (Item).
+
+Primary Key:
+- (`match_id`, `account_id`, `source`)
+
+Indexes:
+- `idx_goldsrc_match` ON `player_gold_sources(match_id)`
+
+## Table: `player_damage_sources`
+
+Stores each player's hero-damage breakdown by source (ability/weapon/item/melee), derived from the match `damage_matrix`. Populated during ingest or via `-dmgbackfill`.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` (ON DELETE CASCADE) |
+| `account_id` | INTEGER | Yes | FK -> `users.account_id` |
+| `source` | TEXT | No | Internal source name (e.g. `synth_pulse`, `upgrade_magic_shock`, `Bullet`, `Ability`) |
+| `damage` | INTEGER | Yes | Hero damage from this source. deadlock-api reports `damage_matrix` at 2x the snapshot `player_damage`, so values are halved on ingest (verified ratio == 2.0 for every player) — sum(source damage) == `players.player_damage`. |
+
+Sources are filtered to damage stat_type (0) and hero targets (slots 1-12, excluding the slot-0 non-hero aggregate). Labels are resolved in the frontend: hero abilities via `data/hero_meta.json` image keys, items via the `/db/items/names` catalog (class_name -> display name), plus Weapon/Melee pattern matching.
+
+Primary Key:
+- (`match_id`, `account_id`, `source`)
+
+Indexes:
+- `idx_dmgsrc_match` ON `player_damage_sources(match_id)`
+
 ## Table: `user_stats`
 
 Stores aggregated per-user statistics computed from `players`.

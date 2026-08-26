@@ -1,22 +1,155 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import heroMeta from "../../../data/hero_meta.json";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
-import { Bar, Line } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
   PointElement,
   LineElement,
+  Filler,
   Tooltip,
   Legend,
 } from "chart.js";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+
+// Dashed vertical line at the hovered x position for the Souls Difference chart.
+const verticalHoverLine = {
+  id: "verticalHoverLine",
+  afterDraw(chart) {
+    const active = chart.getActiveElements();
+    if (!active.length) return;
+    const x = active[0].element.x;
+    const { ctx, chartArea } = chart;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.stroke();
+    ctx.restore();
+  },
+};
+
+// ── Player-name shadow angle per team ──
+// text-shadow-x = horizontal offset (px); positive = shadow to the right, negative = left.
+// Edit these two numbers to angle each team's name shadow (e.g. Archmother / Hidden King).
+const NAME_SHADOW_X = {
+  amber: "3px",
+  sapphire: "-3px",
+};
+
+// Shared drop-shadow values for player names (desktop + mobile stay in sync).
+const nameShadowVars = (side) => ({
+  "--text-shadow-x": NAME_SHADOW_X[side] ?? "3px",
+  "--text-shadow-y": "3px",
+  "--text-shadow-blur": "1px",
+  "--text-shadow-color": "rgba(0, 0, 0, 1)",
+});
+
+// Metrics available in the "By Player" leaderboard. Add more entries here later
+// to extend the selector (key = the player stat field).
+const PLAYER_METRICS = [
+  { key: "net_worth", label: "Souls" },
+  { key: "player_damage", label: "Damage" },
+  { key: "obj_damage", label: "Objective Damage" },
+  { key: "player_healing", label: "Healing" },
+];
+
+// Soul-income source labels (deadlock-api gold_sources source ids), user-confirmed.
+const SOUL_SOURCE_LABELS = {
+  1: "Enemy Kills",
+  2: "Troopers",
+  3: "Neutral Enemies",
+  4: "Objectives",
+  5: "Urn",
+  6: "Kill Assists",
+  7: "Denies",
+  8: "Team Catch-Up",
+  9: "Ability Assassinate",
+  10: "Trophy Collector",
+  11: "Cultist Sacrifice",
+  12: "Breakable Pickups",
+  13: "Golden Goose Egg",
+};
+
+// ── Damage-source labels (deadlock-api damage_matrix source names) ──
+// Ability display names come from data/hero_meta.json (image filenames carry the
+// internal key); item names come from the /db/items/names catalog. Weapon/Melee are
+// recognised by name pattern; anything else falls back to a cleaned-up name.
+const ABILITY_KEY_BY_HERO = {};
+Object.entries(heroMeta).forEach(([heroId, meta]) => {
+  const map = {};
+  (meta?.abilities || []).forEach((a) => {
+    const img = a.image || "";
+    const key = img.split(/[\\/]/).pop().replace(/_psd\.png$/i, "").toLowerCase();
+    if (key && a.name) map[key] = a.name;
+  });
+  ABILITY_KEY_BY_HERO[heroId] = map;
+});
+
+const normalizeSourceKey = (src) =>
+  src
+    .toLowerCase()
+    .replace(/^citadel_ability_/, "")
+    .replace(/^ability_/, "")
+    .replace(/^citadel_weapon_/, "")
+    .replace(/^citadel_/, "")
+    .replace(/^weapon_/, "")
+    .replace(/_crit$/, "")
+    .replace(/_amp$/, "")
+    .trim();
+
+const isCritSource = (src) => /_crit/i.test(src);
+
+const isHeadshotSource = (src) => {
+  const s = src.toLowerCase();
+  return s === "upgrade_headhunter" || s === "upgrade_headshot_booster" || s === "headshot";
+};
+
+const isBulletSource = (src) => {
+  const s = src.toLowerCase();
+  if (isCritSource(s)) return false;
+  return s === "bullet" || s.startsWith("citadel_weapon");
+};
+
+const isMeleeSource = (src) => {
+  const s = src.toLowerCase();
+  if (s.startsWith("upgrade_") || s.startsWith("item_") || s.startsWith("mods_")) return false;
+  return s === "melee" || /melee/.test(s);
+};
+
+const cleanFallback = (src) =>
+  src
+    .replace(/^citadel_/, "")
+    .replace(/^ability_/, "")
+    .replace(/^upgrade_/, "")
+    .replace(/^item_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+
+const damageSourceLabel = (src, heroId, itemNames) => {
+  const key = normalizeSourceKey(src);
+  const abilityMap = ABILITY_KEY_BY_HERO[String(heroId)] || {};
+  if (abilityMap[key]) return abilityMap[key];
+  if (isCritSource(src)) return "Crits";
+  if (isHeadshotSource(src)) return "Headshots";
+  if (isBulletSource(src)) return "Bullets";
+  if (isMeleeSource(src)) return "Melee";
+  if (src === "Ability") return "Abilities";
+  const itemName = itemNames?.[src];
+  if (itemName) return itemName;
+  return cleanFallback(src);
+};
 
 function HeroIcon({ src, name, className = "w-8 h-8" }) {
   const [failed, setFailed] = useState(false);
@@ -68,15 +201,16 @@ function MatchDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("graphs");
+  const [activeSoulsMetric, setActiveSoulsMetric] = useState("net_worth");
+  const [itemNames, setItemNames] = useState({});
   const [timeline, setTimeline] = useState(null);
   const [fetchErrors, setFetchErrors] = useState([]);
-  const [soulsTooltip, setSoulsTooltip] = useState(null);
-  const [teamTooltip, setTeamTooltip] = useState(null);
   const [seriesGames, setSeriesGames] = useState(null);
   const [seriesTitle, setSeriesTitle] = useState("");
 
   useEffect(() => {
     fetchHeroes();
+    fetchItemNames();
     fetchMatchPlayers();
     fetchAdjacentMatches();
     fetchMatchBuild();
@@ -125,6 +259,18 @@ function MatchDetail() {
       }
     } catch (err) {
       setFetchErrors((prev) => [...prev, "heroes"]);
+    }
+  };
+
+  const fetchItemNames = async () => {
+    try {
+      const response = await fetch("/db/items/names");
+      if (response.ok) {
+        const data = await response.json();
+        setItemNames(data || {});
+      }
+    } catch {
+      // ignore - fall back to cleaned-up names
     }
   };
 
@@ -277,57 +423,72 @@ function MatchDetail() {
   const amberSorted = [...amberPlayers].sort((a, b) => (b.net_worth || 0) - (a.net_worth || 0));
   const sapphireSorted = [...sapphirePlayers].sort((a, b) => (b.net_worth || 0) - (a.net_worth || 0));
 
-  const allPlayersForChart = [
-    ...amberSorted.map((p) => ({ ...p, side: "amber" })),
-    ...sapphireSorted.map((p) => ({ ...p, side: "sapphire" })),
-  ];
+  // Combined players sorted by the active stat for the "By Player" leaderboard.
+  const allPlayersSorted = [...amberPlayers, ...sapphirePlayers].sort(
+    (a, b) => (b[activeSoulsMetric] || 0) - (a[activeSoulsMetric] || 0)
+  );
+  const maxMetricValue = allPlayersSorted.reduce(
+    (m, p) => Math.max(m, p?.[activeSoulsMetric] || 0),
+    0
+  );
 
-  const soulsChartData = {
-    labels: allPlayersForChart.map((p) => getHeroName(p.hero_id)),
-    datasets: [
-      {
-        data: allPlayersForChart.map((p) => p.net_worth || 0),
-        backgroundColor: allPlayersForChart.map((p) =>
-          p.side === "amber" ? "rgba(245, 158, 11, 0.7)" : "rgba(59, 130, 246, 0.7)"
-        ),
-        borderColor: allPlayersForChart.map((p) =>
-          p.side === "amber" ? "rgba(245, 158, 11, 1)" : "rgba(59, 130, 246, 1)"
-        ),
-        borderWidth: 1,
-        borderRadius: 3,
-      },
-    ],
+  const formatSouls = (value) => {
+    const n = Number(value) || 0;
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+    return n.toString();
   };
 
-  const soulsChartOptions = {
-    indexAxis: "y",
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => ` ${ctx.raw.toLocaleString()} souls`,
-          afterLabel: (ctx) => {
-            const player = allPlayersForChart[ctx.dataIndex];
-            return player?.persona_name ? ` ${player.persona_name}` : "";
-          },
-        },
-      },
-    },
-    scales: {
-      x: {
-        grid: { color: "rgba(255,255,255,0.05)" },
-        ticks: {
-          color: "#9ca3af",
-          callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
-        },
-      },
-      y: {
-        grid: { display: false },
-        ticks: { color: "#d1d5db", font: { size: 12 } },
-      },
-    },
+  // Axis labels for the By Player scale (0 → max, 5 steps).
+  const metricAxisTicks = Array.from({ length: 5 }, (_, i) =>
+    formatSouls(Math.round((maxMetricValue * i) / 4))
+  );
+
+  // Summarises lead swings for the Souls Difference panel, e.g.
+  // "Bird led until 17:20; largest swing 26:00–31:00".
+  const buildDiffCaption = (diff, labels, amberName, sapphireName) => {
+    if (diff.length < 2) return null;
+
+    // Find the last time the lead changed hands.
+    let lastCross = -1;
+    for (let i = 1; i < diff.length; i += 1) {
+      const a = diff[i - 1];
+      const b = diff[i];
+      if ((a < 0 && b >= 0) || (a >= 0 && b < 0)) lastCross = i;
+    }
+
+    const parts = [];
+    if (lastCross > 0) {
+      const before = diff[lastCross - 1];
+      const time = labels[lastCross];
+      if (before < 0 && sapphireName) parts.push(`${sapphireName} led until ${time}`);
+      else if (before >= 0 && amberName) parts.push(`${amberName} led until ${time}`);
+    }
+
+    // Find the largest single-direction swing (biggest monotonic run).
+    const findRun = (sign) => {
+      let best = { start: 0, end: 0, sum: 0 };
+      let curStart = 0;
+      let curSum = 0;
+      for (let i = 1; i < diff.length; i += 1) {
+        const d = (diff[i] - diff[i - 1]) * sign;
+        if (d > 0) {
+          curSum += d;
+          if (curSum > best.sum) best = { start: curStart, end: i, sum: curSum };
+        } else {
+          curSum = 0;
+          curStart = i;
+        }
+      }
+      return best;
+    };
+    const rise = findRun(1);
+    const fall = findRun(-1);
+    const swing = rise.sum >= fall.sum ? rise : fall;
+    if (swing.sum > 0 && swing.end > swing.start) {
+      parts.push(`largest swing ${labels[swing.start]}–${labels[swing.end]}`);
+    }
+
+    return parts.length ? parts.join("; ") : null;
   };
 
   // Resolve winning side from match metadata first; fallback to player results if needed.
@@ -446,16 +607,27 @@ function MatchDetail() {
 
   const renderPlayerCell = (player, side) => {
     if (!player) return null;
+    // Player name uses the team colour — set the actual colours in
+    // frontend/src/App.css @theme: --color-team-amber / --color-team-sapphire.
+    const nameColor = side === "amber" ? "text-amber-100/90" : "text-blue-200/90";
+    // Drop shadow behind the name — move the shadow angle by editing
+    // the --text-shadow-x / --text-shadow-y values below.
+    const shadowVars = nameShadowVars(side);
     const nameLink = player.account_id ? (
       <Link
         to={`/player/${player.account_id}`}
-        className="block w-[110px] truncate text-xs text-gray-100 hover:underline"
+        className={`block px-1 w-[120px] truncate font-semibold text-lg text-stroke-0.25 text-stroke-color-black text-shadow ${nameColor}`}
+        style={shadowVars}
         title={player.persona_name || "Anonymous"}
       >
-        {player.persona_name || "Anonymous"}
+        <span className="hover:underline-text">{player.persona_name || "Anonymous"}</span>
       </Link>
     ) : (
-      <span className="block w-[110px] truncate text-xs text-gray-100" title={player.persona_name || "Anonymous"}>
+      <span
+        className={`block w-[120px] truncate font-semibold text-md text-shadow ${nameColor}`}
+        style={shadowVars}
+        title={player.persona_name || "Anonymous"}
+      >
         {player.persona_name || "Anonymous"}
       </span>
     );
@@ -465,7 +637,7 @@ function MatchDetail() {
       </Link>
     ) : null;
     const kda = (
-      <span className="text-[11px] text-gray-400">
+      <span className="text-[11px] px-1 text-gray-400">
         <span className="text-green-400">{player.kills || 0}</span>
         <span className="text-gray-500"> / </span>
         <span className="text-red-400">{player.deaths || 0}</span>
@@ -582,7 +754,7 @@ function MatchDetail() {
                           className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ background: meta?.color || "#4b5563" }}
                         />
-                        <span className="text-xs font-semibold text-gray-200">{meta?.name || "—"}</span>
+                        <span className="text-md font-semibold text-gray-300">{meta?.name || "—"}</span>
                       </div>
                     </td>
 
@@ -667,7 +839,10 @@ function MatchDetail() {
                       <td className="py-2 pl-3">
                         <Link
                           to={`/player/${player.account_id}`}
-                          className="flex items-center gap-2 text-gray-100 hover:underline"
+                          className={`flex items-center gap-2 text-shadow ${
+                            isAmber ? "text-amber-100/90" : "text-blue-200/90"
+                          }`}
+                          style={nameShadowVars(isAmber ? "amber" : "sapphire")}
                           title={player.persona_name || "Anonymous"}
                         >
                           <HeroIcon
@@ -675,7 +850,7 @@ function MatchDetail() {
                             name={getHeroName(player.hero_id)}
                             className="w-7 h-7 shrink-0"
                           />
-                          <span className="truncate">
+                          <span className="truncate hover:underline-text">
                             {player.persona_name || "Anonymous"}
                           </span>
                         </Link>
@@ -725,57 +900,228 @@ function MatchDetail() {
       {/* Graphs tab */}
       {activeTab === "graphs" && players.length > 0 && (
         <div className="bg-gray-800 rounded-lg p-4 mb-6">
-          <h3 className="text-gray-300 font-semibold text-lg mb-4">Souls Comparison</h3>
+          {/* ---- Souls Comparison ---- */}
+          <div className="mb-8">
+            <h3 className="text-gray-300 font-bold text-lg tracking-wide uppercase mb-4">
+              Souls Comparison
+            </h3>
 
-          {/* Dominance bar */}
-          <div className="flex items-center gap-3 mb-1">
-            <span className="text-amber-300 font-semibold text-sm w-20 text-right shrink-0">
-              {amberTotalSouls.toLocaleString()}
-            </span>
-            <div className="flex-1 flex rounded overflow-hidden h-5">
-              <div
-                className="bg-amber-400/80 transition-all duration-500"
-                style={{ width: `${amberPct}%` }}
-              />
-              <div
-                className="bg-blue-500/80 transition-all duration-500"
-                style={{ width: `${100 - amberPct}%` }}
-              />
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-amber-300 text-3xl font-bold tabular-nums">
+                {amberTotalSouls.toLocaleString()}
+              </span>
+              <span className="text-blue-300 text-3xl font-bold tabular-nums">
+                {sapphireTotalSouls.toLocaleString()}
+              </span>
             </div>
-            <span className="text-blue-300 font-semibold text-sm w-20 shrink-0">
-              {sapphireTotalSouls.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 mb-5">
-            <span className="text-amber-300/60 text-xs w-20 text-right shrink-0">
-              {amberTeamName || "Amber"}
-            </span>
-            <div className="flex-1 text-center text-xs text-gray-400">
-              {amberTotalSouls !== sapphireTotalSouls && (
-                <>
-                  {amberTotalSouls > sapphireTotalSouls
-                    ? <span className="text-amber-300">{amberTeamName || "Amber"} lead</span>
-                    : <span className="text-blue-300">{sapphireTeamName || "Sapphire"} lead</span>
-                  }
-                  {" "}
-                  <span className="text-gray-300 font-semibold">
+
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-amber-300/70 text-xs w-24 text-right truncate shrink-0">
+                {amberTeamName || "Amber"}
+              </span>
+              <div className="flex-1 flex rounded overflow-hidden h-4 bg-gray-700/50">
+                <div
+                  className="bg-amber-400/80 transition-all duration-500"
+                  style={{ width: `${amberPct}%` }}
+                />
+                <div
+                  className="bg-blue-500/80 transition-all duration-500"
+                  style={{ width: `${100 - amberPct}%` }}
+                />
+              </div>
+              <span className="text-blue-300/70 text-xs w-24 truncate shrink-0">
+                {sapphireTeamName || "Sapphire"}
+              </span>
+            </div>
+
+            <div className="text-center">
+              {amberTotalSouls !== sapphireTotalSouls ? (
+                <span className="text-sm">
+                  <span
+                    className={`font-bold uppercase tracking-wide ${
+                      amberTotalSouls > sapphireTotalSouls ? "text-amber-300" : "text-blue-300"
+                    }`}
+                  >
+                    {(amberTotalSouls > sapphireTotalSouls ? amberTeamName : sapphireTeamName) ||
+                      (amberTotalSouls > sapphireTotalSouls ? "Amber" : "Sapphire")}
+                  </span>
+                  <span className="text-gray-400"> lead </span>
+                  <span className="text-gray-100 font-bold tabular-nums">
                     +{Math.abs(amberTotalSouls - sapphireTotalSouls).toLocaleString()}
                   </span>
-                </>
+                </span>
+              ) : (
+                <span className="text-gray-400 text-sm">Even</span>
               )}
-              {amberTotalSouls === sapphireTotalSouls && <span>Even</span>}
             </div>
-            <span className="text-blue-300/60 text-xs w-20 shrink-0">
-              {sapphireTeamName || "Sapphire"}
-            </span>
           </div>
 
-          {/* Per-player bar chart */}
-          <div style={{ height: `${allPlayersForChart.length * 36 + 20}px` }}>
-            <Bar data={soulsChartData} options={soulsChartOptions} />
+          {/* ---- By Player (metric leaderboard) ---- */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h4 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                {PLAYER_METRICS.find((m) => m.key === activeSoulsMetric)?.label || "Souls"} by Player
+              </h4>
+              <div className="flex gap-1 flex-wrap justify-end">
+                {PLAYER_METRICS.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setActiveSoulsMetric(m.key)}
+                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border transition-colors ${
+                      activeSoulsMetric === m.key
+                        ? "bg-blue-500/20 text-blue-300 border-blue-400/40"
+                        : "text-gray-400 border-gray-600/40 hover:text-gray-200 hover:border-gray-500/60"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {allPlayersSorted.map((player) => {
+                const isAmber = player.team === 0;
+                const value = player?.[activeSoulsMetric] || 0;
+                const pct = maxMetricValue > 0 ? (value / maxMetricValue) * 100 : 0;
+                const heroName = getHeroName(player.hero_id);
+                const showSoulsTooltip = activeSoulsMetric === "net_worth";
+                const showDamageTooltip = activeSoulsMetric === "player_damage";
+                const soulSources = (player.gold_sources || [])
+                  .map((g) => ({
+                    label: SOUL_SOURCE_LABELS[g.source] || `Source ${g.source}`,
+                    total: (g.gold || 0) + (g.gold_orbs || 0),
+                  }))
+                  .filter((i) => i.total > 0)
+                  .sort((a, b) => b.total - a.total);
+                const dmgByLabel = {};
+                (player.damage_sources || []).forEach((g) => {
+                  const dmg = g.damage || 0;
+                  if (dmg <= 0) return;
+                  const label = damageSourceLabel(g.source, player.hero_id, itemNames);
+                  dmgByLabel[label] = (dmgByLabel[label] || 0) + dmg;
+                });
+                const damageSources = Object.entries(dmgByLabel)
+                  .map(([label, damage]) => ({ label, damage }))
+                  .sort((a, b) => b.damage - a.damage)
+                  .slice(0, 10);
+                const showTooltip = showSoulsTooltip || showDamageTooltip;
+                return (
+                  <div key={player.account_id} className="relative flex items-center gap-2 group">
+                    <Link
+                      to={`/player/${player.account_id}`}
+                      title={player.persona_name || heroName}
+                      className="shrink-0"
+                    >
+                      <HeroIcon
+                        src={getHeroIcon(player.hero_id)}
+                        name={heroName}
+                        className="w-7 h-7"
+                      />
+                    </Link>
+                    <Link
+                      to={`/player/${player.account_id}`}
+                      className="w-24 truncate text-xs text-gray-200 hover:underline shrink-0"
+                      title={player.persona_name || "Anonymous"}
+                    >
+                      {player.persona_name || "Anonymous"}
+                    </Link>
+                    <div className="flex-1 h-5 bg-gray-700/40 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          isAmber ? "bg-amber-400/80" : "bg-blue-500/80"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`w-16 text-right text-sm font-semibold tabular-nums shrink-0 ${
+                        isAmber ? "text-amber-200" : "text-blue-200"
+                      }`}
+                      title={value.toLocaleString()}
+                    >
+                      {formatSouls(value)}
+                    </span>
+
+                    {/* Breakdown on hover: Souls sources (Souls tab) or Damage sources (Damage tab) */}
+                    {showTooltip && (
+                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 hidden group-hover:block w-64 rounded-lg border border-gray-600 bg-gray-900/95 p-3 shadow-2xl">
+                      {showSoulsTooltip ? (
+                        <>
+                          <div className="text-xs font-bold text-gray-100 mb-1.5">
+                            {player.persona_name || "Anonymous"} — Soul Sources
+                          </div>
+                          {soulSources.length === 0 ? (
+                            <p className="text-[11px] text-gray-500">No soul source data yet.</p>
+                          ) : (
+                            <>
+                              <div className="space-y-1">
+                                {soulSources.map((it) => (
+                                  <div
+                                    key={it.label}
+                                    className="flex items-center justify-between gap-3 text-[11px]"
+                                  >
+                                    <span className="text-gray-300 truncate">{it.label}</span>
+                                    <span className="font-semibold tabular-nums text-gray-100 shrink-0">
+                                      {it.total.toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-[11px] border-t border-gray-700 pt-1.5 mt-1.5">
+                                <span className="text-gray-400 font-semibold">Total Souls</span>
+                                <span className="font-bold tabular-nums text-gray-100">
+                                  {(player.net_worth || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-xs font-bold text-gray-100 mb-1.5">
+                            {player.persona_name || "Anonymous"} — Damage Sources
+                          </div>
+                          {damageSources.length === 0 ? (
+                            <p className="text-[11px] text-gray-500">No damage source data yet.</p>
+                          ) : (
+                            <>
+                              <div className="space-y-1">
+                                {damageSources.map((it) => (
+                                  <div
+                                    key={it.label}
+                                    className="flex items-center justify-between gap-3 text-[11px]"
+                                  >
+                                    <span className="text-gray-300 truncate">{it.label}</span>
+                                    <span className="font-semibold tabular-nums text-gray-100 shrink-0">
+                                      {it.damage.toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between gap-3 text-[11px] border-t border-gray-700 pt-1.5 mt-1.5">
+                                <span className="text-gray-400 font-semibold">Total Damage</span>
+                                <span className="font-bold tabular-nums text-gray-100">
+                                  {(player.player_damage || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-600 mt-2 px-35">
+              {metricAxisTicks.map((tick, i) => (
+                <span key={i}>{tick}</span>
+              ))}
+            </div>
           </div>
 
-          {/* Souls over time line chart */}
+          {/* ---- Souls Difference ---- */}
           {timeline?.available ? (() => {
             const playerList = Object.values(timeline.players);
             const maxSnaps = Math.max(...playerList.map((p) => p.snapshots.length));
@@ -798,277 +1144,175 @@ function MatchDetail() {
               return `${m}:${s}`;
             });
 
-            const lineDatasets = playerList.map((p) => {
-              const rgb = p.team === 0 ? "245,158,11" : "59,130,246";
-              return {
-                label: p.persona_name || getHeroName(p.hero_id) || `Player ${p.account_id}`,
-                heroId: p.hero_id,
-                team: p.team,
-                color: rgb,
-                data: p.snapshots.map((s) => s.net_worth ?? null),
-                borderColor: `rgba(${rgb},0.9)`,
-                backgroundColor: `rgba(${rgb},0.15)`,
+            // Amber souls minus Sapphire souls at each snapshot.
+            const diff = Array.from({ length: maxSnaps }, (_, i) =>
+              playerList
+                .filter((p) => p.team === 0)
+                .reduce((sum, p) => sum + (p.snapshots[i]?.net_worth ?? 0), 0) -
+                playerList
+                  .filter((p) => p.team === 1)
+                  .reduce((sum, p) => sum + (p.snapshots[i]?.net_worth ?? 0), 0)
+            );
+            const finalDiff = diff[diff.length - 1] ?? 0;
+            const caption = buildDiffCaption(diff, labels, amberTeamName, sapphireTeamName);
+
+            // Symmetric y-axis: give both sides of the zero line the same extent,
+            // so the negative region is never taller than the positive one.
+            const yMaxAbs = Math.max(...diff.map((v) => Math.abs(v)), 1);
+
+            // Amber minus Sapphire — the chart can dip below zero, but the axis
+            // tick labels are formatted as magnitudes (no minus sign).
+            const diffDatasets = [
+              {
+                label: "Souls difference",
+                data: diff,
+                order: 2,
+                borderColor: "rgba(245,158,11,0.9)",
+                segment: {
+                  borderColor: (ctx) =>
+                    ctx.p0.parsed.y >= 0
+                      ? "rgba(245,158,11,0.95)"
+                      : "rgba(59,130,246,0.95)",
+                },
                 borderWidth: 2,
-                pointRadius: 2,
+                hoverBorderWidth: 2,
+                pointRadius: 0,
                 tension: 0.3,
                 fill: false,
-              };
-            });
-
-            const buildSoulsTooltip = (context) => {
-              const { chart, tooltip } = context;
-              if (tooltip.opacity === 0) {
-                setSoulsTooltip(null);
-                return;
-              }
-              const dataIndex = tooltip.dataPoints?.[0]?.dataIndex;
-              if (dataIndex == null) return;
-              const timeLabel = labels[dataIndex];
-              const entries = lineDatasets
-                .map((ds) => ({
-                  label: ds.label,
-                  heroId: ds.heroId,
-                  team: ds.team,
-                  color: ds.color,
-                  souls: ds.data[dataIndex] ?? 0,
-                }))
-                .sort((a, b) => b.souls - a.souls);
-              const totalSouls = entries.reduce((sum, e) => sum + e.souls, 0);
-              const canvasRect = chart.canvas.getBoundingClientRect();
-              const containerRect = chart.canvas.parentElement.getBoundingClientRect();
-              const x = tooltip.caretX + canvasRect.left - containerRect.left;
-              const y = tooltip.caretY + canvasRect.top - containerRect.top;
-              const flipLeft = x + 240 > containerRect.width;
-              setSoulsTooltip({ x, y, timeLabel, entries, totalSouls, flipLeft });
-            };
-
-            const lineOptions = {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  display: true,
-                  position: "bottom",
-                  labels: { color: "#d1d5db", boxWidth: 12, font: { size: 11 } },
-                },
-                tooltip: {
-                  enabled: false,
-                  external: buildSoulsTooltip,
-                  mode: "index",
-                  intersect: false,
-                },
               },
-              scales: {
-                x: {
-                  grid: { color: "rgba(255,255,255,0.05)" },
-                  ticks: { color: "#9ca3af", font: { size: 11 } },
-                },
-                y: {
-                  grid: { color: "rgba(255,255,255,0.05)" },
-                  ticks: {
-                    color: "#9ca3af",
-                    callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
-                  },
-                },
+              {
+                // Amber-ahead fill (above the zero line). Keep the same look on
+                // hover so the fill doesn't vanish while the tooltip is active.
+                data: diff.map((v) => Math.max(0, v)),
+                backgroundColor: "rgba(245,158,11,0.22)",
+                hoverBackgroundColor: "rgba(245,158,11,0.22)",
+                borderWidth: 0,
+                hoverBorderWidth: 0,
+                pointRadius: 0,
+                fill: "origin",
               },
-            };
+              {
+                // Sapphire-ahead fill (below the zero line). Keep the same look on
+                // hover so the fill doesn't vanish while the tooltip is active.
+                data: diff.map((v) => Math.min(0, v)),
+                backgroundColor: "rgba(59,130,246,0.22)",
+                hoverBackgroundColor: "rgba(59,130,246,0.22)",
+                borderWidth: 0,
+                hoverBorderWidth: 0,
+                pointRadius: 0,
+                fill: "origin",
+              },
+            ];
+
+            // Tooltip colour follows whichever team is ahead (amber/blue).
+            const leaderOf = (idx) => (diff[idx] ?? 0) >= 0;
+            const leaderNameOf = (idx) =>
+              (diff[idx] ?? 0) >= 0
+                ? amberTeamName || "Amber"
+                : sapphireTeamName || "Sapphire";
 
             return (
-              <>
-              <div className="mt-6">
+              <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-gray-400 text-sm font-semibold">Souls Over Time</h4>
+                  <h4 className="text-gray-400 text-sm font-semibold uppercase tracking-wider">
+                    Souls Difference
+                  </h4>
+                  <span
+                    className={`text-lg font-bold tabular-nums ${
+                      finalDiff >= 0 ? "text-amber-300" : "text-blue-300"
+                    }`}
+                  >
+                    {finalDiff >= 0 ? "+" : ""}
+                    {finalDiff.toLocaleString()}
+                  </span>
                 </div>
-                <div style={{ height: "320px", position: "relative" }} onMouseLeave={() => setSoulsTooltip(null)}>
-                  <Line id="soulsOverTime" data={{ labels, datasets: lineDatasets }} options={lineOptions} />
-                  {soulsTooltip && (() => {
-                    const { flipLeft } = soulsTooltip;
-                    return (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: Math.max(0, soulsTooltip.y - 10),
-                          left: flipLeft ? soulsTooltip.x - 228 : soulsTooltip.x + 12,
-                          pointerEvents: "none",
-                          zIndex: 50,
-                          minWidth: "180px",
-                        }}
-                        className="bg-gray-900 border border-gray-600 rounded-lg shadow-xl overflow-hidden"
-                      >
-                        <div className="text-center text-white font-bold text-sm py-1.5 px-3 bg-gray-800 border-b border-gray-600">
-                          {soulsTooltip.timeLabel}
-                        </div>
-                        <div className="py-1">
-                          {soulsTooltip.entries.map((entry, i) => {
-                            const pct = soulsTooltip.totalSouls > 0
-                              ? Math.round((entry.souls / soulsTooltip.totalSouls) * 100)
-                              : 0;
-                            const rgb = entry.color || "156,163,175";
-                            const teamRgb = entry.team === 0 ? "245,158,11" : "59,130,246";
-                            return (
-                              <div
-                                key={entry.label}
-                                style={{ backgroundColor: `rgba(${teamRgb},0.08)` }}
-                                className="flex items-center gap-0 py-1 overflow-hidden"
-                              >
-                                {/* individual graph colour stripe on the left */}
-                                <span
-                                  className="shrink-0 self-stretch w-1 mr-2"
-                                  style={{ background: `rgba(${rgb},0.9)` }}
-                                />
-                                <img
-                                  src={getHeroIcon(entry.heroId)}
-                                  alt={entry.label}
-                                  className="w-7 h-7 rounded-sm object-cover shrink-0"
-                                  onError={(e) => { e.target.style.display = "none"; }}
-                                />
-                                <span
-                                  className="text-xs text-white font-roboto tracking-wide font-semibold flex-1 truncate ml-2"
-                                >
-                                  {entry.souls.toLocaleString()}
-                                </span>
-                                <span className="text-xs text-gray-400 shrink-0 w-8 text-right pr-2">{pct}%</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
+
+                {caption && (
+                  <p className="text-xs text-gray-500 text-center mb-3">{caption}.</p>
+                )}
+
+                <div style={{ height: "220px", position: "relative" }}>
+                  <Line
+                    data={{ labels, datasets: diffDatasets }}
+                    plugins={[verticalHoverLine]}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      // Only the main line participates in hover — the fill datasets
+                      // stay out of interaction so the shaded fill never flickers away.
+                      interaction: {
+                        mode: "index",
+                        intersect: false,
+                        filter: (item) => item.datasetIndex === 0,
+                      },
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          mode: "index",
+                          intersect: false,
+                          backgroundColor: (ctx) => {
+                            const idx = ctx.tooltip?.dataPoints?.[0]?.dataIndex ?? 0;
+                            return leaderOf(idx)
+                              ? "rgba(245,158,11,0.95)"
+                              : "rgba(59,130,246,0.95)";
+                          },
+                          borderColor: (ctx) => {
+                            const idx = ctx.tooltip?.dataPoints?.[0]?.dataIndex ?? 0;
+                            return leaderOf(idx)
+                              ? "rgba(245,158,11,1)"
+                              : "rgba(59,130,246,1)";
+                          },
+                          callbacks: {
+                            title: (items) => (items.length ? labels[items[0].dataIndex] : ""),
+                            label: (ctx) => {
+                              const v = diff[ctx.dataIndex] ?? 0;
+                              return ` ${leaderNameOf(ctx.dataIndex)} +${Math.abs(v).toLocaleString()} souls`;
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        x: {
+                          grid: { color: "rgba(255,255,255,0.05)" },
+                          ticks: { color: "#9ca3af", font: { size: 11 }, maxTicksLimit: 5 },
+                        },
+                        y: {
+                          suggestedMin: -yMaxAbs,
+                          suggestedMax: yMaxAbs,
+                          grid: {
+                            color: (ctx) =>
+                              ctx.tick.value === 0
+                                ? "rgba(255,255,255,0.35)"
+                                : "rgba(255,255,255,0.05)",
+                          },
+                          ticks: {
+                            color: "#9ca3af",
+                            callback: (v) =>
+                              Math.abs(v) >= 1000
+                                ? (Math.abs(v) / 1000).toFixed(0) + "k"
+                                : Math.abs(v),
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-center gap-5 mt-3 text-xs text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-amber-400">▲</span>
+                    <span className="font-semibold uppercase tracking-wide">
+                      {amberTeamName || "Amber"} Ahead
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-blue-400">▼</span>
+                    <span className="font-semibold uppercase tracking-wide">
+                      {sapphireTeamName || "Sapphire"} Ahead
+                    </span>
+                  </span>
                 </div>
               </div>
-
-              {/* Team souls over time chart */}
-              {(() => {
-                const teamDefs = [
-                  { team: 0, name: amberTeamName || "Amber", rgb: "245,158,11" },
-                  { team: 1, name: sapphireTeamName || "Sapphire", rgb: "59,130,246" },
-                ];
-                const teamDatasets = teamDefs.map(({ team, name, rgb }) => ({
-                  label: name,
-                  rgb,
-                  data: Array.from({ length: maxSnaps }, (_, i) =>
-                    playerList
-                      .filter((p) => p.team === team)
-                      .reduce((sum, p) => sum + (p.snapshots[i]?.net_worth ?? 0), 0)
-                  ),
-                  borderColor: `rgba(${rgb},0.9)`,
-                  backgroundColor: `rgba(${rgb},0.1)`,
-                  borderWidth: 2,
-                  pointRadius: 0,
-                  tension: 0.3,
-                  fill: false,
-                }));
-
-                const buildTeamTooltip = (context) => {
-                  const { chart, tooltip } = context;
-                  if (tooltip.opacity === 0) { setTeamTooltip(null); return; }
-                  const dataIndex = tooltip.dataPoints?.[0]?.dataIndex;
-                  if (dataIndex == null) return;
-                  const timeLabel = labels[dataIndex];
-                  const entries = teamDatasets
-                    .map((ds) => ({ label: ds.label, rgb: ds.rgb, souls: ds.data[dataIndex] ?? 0 }))
-                    .sort((a, b) => b.souls - a.souls);
-                  const totalSouls = entries.reduce((sum, e) => sum + e.souls, 0);
-                  const canvasRect = chart.canvas.getBoundingClientRect();
-                  const containerRect = chart.canvas.parentElement.getBoundingClientRect();
-                  const x = tooltip.caretX + canvasRect.left - containerRect.left;
-                  const y = tooltip.caretY + canvasRect.top - containerRect.top;
-                  const flipLeft = x + 240 > containerRect.width;
-                  setTeamTooltip({ x, y, timeLabel, entries, totalSouls, flipLeft });
-                };
-
-                const teamOptions = {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      display: true,
-                      position: "bottom",
-                      labels: { color: "#d1d5db", boxWidth: 12, font: { size: 11 } },
-                    },
-                    tooltip: {
-                      enabled: false,
-                      external: buildTeamTooltip,
-                      mode: "index",
-                      intersect: false,
-                    },
-                  },
-                  scales: {
-                    x: {
-                      grid: { color: "rgba(255,255,255,0.05)" },
-                      ticks: { color: "#9ca3af", font: { size: 11 } },
-                    },
-                    y: {
-                      grid: { color: "rgba(255,255,255,0.05)" },
-                      ticks: {
-                        color: "#9ca3af",
-                        callback: (v) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v),
-                      },
-                    },
-                  },
-                };
-
-                return (
-                  <div className="mt-8">
-                    <h4 className="text-gray-400 text-sm font-semibold mb-3">Team Souls Over Time</h4>
-                    <div style={{ height: "200px", position: "relative" }} onMouseLeave={() => setTeamTooltip(null)}>
-                      <Line data={{ labels, datasets: teamDatasets }} options={teamOptions} />
-                      {teamTooltip && (() => {
-                        const { flipLeft } = teamTooltip;
-                        return (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: Math.max(0, teamTooltip.y - 10),
-                              left: flipLeft ? teamTooltip.x - 180 : teamTooltip.x + 12,
-                              pointerEvents: "none",
-                              zIndex: 50,
-                              minWidth: "160px",
-                            }}
-                            className="bg-gray-900 border border-gray-600 rounded-lg shadow-xl overflow-hidden"
-                          >
-                            <div className="text-center text-white font-bold text-sm py-1.5 px-3 bg-gray-800 border-b border-gray-600">
-                              {teamTooltip.timeLabel}
-                            </div>
-                            <div className="py-1">
-                              {teamTooltip.entries.map((entry, i) => {
-                                const pct = teamTooltip.totalSouls > 0
-                                  ? Math.round((entry.souls / teamTooltip.totalSouls) * 100)
-                                  : 0;
-                                const isTop = i === 0;
-                                return (
-                                  <div
-                                    key={entry.label}
-                                    style={isTop ? { backgroundColor: `rgba(${entry.rgb},0.15)` } : {}}
-                                    className="flex items-center gap-2 px-3 py-1.5"
-                                  >
-                                    <span
-                                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                                      style={{ background: `rgba(${entry.rgb},0.9)` }}
-                                    />
-                                    <span
-                                      style={{ color: `rgba(${entry.rgb},1)` }}
-                                      className="text-xs font-semibold flex-1 truncate"
-                                    >
-                                      {entry.label}
-                                    </span>
-                                    <span className="text-xs text-gray-200 font-semibold shrink-0">
-                                      {entry.souls.toLocaleString()}
-                                    </span>
-                                    <span className="text-xs text-gray-400 shrink-0 w-8 text-right">{pct}%</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                );
-              })()}
-            </>
             );
           })() : (
             <p className="text-gray-500 text-sm mt-6 text-center">

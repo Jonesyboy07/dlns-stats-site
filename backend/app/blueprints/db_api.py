@@ -1007,9 +1007,69 @@ def match_players(match_id: int):  # type: ignore
             (match_id,),
         )
         data = _rows_to_dicts(cur)
-        
-        
-        return jsonify({"players": data})
+
+        # Per-player soul income breakdown (from the final stats snapshot).
+        gcur = conn.execute(
+            "SELECT account_id, source, kills, damage, gold, gold_orbs "
+            "FROM player_gold_sources WHERE match_id = ? ORDER BY account_id, source",
+            (match_id,),
+        )
+        gs_by_acct: Dict[int, list] = {}
+        for row in gcur.fetchall():
+            acct, src, kills, damage, gold, gold_orbs = row
+            gs_by_acct.setdefault(acct, []).append({
+                "source": src,
+                "kills": kills,
+                "damage": damage,
+                "gold": gold,
+                "gold_orbs": gold_orbs,
+            })
+
+        # Per-player damage-by-source (ability/item/weapon) from the match damage_matrix.
+        dcur = conn.execute(
+            "SELECT account_id, source, damage FROM player_damage_sources "
+            "WHERE match_id = ? ORDER BY account_id, damage DESC",
+            (match_id,),
+        )
+        dmg_by_acct: Dict[int, list] = {}
+        for acct, src, dmg in dcur.fetchall():
+            dmg_by_acct.setdefault(acct, []).append({"source": src, "damage": dmg})
+
+    for p in data:
+        p["gold_sources"] = gs_by_acct.get(p.get("account_id"), [])
+        p["damage_sources"] = dmg_by_acct.get(p.get("account_id"), [])
+
+    return jsonify({"players": data})
+
+
+@bp.get("/items/names")
+@cache.cached(timeout=21600)  # Cache for 6 hours
+def item_names():  # type: ignore
+    """Return class_name -> display name for items (for damage-source labels)."""
+    item_catalog = cache.get("dlns_items_list")
+    if item_catalog is None:
+        try:
+            resp = requests.get(
+                "https://assets.deadlock-api.com/v2/items",
+                params={"language": "english"},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            item_catalog = resp.json()
+            cache.set("dlns_items_list", item_catalog, timeout=600)
+        except Exception as e:
+            current_app.logger.warning("Item catalog unavailable: %s", e)
+            item_catalog = []
+    names: Dict[str, str] = {}
+    if isinstance(item_catalog, list):
+        for it in item_catalog:
+            if not isinstance(it, dict):
+                continue
+            cn = it.get("class_name")
+            nm = it.get("name")
+            if isinstance(cn, str) and isinstance(nm, str) and nm and nm != cn:
+                names[cn] = nm
+    return jsonify(names)
 
 
 @bp.get("/matches/<int:match_id>/timeline")

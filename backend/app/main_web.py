@@ -25,6 +25,26 @@ from .heroes import get_hero_name
 from .help_config import load_help_config
 
 
+def _ensure_db_schema(app: Flask) -> None:
+    """Create/upgrade the SQLite schema at app startup.
+
+    The read-only API paths never run migrations, so without this the app can
+    serve against a missing table (e.g. player_gold_sources / player_damage_sources)
+    and 500 on every request. db_init is idempotent (CREATE IF NOT EXISTS + ALTER).
+    """
+    try:
+        from ..main import db_connect, db_init
+
+        db_path = Path(app.config.get("DB_PATH") or "./data/dlns.sqlite3").resolve()
+        conn = db_connect(db_path)
+        try:
+            db_init(conn)
+        finally:
+            conn.close()
+    except Exception:
+        app.logger.exception("Failed to ensure DB schema at startup (will surface per-request)")
+
+
 def create_app() -> Flask:
     # Load .env if present
     load_dotenv()
@@ -148,6 +168,9 @@ def create_app() -> Flask:
             ]
         }
     })
+
+    # Ensure the schema exists before serving (creates any missing tables on deploy).
+    _ensure_db_schema(app)
 
     # Register blueprints from blueprints/registry.json
     register_blueprints(app)

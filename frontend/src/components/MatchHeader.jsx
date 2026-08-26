@@ -26,11 +26,9 @@ export default function MatchHeader({
         <div className="flex items-center gap-2.5 text-[13px] font-heading font-medium text-muted tracking-[.04em] uppercase">
           <span className="text-dim">
             Match{" "}
-            <span className="text-secondary tracking-normal">
-              {matchId}
-            </span>
+            <span className="text-secondary tracking-normal">{matchId}</span>
           </span>
-                    {setTitle && (
+          {setTitle && (
             <>
               <span className="w-[3px] h-[3px] rounded-full bg-dim" />
               <span className="text-dim">{setTitle}</span>
@@ -47,7 +45,6 @@ export default function MatchHeader({
           ) : (
             <span className="text-accent-light">{weekLabel}</span>
           )}
-
         </div>
 
         <div className="flex items-center gap-3.5">

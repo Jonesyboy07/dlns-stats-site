@@ -463,6 +463,31 @@ CREATE TABLE IF NOT EXISTS player_snapshots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_match ON player_snapshots(match_id);
+
+CREATE TABLE IF NOT EXISTS player_gold_sources (
+  match_id INTEGER NOT NULL,
+  account_id INTEGER,
+  source INTEGER NOT NULL,
+  kills INTEGER,
+  damage INTEGER,
+  gold INTEGER,
+  gold_orbs INTEGER,
+  PRIMARY KEY (match_id, account_id, source),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_goldsrc_match ON player_gold_sources(match_id);
+
+CREATE TABLE IF NOT EXISTS player_damage_sources (
+  match_id INTEGER NOT NULL,
+  account_id INTEGER,
+  source TEXT NOT NULL,
+  damage INTEGER,
+  PRIMARY KEY (match_id, account_id, source),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_dmgsrc_match ON player_damage_sources(match_id);
 """
 
 
@@ -651,6 +676,161 @@ async def upsert_player_snapshots_async(conn: Any, match_id: int, account_id: Op
 		)
 
 
+def upsert_player_gold_sources(conn: sqlite3.Connection, match_id: int, account_id: Optional[int], stats: Any) -> None:
+	"""Store the final snapshot's soul-income breakdown (gold_sources) for a player."""
+	if account_id is None or not isinstance(stats, list) or not stats:
+		return
+	last = stats[-1] if isinstance(stats[-1], dict) else {}
+	sources = last.get("gold_sources")
+	if not isinstance(sources, list) or not sources:
+		return
+	conn.execute(
+		"DELETE FROM player_gold_sources WHERE match_id=? AND account_id=?",
+		(match_id, account_id),
+	)
+	for ent in sources:
+		if not isinstance(ent, dict):
+			continue
+		src = extract_int(ent.get("source"))
+		if src is None:
+			continue
+		conn.execute(
+			"INSERT OR IGNORE INTO player_gold_sources"
+			"(match_id, account_id, source, kills, damage, gold, gold_orbs) "
+			"VALUES (?, ?, ?, ?, ?, ?, ?)",
+			(
+				match_id,
+				account_id,
+				src,
+				extract_int(ent.get("kills")),
+				extract_int(ent.get("damage")),
+				extract_int(ent.get("gold")),
+				extract_int(ent.get("gold_orbs")),
+			),
+		)
+
+
+async def upsert_player_gold_sources_async(conn: Any, match_id: int, account_id: Optional[int], stats: Any) -> None:
+	"""Async version of upsert_player_gold_sources."""
+	if account_id is None or not isinstance(stats, list) or not stats:
+		return
+	last = stats[-1] if isinstance(stats[-1], dict) else {}
+	sources = last.get("gold_sources")
+	if not isinstance(sources, list) or not sources:
+		return
+	await conn.execute(
+		"DELETE FROM player_gold_sources WHERE match_id=? AND account_id=?",
+		(match_id, account_id),
+	)
+	for ent in sources:
+		if not isinstance(ent, dict):
+			continue
+		src = extract_int(ent.get("source"))
+		if src is None:
+			continue
+		await conn.execute(
+			"INSERT OR IGNORE INTO player_gold_sources"
+			"(match_id, account_id, source, kills, damage, gold, gold_orbs) "
+			"VALUES (?, ?, ?, ?, ?, ?, ?)",
+			(
+				match_id,
+				account_id,
+				src,
+				extract_int(ent.get("kills")),
+				extract_int(ent.get("damage")),
+				extract_int(ent.get("gold")),
+				extract_int(ent.get("gold_orbs")),
+			),
+		)
+
+
+def _aggregate_match_damage_sources(match_info: Dict[str, Any]) -> Dict[int, Dict[str, int]]:
+	"""Collapse the match damage_matrix into per-account {source_name: hero damage}.
+
+	Filters to damage stat_type (0) vs hero targets (player_slot 1-12, excluding the
+	slot-0 non-hero aggregate), takes the final cumulative sample per source, and halves
+	the result because deadlock-api reports damage_matrix values at exactly 2x the
+	snapshot player_damage (verified: ratio == 2.0 for every player across matches).
+	"""
+	players = match_info.get("players") or []
+	dm = match_info.get("damage_matrix") or {}
+	if not players or not dm:
+		return {}
+	sd = dm.get("source_details") or {}
+	stat_types = sd.get("stat_type") or []
+	source_names = sd.get("source_name") or []
+	slot_to_acct: Dict[int, int] = {}
+	for p in players:
+		slot = extract_int(p.get("player_slot"))
+		acct = extract_int(p.get("account_id"))
+		if slot is not None and acct is not None:
+			slot_to_acct[slot] = acct
+	result: Dict[int, Dict[str, int]] = {}
+	for dealer in dm.get("damage_dealers") or []:
+		if not isinstance(dealer, dict):
+			continue
+		slot = extract_int(dealer.get("dealer_player_slot"))
+		if slot is None or slot == 0:
+			continue
+		acct = slot_to_acct.get(slot)
+		if acct is None:
+			continue
+		per_source: Dict[str, int] = {}
+		for entry in dealer.get("damage_sources") or []:
+			if not isinstance(entry, dict):
+				continue
+			idx = extract_int(entry.get("source_details_index"))
+			if idx is None or idx < 0 or idx >= len(stat_types) or stat_types[idx] != 0:
+				continue
+			name = source_names[idx] if idx < len(source_names) else f"source_{idx}"
+			total = 0
+			for tgt in entry.get("damage_to_players") or []:
+				arr = tgt.get("damage") or []
+				if arr and tgt.get("target_player_slot") != 0:
+					total += int(arr[-1])
+			if total:
+				per_source[name] = per_source.get(name, 0) + total
+		if per_source:
+			result[acct] = {name: int(round(v / 2)) for name, v in per_source.items()}
+	return result
+
+
+def ingest_match_damage_sources(conn: sqlite3.Connection, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Store per-player damage-by-source (hero damage) for a match."""
+	agg = _aggregate_match_damage_sources(match_info)
+	for acct, per_source in agg.items():
+		conn.execute(
+			"DELETE FROM player_damage_sources WHERE match_id=? AND account_id=?",
+			(match_id, acct),
+		)
+		for name, dmg in per_source.items():
+			if dmg <= 0:
+				continue
+			conn.execute(
+				"INSERT OR IGNORE INTO player_damage_sources (match_id, account_id, source, damage) "
+				"VALUES (?, ?, ?, ?)",
+				(match_id, acct, name, dmg),
+			)
+
+
+async def ingest_match_damage_sources_async(conn: Any, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Async version of ingest_match_damage_sources."""
+	agg = _aggregate_match_damage_sources(match_info)
+	for acct, per_source in agg.items():
+		await conn.execute(
+			"DELETE FROM player_damage_sources WHERE match_id=? AND account_id=?",
+			(match_id, acct),
+		)
+		for name, dmg in per_source.items():
+			if dmg <= 0:
+				continue
+			await conn.execute(
+				"INSERT OR IGNORE INTO player_damage_sources (match_id, account_id, source, damage) "
+				"VALUES (?, ?, ?, ?)",
+				(match_id, acct, name, dmg),
+			)
+
+
 def upsert_user(conn: sqlite3.Connection, account_id: int, persona_name: Optional[str], avatar_url: Optional[str] = None) -> None:
 	conn.execute(
 		"INSERT INTO users(account_id, persona_name, avatar_url, updated_at) VALUES(?, ?, ?, ?) "
@@ -834,6 +1014,7 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 		),
 	)
 	upsert_player_snapshots(conn, match_id, account_id, player.get("stats"))
+	upsert_player_gold_sources(conn, match_id, account_id, player.get("stats"))
 
 
 
@@ -1269,6 +1450,7 @@ async def upsert_player_async(
 		),
 	)
 	await upsert_player_snapshots_async(conn, match_id, account_id, player.get("stats"))
+	await upsert_player_gold_sources_async(conn, match_id, account_id, player.get("stats"))
 
 
 def _derive_player_item_payloads(raw_items: Any) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
@@ -1436,6 +1618,89 @@ def backfill_all_player_lanes(conn: sqlite3.Connection) -> None:
 	conn.commit()
 	print(
 		f"[backfill-lanes] Done. Updated {updated_players} players across {updated_matches} matches. "
+		f"Skipped {skipped}. Errors {errors}."
+	)
+
+
+def backfill_all_player_gold_sources(conn: sqlite3.Connection) -> None:
+	"""Populate player_gold_sources (soul income) for matches that have players but no rows yet."""
+	rows = conn.execute(
+		"SELECT DISTINCT p.match_id FROM players p "
+		"WHERE NOT EXISTS (SELECT 1 FROM player_gold_sources g WHERE g.match_id = p.match_id) "
+		"ORDER BY p.match_id DESC"
+	).fetchall()
+	match_ids = [int(r[0]) for r in rows]
+	if not match_ids:
+		print("[backfill-goldsrc] No matches missing gold source data.")
+		return
+	print(f"[backfill-goldsrc] Checking {len(match_ids)} matches missing gold source data.")
+	updated_matches = 0
+	skipped = 0
+	errors = 0
+	for idx, match_id in enumerate(match_ids, start=1):
+		try:
+			mi = fetch_match_metadata(match_id)
+		except SkipMatchSilent:
+			skipped += 1
+			continue
+		except Exception as e:
+			print(f"[backfill-goldsrc] Fetch failed for {match_id}: {e}")
+			errors += 1
+			continue
+		players = mi.get("players") or []
+		if not players:
+			skipped += 1
+			continue
+		for player in players:
+			account_id = extract_int(player.get("account_id"))
+			if account_id is not None:
+				upsert_player_gold_sources(conn, match_id, account_id, player.get("stats"))
+		updated_matches += 1
+		if idx % 10 == 0:
+			conn.commit()
+	conn.commit()
+	print(
+		f"[backfill-goldsrc] Done. Updated {updated_matches} matches. "
+		f"Skipped {skipped}. Errors {errors}."
+	)
+
+
+def backfill_all_player_damage_sources(conn: sqlite3.Connection) -> None:
+	"""Populate player_damage_sources (damage by source) for matches that have players but no rows yet."""
+	rows = conn.execute(
+		"SELECT DISTINCT p.match_id FROM players p "
+		"WHERE NOT EXISTS (SELECT 1 FROM player_damage_sources g WHERE g.match_id = p.match_id) "
+		"ORDER BY p.match_id DESC"
+	).fetchall()
+	match_ids = [int(r[0]) for r in rows]
+	if not match_ids:
+		print("[backfill-dmgsrc] No matches missing damage source data.")
+		return
+	print(f"[backfill-dmgsrc] Checking {len(match_ids)} matches missing damage source data.")
+	updated_matches = 0
+	skipped = 0
+	errors = 0
+	for idx, match_id in enumerate(match_ids, start=1):
+		try:
+			mi = fetch_match_metadata(match_id)
+		except SkipMatchSilent:
+			skipped += 1
+			continue
+		except Exception as e:
+			print(f"[backfill-dmgsrc] Fetch failed for {match_id}: {e}")
+			errors += 1
+			continue
+		if not (mi.get("players") or mi.get("damage_matrix")):
+			skipped += 1
+			continue
+		ingest_match_damage_sources(conn, match_id, mi)
+		updated_matches += 1
+		if idx % 10 == 0:
+			conn.commit()
+			print(f"[backfill-dmgsrc] {idx}/{len(match_ids)} matches processed ({updated_matches} updated, {errors} errors)")
+	conn.commit()
+	print(
+		f"[backfill-dmgsrc] Done. Updated {updated_matches} matches. "
 		f"Skipped {skipped}. Errors {errors}."
 	)
 
@@ -1987,6 +2252,9 @@ def process_match_into_db(
 	for p in players:
 		upsert_player(conn, match_id, p, winning_team, name_map)
 
+	# Store per-player damage-by-source from the match damage_matrix
+	ingest_match_damage_sources(conn, match_id, match_info)
+
 	# Also persist updated users from cache to DB
 	for aid in account_ids_int:
 		upsert_user(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
@@ -2051,6 +2319,9 @@ async def process_match_into_db_async(
 
 		for p in players:
 			await upsert_player_async(conn, match_id, p, winning_team, name_map)
+
+		# Store per-player damage-by-source from the match damage_matrix
+		await ingest_match_damage_sources_async(conn, match_id, match_info)
 
 		for aid in account_ids_int:
 			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
@@ -2308,6 +2579,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-itembackfill", dest="itembackfill", type=str, default="false", help="If true, run full item backfill sweep across all current matches and exit")
 	parser.add_argument("-lanebackfill", dest="lanebackfill", type=str, default="false", help="If true, run targeted lane backfill across matches missing lane data and exit")
 	parser.add_argument("-laneinfer", dest="laneinfer", type=str, default="false", help="If true, run positional lane inference backfill (lane_real) from match_paths and exit")
+	parser.add_argument("-goldbackfill", dest="goldbackfill", type=str, default="false", help="If true, backfill player_gold_sources (soul income) for matches missing it and exit")
+	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
 	parser.add_argument("-cache", dest="cache_path", type=str, default=str(DEFAULT_CACHE_PATH), help="Path to user cache JSON {account_id: persona}")
 	parser.add_argument("-status", dest="status_path", type=str, default=str(DEFAULT_STATUS_PATH), help="Path to matches status JSON")
@@ -2392,6 +2665,28 @@ def main(argv: Optional[List[str]] = None) -> int:
 			print("[laneinfer] Running positional lane inference backfill...")
 			backfill_all_player_lanes_real(conn)
 			print("[laneinfer] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.goldbackfill):
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[backfill-goldsrc] Running soul-source backfill...")
+			backfill_all_player_gold_sources(conn)
+			print("[backfill-goldsrc] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.dmgbackfill):
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[backfill-dmgsrc] Running damage-source backfill...")
+			backfill_all_player_damage_sources(conn)
+			print("[backfill-dmgsrc] Done.")
 			return 0
 		finally:
 			conn.close()

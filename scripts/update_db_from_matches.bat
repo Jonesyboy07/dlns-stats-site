@@ -48,6 +48,22 @@ if errorlevel 1 (
 )
 
 echo.
+echo Inferring real lanes from match_paths (lane_real)...
+%PYTHON_EXE% backend\main.py -db "%DB_PATH%" -laneinfer true
+
+echo.
+echo Backfilling game-reported lanes as fallback (lane)...
+%PYTHON_EXE% backend\main.py -db "%DB_PATH%" -lanebackfill true
+
+echo.
+echo Backfilling soul sources (player_gold_sources)...
+%PYTHON_EXE% backend\main.py -db "%DB_PATH%" -goldbackfill true
+
+echo.
+echo Backfilling damage sources (player_damage_sources)...
+%PYTHON_EXE% backend\main.py -db "%DB_PATH%" -dmgbackfill true
+
+echo.
 echo DB update complete.
 
 popd

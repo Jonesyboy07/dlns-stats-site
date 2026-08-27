@@ -3998,37 +3998,81 @@
           "week": 53,
           "games": [
             {
+              "team_a": "Buff Enjoyers",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 101881862
+                },
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 101873227,
+                  "match_vod": "https://www.youtube.com/watch?v=rLm9f12bHIo"
+                }
+              ],
+              "region": "EU",
+              "title": "FINALS",
+              "match_vod": "https://www.youtube.com/watch?v=rLm9f12bHIo"
+            },
+            {
+              "team_a": "POPPERS' PUPILS",
+              "team_b": "VANGUARD",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 101893554
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=dMDvnMpH1jA",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "POPPERS' PUPILS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 101904476
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 101916166
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=6IhFvNJWVXo",
+              "region": "NA",
+              "title": "FINALS"
+            },
+            {
               "team_a": "Abrahams",
               "team_b": "Leviathan",
               "matches": [
                 {
                   "game": "Game 1",
                   "team_a_side": 0,
-                  "match_id": 101861610
+                  "match_id": 101861610,
+                  "match_vod": "https://www.youtube.com/watch?v=7Mwc1yb_Q6I"
                 }
               ],
               "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=7Mwc1yb_Q6I",
               "title": "CHALLENGER MATCH"
-            },
-            {
-              "team_a": "Buff Enjoyers",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 101873227
-                },
-                {
-                  "game": "Game 2",
-                  "team_a_side": 0,
-                  "match_id": 101881862
-                }
-              ],
-              "region": "EU",
-              "title": "FINALS"
             }
-          ]
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=WyOSKHIsHIY"
+            }
+          ],
+          "vod_link": "https://www.youtube.com/watch?v=WyOSKHIsHIY&pp=0gcJCRMMAYcqIYzv"
         }
       ]
     },

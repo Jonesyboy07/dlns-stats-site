@@ -8,11 +8,13 @@ Tables:
 - `users` stores Steam users and names.
 - `matches` stores match-level metadata.
 - `players` stores per-player stats for each match.
+- `player_deaths` stores a midpoint-distance value for every player death.
 - `user_stats` stores per-user aggregates derived from `players`.
 
 Relationships:
 - `players.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `players.account_id` -> `users.account_id` (ON DELETE SET NULL)
+- `player_deaths.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `user_stats.account_id` -> `users.account_id` (ON DELETE CASCADE)
 
 ## Pragmas
@@ -90,6 +92,26 @@ Primary Key:
 Indexes:
 - `idx_players_match` ON `players(match_id)`
 - `idx_players_account` ON `players(account_id)`
+
+## Table: `player_deaths`
+
+Stores one row for each player death in a match. Deaths are detected from increases in
+the player stats snapshots. `midpoint_distance` is the death-time `y_pos` map coordinate,
+where the map midpoint is zero; it is NULL when the source has no timestamped position.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` |
+| `account_id` | INTEGER | No | Player account ID |
+| `death_index` | INTEGER | No | One-based death number for this player in this match |
+| `death_time_s` | INTEGER | Yes | Timestamp of the first stats snapshot that reports the death |
+| `midpoint_distance` | REAL | Yes | Signed distance from the map midpoint |
+
+Primary Key:
+- (`match_id`, `account_id`, `death_index`)
+
+Indexes:
+- `idx_player_deaths_match` ON `player_deaths(match_id)`
 
 ## Table: `player_gold_sources`
 

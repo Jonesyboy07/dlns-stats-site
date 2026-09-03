@@ -464,6 +464,18 @@ CREATE TABLE IF NOT EXISTS player_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_match ON player_snapshots(match_id);
 
+CREATE TABLE IF NOT EXISTS player_deaths (
+  match_id INTEGER NOT NULL,
+  account_id INTEGER NOT NULL,
+  death_index INTEGER NOT NULL,
+  death_time_s INTEGER,
+  midpoint_distance REAL,
+  PRIMARY KEY (match_id, account_id, death_index),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_player_deaths_match ON player_deaths(match_id);
+
 CREATE TABLE IF NOT EXISTS player_gold_sources (
   match_id INTEGER NOT NULL,
   account_id INTEGER,
@@ -673,6 +685,66 @@ async def upsert_player_snapshots_async(conn: Any, match_id: int, account_id: Op
 				extract_int(snap.get("player_healing")),
 				extract_int(snap.get("time_stamp_s")),
 			),
+		)
+
+
+def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[int, int, Optional[int], Optional[float]]]:
+	"""Return each player's deaths with its sampled time and signed map-midpoint distance."""
+	match_paths = match_info.get("match_paths") or {}
+	interval = extract_float(match_paths.get("interval_s")) or 1.0
+	paths_by_slot = {
+		extract_int(path.get("player_slot")): path
+		for path in match_paths.get("paths") or []
+		if isinstance(path, dict) and extract_int(path.get("player_slot")) is not None
+	}
+	rows = []
+	for player in match_info.get("players") or []:
+		if not isinstance(player, dict):
+			continue
+		account_id = extract_int(player.get("account_id"))
+		player_slot = extract_int(player.get("player_slot"))
+		stats = player.get("stats")
+		if account_id is None or player_slot is None or not isinstance(stats, list):
+			continue
+		path = paths_by_slot.get(player_slot) or {}
+		y_positions = path.get("y_pos") or []
+		previous_deaths = 0
+		for snapshot in stats:
+			if not isinstance(snapshot, dict):
+				continue
+			deaths = extract_int(snapshot.get("deaths"))
+			if deaths is None:
+				continue
+			if deaths < previous_deaths:
+				previous_deaths = deaths
+				continue
+			death_time_s = extract_int(snapshot.get("time_stamp_s"))
+			midpoint_distance = None
+			if death_time_s is not None and y_positions:
+				position_index = min(len(y_positions) - 1, max(0, round(death_time_s / interval)))
+				midpoint_distance = extract_float(y_positions[position_index])
+			for death_index in range(previous_deaths + 1, deaths + 1):
+				rows.append((account_id, death_index, death_time_s, midpoint_distance))
+			previous_deaths = deaths
+	return rows
+
+
+def ingest_player_deaths(conn: sqlite3.Connection, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Store one midpoint-distance record for every death in a match."""
+	conn.execute("DELETE FROM player_deaths WHERE match_id=?", (match_id,))
+	conn.executemany(
+		"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, midpoint_distance) VALUES (?, ?, ?, ?, ?)",
+		[(match_id, *row) for row in _death_rows_from_match(match_info)],
+	)
+
+
+async def ingest_player_deaths_async(conn: Any, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Async version of ingest_player_deaths."""
+	await conn.execute("DELETE FROM player_deaths WHERE match_id=?", (match_id,))
+	for row in _death_rows_from_match(match_info):
+		await conn.execute(
+			"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, midpoint_distance) VALUES (?, ?, ?, ?, ?)",
+			(match_id, *row),
 		)
 
 
@@ -2254,6 +2326,7 @@ def process_match_into_db(
 
 	# Store per-player damage-by-source from the match damage_matrix
 	ingest_match_damage_sources(conn, match_id, match_info)
+	ingest_player_deaths(conn, match_id, match_info)
 
 	# Also persist updated users from cache to DB
 	for aid in account_ids_int:
@@ -2322,6 +2395,7 @@ async def process_match_into_db_async(
 
 		# Store per-player damage-by-source from the match damage_matrix
 		await ingest_match_damage_sources_async(conn, match_id, match_info)
+		await ingest_player_deaths_async(conn, match_id, match_info)
 
 		for aid in account_ids_int:
 			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
@@ -2755,4 +2829,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
 	raise SystemExit(main())
-

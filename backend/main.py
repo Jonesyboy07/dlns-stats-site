@@ -4,6 +4,7 @@ import os
 import argparse
 import asyncio
 import json
+import math
 import time
 import requests
 import random
@@ -469,6 +470,12 @@ CREATE TABLE IF NOT EXISTS player_deaths (
   account_id INTEGER NOT NULL,
   death_index INTEGER NOT NULL,
   death_time_s INTEGER,
+  position_x REAL,
+  position_y REAL,
+  position_z REAL,
+  midpoint_distance_x REAL,
+  midpoint_distance_y REAL,
+  midpoint_distance_z REAL,
   midpoint_distance REAL,
   PRIMARY KEY (match_id, account_id, death_index),
   FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
@@ -616,6 +623,22 @@ def db_init(conn: sqlite3.Connection) -> bool:
 	except Exception:
 		pass
 	try:
+		cur = conn.execute("PRAGMA table_info(player_deaths)")
+		death_cols = {r[1] for r in cur.fetchall()}
+		for column in (
+			"position_x",
+			"position_y",
+			"position_z",
+			"midpoint_distance_x",
+			"midpoint_distance_y",
+			"midpoint_distance_z",
+		):
+			if column not in death_cols:
+				conn.execute(f"ALTER TABLE player_deaths ADD COLUMN {column} REAL")
+		conn.commit()
+	except Exception:
+		pass
+	try:
 		cur = conn.execute("PRAGMA table_info(player_snapshots)")
 		snap_cols = {r[1] for r in cur.fetchall()}
 		if "time_stamp_s" not in snap_cols:
@@ -688,8 +711,8 @@ async def upsert_player_snapshots_async(conn: Any, match_id: int, account_id: Op
 		)
 
 
-def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[int, int, Optional[int], Optional[float]]]:
-	"""Return each player's deaths with its sampled time and signed map-midpoint distance."""
+def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[Any, ...]]:
+	"""Return each player's deaths with sampled 3D position and midpoint distances."""
 	match_paths = match_info.get("match_paths") or {}
 	interval = extract_float(match_paths.get("interval_s")) or 1.0
 	paths_by_slot = {
@@ -707,7 +730,11 @@ def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[int, int, O
 		if account_id is None or player_slot is None or not isinstance(stats, list):
 			continue
 		path = paths_by_slot.get(player_slot) or {}
-		y_positions = path.get("y_pos") or []
+		position_fields = {
+			"x": path.get("x_pos") or [],
+			"y": path.get("y_pos") or [],
+			"z": path.get("z_pos") or [],
+		}
 		previous_deaths = 0
 		for snapshot in stats:
 			if not isinstance(snapshot, dict):
@@ -719,12 +746,28 @@ def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[int, int, O
 				previous_deaths = deaths
 				continue
 			death_time_s = extract_int(snapshot.get("time_stamp_s"))
-			midpoint_distance = None
-			if death_time_s is not None and y_positions:
-				position_index = min(len(y_positions) - 1, max(0, round(death_time_s / interval)))
-				midpoint_distance = extract_float(y_positions[position_index])
+			positions = {}
+			if death_time_s is not None:
+				for axis, samples in position_fields.items():
+					if samples:
+						position_index = min(len(samples) - 1, max(0, round(death_time_s / interval)))
+						positions[axis] = extract_float(samples[position_index])
+					else:
+						positions[axis] = None
+			else:
+				positions = {"x": None, "y": None, "z": None}
+			midpoint_distance = (
+				math.sqrt(sum(positions[axis] ** 2 for axis in ("x", "y", "z")))
+				if all(positions[axis] is not None for axis in ("x", "y", "z"))
+				else None
+			)
 			for death_index in range(previous_deaths + 1, deaths + 1):
-				rows.append((account_id, death_index, death_time_s, midpoint_distance))
+				rows.append((
+					account_id, death_index, death_time_s,
+					positions["x"], positions["y"], positions["z"],
+					positions["x"], positions["y"], positions["z"],
+					midpoint_distance,
+				))
 			previous_deaths = deaths
 	return rows
 
@@ -733,7 +776,7 @@ def ingest_player_deaths(conn: sqlite3.Connection, match_id: int, match_info: Di
 	"""Store one midpoint-distance record for every death in a match."""
 	conn.execute("DELETE FROM player_deaths WHERE match_id=?", (match_id,))
 	conn.executemany(
-		"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, midpoint_distance) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, position_x, position_y, position_z, midpoint_distance_x, midpoint_distance_y, midpoint_distance_z, midpoint_distance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		[(match_id, *row) for row in _death_rows_from_match(match_info)],
 	)
 
@@ -743,7 +786,7 @@ async def ingest_player_deaths_async(conn: Any, match_id: int, match_info: Dict[
 	await conn.execute("DELETE FROM player_deaths WHERE match_id=?", (match_id,))
 	for row in _death_rows_from_match(match_info):
 		await conn.execute(
-			"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, midpoint_distance) VALUES (?, ?, ?, ?, ?)",
+			"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, position_x, position_y, position_z, midpoint_distance_x, midpoint_distance_y, midpoint_distance_z, midpoint_distance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			(match_id, *row),
 		)
 
@@ -1320,6 +1363,24 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 		cols = {r[1] for r in rows}
 		if "avatar_url" not in cols:
 			await conn.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT")
+		await conn.commit()
+	except Exception:
+		pass
+	try:
+		cur = await conn.execute("PRAGMA table_info(player_deaths)")
+		rows = await cur.fetchall()
+		await cur.close()
+		death_cols = {r[1] for r in rows}
+		for column in (
+			"position_x",
+			"position_y",
+			"position_z",
+			"midpoint_distance_x",
+			"midpoint_distance_y",
+			"midpoint_distance_z",
+		):
+			if column not in death_cols:
+				await conn.execute(f"ALTER TABLE player_deaths ADD COLUMN {column} REAL")
 		await conn.commit()
 	except Exception:
 		pass

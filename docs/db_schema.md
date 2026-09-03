@@ -96,8 +96,9 @@ Indexes:
 ## Table: `player_deaths`
 
 Stores one row for each player death in a match. Deaths are detected from increases in
-the player stats snapshots. `midpoint_distance` is the death-time `y_pos` map coordinate,
-where the map midpoint is zero; it is NULL when the source has no timestamped position.
+the player stats snapshots. Positions are sampled at the death-time snapshot. Each
+per-axis midpoint distance uses the map origin as its zero point; `midpoint_distance`
+is the Euclidean 3D distance and is NULL unless all three coordinates are available.
 
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
@@ -105,7 +106,13 @@ where the map midpoint is zero; it is NULL when the source has no timestamped po
 | `account_id` | INTEGER | No | Player account ID |
 | `death_index` | INTEGER | No | One-based death number for this player in this match |
 | `death_time_s` | INTEGER | Yes | Timestamp of the first stats snapshot that reports the death |
-| `midpoint_distance` | REAL | Yes | Signed distance from the map midpoint |
+| `position_x` | REAL | Yes | Death-time map X coordinate |
+| `position_y` | REAL | Yes | Death-time map Y coordinate |
+| `position_z` | REAL | Yes | Death-time map Z coordinate |
+| `midpoint_distance_x` | REAL | Yes | Signed X distance from the map midpoint |
+| `midpoint_distance_y` | REAL | Yes | Signed Y distance from the map midpoint |
+| `midpoint_distance_z` | REAL | Yes | Signed Z distance from the map midpoint |
+| `midpoint_distance` | REAL | Yes | Unsigned 3D Euclidean distance from the map midpoint |
 
 Primary Key:
 - (`match_id`, `account_id`, `death_index`)

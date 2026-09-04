@@ -70,6 +70,12 @@ def create_app() -> Flask:
         "REPLAY_URL_FILE_CACHE_PATH",
         str(project_root / "_cache" / "replay_urls.json"),
     )
+    app.config["REPLAY_INDEX_FILE_CACHE_PATH"] = os.getenv(
+        "REPLAY_INDEX_FILE_CACHE_PATH",
+        str(project_root / "_cache" / "replay_index.json"),
+    )
+    # How often (hours) the full replay index is rebuilt in the background.
+    app.config["REPLAY_INDEX_REFRESH_HOURS"] = int(os.getenv("REPLAY_INDEX_REFRESH_HOURS", "6"))
     
     #Discord Info
     app.config["DISCORD_CLIENT_ID"] = os.getenv("DISCORD_CLIENT_ID")

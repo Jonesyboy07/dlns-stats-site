@@ -4133,26 +4133,29 @@
               "team_b": "MELEE CREEPS",
               "matches": [
                 {
-                  "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 103349101
-                },
-                {
                   "game": "Game 2",
                   "team_a_side": 1,
                   "match_id": 103360059
+                },
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 103349101,
+                  "match_vod": "https://www.youtube.com/watch?v=zZfEu7qC4Vg"
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=zZfEu7qC4Vg",
-              "region": "NA"
+              "region": "NA",
+              "title": "FINALS"
             }
           ],
           "vod_links": [
             {
-              "title": "",
+              "title": "FINALS",
               "url": "https://www.youtube.com/watch?v=NicXYI0s-xo"
             }
-          ]
+          ],
+          "vod_link": ""
         }
       ]
     },

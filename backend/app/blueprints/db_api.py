@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import quote
@@ -150,10 +152,12 @@ def _replay_download_base_url() -> str:
 
 def _fetch_replay_listing(path: str | None = None) -> list[dict[str, Any]]:
     url = _replay_share_api_url()
-    params: dict[str, str] = {}
     if path:
-        params["path"] = path
-    resp = requests.get(url, params=params, timeout=10)
+        # Filebrowser's public share API navigates by appending the folder path
+        # to the share URL. (A ?path= query param is ignored by the server, which
+        # would make the recursive scan never descend past the share root.)
+        url = f"{url.rstrip('/')}/{quote(str(path).lstrip('/'), safe='/')}"
+    resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     payload = resp.json()
     items = payload.get("items")
@@ -165,6 +169,23 @@ def _fetch_replay_listing(path: str | None = None) -> list[dict[str, Any]]:
 def _build_replay_download_url(item_path: str) -> str:
     encoded_path = quote(item_path.lstrip("/"), safe="/")
     return f"{_replay_download_base_url()}/{encoded_path}"
+
+
+def _replay_share_ui_base_url() -> str:
+    """Filebrowser web-UI root for the public share (e.g. .../share/<hash>)."""
+    api_url = _replay_share_api_url()
+    if "/api/public/share/" in api_url:
+        return api_url.replace("/api/public/share/", "/share/", 1)
+    # Fallback: guess the UI root from the download base URL.
+    dl = _replay_download_base_url()
+    return dl.replace("/api/public/dl/", "/share/", 1)
+
+
+def _build_replay_share_url(item_path: str) -> str:
+    """Web-UI link to the folder containing the replay (opens Filebrowser, not a download)."""
+    folder = item_path.rstrip("/").rsplit("/", 1)[0]
+    encoded = quote(folder.lstrip("/"), safe="/")
+    return f"{_replay_share_ui_base_url().rstrip('/')}/{encoded}/"
 
 
 def _replay_cache_key(match_id: int) -> str:
@@ -243,8 +264,204 @@ def _set_persisted_replay(match_id: int, replay: dict[str, Any], ttl_seconds: in
         _write_replay_file_cache(cache_payload)
 
 
+# ---------------------------------------------------------------------------
+# Replay share index
+# ---------------------------------------------------------------------------
+# A full crawl of the Filebrowser share, mapping match_id -> replay file, stored
+# as JSON so match lookups are instant instead of walking the share per request.
+_replay_index_refresh_lock = threading.Lock()
+# Serializes writes to the index file (background refresh vs. per-match append).
+_replay_index_write_lock = threading.Lock()
+
+
+def _crawl_share_replays(
+    share_api_url: str, max_dirs: int = 20000, workers: int = 16
+) -> dict[int, Dict[str, Any]]:
+    """Crawl the whole share and return {match_id: replay_item} for every <id>.zip."""
+    found: Dict[int, Dict[str, Any]] = {}
+    seen_dirs: set[str] = set()
+    frontier: list[str] = [""]
+
+    def listing(path: str | None) -> list[Dict[str, Any]] | None:
+        url = share_api_url.rstrip("/")
+        if path:
+            url = f"{url}/{quote(str(path).lstrip('/'), safe='/')}"
+        try:
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            items = resp.json().get("items")
+            if isinstance(items, list):
+                return [it for it in items if isinstance(it, dict)]
+            return []
+        except Exception:
+            return None
+
+    while frontier and len(seen_dirs) < max_dirs:
+        batch = [p for p in frontier if p not in seen_dirs]
+        if not batch:
+            break
+        seen_dirs.update(batch)
+        frontier = []
+
+        if len(batch) > 1 and workers > 1:
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                listings = list(ex.map(lambda p: listing(p or None), batch))
+        else:
+            listings = [listing(p or None) for p in batch]
+
+        for path, items in zip(batch, listings):
+            if not items:
+                continue
+            for it in items:
+                name = str(it.get("name") or "")
+                item_path = str(it.get("path") or "")
+                if it.get("isDir"):
+                    if item_path and item_path not in seen_dirs and len(seen_dirs) < max_dirs:
+                        frontier.append(item_path)
+                    continue
+                if not name.lower().endswith(".zip"):
+                    continue
+                m = re.match(r"^(\d+)", name)
+                if not m:
+                    continue
+                found[int(m.group(1))] = {
+                    "name": name,
+                    "path": item_path,
+                    "size": it.get("size"),
+                    "modified": it.get("modified"),
+                }
+    return found
+
+
+def _replay_index_path() -> Path:
+    configured = current_app.config.get("REPLAY_INDEX_FILE_CACHE_PATH")
+    if configured:
+        return Path(str(configured)).resolve()
+    project_root = Path(current_app.root_path).parent.parent
+    return project_root / "_cache" / "replay_index.json"
+
+
+def _replay_index_refresh_hours() -> float:
+    raw = current_app.config.get("REPLAY_INDEX_REFRESH_HOURS")
+    try:
+        return float(raw or 6)
+    except (TypeError, ValueError):
+        return 6.0
+
+
+def _load_replay_index() -> Dict[str, Any]:
+    path = _replay_index_path()
+    if not path.exists():
+        return {"version": 2, "built_at": 0, "count": 0, "replays": {}}
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, dict) and isinstance(raw.get("replays"), dict):
+            return raw
+    except Exception:
+        pass
+    return {"version": 2, "built_at": 0, "count": 0, "replays": {}}
+
+
+def _save_replay_index(payload: Dict[str, Any]) -> None:
+    path = _replay_index_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with _replay_index_write_lock:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+        tmp_path.replace(path)
+
+
+def _build_replay_index_sync(share_api_url: str, index_path: str, max_dirs: int = 20000) -> int:
+    """Blocking full index build; runs outside any request/app context."""
+    replays = _crawl_share_replays(share_api_url, max_dirs=max_dirs)
+    if not replays:
+        # A failed/empty crawl (share unreachable or no uploads yet) must never
+        # clobber a good index or mark a fresh-but-empty one. Keep what exists.
+        path = Path(index_path)
+        if path.exists():
+            try:
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                return int(existing.get("count") or 0)
+            except Exception:
+                pass
+        return 0
+    payload = {
+        "version": 2,
+        "built_at": int(time.time()),
+        "count": len(replays),
+        "replays": {str(mid): item for mid, item in replays.items()},
+    }
+    path = Path(index_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with _replay_index_write_lock:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+        tmp_path.replace(path)
+    return len(replays)
+
+
+def rebuild_replay_index() -> int:
+    """Build/refresh the full replay index now (blocking). Returns replay count."""
+    return _build_replay_index_sync(_replay_share_api_url(), str(_replay_index_path()))
+
+
+def _schedule_index_refresh() -> bool:
+    """Kick off a background full-index rebuild if the index is missing or stale."""
+    if not _replay_index_refresh_lock.acquire(blocking=False):
+        return False  # a rebuild is already running
+    try:
+        api_url = _replay_share_api_url()
+        index_path = str(_replay_index_path())
+        refresh_hours = _replay_index_refresh_hours()
+    except Exception:
+        _replay_index_refresh_lock.release()
+        return False
+
+    payload = _load_replay_index()
+    age_hours = (time.time() - int(payload.get("built_at") or 0)) / 3600.0
+    if payload.get("built_at") and age_hours < refresh_hours:
+        _replay_index_refresh_lock.release()
+        return False
+
+    def worker() -> None:
+        try:
+            _build_replay_index_sync(api_url, index_path)
+        except Exception:
+            pass
+        finally:
+            _replay_index_refresh_lock.release()
+
+    threading.Thread(target=worker, name="replay-index-refresh", daemon=True).start()
+    return True
+
+
 def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, Any] | None, int]:
-    """Return (matched_item, visited_dir_count) by recursively walking the public share API."""
+    """Return (matched_item, visited_dir_count).
+
+    Looks up a prebuilt replay index first (instant, no network). Only when the
+    index is missing or stale does it fall back to walking the share, and it
+    schedules a background rebuild so later lookups stay fast.
+    """
+    payload = _load_replay_index()
+    replays = payload.get("replays") or {}
+    indexed = replays.get(str(match_id))
+    if isinstance(indexed, dict):
+        return indexed, 0
+
+    age_hours = (time.time() - int(payload.get("built_at") or 0)) / 3600.0
+    if payload.get("built_at") and age_hours < _replay_index_refresh_hours():
+        # Index is fresh and this match isn't in it -> no replay on the share.
+        return None, 0
+
+    # Index missing or stale: walk the live share, refresh in the background.
+    try:
+        _schedule_index_refresh()
+    except Exception:
+        pass
+
     target_prefix = f"{match_id}"
     visited_dirs = 0
     seen_dirs: set[str] = set()
@@ -282,6 +499,20 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
             if not name.startswith(target_prefix):
                 continue
 
+            # Remember it in the index so the next lookup is instant.
+            try:
+                entry = {
+                    "name": name,
+                    "path": item_path,
+                    "size": item.get("size"),
+                    "modified": item.get("modified"),
+                }
+                refreshed = _load_replay_index()
+                refreshed.setdefault("replays", {})[str(match_id)] = entry
+                refreshed["count"] = len(refreshed["replays"])
+                _save_replay_index(refreshed)
+            except Exception:
+                pass
             return item, visited_dirs
 
         for next_dir in sorted(dir_paths, reverse=True):
@@ -978,6 +1209,7 @@ def match_replay(match_id: int):
         "size": item.get("size"),
         "modified": item.get("modified"),
         "download_url": _build_replay_download_url(item_path),
+        "share_url": _build_replay_share_url(item_path),
     }
     cache.set(_replay_cache_key(match_id), replay_payload, timeout=ttl_seconds)
     _set_persisted_replay(match_id, replay_payload, ttl_seconds)

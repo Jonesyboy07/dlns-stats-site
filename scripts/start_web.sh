@@ -33,6 +33,9 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+echo "Refreshing replay index..."
+"$PYTHON_EXE" scripts/build_replay_index.py || echo "Warning: replay index refresh failed (continuing)."
+
 echo "Starting Waitress on http://127.0.0.1:5050"
 
 "$PYTHON_EXE" -m waitress \

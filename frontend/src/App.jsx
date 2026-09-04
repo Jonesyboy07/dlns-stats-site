@@ -10,6 +10,7 @@ import MatchList from "./pages/MatchList";
 import HomePage from "./pages/HomePage";
 import DLNS_Header from "./components/DLNS_Header";
 import { cdnImage } from "./utils/cdn";
+import ScrollToTop from "./components/ScrollToTop";
 import "./App.css";
 
 const MatchDetail = lazy(() => import("./pages/MatchDetail"));
@@ -72,6 +73,7 @@ function Navigation() {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <div className="relative min-h-screen flex flex-col bg-base">
         {/* Background image, black & white, fades to bg colour toward bottom */}
         <div

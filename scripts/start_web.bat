@@ -20,7 +20,7 @@ echo ========================================
 echo.
 
 if defined NPM_EXE (
-	echo [1/3] Preparing frontend build...
+	echo [1/4] Preparing frontend build...
 	pushd frontend
 	if not exist node_modules (
 		echo Installing frontend dependencies...
@@ -43,10 +43,13 @@ if defined NPM_EXE (
 	)
 	popd
 ) else (
-	echo [1/3] npm not found. Skipping frontend build.
+	echo [1/4] npm not found. Skipping frontend build.
 )
 
-echo [2/3] Starting Waitress...
+echo [2/4] Refreshing replay index...
+%PYTHON_EXE% scripts\build_replay_index.py
+
+echo [3/4] Starting Waitress...
 
 echo Listening on http://127.0.0.1:5050
 %PYTHON_EXE% -m waitress --listen=127.0.0.1:5050 --threads=12 --channel-timeout=180 wsgi:app

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import ReplayButton from "./ReplayButton";
 
 export default function MatchHeader({
   matchId = "93812686",
@@ -23,7 +24,7 @@ export default function MatchHeader({
       {/* ===== Desktop header ===== */}
       <div className="hidden lg:block">
       {/* Top meta row */}
-      <div className="flex justify-between items-center px-5 pt-4 pb-3 border-b border-border-dashed">
+      <div className="flex flex-wrap justify-between items-center gap-x-3.5 gap-y-1 px-5 pt-4 pb-3 border-b border-border-dashed">
         <div className="flex items-center gap-2.5 text-[13px] font-heading font-medium text-muted tracking-[.04em] uppercase">
           <span className="text-dim">
             Match{" "}
@@ -51,7 +52,7 @@ export default function MatchHeader({
 
         </div>
 
-        <div className="flex items-center gap-3.5">
+        <div className="flex flex-wrap items-center justify-end gap-x-3.5 gap-y-1">
           <span className="text-[13px] font-body font-normal text-dim">
             {date}
           </span>
@@ -76,6 +77,7 @@ export default function MatchHeader({
               Watch VOD
             </a>
           ) : null}
+          <ReplayButton matchId={matchId} />
           <a
             href={seriesUrl}
             className="text-[13px] font-heading font-semibold tracking-[.02em] flex items-center gap-1 text-accent-light hover:text-accent transition-colors"
@@ -185,7 +187,7 @@ export default function MatchHeader({
       {/* ===== Mobile header (matches attached design) ===== */}
       <div className="lg:hidden">
         {/* Top: event label */}
-        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-border-dashed">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-5 pt-4 pb-3 border-b border-border-dashed">
           <a
             href={weekUrl || seriesUrl}
             className="text-[13px] font-heading font-medium tracking-[.04em] uppercase text-cyan-300 hover:text-cyan-200 transition-colors flex items-center gap-1.5 min-w-0"
@@ -212,6 +214,7 @@ export default function MatchHeader({
                 VOD
               </a>
             ) : null}
+            <ReplayButton matchId={matchId} compact />
           </span>
         </div>
 

@@ -61,7 +61,19 @@ export default function StreamStatusStrip({ stream, className = "" }) {
 
       {statusSuffix ? (
         <span className="text-[12px] text-muted">
-          <span className="text-sm">{channelName}</span> {statusSuffix}
+          <a
+            href={channelUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`text-sm font-semibold transition-colors hover:underline ${
+              live
+                ? "text-accent-light hover:text-accent"
+                : "text-accent-secondary-light hover:text-accent-secondary"
+            }`}
+          >
+            {channelName}
+          </a>{" "}
+          {statusSuffix}
         </span>
       ) : (
         <span className="text-[12px] text-muted">{message}</span>
@@ -73,17 +85,42 @@ export default function StreamStatusStrip({ stream, className = "" }) {
         </span>
       )}
 
+      {/* External-link glyph — the conventional "opens in a new tab" sign. */}
       <a
         href={channelUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={`shrink-0 font-semibold transition-colors ${
+        title={
+          live
+            ? "Watch the stream in a new tab"
+            : "Open the Twitch channel in a new tab"
+        }
+        aria-label={
+          live
+            ? "Watch the stream on Twitch (opens in a new tab)"
+            : "Open the Twitch channel (opens in a new tab)"
+        }
+        className={`shrink-0 transition-colors ${
           live
             ? "text-accent-light hover:text-accent"
             : "text-accent-secondary-light hover:text-accent-secondary"
         }`}
       >
-        {live ? "Watch now →" : "Visit the channel →"}
+        <svg
+          aria-hidden="true"
+          className="h-3.5 w-3.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {/* Box with an arrow escaping the top-right corner */}
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <path d="M15 3h6v6" />
+          <path d="M10 14 21 3" />
+        </svg>
       </a>
     </div>
   );

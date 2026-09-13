@@ -9,6 +9,15 @@ export async function logout() {
 }
 
 /**
+ * Stream status API — Twitch live/offline state for the site header + widgets.
+ */
+export async function getStreamStatus() {
+  const res = await fetch('/db/stream/status');
+  if (!res.ok) throw new Error('Failed to load stream status');
+  return res.json();
+}
+
+/**
  * Interviews API
  */
 export async function interviewsGetAccess() {

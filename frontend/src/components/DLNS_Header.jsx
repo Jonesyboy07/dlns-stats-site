@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import StreamStatusStrip from './StreamStatusStrip';
+import { getStreamStatus } from '../utils/api';
 
 /**
  * DLNS Header — responsive navigation with hamburger menu for mobile.
@@ -8,6 +10,7 @@ function DLNS_Header({ className = "" }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(undefined);
   const [matchDarkMode, setMatchDarkMode] = useState(false);
+  const [stream, setStream] = useState(undefined);
   const location = useLocation();
   const darkModeStorageKey = 'dlns.matchlist.darkMode';
 
@@ -16,6 +19,23 @@ function DLNS_Header({ className = "" }) {
       .then(r => r.json())
       .then(data => setUser(data.ok ? data.user : null))
       .catch(() => setUser(null));
+  }, []);
+
+  /* Twitch state for the strip: undefined = loading, null = request failed. */
+  useEffect(() => {
+    let cancelled = false;
+
+    getStreamStatus()
+      .then((data) => {
+        if (!cancelled) setStream(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStream(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -214,6 +234,14 @@ function DLNS_Header({ className = "" }) {
               </a>
             )}
           </nav>
+        </div>
+      )}
+
+      {/* Stream status — rendered on every page. Skipped entirely when the
+          status request failed so it never claims an unknown state. */}
+      {stream !== null && (
+        <div className="max-w-7xl mx-auto px-4 pb-3">
+          <StreamStatusStrip stream={stream} className="mt-1" />
         </div>
       )}
     </header>

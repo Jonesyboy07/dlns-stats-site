@@ -27,7 +27,8 @@ function formatNextStream(iso) {
  * StreamWidget — sidebar summary of the Twitch channel.
  *
  * Props:
- *   stream – payload from /db/stream/status, or null while it is still loading.
+ *   stream – payload from /db/stream/status. `undefined` while still loading,
+ *            `null` when the request failed.
  */
 export default function StreamWidget({ stream }) {
   const live = Boolean(stream?.live);
@@ -37,11 +38,14 @@ export default function StreamWidget({ stream }) {
   const channelName =
     stream?.display_name || stream?.channel || "DeadlockNightShift";
   const nextStream = formatNextStream(stream?.next_stream?.start_time);
+
   const statusLabel = live
     ? "Live"
-    : configured === false
-      ? "Status unavailable"
-      : "Offline";
+    : stream === null
+      ? "Unknown"
+      : configured === false
+        ? "Status unavailable"
+        : "Offline";
 
   return (
     <Widget
@@ -82,11 +86,13 @@ export default function StreamWidget({ stream }) {
         </>
       ) : (
         <p className="mt-2 text-xs text-muted leading-relaxed">
-          {configured === false
-            ? "Live status isn't connected yet — head over to the channel to see what's on."
-            : nextStream
-              ? `Next stream ${nextStream}.`
-              : "No stream scheduled right now — follow the channel for updates."}
+          {stream === null
+            ? "Stream status is unavailable right now."
+            : configured === false
+              ? "Live status isn't connected yet — head over to the channel to see what's on."
+              : nextStream
+                ? `Next stream ${nextStream}.`
+                : "No stream scheduled right now — follow the channel for updates."}
         </p>
       )}
 

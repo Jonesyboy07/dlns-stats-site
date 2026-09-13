@@ -1,18 +1,24 @@
 import React from "react";
 
 /**
- * StreamStatusStrip — slim live/offline banner above the home page hero.
+ * StreamStatusStrip — slim live/offline banner rendered beneath the site
+ * header on every page.
  *
  * Props:
- *   stream – payload from /db/stream/status, or null while it is still loading.
+ *   stream    – payload from /db/stream/status. `undefined` while loading,
+ *               `null` when the request failed (the strip renders nothing so
+ *               it never claims a stream state it does not know).
+ *   className – extra wrapper classes; spacing is owned by the caller.
  *
  * When the backend has no Twitch credentials (`configured: false`) this
  * degrades to a neutral "status unavailable" strip rather than claiming the
  * channel is offline.
  */
-export default function StreamStatusStrip({ stream }) {
+export default function StreamStatusStrip({ stream, className = "" }) {
   const live = Boolean(stream?.live);
   const configured = stream ? stream.configured : undefined;
+
+  if (stream === null) return null;
   const channelUrl =
     stream?.channel_url || "https://www.twitch.tv/deadlocknightshift";
   const channelName =
@@ -32,7 +38,9 @@ export default function StreamStatusStrip({ stream }) {
   }
 
   return (
-    <div className="mb-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-border bg-white/[0.02] px-4 py-2 text-xs sm:text-sm">
+    <div
+      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-border bg-white/[0.02] px-4 py-2 text-xs sm:text-sm ${className}`}
+    >
       <span className="flex items-center gap-2">
         <span
           aria-hidden="true"

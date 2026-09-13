@@ -7,8 +7,8 @@ import HomeHero from "../components/home/HomeHero";
 import QuickSearchWidget from "../components/home/QuickSearchWidget";
 import SeasonStatsWidget from "../components/home/SeasonStatsWidget";
 import SeriesWeekGroup from "../components/home/SeriesWeekGroup";
-import StreamStatusStrip from "../components/home/StreamStatusStrip";
 import StreamWidget from "../components/home/StreamWidget";
+import { getStreamStatus } from "../utils/api";
 
 /* /db/matches/latest/paged clamps per_page at 20, so a batch is several pages. */
 const PER_PAGE = 20;
@@ -60,7 +60,7 @@ function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [loadMoreError, setLoadMoreError] = useState(null);
-  const [stream, setStream] = useState(null);
+  const [stream, setStream] = useState(undefined);
 
   const loadSeries = useCallback(async () => {
     try {
@@ -95,12 +95,11 @@ function HomePage() {
     loadSeries();
   }, [loadSeries]);
 
-  /* Stream status is optional — a failure just leaves the strip neutral. */
+  /* Stream status is optional — a failure just leaves the widget neutral. */
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/db/stream/status")
-      .then((res) => (res.ok ? res.json() : null))
+    getStreamStatus()
       .then((data) => {
         if (!cancelled) setStream(data);
       })
@@ -227,7 +226,6 @@ function HomePage() {
 
   return (
     <div className="w-full px-4">
-      <StreamStatusStrip stream={stream} />
       <HomeHero />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">

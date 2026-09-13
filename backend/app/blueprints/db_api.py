@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import threading
@@ -639,6 +640,7 @@ def weeks_map():  # type: ignore
                                 "team_b": team_b,
                                 "game": game_label,
                                 "series_title": (series.get("title") or "").strip(),
+                                "match_vod": (game.get("match_vod") if isinstance(game, dict) else "") or series.get("match_vod") or "",
                             }
                     continue
 
@@ -657,6 +659,7 @@ def weeks_map():  # type: ignore
                         "team_b": team_b,
                         "game": series.get("game") or series.get("game_label"),
                         "series_title": (series.get("title") or "").strip(),
+                        "match_vod": series.get("match_vod") or "",
                     }
 
     if not event_title_filter_lc:
@@ -1757,7 +1760,211 @@ def search_suggest():  # type: ignore
                 {"type": "user", "text": r[1], "url": f"/users/{r[0]}"}
                 for r in rows
             ]
+
+            # Teams (prefix match, most active first)
+            cur = conn.execute(
+                """
+                SELECT MIN(team_name) AS team_name, COUNT(DISTINCT match_id) AS matches
+                FROM (
+                    SELECT event_team_a AS team_name, match_id FROM matches
+                    WHERE event_team_a IS NOT NULL AND event_team_a != ''
+                    UNION ALL
+                    SELECT event_team_b AS team_name, match_id FROM matches
+                    WHERE event_team_b IS NOT NULL AND event_team_b != ''
+                )
+                WHERE LOWER(team_name) LIKE ?
+                GROUP BY LOWER(team_name)
+                ORDER BY matches DESC, LOWER(team_name) ASC
+                LIMIT 5
+                """,
+                (f"{q.lower()}%",),
+            )
+            results += [
+                {
+                    "type": "team",
+                    "text": r[0],
+                    "url": f"/team/{quote(r[0])}",
+                    "meta": r[1],
+                }
+                for r in cur.fetchall()
+            ]
+
+            # Heroes (substring match — hero names are single words)
+            from ..heroes import get_all_hero_names
+
+            hero_hits = [
+                (int(hid), str(hname))
+                for hid, hname in get_all_hero_names().items()
+                if q.lower() in str(hname).lower()
+            ]
+            hero_hits.sort(key=lambda item: item[1].lower())
+            results += [
+                {"type": "hero", "text": hname, "url": f"/hero/{hid}"}
+                for hid, hname in hero_hits[:5]
+            ]
+
     return jsonify({"results": results})
+
+
+# ── Twitch live status ────────────────────────────────────────────────────
+# Drives the home page stream strip / widget. Credentials are read from the
+# environment (TWITCH_CLIENT_ID + TWITCH_CLIENT_SECRET); when they are absent
+# the endpoint reports configured=false and the UI degrades to a plain link.
+_twitch_token_lock = threading.Lock()
+_twitch_token: Dict[str, Any] = {"token": None, "expires_at": 0.0}
+
+
+def _twitch_app_token(client_id: str, client_secret: str) -> str | None:
+    """Return a memoized app access token via the client-credentials flow."""
+    now = time.time()
+    with _twitch_token_lock:
+        token = _twitch_token.get("token")
+        if token and float(_twitch_token.get("expires_at") or 0) > now + 60:
+            return token
+
+    try:
+        resp = requests.post(
+            "https://id.twitch.tv/oauth2/token",
+            params={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": "client_credentials",
+            },
+            timeout=6,
+        )
+    except requests.RequestException:
+        return None
+
+    if resp.status_code != 200:
+        return None
+
+    payload = resp.json() or {}
+    token = payload.get("access_token")
+    if not token:
+        return None
+
+    expires_in = int(payload.get("expires_in") or 0)
+    with _twitch_token_lock:
+        _twitch_token["token"] = token
+        _twitch_token["expires_at"] = now + max(expires_in - 60, 60)
+    return token
+
+
+@bp.get("/stream/status")
+@cache.cached(timeout=60)
+def stream_status():  # type: ignore
+    """Live/offline state for the DLNS Twitch channel.
+
+    Response fields:
+      configured   – whether Twitch credentials are present
+      channel      – login name being checked
+      channel_url  – link to open the channel
+      live         – true when a stream is currently up
+      title/game_name/viewer_count/started_at – set while live
+      next_stream  – {start_time, title, category} from the channel schedule
+    """
+    channel = (os.getenv("TWITCH_CHANNEL") or "deadlocknightshift").strip().lower()
+    channel_url = f"https://www.twitch.tv/{channel}"
+    client_id = (os.getenv("TWITCH_CLIENT_ID") or "").strip()
+    client_secret = (os.getenv("TWITCH_CLIENT_SECRET") or "").strip()
+
+    payload: Dict[str, Any] = {
+        "configured": bool(client_id and client_secret),
+        "channel": channel,
+        "channel_url": channel_url,
+        "live": False,
+        "title": None,
+        "game_name": None,
+        "viewer_count": None,
+        "started_at": None,
+        "next_stream": None,
+        "checked_at": int(time.time()),
+    }
+
+    if not payload["configured"]:
+        return jsonify(payload)
+
+    token = _twitch_app_token(client_id, client_secret)
+    if not token:
+        payload["error"] = "auth"
+        return jsonify(payload)
+
+    headers = {"Client-Id": client_id, "Authorization": f"Bearer {token}"}
+
+    try:
+        resp = requests.get(
+            "https://api.twitch.tv/helix/streams",
+            params={"user_login": channel},
+            headers=headers,
+            timeout=6,
+        )
+        if resp.status_code == 200:
+            data = (resp.json() or {}).get("data") or []
+            if data:
+                stream = data[0]
+                payload.update(
+                    {
+                        "live": True,
+                        "title": stream.get("title"),
+                        "game_name": stream.get("game_name"),
+                        "viewer_count": stream.get("viewer_count"),
+                        "started_at": stream.get("started_at"),
+                    }
+                )
+        elif resp.status_code == 401:
+            # Token expired early — clear it so the next request re-authenticates.
+            with _twitch_token_lock:
+                _twitch_token["token"] = None
+                _twitch_token["expires_at"] = 0.0
+        else:
+            payload["error"] = f"streams:{resp.status_code}"
+    except requests.RequestException:
+        payload["error"] = "network"
+        return jsonify(payload)
+
+    # Channel identity — needed for the display name and the schedule call.
+    broadcaster_id = None
+    try:
+        user_resp = requests.get(
+            "https://api.twitch.tv/helix/users",
+            params={"login": channel},
+            headers=headers,
+            timeout=6,
+        )
+        if user_resp.status_code == 200:
+            users = (user_resp.json() or {}).get("data") or []
+            if users:
+                broadcaster_id = users[0].get("id")
+                payload["display_name"] = users[0].get("display_name")
+                payload["avatar_url"] = users[0].get("profile_image_url")
+    except requests.RequestException:
+        pass
+
+    if not broadcaster_id:
+        return jsonify(payload)
+
+    # Next scheduled stream, when the channel publishes a schedule.
+    try:
+        sched_resp = requests.get(
+            "https://api.twitch.tv/helix/schedule",
+            params={"broadcaster_id": broadcaster_id, "first": 1},
+            headers=headers,
+            timeout=6,
+        )
+        if sched_resp.status_code == 200:
+            segments = ((sched_resp.json() or {}).get("data") or {}).get("segments") or []
+            if segments:
+                segment = segments[0]
+                payload["next_stream"] = {
+                    "start_time": segment.get("start_time"),
+                    "title": segment.get("title"),
+                    "category": (segment.get("category") or {}).get("name"),
+                }
+    except requests.RequestException:
+        pass
+
+    return jsonify(payload)
+
 
 @bp.get("/heroes")
 @cache.cached(timeout=21600)  # Cache for 6 hours

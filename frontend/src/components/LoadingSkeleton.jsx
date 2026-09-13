@@ -6,6 +6,7 @@
  *   table-row  – Table header + body rows (MatchList)
  *   detail     – Large header + content blocks (MatchDetail, PlayerDetail, HeroDetail)
  *   list-item  – Single-column list items (PlayersList, ItemsList)
+ *   series-list – Week panels containing series rows (HomePage)
  *   text       – Simple centered text block (SeriesDetail, Community)
  *
  * Props:
@@ -18,7 +19,14 @@ export default function LoadingSkeleton({
   count,
   className = "",
 }) {
-  const defaults = { card: 8, "table-row": 5, detail: 1, "list-item": 6, text: 1 };
+  const defaults = {
+    card: 8,
+    "table-row": 5,
+    detail: 1,
+    "list-item": 6,
+    "series-list": 3,
+    text: 1,
+  };
   const n = count ?? defaults[variant] ?? 1;
 
   const pulse = "animate-pulse bg-gray-700/50 rounded";
@@ -145,6 +153,36 @@ export default function LoadingSkeleton({
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  /* ── series-list ── */
+  if (variant === "series-list") {
+    return (
+      <div className={`w-full ${className}`}>
+        {/* Section heading */}
+        <div className={`${pulse} h-4 w-32 mb-6`} />
+        {/* Week panels */}
+        {Array.from({ length: n }).map((_, group) => (
+          <div
+            key={group}
+            className="mb-6 overflow-hidden rounded-lg border border-border bg-panel"
+          >
+            <div className="h-11 w-full animate-pulse bg-gray-700/50" />
+            <div className="divide-y divide-border-dashed">
+              {Array.from({ length: 3 }).map((_, row) => (
+                <div key={row} className="flex items-center gap-4 px-3 py-3">
+                  <div className={`${pulse} h-4 w-10 shrink-0`} />
+                  <div className={`${pulse} h-4 flex-1`} />
+                  <div className={`${pulse} h-4 w-16 shrink-0`} />
+                  <div className={`${pulse} h-4 flex-1`} />
+                  <div className={`${pulse} h-4 w-20 shrink-0`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }

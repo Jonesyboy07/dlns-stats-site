@@ -60,7 +60,7 @@ export default function StreamStatusStrip({ stream, className = "" }) {
       </span>
 
       {statusSuffix ? (
-        <span className="text-[12px] text-muted">
+        <span className="flex flex-row items-end text-[12px] gap-x-1 text-muted">
           <a
             href={channelUrl}
             target="_blank"
@@ -74,18 +74,7 @@ export default function StreamStatusStrip({ stream, className = "" }) {
             {channelName}
           </a>{" "}
           {statusSuffix}
-        </span>
-      ) : (
-        <span className="text-[12px] text-muted">{message}</span>
-      )}
-
-      {live && stream?.viewer_count != null && (
-        <span className="hidden sm:inline text-dim">
-          · {stream.viewer_count.toLocaleString()} viewers
-        </span>
-      )}
-
-      {/* External-link glyph — the conventional "opens in a new tab" sign. */}
+                {/* External-link glyph — the conventional "opens in a new tab" sign. */}
       <a
         href={channelUrl}
         target="_blank"
@@ -100,7 +89,7 @@ export default function StreamStatusStrip({ stream, className = "" }) {
             ? "Watch the stream on Twitch (opens in a new tab)"
             : "Open the Twitch channel (opens in a new tab)"
         }
-        className={`shrink-0 transition-colors ${
+        className={`shrink-0 self-center transition-colors ${
           live
             ? "text-accent-light hover:text-accent"
             : "text-accent-secondary-light hover:text-accent-secondary"
@@ -108,7 +97,7 @@ export default function StreamStatusStrip({ stream, className = "" }) {
       >
         <svg
           aria-hidden="true"
-          className="h-3.5 w-3.5"
+          className="h-3.5 w-3.5 "
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -122,6 +111,18 @@ export default function StreamStatusStrip({ stream, className = "" }) {
           <path d="M10 14 21 3" />
         </svg>
       </a>
+        </span>
+      ) : (
+        <span className="text-[12px] text-muted">{message}</span>
+      )}
+      
+
+      {live && stream?.viewer_count != null && (
+        <span className="hidden sm:inline text-dim">
+          · {stream.viewer_count.toLocaleString()} viewers
+        </span>
+      )}
+
     </div>
   );
 }

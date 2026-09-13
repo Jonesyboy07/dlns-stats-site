@@ -43,6 +43,8 @@ Response:
 | `team_a` | string or null | Event team A |
 | `team_b` | string or null | Event team B |
 | `game` | string or null | Game label such as `Game 1` |
+| `series_title` | string | Stage label from `matches.json`, e.g. `FINALS`. Often empty |
+| `match_vod` | string | VOD URL for the game, empty when none is recorded |
 
 Fallback behavior:
 - If `matches.json` is missing or unreadable, returns `{ "weeks": {}, "title": "" }`.
@@ -204,6 +206,8 @@ Query parameters:
 - `match_mode`: optional exact match mode filter
 - `hero`: optional case-insensitive hero-name substring filter
 - `player`: optional persona-name substring filter
+- `include_players`: optional; `0`, `false` or `no` omits the embedded `players`
+  array (roughly 60% of the payload). Any other value, or omitting it, includes it
 
 Response:
 
@@ -219,7 +223,7 @@ Each match contains the fields from `/db/matches/latest` plus:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `players` | array | Team/player summary rows for the match |
+| `players` | array | Team/player summary rows; omitted when `include_players` is off |
 
 Each embedded player row contains:
 
@@ -454,7 +458,7 @@ Each match row contains:
 
 ## Route: `/db/search/suggest`
 
-Returns typeahead suggestions for matches or users.
+Returns typeahead suggestions for players, teams, heroes and match IDs.
 
 Query parameters:
 - `q`: required search text
@@ -469,14 +473,48 @@ Each result contains:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `type` | string | `match` or `user` |
+| `type` | string | `match`, `user`, `team` or `hero` |
 | `text` | string | Display text |
 | `url` | string | Site URL path such as `/matches/123` |
+| `meta` | integer, optional | Match count, present on `team` results |
 
 Behavior:
 - Numeric queries search recent match IDs by prefix.
-- Non-numeric queries search user names by prefix.
+- Non-numeric queries return users by prefix (max 10), then teams by prefix
+  (max 5, most matches first), then heroes by substring (max 5, alphabetical).
 - Empty `q` returns `{ "results": [] }`.
+
+## Route: `/db/stream/status`
+
+Returns the Twitch live/offline state used by the header strip and the home page
+stream widget. Cached for 60 seconds.
+
+Configuration:
+- `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`: app credentials (client-credentials flow)
+- `TWITCH_CHANNEL`: channel login, defaults to `deadlocknightshift`
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `configured` | boolean | `false` when credentials are missing; the rest are then defaults |
+| `channel` | string | Login name that was checked |
+| `channel_url` | string | Link to open the channel |
+| `live` | boolean | Whether a stream is currently up |
+| `title` | string or null | Stream title, set while live |
+| `game_name` | string or null | Streamed category, set while live |
+| `viewer_count` | integer or null | Set while live |
+| `started_at` | string or null | Set while live |
+| `display_name` | string or null | Channel display name, when resolvable |
+| `avatar_url` | string or null | Channel avatar, when resolvable |
+| `next_stream` | object or null | `{ start_time, title, category }` from the channel schedule |
+| `checked_at` | integer | Unix timestamp of the check |
+| `error` | string, optional | `auth`, `network` or `streams:<status>` when a lookup failed |
+
+Behavior:
+- With no credentials the route returns immediately with `configured: false`.
+- While a stream is live the identity and schedule lookups are skipped.
+- `next_stream` is absent when the channel publishes no schedule.
 
 ## Route: `/db/heroes`
 

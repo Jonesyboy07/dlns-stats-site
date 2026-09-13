@@ -69,9 +69,17 @@ IMAGE_CDN_BASE=
 VITE_IMAGE_CDN_BASE=
 YOUTUBE_URL=
 TWITCH_URL=
+TWITCH_CLIENT_ID=
+TWITCH_CLIENT_SECRET=
+TWITCH_CHANNEL=deadlocknightshift
 KOFI_URL=
 PATREON_URL=
 ```
+
+`TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` / `TWITCH_CHANNEL` power the live/offline
+status strip in the site header. Leave the ID and secret blank to skip the check —
+the strip then just links to the channel. Create an app at
+<https://dev.twitch.tv/console/apps> to get a pair.
 
 ### 3) Ingest data
 

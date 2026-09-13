@@ -9,25 +9,13 @@ import SeasonStatsWidget from "../components/home/SeasonStatsWidget";
 import SeriesWeekGroup from "../components/home/SeriesWeekGroup";
 import StreamWidget from "../components/home/StreamWidget";
 import { getStreamStatus } from "../utils/api";
+import { buildWeekGroups } from "../utils/seriesGroups";
 
 /* /db/matches/latest/paged clamps per_page at 20, so a batch is several pages. */
 const PER_PAGE = 20;
 const PAGES_PER_BATCH = 3;
 const WEEKS_PER_BATCH = 3;
 const EVENT_TITLE = "Night Shift";
-
-/** "2026-08-01T18:00:00+00:00" -> "1 Aug 2026" (UTC, so everyone agrees). */
-function formatWeekDate(iso) {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 /** Fetch N consecutive pages of recent Night Shift matches and merge them. */
 async function fetchMatchBatch(fromPage, pageCount = PAGES_PER_BATCH) {
@@ -36,7 +24,7 @@ async function fetchMatchBatch(fromPage, pageCount = PAGES_PER_BATCH) {
   const responses = await Promise.all(
     pages.map(async (page) => {
       const res = await fetch(
-        `/db/matches/latest/paged?page=${page}&per_page=${PER_PAGE}&event_title=${encodeURIComponent(EVENT_TITLE)}`,
+        `/db/matches/latest/paged?page=${page}&per_page=${PER_PAGE}&event_title=${encodeURIComponent(EVENT_TITLE)}&include_players=0`,
       );
       if (!res.ok) throw new Error("Failed to load recent matches");
       return res.json();
@@ -113,87 +101,10 @@ function HomePage() {
   }, []);
 
   /* Fold matches + week metadata into per-week series groups. */
-  const weekGroups = useMemo(() => {
-    const seriesMap = new Map();
-
-    for (const match of matches) {
-      const detail = details[String(match.match_id)];
-      if (!detail || detail.week == null) continue;
-
-      const key = `${detail.week}_${(detail.team_a || "").toLowerCase()}_${(detail.team_b || "").toLowerCase()}`;
-
-      let entry = seriesMap.get(key);
-      if (!entry) {
-        entry = {
-          week: detail.week,
-          series: detail.series,
-          series_title: detail.series_title || "",
-          team_a: detail.team_a || "TBD",
-          team_b: detail.team_b || "TBD",
-          wins_a: 0,
-          wins_b: 0,
-          games: [],
-          firstMatchId: match.match_id,
-          vod_url: detail.match_vod || "",
-          start_time: match.start_time || match.created_at || null,
-        };
-        seriesMap.set(key, entry);
-      }
-
-      entry.games.push({ matchId: match.match_id });
-      if (!entry.vod_url && detail.match_vod) entry.vod_url = detail.match_vod;
-
-      const teamASide =
-        match.event_team_a_ingame_side != null
-          ? match.event_team_a_ingame_side
-          : 0;
-      if (match.winning_team === teamASide) entry.wins_a += 1;
-      else if (match.winning_team != null) entry.wins_b += 1;
-
-      const playedAt = match.start_time || match.created_at;
-      if (
-        playedAt &&
-        (!entry.start_time ||
-          new Date(playedAt) < new Date(entry.start_time))
-      ) {
-        entry.start_time = playedAt;
-      }
-    }
-
-    const weeks = new Map();
-    for (const entry of seriesMap.values()) {
-      // Number the games 1, 2, 3… in the order they were played.
-      entry.games.sort((a, b) => a.matchId - b.matchId);
-      entry.games.forEach((game, index) => {
-        game.game = index + 1;
-      });
-
-      let group = weeks.get(entry.week);
-      if (!group) {
-        group = { week: entry.week, entries: [], earliest: null };
-        weeks.set(entry.week, group);
-      }
-      group.entries.push(entry);
-
-      if (
-        entry.start_time &&
-        (!group.earliest || new Date(entry.start_time) < new Date(group.earliest))
-      ) {
-        group.earliest = entry.start_time;
-      }
-    }
-
-    return [...weeks.values()]
-      .map((group) => ({
-        week: group.week,
-        totalSeries: group.entries.length,
-        dateLabel: formatWeekDate(group.earliest),
-        entries: group.entries.sort((a, b) =>
-          a.firstMatchId > b.firstMatchId ? -1 : 1,
-        ),
-      }))
-      .sort((a, b) => Number(b.week) - Number(a.week));
-  }, [matches, details]);
+  const weekGroups = useMemo(
+    () => buildWeekGroups(matches, details),
+    [matches, details],
+  );
 
   const visibleGroups = weekGroups.slice(0, visibleWeeks);
   const hasMoreWeeks = weekGroups.length > visibleWeeks;

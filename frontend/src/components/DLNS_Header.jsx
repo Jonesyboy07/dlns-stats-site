@@ -239,11 +239,7 @@ function DLNS_Header({ className = "" }) {
 
       {/* Stream status — rendered on every page. Skipped entirely when the
           status request failed so it never claims an unknown state. */}
-      {stream !== null && (
-        <div className="max-w-7xl mx-auto px-4 pb-3">
-          <StreamStatusStrip stream={stream} className="mt-1" />
-        </div>
-      )}
+      {stream !== null && <StreamStatusStrip stream={stream} />}
     </header>
   );
 }

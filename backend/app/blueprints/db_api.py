@@ -1008,6 +1008,14 @@ def latest_matches_paged():  # type: ignore
             event_week = int(event_week_raw)
         except Exception:
             event_week = None
+    # Callers that do not read the embedded hero/player arrays can opt out; those
+    # arrays are roughly 60% of the response size. Omitting the param keeps the
+    # historical behaviour (players included).
+    include_players = (request.args.get("include_players") or "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
 
     offset = (page - 1) * per_page
     params = []
@@ -1070,7 +1078,7 @@ def latest_matches_paged():  # type: ignore
         matches = _rows_to_dicts(cur)
 
         # Fetch players for each match to include hero data
-        match_ids = [m["match_id"] for m in matches]
+        match_ids = [m["match_id"] for m in matches] if include_players else []
         if match_ids:
             placeholders = ",".join("?" * len(match_ids))
             pcur = conn.execute(
@@ -1830,7 +1838,7 @@ def _twitch_app_token(client_id: str, client_secret: str) -> str | None:
                 "client_secret": client_secret,
                 "grant_type": "client_credentials",
             },
-            timeout=6,
+            timeout=3,
         )
     except requests.RequestException:
         return None
@@ -1861,7 +1869,11 @@ def stream_status():  # type: ignore
       channel_url  – link to open the channel
       live         – true when a stream is currently up
       title/game_name/viewer_count/started_at – set while live
+      display_name/avatar_url – channel identity, when it can be resolved
       next_stream  – {start_time, title, category} from the channel schedule
+
+    While a stream is live the identity and schedule lookups are skipped, so the
+    live path costs one token request plus one /helix/streams request.
     """
     channel = (os.getenv("TWITCH_CHANNEL") or "deadlocknightshift").strip().lower()
     channel_url = f"https://www.twitch.tv/{channel}"
@@ -1896,7 +1908,7 @@ def stream_status():  # type: ignore
             "https://api.twitch.tv/helix/streams",
             params={"user_login": channel},
             headers=headers,
-            timeout=6,
+            timeout=3,
         )
         if resp.status_code == 200:
             data = (resp.json() or {}).get("data") or []
@@ -1909,6 +1921,9 @@ def stream_status():  # type: ignore
                         "game_name": stream.get("game_name"),
                         "viewer_count": stream.get("viewer_count"),
                         "started_at": stream.get("started_at"),
+                        # /helix/streams already reports the display name, so a
+                        # live stream needs no /helix/users round trip.
+                        "display_name": stream.get("user_name"),
                     }
                 )
         elif resp.status_code == 401:
@@ -1922,6 +1937,11 @@ def stream_status():  # type: ignore
         payload["error"] = "network"
         return jsonify(payload)
 
+    # While a stream is up there is nothing else to look up — skipping the
+    # identity and schedule calls keeps the live path to two HTTP calls.
+    if payload["live"]:
+        return jsonify(payload)
+
     # Channel identity — needed for the display name and the schedule call.
     broadcaster_id = None
     try:
@@ -1929,7 +1949,7 @@ def stream_status():  # type: ignore
             "https://api.twitch.tv/helix/users",
             params={"login": channel},
             headers=headers,
-            timeout=6,
+            timeout=3,
         )
         if user_resp.status_code == 200:
             users = (user_resp.json() or {}).get("data") or []
@@ -1949,7 +1969,7 @@ def stream_status():  # type: ignore
             "https://api.twitch.tv/helix/schedule",
             params={"broadcaster_id": broadcaster_id, "first": 1},
             headers=headers,
-            timeout=6,
+            timeout=3,
         )
         if sched_resp.status_code == 200:
             segments = ((sched_resp.json() or {}).get("data") or {}).get("segments") or []

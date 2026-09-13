@@ -588,7 +588,9 @@
             "type": "string",
             "enum": [
               "match",
-              "user"
+              "user",
+              "team",
+              "hero"
             ]
           },
           "text": {
@@ -596,6 +598,11 @@
           },
           "url": {
             "type": "string"
+          },
+          "meta": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Match count, present on team results."
           }
         },
         "required": [
@@ -625,8 +632,87 @@
           "game": {
             "type": "string",
             "nullable": true
+          },
+          "series_title": {
+            "type": "string",
+            "description": "Stage label from matches.json, e.g. FINALS. Often empty."
+          },
+          "match_vod": {
+            "type": "string",
+            "description": "VOD URL for the game, empty when none is recorded."
           }
         }
+      },
+      "StreamStatus": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "False when Twitch credentials are not configured."
+          },
+          "channel": {
+            "type": "string"
+          },
+          "channel_url": {
+            "type": "string"
+          },
+          "live": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "game_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "viewer_count": {
+            "type": "integer",
+            "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatar_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_stream": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "start_time": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "checked_at": {
+            "type": "integer",
+            "description": "Unix timestamp of the check."
+          },
+          "error": {
+            "type": "string",
+            "description": "auth, network or streams:<status> when a lookup failed."
+          }
+        },
+        "required": [
+          "configured",
+          "channel",
+          "live"
+        ]
       },
       "OverviewStats": {
         "type": "object",
@@ -1317,7 +1403,8 @@
           {"name": "game_mode", "in": "query", "required": false, "description": "Exact game mode filter.", "schema": {"type": "string"}},
           {"name": "match_mode", "in": "query", "required": false, "description": "Exact match mode filter.", "schema": {"type": "string"}},
           {"name": "hero", "in": "query", "required": false, "description": "Case-insensitive hero name substring.", "schema": {"type": "string"}},
-          {"name": "player", "in": "query", "required": false, "description": "Persona name substring.", "schema": {"type": "string"}}
+          {"name": "player", "in": "query", "required": false, "description": "Persona name substring.", "schema": {"type": "string"}},
+          {"name": "include_players", "in": "query", "required": false, "description": "Set to 0/false/no to omit the embedded player arrays (about 60% of the payload). Omitted or any other value includes them.", "schema": {"type": "string", "default": "1"}}
         ],
         "responses": {
           "200": {
@@ -1344,7 +1431,8 @@
     "/db/users/{account_id}/stats": {"get": {"tags": ["Users"], "summary": "Get aggregated user stats", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "User aggregate stats", "content": {"application/json": {"schema": {"type": "object", "properties": {"stats": {"$ref": "#/components/schemas/UserStats", "nullable": true}}}}}}}}},
     "/db/users/{account_id}/matches": {"get": {"tags": ["Users"], "summary": "Get all matches for a user", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "User match history", "content": {"application/json": {"schema": {"type": "object", "properties": {"matches": {"type": "array", "items": {"$ref": "#/components/schemas/UserMatch"}}}}}}}}}},
     "/db/users/{account_id}/matches/paged": {"get": {"tags": ["Users"], "summary": "Get paginated matches for a user", "parameters": [{"name": "account_id", "in": "path", "required": true, "description": "Account ID.", "schema": {"type": "integer"}}, {"name": "page", "in": "query", "required": false, "description": "Page number.", "schema": {"type": "integer", "default": 1, "minimum": 1}}, {"name": "per_page", "in": "query", "required": false, "description": "Items per page, max 20.", "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 20}}, {"name": "order", "in": "query", "required": false, "description": "Sort order.", "schema": {"type": "string", "enum": ["asc", "desc"], "default": "desc"}}, {"name": "res", "in": "query", "required": false, "description": "Filter by result.", "schema": {"type": "string", "enum": ["win", "loss"]}}, {"name": "team", "in": "query", "required": false, "description": "Filter by team.", "schema": {"type": "string", "enum": ["0", "1"]}}], "responses": {"200": {"description": "Paginated user match history", "content": {"application/json": {"schema": {"allOf": [{"$ref": "#/components/schemas/Pagination"}, {"type": "object", "properties": {"matches": {"type": "array", "items": {"$ref": "#/components/schemas/UserPagedMatch"}}}}]}}}}}}},
-    "/db/search/suggest": {"get": {"tags": ["Search"], "summary": "Get match and user suggestions", "parameters": [{"name": "q", "in": "query", "required": true, "description": "Search query.", "schema": {"type": "string"}}], "responses": {"200": {"description": "Search suggestions", "content": {"application/json": {"schema": {"type": "object", "properties": {"results": {"type": "array", "items": {"$ref": "#/components/schemas/SearchResult"}}}}}}}}}},
+    "/db/search/suggest": {"get": {"tags": ["Search"], "summary": "Get suggestions for players, teams, heroes and match IDs", "description": "Numeric queries return match IDs; other queries return users (prefix, max 10), then teams (prefix, max 5, most matches first), then heroes (substring, max 5).", "parameters": [{"name": "q", "in": "query", "required": true, "description": "Search query.", "schema": {"type": "string"}}], "responses": {"200": {"description": "Search suggestions", "content": {"application/json": {"schema": {"type": "object", "properties": {"results": {"type": "array", "items": {"$ref": "#/components/schemas/SearchResult"}}}}}}}}}},
+    "/db/stream/status": {"get": {"tags": ["Twitch"], "summary": "Get Twitch live/offline status", "description": "Requires TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET. Without them the response reports configured=false and the UI falls back to a plain channel link. Cached for 60 seconds.", "responses": {"200": {"description": "Stream status", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/StreamStatus"}}}}}}},
     "/db/heroes": {"get": {"tags": ["Heroes"], "summary": "Get hero ID to name mapping", "responses": {"200": {"description": "Hero dictionary", "content": {"application/json": {"schema": {"type": "object", "additionalProperties": {"type": "string"}}}}}}}},
     "/db/heroes/{hero_id}/stats": {"get": {"tags": ["Heroes"], "summary": "Get hero aggregate stats", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Hero stats", "content": {"application/json": {"schema": {"type": "object", "properties": {"stats": {"$ref": "#/components/schemas/HeroStats", "nullable": true}}}}}}}}},
     "/db/heroes/{hero_id}/top_items": {"get": {"tags": ["Heroes"], "summary": "Get top purchased items for a hero", "parameters": [{"name": "hero_id", "in": "path", "required": true, "description": "Hero ID.", "schema": {"type": "integer"}}], "responses": {"200": {"description": "Top hero items", "content": {"application/json": {"schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/HeroItem"}}, "total_games": {"type": "integer"}}}}}}}}},

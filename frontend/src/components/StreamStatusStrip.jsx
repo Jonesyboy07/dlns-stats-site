@@ -25,21 +25,23 @@ export default function StreamStatusStrip({ stream, className = "" }) {
     stream?.display_name || stream?.channel || "DeadlockNightShift";
 
   let label = "Offline";
+  // Kept apart from the channel name so the name can be set larger below.
+  let statusSuffix = null;
   let message = "Checking stream status…";
 
   if (configured === false) {
     label = "Status unavailable";
-    message = `${channelName} on Twitch`;
+    statusSuffix = "on Twitch";
   } else if (stream && live) {
     label = "Live";
-    message = `${channelName} is streaming now`;
+    statusSuffix = "is streaming now";
   } else if (stream) {
-    message = `${channelName} isn't streaming right now.`;
+    statusSuffix = "isn't streaming right now.";
   }
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-border bg-white/[0.02] px-4 py-2 text-xs sm:text-sm ${className}`}
+      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-border bg-black/[0.25] px-4 py-2 text-xs sm:text-sm ${className}`}
     >
       <span className="flex items-center gap-2">
         <span
@@ -57,7 +59,13 @@ export default function StreamStatusStrip({ stream, className = "" }) {
         </span>
       </span>
 
-      <span className="text-muted">{message}</span>
+      {statusSuffix ? (
+        <span className="text-[12px] text-muted">
+          <span className="text-sm">{channelName}</span> {statusSuffix}
+        </span>
+      ) : (
+        <span className="text-[12px] text-muted">{message}</span>
+      )}
 
       {live && stream?.viewer_count != null && (
         <span className="hidden sm:inline text-dim">

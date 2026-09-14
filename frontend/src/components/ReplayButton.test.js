@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveReplayOpenUrl } from "./ReplayButton";
+import { resolveReplayLookupState, resolveReplayOpenUrl } from "./ReplayButton";
 
 describe("resolveReplayOpenUrl", () => {
   it("prefers the direct download URL", () => {
@@ -22,5 +22,51 @@ describe("resolveReplayOpenUrl", () => {
   it("returns undefined when no link exists", () => {
     expect(resolveReplayOpenUrl({})).toBeUndefined();
     expect(resolveReplayOpenUrl()).toBeUndefined();
+  });
+});
+
+describe("resolveReplayLookupState", () => {
+  it("returns an available replay state for successful preloads", () => {
+    expect(
+      resolveReplayLookupState(
+        { ok: true, status: 200 },
+        {
+          ok: true,
+          replay: {
+            name: "123.zip",
+            download_url: "https://files.example/123.zip",
+          },
+        },
+      ),
+    ).toEqual({
+      status: "available",
+      message: "Replay ready: 123.zip",
+      openUrl: "https://files.example/123.zip",
+    });
+  });
+
+  it("returns a notfound state when the replay is missing", () => {
+    expect(
+      resolveReplayLookupState(
+        { ok: false, status: 404 },
+        {
+          ok: false,
+          found: false,
+          message: "Replay was not found in replay_storage for this match ID.",
+        },
+      ),
+    ).toEqual({
+      status: "notfound",
+      message: "Replay was not found in replay_storage for this match ID.",
+      openUrl: "",
+    });
+  });
+
+  it("returns a configuration error state for 503 responses", () => {
+    expect(resolveReplayLookupState({ ok: false, status: 503 }, null)).toEqual({
+      status: "error",
+      message: "Replay storage is not configured.",
+      openUrl: "",
+    });
   });
 });

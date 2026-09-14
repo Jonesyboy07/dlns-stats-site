@@ -3,6 +3,46 @@ import { useEffect, useRef, useState } from "react";
 const RESET_MS = 4000;
 
 export const resolveReplayOpenUrl = (replay) => replay?.download_url || replay?.share_url;
+export const resolveReplayLookupState = (response, data, { opened = false } = {}) => {
+  const replay = data?.replay;
+  const openUrl = resolveReplayOpenUrl(replay);
+
+  if (response.ok && data?.ok && openUrl) {
+    return {
+      status: opened ? "opened" : "available",
+      message: opened
+        ? replay?.name
+          ? `Started download for ${replay.name}`
+          : "Started replay download"
+        : replay?.name
+          ? `Replay ready: ${replay.name}`
+          : "Replay ready to download",
+      openUrl,
+    };
+  }
+
+  if (response.status === 404 || data?.found === false) {
+    return {
+      status: "notfound",
+      message: data?.message || "No replay found for this match.",
+      openUrl: "",
+    };
+  }
+
+  if (response.status === 503) {
+    return {
+      status: "error",
+      message: "Replay storage is not configured.",
+      openUrl: "",
+    };
+  }
+
+  return {
+    status: "error",
+    message: data?.message || `Replay lookup failed (HTTP ${response.status}).`,
+    openUrl: "",
+  };
+};
 
 /**
  * Looks up the replay for a match via /db/matches/<id>/replay and opens the
@@ -10,61 +50,82 @@ export const resolveReplayOpenUrl = (replay) => replay?.download_url || replay?.
  * while loading, and if the file isn't found / service isn't configured.
  */
 export default function ReplayButton({ matchId, compact = false }) {
-  const [state, setState] = useState({ status: "idle", message: "" });
+  const [state, setState] = useState({ status: "idle", message: "", openUrl: "" });
   const timerRef = useRef(null);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const resetSoon = () => {
+  const resetSoon = (nextState) => {
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(
-      () => setState({ status: "idle", message: "" }),
-      RESET_MS
-    );
+    timerRef.current = setTimeout(() => setState(nextState), RESET_MS);
   };
 
-  const handleClick = async () => {
-    if (!matchId || state.status === "loading") return;
-    setState({ status: "loading", message: "" });
+  const lookupReplay = async ({ opened = false } = {}) => {
     try {
       const res = await fetch(`/db/matches/${matchId}/replay`);
       const data = await res.json().catch(() => null);
-      const replay = data?.replay;
-      // Prefer direct download links; fall back to legacy share links only when
-      // that's all an older cached payload has.
-      const openUrl = resolveReplayOpenUrl(replay);
-      if (res.ok && data?.ok && openUrl) {
-        window.open(openUrl, "_blank", "noopener,noreferrer");
-        setState({
-          status: "ready",
-          message: replay?.name ? `Started download for ${replay.name}` : "Started replay download",
-        });
-      } else if (res.status === 404 || data?.found === false) {
-        setState({
-          status: "notfound",
-          message: data?.message || "No replay found for this match.",
-        });
-      } else if (res.status === 503) {
-        setState({
-          status: "error",
-          message: "Replay storage is not configured.",
-        });
+      const nextState = resolveReplayLookupState(res, data, { opened });
+
+      if (opened && nextState.openUrl) {
+        window.open(nextState.openUrl, "_blank", "noopener,noreferrer");
+        const steadyState = { ...nextState, status: "available" };
+        setState(nextState);
+        resetSoon(steadyState);
       } else {
-        setState({
-          status: "error",
-          message: data?.message || `Replay lookup failed (HTTP ${res.status}).`,
-        });
+        setState(nextState);
       }
     } catch {
-      setState({ status: "error", message: "Could not reach the replay service." });
+      setState({ status: "error", message: "Could not reach the replay service.", openUrl: "" });
     }
-    resetSoon();
+  };
+
+  useEffect(() => {
+    if (!matchId) {
+      setState({ status: "idle", message: "", openUrl: "" });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setState({ status: "loading", message: "", openUrl: "" });
+
+    (async () => {
+      try {
+        const res = await fetch(`/db/matches/${matchId}/replay`);
+        const data = await res.json().catch(() => null);
+        if (!cancelled) {
+          setState(resolveReplayLookupState(res, data));
+        }
+      } catch {
+        if (!cancelled) {
+          setState({ status: "error", message: "Could not reach the replay service.", openUrl: "" });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId]);
+
+  const handleClick = async () => {
+    if (!matchId || state.status === "loading") return;
+    if (state.openUrl) {
+      window.open(state.openUrl, "_blank", "noopener,noreferrer");
+      const openedState = { ...state, status: "opened" };
+      setState(openedState);
+      resetSoon({ ...state, status: "available" });
+      return;
+    }
+
+    setState({ status: "loading", message: "", openUrl: "" });
+    await lookupReplay({ opened: true });
   };
 
   const label = {
     idle: "Replay",
     loading: "Looking up…",
-    ready: "Opened ✓",
+    available: "Replay",
+    opened: "Opened ✓",
     notfound: "No replay",
     error: "Replay error",
   }[state.status];
@@ -72,7 +133,8 @@ export default function ReplayButton({ matchId, compact = false }) {
   const colorClass = {
     idle: "text-cyan-400/90 hover:text-accent",
     loading: "text-muted",
-    ready: "text-success",
+    available: "text-cyan-400/90 hover:text-accent",
+    opened: "text-success",
     notfound: "text-amber-400/90",
     error: "text-red-400/90",
   }[state.status];

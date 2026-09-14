@@ -209,17 +209,34 @@ def _replay_file_cache_path() -> Path:
 def _load_replay_file_cache() -> dict[str, Any]:
     path = _replay_file_cache_path()
     if not path.exists():
-        return {"version": 1, "entries": {}}
+        return {"version": 2, "matches": {}}
     try:
         with path.open("r", encoding="utf-8") as f:
             raw = json.load(f)
         if isinstance(raw, dict):
+            matches = raw.get("matches")
+            if isinstance(matches, dict):
+                return {"version": 2, "matches": matches}
             entries = raw.get("entries")
             if isinstance(entries, dict):
-                return {"version": 1, "entries": entries}
+                migrated: dict[str, Any] = {}
+                for key, entry in entries.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    replay = entry.get("replay")
+                    if not isinstance(replay, dict):
+                        continue
+                    migrated[str(key)] = {
+                        "cached_at": entry.get("cached_at"),
+                        "expires_at": entry.get("expires_at"),
+                        "found": True,
+                        "replay": replay,
+                        "searched_dirs": entry.get("searched_dirs", 0),
+                    }
+                return {"version": 2, "matches": migrated}
     except Exception:
         current_app.logger.warning("Replay URL file cache unreadable: %s", path)
-    return {"version": 1, "entries": {}}
+    return {"version": 2, "matches": {}}
 
 
 def _write_replay_file_cache(payload: dict[str, Any]) -> None:
@@ -227,41 +244,55 @@ def _write_replay_file_cache(payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(payload, f, ensure_ascii=False, indent=2, sort_keys=True)
     tmp_path.replace(path)
 
 
-def _get_persisted_replay(match_id: int) -> dict[str, Any] | None:
+def _get_persisted_replay_lookup(match_id: int) -> dict[str, Any] | None:
     now = int(time.time())
     key = str(match_id)
     with _replay_file_cache_lock:
         cache_payload = _load_replay_file_cache()
-        entries = cache_payload.get("entries") or {}
-        entry = entries.get(key)
+        matches = cache_payload.get("matches") or {}
+        entry = matches.get(key)
         if not isinstance(entry, dict):
             return None
         expires_at = int(entry.get("expires_at") or 0)
+        found = bool(entry.get("found"))
         replay = entry.get("replay")
-        if expires_at <= now or not isinstance(replay, dict):
-            entries.pop(key, None)
-            cache_payload["entries"] = entries
+        if expires_at <= now or (found and not isinstance(replay, dict)):
+            matches.pop(key, None)
+            cache_payload["matches"] = matches
             _write_replay_file_cache(cache_payload)
             return None
-        return replay
+        return {
+            "found": found,
+            "replay": replay if found else None,
+            "searched_dirs": int(entry.get("searched_dirs") or 0),
+        }
 
 
-def _set_persisted_replay(match_id: int, replay: dict[str, Any], ttl_seconds: int) -> None:
+def _set_persisted_replay_lookup(
+    match_id: int,
+    *,
+    found: bool,
+    replay: dict[str, Any] | None,
+    ttl_seconds: int,
+    searched_dirs: int = 0,
+) -> None:
     now = int(time.time())
     key = str(match_id)
     with _replay_file_cache_lock:
         cache_payload = _load_replay_file_cache()
-        entries = cache_payload.get("entries") or {}
-        entries[key] = {
+        matches = cache_payload.get("matches") or {}
+        matches[key] = {
             "cached_at": now,
             "expires_at": now + max(1, int(ttl_seconds)),
-            "replay": replay,
+            "found": bool(found),
+            "replay": replay if found else None,
+            "searched_dirs": int(searched_dirs or 0),
         }
-        cache_payload["entries"] = entries
+        cache_payload["matches"] = matches
         _write_replay_file_cache(cache_payload)
 
 
@@ -442,9 +473,10 @@ def _schedule_index_refresh() -> bool:
 def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, Any] | None, int]:
     """Return (matched_item, visited_dir_count).
 
-    Looks up a prebuilt replay index first (instant, no network). Only when the
-    index is missing or stale does it fall back to walking the share, and it
-    schedules a background rebuild so later lookups stay fast.
+    Looks up a prebuilt replay index first (instant, no network). If the match
+    is absent, it still walks the live share so newly uploaded or previously
+    missed replays can be found immediately, while also scheduling an index
+    refresh when needed so later lookups stay fast.
     """
     payload = _load_replay_index()
     replays = payload.get("replays") or {}
@@ -452,12 +484,6 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
     if isinstance(indexed, dict):
         return indexed, 0
 
-    age_hours = (time.time() - int(payload.get("built_at") or 0)) / 3600.0
-    if payload.get("built_at") and age_hours < _replay_index_refresh_hours():
-        # Index is fresh and this match isn't in it -> no replay on the share.
-        return None, 0
-
-    # Index missing or stale: walk the live share, refresh in the background.
     try:
         _schedule_index_refresh()
     except Exception:
@@ -1183,23 +1209,46 @@ def match_replay(match_id: int):
             }
         )
 
-    persisted_replay = _get_persisted_replay(match_id)
-    if isinstance(persisted_replay, dict) and persisted_replay.get("download_url"):
-        cache.set(_replay_cache_key(match_id), persisted_replay, timeout=ttl_seconds)
-        return jsonify(
-            {
-                "ok": True,
-                "match_id": match_id,
-                "found": True,
-                "cached": True,
-                "cache_source": "file",
-                "cache_ttl_seconds": ttl_seconds,
-                "replay": persisted_replay,
-            }
-        )
+    persisted_lookup = _get_persisted_replay_lookup(match_id)
+    if isinstance(persisted_lookup, dict):
+        persisted_replay = persisted_lookup.get("replay")
+        if persisted_lookup.get("found") and isinstance(persisted_replay, dict) and persisted_replay.get("download_url"):
+            cache.set(_replay_cache_key(match_id), persisted_replay, timeout=ttl_seconds)
+            return jsonify(
+                {
+                    "ok": True,
+                    "match_id": match_id,
+                    "found": True,
+                    "cached": True,
+                    "cache_source": "file",
+                    "cache_ttl_seconds": ttl_seconds,
+                    "replay": persisted_replay,
+                }
+            )
+        if persisted_lookup.get("found") is False:
+            return jsonify(
+                {
+                    "ok": False,
+                    "match_id": match_id,
+                    "found": False,
+                    "cached": True,
+                    "cache_source": "file",
+                    "cache_ttl_seconds": ttl_seconds,
+                    "searched_dirs": int(persisted_lookup.get("searched_dirs") or 0),
+                    "error": "replay_not_found",
+                    "message": "Replay was not found in replay_storage for this match ID.",
+                }
+            ), 404
 
     item, visited_dirs = _replay_match_item(match_id)
     if not item:
+        _set_persisted_replay_lookup(
+            match_id,
+            found=False,
+            replay=None,
+            ttl_seconds=ttl_seconds,
+            searched_dirs=visited_dirs,
+        )
         return jsonify(
             {
                 "ok": False,
@@ -1222,7 +1271,13 @@ def match_replay(match_id: int):
         "download_url": _build_replay_download_url(item_path),
     }
     cache.set(_replay_cache_key(match_id), replay_payload, timeout=ttl_seconds)
-    _set_persisted_replay(match_id, replay_payload, ttl_seconds)
+    _set_persisted_replay_lookup(
+        match_id,
+        found=True,
+        replay=replay_payload,
+        ttl_seconds=ttl_seconds,
+        searched_dirs=visited_dirs,
+    )
 
     return jsonify(
         {

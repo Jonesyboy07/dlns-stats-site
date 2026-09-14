@@ -193,6 +193,12 @@ def _replay_cache_key(match_id: int) -> str:
     return f"replay_url:{match_id}"
 
 
+def _replay_open_url(replay: dict[str, Any] | None) -> str | None:
+    if not isinstance(replay, dict):
+        return None
+    return str(replay.get("download_url") or replay.get("share_url") or "") or None
+
+
 def _replay_cache_ttl_seconds() -> int:
     # 48 hours default TTL for replay URL lookups.
     return int(current_app.config.get("REPLAY_URL_CACHE_TTL_SECONDS", 48 * 60 * 60))
@@ -1196,7 +1202,7 @@ def match_replay(match_id: int):
 
     ttl_seconds = _replay_cache_ttl_seconds()
     cached_replay = cache.get(_replay_cache_key(match_id))
-    if isinstance(cached_replay, dict) and cached_replay.get("download_url"):
+    if _replay_open_url(cached_replay):
         return jsonify(
             {
                 "ok": True,
@@ -1212,7 +1218,7 @@ def match_replay(match_id: int):
     persisted_lookup = _get_persisted_replay_lookup(match_id)
     if isinstance(persisted_lookup, dict):
         persisted_replay = persisted_lookup.get("replay")
-        if persisted_lookup.get("found") and isinstance(persisted_replay, dict) and persisted_replay.get("download_url"):
+        if persisted_lookup.get("found") and _replay_open_url(persisted_replay):
             cache.set(_replay_cache_key(match_id), persisted_replay, timeout=ttl_seconds)
             return jsonify(
                 {

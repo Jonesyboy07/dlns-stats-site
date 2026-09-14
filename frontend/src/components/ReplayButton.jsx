@@ -52,6 +52,7 @@ export const resolveReplayLookupState = (response, data, { opened = false } = {}
 export default function ReplayButton({ matchId, compact = false }) {
   const [state, setState] = useState({ status: "idle", message: "", openUrl: "" });
   const timerRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
@@ -85,25 +86,28 @@ export default function ReplayButton({ matchId, compact = false }) {
       return undefined;
     }
 
-    let cancelled = false;
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
     setState({ status: "loading", message: "", openUrl: "" });
 
     (async () => {
       try {
-        const res = await fetch(`/db/matches/${matchId}/replay`);
+        const res = await fetch(`/db/matches/${matchId}/replay`, {
+          signal: controller.signal,
+        });
         const data = await res.json().catch(() => null);
-        if (!cancelled) {
+        if (requestId === requestIdRef.current) {
           setState(resolveReplayLookupState(res, data));
         }
-      } catch {
-        if (!cancelled) {
+      } catch (error) {
+        if (error?.name !== "AbortError" && requestId === requestIdRef.current) {
           setState({ status: "error", message: "Could not reach the replay service.", openUrl: "" });
         }
       }
     })();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [matchId]);
 

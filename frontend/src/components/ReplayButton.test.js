@@ -69,4 +69,40 @@ describe("resolveReplayLookupState", () => {
       openUrl: "",
     });
   });
+
+  it("returns an opened replay state for successful clicks", () => {
+    expect(
+      resolveReplayLookupState(
+        { ok: true, status: 200 },
+        {
+          ok: true,
+          replay: {
+            name: "123.zip",
+            download_url: "https://files.example/123.zip",
+          },
+        },
+        { opened: true },
+      ),
+    ).toEqual({
+      status: "opened",
+      message: "Started download for 123.zip",
+      openUrl: "https://files.example/123.zip",
+    });
+  });
+
+  it("returns a generic error state for other failures", () => {
+    expect(
+      resolveReplayLookupState(
+        { ok: false, status: 500 },
+        {
+          ok: false,
+          message: "Replay lookup exploded.",
+        },
+      ),
+    ).toEqual({
+      status: "error",
+      message: "Replay lookup exploded.",
+      openUrl: "",
+    });
+  });
 });

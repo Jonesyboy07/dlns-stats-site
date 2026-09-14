@@ -18,4 +18,9 @@ describe("resolveReplayOpenUrl", () => {
       }),
     ).toBe("https://files.dlns-stats.co.uk/share/hash/path/");
   });
+
+  it("returns undefined when no link exists", () => {
+    expect(resolveReplayOpenUrl({})).toBeUndefined();
+    expect(resolveReplayOpenUrl()).toBeUndefined();
+  });
 });

@@ -105,4 +105,22 @@ describe("resolveReplayLookupState", () => {
       openUrl: "",
     });
   });
+
+  it("treats a successful response without a usable replay URL as an error", () => {
+    expect(
+      resolveReplayLookupState(
+        { ok: true, status: 200 },
+        {
+          ok: true,
+          replay: {
+            name: "123.zip",
+          },
+        },
+      ),
+    ).toEqual({
+      status: "error",
+      message: "Replay lookup failed (HTTP 200).",
+      openUrl: "",
+    });
+  });
 });

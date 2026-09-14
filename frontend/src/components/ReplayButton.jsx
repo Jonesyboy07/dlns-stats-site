@@ -52,20 +52,41 @@ export const resolveReplayLookupState = (response, data, { opened = false } = {}
 export default function ReplayButton({ matchId, compact = false }) {
   const [state, setState] = useState({ status: "idle", message: "", openUrl: "" });
   const timerRef = useRef(null);
+  const abortRef = useRef(null);
   const requestIdRef = useRef(0);
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => () => {
+    clearTimeout(timerRef.current);
+    abortRef.current?.abort();
+  }, []);
 
   const resetSoon = (nextState) => {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setState(nextState), RESET_MS);
   };
 
+  const beginLookup = () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    return {
+      controller,
+      requestId: ++requestIdRef.current,
+    };
+  };
+
   const lookupReplay = async ({ opened = false } = {}) => {
+    const { controller, requestId } = beginLookup();
     try {
-      const res = await fetch(`/db/matches/${matchId}/replay`);
+      const res = await fetch(`/db/matches/${matchId}/replay`, {
+        signal: controller.signal,
+      });
       const data = await res.json().catch(() => null);
       const nextState = resolveReplayLookupState(res, data, { opened });
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
 
       if (opened && nextState.openUrl) {
         window.open(nextState.openUrl, "_blank", "noopener,noreferrer");
@@ -75,19 +96,25 @@ export default function ReplayButton({ matchId, compact = false }) {
       } else {
         setState(nextState);
       }
-    } catch {
-      setState({ status: "error", message: "Could not reach the replay service.", openUrl: "" });
+    } catch (error) {
+      if (error?.name !== "AbortError" && requestId === requestIdRef.current) {
+        setState({ status: "error", message: "Could not reach the replay service.", openUrl: "" });
+      }
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
     }
   };
 
   useEffect(() => {
     if (!matchId) {
+      abortRef.current?.abort();
       setState({ status: "idle", message: "", openUrl: "" });
       return undefined;
     }
 
-    const requestId = ++requestIdRef.current;
-    const controller = new AbortController();
+    const { controller, requestId } = beginLookup();
     setState({ status: "loading", message: "", openUrl: "" });
 
     (async () => {
@@ -102,6 +129,10 @@ export default function ReplayButton({ matchId, compact = false }) {
       } catch (error) {
         if (error?.name !== "AbortError" && requestId === requestIdRef.current) {
           setState({ status: "error", message: "Could not reach the replay service.", openUrl: "" });
+        }
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
         }
       }
     })();

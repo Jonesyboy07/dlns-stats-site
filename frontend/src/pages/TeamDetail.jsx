@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import TeamIdentityCard from "../components/team/TeamIdentityCard";
 import TeamOverviewTab from "../components/team/TeamOverviewTab";
-import TeamSeriesTab from "../components/team/TeamSeriesTab";
-import TeamMatchesTab from "../components/team/TeamMatchesTab";
 import TeamPlayersTab from "../components/team/TeamPlayersTab";
+import TeamSeriesTab from "../components/team/TeamSeriesTab";
+import { formatRecord } from "../utils/format";
 
-const TABS = ["Overview", "Series", "Matches", "Players"];
+const TABS = ["Overview", "Series", "Players"];
 
 function TeamDetail() {
   const { teamName } = useParams();
@@ -34,71 +35,39 @@ function TeamDetail() {
   if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
   if (!data) return null;
 
-  const { team_name, max_week, total_matches, players, matches, hero_picks } = data;
+  const {
+    team_name,
+    max_week,
+    players = [],
+    matches = [],
+    hero_picks = [],
+    record = {},
+    form = [],
+    durations,
+  } = data;
 
   // Split current roster (appeared in latest week) vs alumni
-  const currentPlayers = players.filter((p) => p.last_week === max_week);
+  const currentPlayers = players.filter(
+    (p) => max_week == null || p.last_week === max_week
+  );
+  const rosterPlayers = currentPlayers.length > 0 ? currentPlayers : players;
   const historicPlayers = players.filter(
-    (p) => max_week == null || p.last_week < max_week
+    (p) => max_week != null && p.last_week < max_week
   );
 
-  // Compute win/loss where side data is available
-  let wins = 0,
-    losses = 0;
-  for (const m of matches) {
-    const side = m.event_team_a_ingame_side;
-    if (side == null) continue;
-    const isTeamA = m.event_team_a?.toLowerCase() === team_name.toLowerCase();
-    const teamWon = isTeamA
-      ? m.winning_team === side
-      : m.winning_team !== side;
-    if (teamWon) wins++;
-    else losses++;
-  }
-  const hasRecord = wins + losses > 0;
-
-  // Group matches into series and count Night Shift series wins (excluding Challenger Match titles)
-  const seriesMap = new Map();
-  for (const m of matches) {
-    const key = [m.event_team_a, m.event_team_b, m.event_title, m.event_week].join("||");
-    if (!seriesMap.has(key)) seriesMap.set(key, []);
-    seriesMap.get(key).push(m);
-  }
-  let nsSeriesWins = 0,
-    nsSeriesLosses = 0;
-  for (const games of seriesMap.values()) {
-    const first = games[0];
-    if (first.event_title?.toLowerCase().includes("challenger")) continue;
-    let sw = 0, sl = 0;
-    for (const m of games) {
-      const side = m.event_team_a_ingame_side;
-      if (side == null || m.winning_team == null) continue;
-      const isTeamA = m.event_team_a?.toLowerCase() === team_name.toLowerCase();
-      const won = isTeamA ? m.winning_team === side : m.winning_team !== side;
-      if (won) sw++; else sl++;
-    }
-    if (sw + sl === 0) continue;
-    if (sw > sl) nsSeriesWins++;
-    else if (sl > sw) nsSeriesLosses++;
-  }
-  const hasNsRecord = nsSeriesWins + nsSeriesLosses > 0;
+  const seriesRecord = formatRecord(record.series?.wins, record.series?.losses);
+  const gameRecord = formatRecord(record.games?.wins, record.games?.losses);
 
   return (
-    <div className="w-full px-4">
+    <div className="w-full px-4 py-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-2">{team_name}</h1>
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-          <span>{total_matches} match{total_matches !== 1 ? "es" : ""}</span>
-          {max_week != null && <span>Latest: Week {max_week}</span>}
-          {hasRecord && (
-            <span>
-              <span className="text-green-400 font-semibold">{wins}W</span>
-              {" – "}
-              <span className="text-red-400 font-semibold">{losses}L</span>
-            </span>
-          )}
-        </div>
+        <TeamIdentityCard
+          teamName={team_name}
+          seriesRecord={seriesRecord}
+          gameRecord={gameRecord}
+          form={form}
+        />
       </div>
 
       {/* Tab bar */}
@@ -121,25 +90,14 @@ function TeamDetail() {
       {/* Tab content */}
       {activeTab === "Overview" && (
         <TeamOverviewTab
-          team_name={team_name}
-          max_week={max_week}
-          total_matches={total_matches}
-          currentPlayers={currentPlayers}
-          historicPlayers={historicPlayers}
-          wins={wins}
-          losses={losses}
-          hasRecord={hasRecord}
-          nsWins={nsSeriesWins}
-          nsLosses={nsSeriesLosses}
-          hasNsRecord={hasNsRecord}
-          heroPicks={hero_picks || []}
+          players={rosterPlayers}
+          maxWeek={max_week}
+          durations={durations}
+          heroPicks={hero_picks}
         />
       )}
       {activeTab === "Series" && (
         <TeamSeriesTab team_name={team_name} matches={matches} />
-      )}
-      {activeTab === "Matches" && (
-        <TeamMatchesTab team_name={team_name} matches={matches} />
       )}
       {activeTab === "Players" && (
         <TeamPlayersTab

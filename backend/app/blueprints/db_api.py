@@ -2475,26 +2475,29 @@ def get_team_detail(team_name: str):
         # When team is team_a: their in-game side = event_team_a_ingame_side → p.team = event_team_a_ingame_side
         # When team is team_b: their in-game side = 1 - event_team_a_ingame_side → p.team != event_team_a_ingame_side
         # Fallback (no ingame_side data): include all players from matching matches.
+        ON_TEAM_SQL = """
+                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+                OR
+                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
+                OR
+                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
+        """
+
         cur = conn.execute(
-            """
+            f"""
             SELECT
                 p.account_id,
                 u.persona_name,
                 u.avatar_url,
                 COUNT(DISTINCT m.match_id) AS appearances,
                 MAX(m.event_week) AS last_week,
-                MIN(m.event_week) AS first_week
+                MIN(m.event_week) AS first_week,
+                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             LEFT JOIN users u ON u.account_id = p.account_id
             WHERE p.account_id IS NOT NULL
-              AND (
-                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
-                OR
-                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
-                OR
-                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
-              )
+              AND ({ON_TEAM_SQL})
             GROUP BY p.account_id, u.persona_name, u.avatar_url
             ORDER BY appearances DESC, u.persona_name ASC
             LIMIT 200
@@ -2502,6 +2505,35 @@ def get_team_detail(team_name: str):
             (team_name, team_name, team_name, team_name),
         )
         players = _rows_to_dicts(cur)
+
+        # Signature heroes: top 3 per player by games played for this team.
+        cur_sig = conn.execute(
+            f"""
+            SELECT p.account_id, p.hero_id, COUNT(*) AS games
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.account_id IS NOT NULL AND p.hero_id IS NOT NULL
+              AND ({ON_TEAM_SQL})
+            GROUP BY p.account_id, p.hero_id
+            ORDER BY games DESC
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        from ..heroes import get_all_hero_names
+        all_names = get_all_hero_names()
+
+        signature_heroes: Dict[int, List[Dict[str, Any]]] = {}
+        for row in cur_sig.fetchall():
+            bucket = signature_heroes.setdefault(row[0], [])
+            if len(bucket) >= 3:
+                continue
+            bucket.append({
+                "hero_id": row[1],
+                "hero_name": all_names.get(str(row[1]), f"Hero {row[1]}"),
+                "games": row[2],
+            })
+        for player in players:
+            player["signature_heroes"] = signature_heroes.get(player["account_id"], [])
 
         cur2 = conn.execute(
             """
@@ -2518,20 +2550,15 @@ def get_team_detail(team_name: str):
         matches = _rows_to_dicts(cur2)
 
         cur3 = conn.execute(
-            """
+            f"""
             SELECT
                 p.hero_id,
-                COUNT(*) AS picks
+                COUNT(*) AS picks,
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) AS wins
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             WHERE p.hero_id IS NOT NULL
-              AND (
-                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
-                OR
-                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
-                OR
-                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
-              )
+              AND ({ON_TEAM_SQL})
             GROUP BY p.hero_id
             ORDER BY picks DESC
             LIMIT 20
@@ -2540,16 +2567,114 @@ def get_team_detail(team_name: str):
         )
         hero_picks_raw = _rows_to_dicts(cur3)
 
-        from ..heroes import get_all_hero_names
-        all_names = get_all_hero_names()
-        hero_picks = [
-            {
+        total_picks_row = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.hero_id IS NOT NULL AND ({ON_TEAM_SQL})
+            """,
+            (team_name, team_name, team_name, team_name),
+        ).fetchone()
+        total_picks = total_picks_row[0] if total_picks_row else 0
+
+        hero_picks = []
+        for row in hero_picks_raw:
+            picks = row["picks"] or 0
+            wins = row["wins"] or 0
+            hero_picks.append({
                 "hero_id": row["hero_id"],
                 "hero_name": all_names.get(str(row["hero_id"]), f"Hero {row['hero_id']}"),
-                "picks": row["picks"],
-            }
-            for row in hero_picks_raw
+                "picks": picks,
+                "wins": wins,
+                "win_rate": round(wins / picks * 100) if picks else None,
+                "pick_share": round(picks / total_picks * 100, 1) if total_picks else 0.0,
+            })
+
+        # ── Records, form, pacing (all derived from the match history) ──────
+        team_lower = team_name.lower()
+
+        def team_result(match: Dict[str, Any]):
+            """True when this team won, False when they lost, None if unscored."""
+            side = match.get("event_team_a_ingame_side")
+            if side is None or match.get("winning_team") is None:
+                return None
+            is_team_a = (match.get("event_team_a") or "").lower() == team_lower
+            return match["winning_team"] == side if is_team_a else match["winning_team"] != side
+
+        # `matches` is ordered by start_time DESC, so the head is the newest game.
+        scored = [(m, r) for m, r in ((m, team_result(m)) for m in matches) if r is not None]
+
+        game_wins = sum(1 for _, won in scored if won)
+        game_losses = len(scored) - game_wins
+
+        # Series = same opponents / title / week. Majority of games decides it.
+        series_map: Dict[str, List[bool]] = {}
+        for match, won in scored:
+            key = "||".join([
+                (match.get("event_team_a") or "").lower(),
+                (match.get("event_team_b") or "").lower(),
+                match.get("event_title") or "",
+                str(match.get("event_week")),
+            ])
+            series_map.setdefault(key, []).append(won)
+        series_wins = sum(1 for games in series_map.values() if sum(games) * 2 > len(games))
+        series_losses = sum(1 for games in series_map.values() if sum(games) * 2 < len(games))
+
+        # Last 10 games, oldest first so the strip reads left → right.
+        form = [
+            {"match_id": match["match_id"], "result": "W" if won else "L"}
+            for match, won in scored[:10]
+        ][::-1]
+
+        team_durations = [m["duration_s"] for m, _ in scored if m.get("duration_s")]
+        avg_s = round(sum(team_durations) / len(team_durations)) if team_durations else None
+
+        # Baseline = the whole Night Shift series (every week, every team).
+        baseline_row = conn.execute(
+            """
+            SELECT ROUND(AVG(duration_s)), COUNT(*)
+            FROM matches
+            WHERE event_title = 'Night Shift' AND duration_s IS NOT NULL
+            """
+        ).fetchone()
+        baseline_avg_s = baseline_row[0] if baseline_row else None
+        baseline_games = (baseline_row[1] or 0) if baseline_row else 0
+        delta_s = (
+            baseline_avg_s - avg_s
+            if avg_s is not None and baseline_avg_s is not None
+            else None
+        )
+
+        longest_win = None
+        for match, won in scored:
+            if not won or not match.get("duration_s"):
+                continue
+            if longest_win is None or match["duration_s"] > longest_win["duration_s"]:
+                is_team_a = (match.get("event_team_a") or "").lower() == team_lower
+                longest_win = {
+                    "match_id": match["match_id"],
+                    "duration_s": match["duration_s"],
+                    "opponent": match.get("event_team_b") if is_team_a else match.get("event_team_a"),
+                    "event_week": match.get("event_week"),
+                }
+
+        length_buckets = [
+            {"label": "< 25 min", "min_s": 0, "max_s": 1500},
+            {"label": "25–35 min", "min_s": 1500, "max_s": 2100},
+            {"label": "35+ min", "min_s": 2100, "max_s": None},
         ]
+        for bucket in length_buckets:
+            games = [
+                won
+                for match, won in scored
+                if match.get("duration_s") is not None
+                and match["duration_s"] >= bucket["min_s"]
+                and (bucket["max_s"] is None or match["duration_s"] < bucket["max_s"])
+            ]
+            bucket["games"] = len(games)
+            bucket["wins"] = sum(1 for won in games if won)
+            bucket["losses"] = len(games) - bucket["wins"]
 
         return jsonify({
             "team_name": team_name,
@@ -2558,6 +2683,21 @@ def get_team_detail(team_name: str):
             "players": players,
             "matches": matches,
             "hero_picks": hero_picks,
+            "record": {
+                "games": {"wins": game_wins, "losses": game_losses},
+                "series": {"wins": series_wins, "losses": series_losses},
+            },
+            "form": form,
+            "durations": {
+                "avg_s": avg_s,
+                "games": len(team_durations),
+                "baseline_avg_s": baseline_avg_s,
+                "baseline_games": baseline_games,
+                "baseline_label": "Night Shift",
+                "delta_s": delta_s,
+                "longest_win": longest_win,
+                "buckets": length_buckets,
+            },
         })
 
 

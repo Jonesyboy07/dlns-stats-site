@@ -1220,7 +1220,6 @@ def match_replay(match_id: int):
         "size": item.get("size"),
         "modified": item.get("modified"),
         "download_url": _build_replay_download_url(item_path),
-        "share_url": _build_replay_share_url(item_path),
     }
     cache.set(_replay_cache_key(match_id), replay_payload, timeout=ttl_seconds)
     _set_persisted_replay(match_id, replay_payload, ttl_seconds)

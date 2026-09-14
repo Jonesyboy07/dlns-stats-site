@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 const RESET_MS = 4000;
 
+export const resolveReplayOpenUrl = (replay) => replay?.download_url || replay?.share_url;
+
 /**
  * Looks up the replay for a match via /db/matches/<id>/replay and opens the
  * filebrowser download URL in a new tab. Shows lightweight inline feedback
@@ -28,14 +30,14 @@ export default function ReplayButton({ matchId, compact = false }) {
       const res = await fetch(`/db/matches/${matchId}/replay`);
       const data = await res.json().catch(() => null);
       const replay = data?.replay;
-      // Open the Filebrowser UI so the file isn't downloaded right away. Older
-      // cached responses only have download_url, so fall back to that.
-      const openUrl = replay?.share_url || replay?.download_url;
+      // Prefer direct download links; fall back to legacy share links only when
+      // that's all an older cached payload has.
+      const openUrl = resolveReplayOpenUrl(replay);
       if (res.ok && data?.ok && openUrl) {
         window.open(openUrl, "_blank", "noopener,noreferrer");
         setState({
           status: "ready",
-          message: replay?.name ? `Opened ${replay.name} in Filebrowser` : "Opened in Filebrowser",
+          message: replay?.name ? `Started download for ${replay.name}` : "Started replay download",
         });
       } else if (res.status === 404 || data?.found === false) {
         setState({
@@ -83,7 +85,7 @@ export default function ReplayButton({ matchId, compact = false }) {
       type="button"
       onClick={handleClick}
       disabled={state.status === "loading"}
-      title={state.message || "Open this match's replay in Filebrowser"}
+      title={state.message || "Download this match's replay"}
       className={`${textSize} font-heading font-semibold tracking-[.02em] flex items-center gap-1.5 transition-colors ${colorClass} disabled:cursor-wait`}
     >
       <svg

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveReplayLookupState, resolveReplayOpenUrl } from "./ReplayButton";
+import {
+  resolveReplayLookupState,
+  resolveReplayOpenUrl,
+  shouldRetryReplayLookup,
+} from "./ReplayButton";
 
 describe("resolveReplayOpenUrl", () => {
   it("prefers the direct download URL", () => {
@@ -42,6 +46,44 @@ describe("resolveReplayLookupState", () => {
       status: "available",
       message: "Replay ready: 123.zip",
       openUrl: "https://files.example/123.zip",
+    });
+  });
+
+  describe("shouldRetryReplayLookup", () => {
+    it("retries the initial cached not-found preload once", () => {
+      expect(
+        shouldRetryReplayLookup(
+          { status: 404 },
+          {
+            found: false,
+            cached: true,
+          },
+          0,
+        ),
+      ).toBe(true);
+    });
+
+    it("does not retry uncached misses or later attempts", () => {
+      expect(
+        shouldRetryReplayLookup(
+          { status: 404 },
+          {
+            found: false,
+            cached: false,
+          },
+          0,
+        ),
+      ).toBe(false);
+      expect(
+        shouldRetryReplayLookup(
+          { status: 404 },
+          {
+            found: false,
+            cached: true,
+          },
+          1,
+        ),
+      ).toBe(false);
     });
   });
 

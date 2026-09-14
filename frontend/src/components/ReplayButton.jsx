@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from "react";
 const RESET_MS = 4000;
 
 export const resolveReplayOpenUrl = (replay) => replay?.download_url || replay?.share_url;
+export const shouldRetryReplayLookup = (response, data, attempt = 0) =>
+  attempt === 0 &&
+  response.status === 404 &&
+  data?.found === false &&
+  data?.cached === true;
 export const resolveReplayLookupState = (response, data, { opened = false } = {}) => {
   const replay = data?.replay;
   const openUrl = resolveReplayOpenUrl(replay);
@@ -75,13 +80,28 @@ export default function ReplayButton({ matchId, compact = false }) {
     };
   };
 
+  const fetchReplayLookup = async (matchIdValue, { signal, retryOnMiss = false } = {}) => {
+    const fetchOnce = async (retry = false) => {
+      const query = retry ? "?retry=1" : "";
+      const res = await fetch(`/db/matches/${matchIdValue}/replay${query}`, { signal });
+      const data = await res.json().catch(() => null);
+      return { res, data };
+    };
+
+    const initial = await fetchOnce(false);
+    if (retryOnMiss && shouldRetryReplayLookup(initial.res, initial.data, 0)) {
+      return fetchOnce(true);
+    }
+    return initial;
+  };
+
   const lookupReplay = async ({ opened = false } = {}) => {
     const { controller, requestId } = beginLookup();
     try {
-      const res = await fetch(`/db/matches/${matchId}/replay`, {
+      const { res, data } = await fetchReplayLookup(matchId, {
         signal: controller.signal,
+        retryOnMiss: false,
       });
-      const data = await res.json().catch(() => null);
       const nextState = resolveReplayLookupState(res, data, { opened });
 
       if (requestId !== requestIdRef.current) {
@@ -119,10 +139,10 @@ export default function ReplayButton({ matchId, compact = false }) {
 
     (async () => {
       try {
-        const res = await fetch(`/db/matches/${matchId}/replay`, {
+        const { res, data } = await fetchReplayLookup(matchId, {
           signal: controller.signal,
+          retryOnMiss: true,
         });
-        const data = await res.json().catch(() => null);
         if (requestId === requestIdRef.current) {
           setState(resolveReplayLookupState(res, data));
         }

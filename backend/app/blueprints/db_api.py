@@ -193,6 +193,10 @@ def _replay_cache_key(match_id: int) -> str:
     return f"replay_url:{match_id}"
 
 
+def _request_arg_true(name: str) -> bool:
+    return (request.args.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _replay_open_url(replay: dict[str, Any] | None) -> str | None:
     if not isinstance(replay, dict):
         return None
@@ -1184,6 +1188,7 @@ def match_replay(match_id: int):
     # Match IDs in DB can be placeholders (negative). Replays are only meaningful for positive IDs.
     if match_id <= 0:
         return jsonify({"ok": False, "error": "invalid_match_id"}), 400
+    retry_requested = _request_arg_true("retry")
 
     try:
         # Ensure replay endpoints are configured via environment.
@@ -1231,7 +1236,7 @@ def match_replay(match_id: int):
                     "replay": persisted_replay,
                 }
             )
-        if persisted_lookup.get("found") is False:
+        if persisted_lookup.get("found") is False and not retry_requested:
             return jsonify(
                 {
                     "ok": False,

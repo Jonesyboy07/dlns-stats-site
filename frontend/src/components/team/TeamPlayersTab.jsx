@@ -1,31 +1,44 @@
 import React from "react";
 import PlayerCard from "./PlayerCard";
+import HeroUsage from "./HeroUsage";
+import Leaderboard from "./Leaderboard";
+import RosterAccordion from "./RosterAccordion";
+import SectionCard from "../SectionCard";
 
-function TeamPlayersTab({ currentPlayers, historicPlayers, max_week }) {
+function TeamPlayersTab({
+  currentPlayers = [],
+  historicPlayers = [],
+  max_week,
+  leaderboard,
+  heroUsage,
+}) {
   return (
     <div className="space-y-8">
-      {/* Active Roster */}
-      <section>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Active Roster
-          {max_week != null && (
-            <span className="ml-2 text-gray-600 normal-case font-normal">
-              · Week {max_week}
-            </span>
-          )}
-        </h2>
-        {currentPlayers.length === 0 ? (
-          <p className="text-gray-600 text-sm">No roster data available.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {currentPlayers.map((p) => (
-              <PlayerCard key={p.account_id} player={p} isCurrent />
-            ))}
-          </div>
-        )}
-      </section>
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <SectionCard
+          title={`Active Roster${max_week != null ? ` \u00b7 WK ${max_week}` : ""}`}
+          subtitle="click a row to expand"
+        >
+          <RosterAccordion players={currentPlayers} />
+        </SectionCard>
 
-      {/* Former Players */}
+        <div className="space-y-6">
+          <Leaderboard players={currentPlayers} league={leaderboard?.league} />
+
+          <SectionCard
+            title="Hero Usage"
+            subtitle={
+              heroUsage?.heroes?.length
+                ? `player \u00d7 ${heroUsage.heroes.length} heroes`
+                : "player \u00d7 heroes"
+            }
+          >
+            <HeroUsage usage={heroUsage} players={currentPlayers} />
+          </SectionCard>
+        </div>
+      </div>
+
+      {/* Former Players keeps its current treatment until its own spec lands. */}
       {historicPlayers.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">

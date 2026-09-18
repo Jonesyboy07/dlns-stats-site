@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCompact,
   formatDuration,
   formatDurationDelta,
+  formatInteger,
   formatKda,
   formatPercent,
   formatRecord,
@@ -73,5 +75,34 @@ describe("formatKda", () => {
 
   it("returns null when there is no value", () => {
     expect(formatKda(null)).toBeNull();
+  });
+});
+
+describe("formatCompact", () => {
+  it("abbreviates thousands", () => {
+    expect(formatCompact(1187)).toBe("1.2k");
+    expect(formatCompact(1000)).toBe("1.0k");
+    expect(formatCompact(40042)).toBe("40.0k");
+  });
+
+  it("leaves sub-thousand values alone", () => {
+    expect(formatCompact(816)).toBe("816");
+    expect(formatCompact(0)).toBe("0");
+  });
+
+  it("returns null when there is no value", () => {
+    expect(formatCompact(null)).toBeNull();
+  });
+});
+
+describe("formatInteger", () => {
+  it("groups thousands", () => {
+    expect(formatInteger(1240)).toBe("1,240");
+    expect(formatInteger(27912)).toBe("27,912");
+    expect(formatInteger(816)).toBe("816");
+  });
+
+  it("returns null when there is no value", () => {
+    expect(formatInteger(null)).toBeNull();
   });
 });

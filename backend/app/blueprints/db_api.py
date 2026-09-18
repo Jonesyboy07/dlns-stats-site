@@ -2437,10 +2437,118 @@ def get_teams():
         return jsonify({"teams": _rows_to_dicts(cur)})
 
 
+# Items above this shop tier cost 3200+ souls. The assets API exposes tiers
+# rather than soul costs, and tier 3 is the 3200 tier.
+MIN_SIGNATURE_ITEM_TIER = 3
+SIGNATURE_ITEM_LIMIT = 3
+
+
+def _icon_key(value: str) -> str:
+    """Punctuation-insensitive icon key.
+
+    Shipped filenames and the asset API disagree on punctuation (Hunter's Aura
+    is "hunter's_aura_psd.png" locally but "hunters_aura.png" upstream), so both
+    sides are reduced to lowercase alphanumerics with & read as "and".
+    """
+    return re.sub(r"[^a-z0-9]", "", (value or "").lower().replace("&", "and"))
+
+
+def _item_icon_index() -> Dict[str, str]:
+    """'<slot>/<key>' and '*/<key>' -> shipped filename under public/images/items."""
+    cached = cache.get("dlns_item_icon_index")
+    if cached is not None:
+        return cached
+
+    index: Dict[str, str] = {}
+    # current_app.root_path is backend/app, so parents[1] is the project root.
+    root = Path(current_app.root_path).resolve().parents[1] / "public" / "images" / "items"
+    try:
+        for path in sorted(root.rglob("*.png")):
+            rel = path.relative_to(root).as_posix()
+            slot, _, filename = rel.partition("/")
+            if not filename:
+                continue
+            stem = filename[:-4]
+            if stem.endswith("_psd"):
+                stem = stem[:-4]
+            key = _icon_key(stem)
+            if not key:
+                continue
+            index.setdefault(f"{slot}/{key}", rel)
+            # The asset API's item category drifts from the folders shipped
+            # here (Dispel Magic is "spirit" upstream, "vitality" here), so keep
+            # a slot-agnostic fallback too.
+            index.setdefault(f"*/{key}", rel)
+    except OSError:
+        current_app.logger.warning("Item icon folder unreadable: %s", root)
+
+    if index:
+        cache.set("dlns_item_icon_index", index, timeout=21600)
+    return index
+
+
+def _item_catalog() -> Dict[int, Dict[str, Any]]:
+    """Shop item id -> {name, slot, tier, type, icon} (cached)."""
+    cached = cache.get("dlns_item_catalog")
+    if cached is not None:
+        return cached
+
+    try:
+        resp = requests.get(
+            "https://assets.deadlock-api.com/v2/items",
+            params={"language": "english"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        raw_catalog = resp.json()
+    except Exception as exc:  # requests raises several types
+        current_app.logger.warning("Item catalog unavailable: %s", exc)
+        raw_catalog = []
+
+    icons = _item_icon_index()
+    catalog: Dict[int, Dict[str, Any]] = {}
+    for item in raw_catalog if isinstance(raw_catalog, list) else []:
+        item_id = item.get("id")
+        if item_id is None:
+            continue
+        name = item.get("name") or ""
+        class_name = item.get("class_name") or ""
+        # Internal variants (e.g. upgrade_clip_size_fixed_t3) carry no display
+        # name and are never real purchases, so keep them out of the catalog.
+        if not name or name == class_name or name.startswith("upgrade_"):
+            continue
+
+        slot = item.get("item_slot_type") or ""
+        shop_image = item.get("shop_image") or ""
+        shop_base = shop_image.rsplit("/", 1)[-1].rsplit(".", 1)[0] if shop_image else ""
+
+        # shop_image usually matches the shipped asset, but some items still
+        # point at a legacy filename (Dispel Magic -> debuff_remover.png), so
+        # fall back to the display name.
+        candidates = []
+        for key in (_icon_key(shop_base), _icon_key(name)):
+            if key:
+                candidates += [f"{slot}/{key}", f"*/{key}"]
+        shipped = next((icons[key] for key in candidates if key in icons), None)
+
+        catalog[int(item_id)] = {
+            "name": name,
+            "slot": slot,
+            "tier": item.get("item_tier"),
+            "type": item.get("type") or "",
+            "icon": f"items/{shipped}" if shipped else None,
+        }
+
+    if catalog:
+        cache.set("dlns_item_catalog", catalog, timeout=21600)
+    return catalog
+
+
 @bp.get("/team/<path:team_name>")
 @cache.cached(timeout=1800)
 def get_team_detail(team_name: str):
-    """Return team detail: players sorted by appearances and full match history."""
+    """Return team detail: roster with per-player stats, records, pacing, hero
+    pool/history and the league baseline used by the Overview and Players tabs."""
     with get_ro_conn() as conn:
         canonical_row = conn.execute(
             """
@@ -2462,25 +2570,49 @@ def get_team_detail(team_name: str):
             if canonical_row2 and canonical_row2[0]:
                 team_name = canonical_row2[0]
 
-        row = conn.execute(
-            """
-            SELECT MAX(event_week) FROM matches
-            WHERE (LOWER(event_team_a) = LOWER(?) OR LOWER(event_team_b) = LOWER(?)) AND event_week IS NOT NULL
+        # "Night Shift Open 1" is a separate qualifier event whose rows carry no
+        # event_team_a_ingame_side, so the side-unknown fallback below would
+        # count BOTH teams' players for it. Ignore that event, unless doing so
+        # would leave the team with nothing at all to show.
+        EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
+        has_non_open_match = conn.execute(
+            f"""
+            SELECT 1 FROM matches m
+            WHERE {EXCLUDE_OPEN_SQL}
+              AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+            LIMIT 1
             """,
             (team_name, team_name),
         ).fetchone()
-        max_week = row[0] if row else None
+        SCOPE_SQL = EXCLUDE_OPEN_SQL if has_non_open_match else "1 = 1"
+
+        # Matches with no player rows are placeholders (several feed ids are
+        # negative bracket placeholders). They carry no data but do inflate
+        # match counts, so the match list below drops them.
+        playable_ids = {
+            row[0]
+            for row in conn.execute(
+                """
+                SELECT DISTINCT p.match_id
+                FROM players p
+                JOIN matches m ON m.match_id = p.match_id
+                WHERE LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)
+                """,
+                (team_name, team_name),
+            )
+        }
 
         # Use event_team_a_ingame_side to restrict to players on the correct side.
         # When team is team_a: their in-game side = event_team_a_ingame_side → p.team = event_team_a_ingame_side
         # When team is team_b: their in-game side = 1 - event_team_a_ingame_side → p.team != event_team_a_ingame_side
         # Fallback (no ingame_side data): include all players from matching matches.
-        ON_TEAM_SQL = """
-                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+        ON_TEAM_SQL = f"""
+                ((LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
                 OR
                 (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
                 OR
-                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
+                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))))
+                AND ({SCOPE_SQL})
         """
 
         cur = conn.execute(
@@ -2492,7 +2624,11 @@ def get_team_detail(team_name: str):
                 COUNT(DISTINCT m.match_id) AS appearances,
                 MAX(m.event_week) AS last_week,
                 MIN(m.event_week) AS first_week,
-                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda
+                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda,
+                ROUND(AVG(CASE WHEN m.duration_s > 0 THEN CAST(p.net_worth AS REAL) * 60.0 / m.duration_s END)) AS nw_per_min,
+                ROUND(AVG(CASE WHEN m.duration_s > 0 THEN CAST(p.player_damage AS REAL) * 60.0 / m.duration_s END)) AS dmg_per_min,
+                ROUND(AVG(p.net_worth)) AS nw_per_game,
+                ROUND(AVG(p.player_damage)) AS dmg_per_game
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             LEFT JOIN users u ON u.account_id = p.account_id
@@ -2506,10 +2642,15 @@ def get_team_detail(team_name: str):
         )
         players = _rows_to_dicts(cur)
 
-        # Signature heroes: top 3 per player by games played for this team.
+        # Hero picks per player: feeds the signature heroes on the roster card
+        # and the per-player cells of the hero usage matrix.
         cur_sig = conn.execute(
             f"""
-            SELECT p.account_id, p.hero_id, COUNT(*) AS games
+            SELECT
+                p.account_id,
+                p.hero_id,
+                COUNT(*) AS games,
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) AS wins
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             WHERE p.account_id IS NOT NULL AND p.hero_id IS NOT NULL
@@ -2523,31 +2664,88 @@ def get_team_detail(team_name: str):
         all_names = get_all_hero_names()
 
         signature_heroes: Dict[int, List[Dict[str, Any]]] = {}
-        for row in cur_sig.fetchall():
-            bucket = signature_heroes.setdefault(row[0], [])
-            if len(bucket) >= 3:
-                continue
-            bucket.append({
-                "hero_id": row[1],
-                "hero_name": all_names.get(str(row[1]), f"Hero {row[1]}"),
-                "games": row[2],
-            })
+        player_hero_stats: Dict[int, Dict[int, Dict[str, int]]] = {}
+        for account_id, hero_id, games, wins in cur_sig.fetchall():
+            wins = wins or 0
+            player_hero_stats.setdefault(account_id, {})[hero_id] = {
+                "games": games,
+                "wins": wins,
+            }
+            bucket = signature_heroes.setdefault(account_id, [])
+            if len(bucket) < 3:
+                bucket.append({
+                    "hero_id": hero_id,
+                    "hero_name": all_names.get(str(hero_id), f"Hero {hero_id}"),
+                    "games": games,
+                    "wins": wins,
+                    "win_rate": round(wins / games * 100) if games else None,
+                })
         for player in players:
             player["signature_heroes"] = signature_heroes.get(player["account_id"], [])
 
+        # Signature items: most-bought 3200+ soul items per player. Raw purchase
+        # events are stored, so only unsold entries count as bought.
+        item_catalog = _item_catalog()
+        cur_items = conn.execute(
+            f"""
+            SELECT
+                p.account_id,
+                json_extract(entry.value, '$.item_id') AS item_id,
+                COUNT(DISTINCT p.match_id) AS games
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id,
+                 json_each(p.raw_items_json) AS entry
+            WHERE p.account_id IS NOT NULL
+              AND p.raw_items_json IS NOT NULL
+              AND ({ON_TEAM_SQL})
+              AND json_extract(entry.value, '$.item_id') IS NOT NULL
+              AND COALESCE(json_extract(entry.value, '$.sold_time_s'), 0) = 0
+            GROUP BY p.account_id, item_id
+            ORDER BY games DESC
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        signature_items: Dict[int, List[Dict[str, Any]]] = {}
+        for account_id, item_id, games in cur_items.fetchall():
+            meta = item_catalog.get(int(item_id))
+            if not meta or meta["type"] == "ability":
+                continue
+            if (meta["tier"] or 0) < MIN_SIGNATURE_ITEM_TIER:
+                continue
+            bucket = signature_items.setdefault(account_id, [])
+            if len(bucket) >= SIGNATURE_ITEM_LIMIT:
+                continue
+            bucket.append({
+                "item_id": int(item_id),
+                "item_name": meta["name"],
+                "slot": meta["slot"],
+                "tier": meta["tier"],
+                "icon": meta["icon"],
+                "games": games,
+            })
+        for player in players:
+            player["items"] = signature_items.get(player["account_id"], [])
+
         cur2 = conn.execute(
-            """
+            f"""
             SELECT
                 m.match_id, m.event_game, m.event_week, m.event_title,
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
                 m.winning_team, m.duration_s, m.start_time
             FROM matches m
-            WHERE LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)
+            WHERE (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+              AND {SCOPE_SQL}
             ORDER BY m.start_time DESC
             """,
             (team_name, team_name),
         )
-        matches = _rows_to_dicts(cur2)
+        matches = [m for m in _rows_to_dicts(cur2) if m["match_id"] in playable_ids]
+
+        # Latest week the team actually played, matching the filtered list.
+        max_week = max(
+            (m["event_week"] for m in matches if m["event_week"] is not None),
+            default=None,
+        )
 
         cur3 = conn.execute(
             f"""
@@ -2561,7 +2759,6 @@ def get_team_detail(team_name: str):
               AND ({ON_TEAM_SQL})
             GROUP BY p.hero_id
             ORDER BY picks DESC
-            LIMIT 20
             """,
             (team_name, team_name, team_name, team_name),
         )
@@ -2676,6 +2873,54 @@ def get_team_detail(team_name: str):
             bucket["wins"] = sum(1 for won in games if won)
             bucket["losses"] = len(games) - bucket["wins"]
 
+        # League baseline for the players-tab leaderboard: every player-game in
+        # the Night Shift series, all teams and weeks.
+        league_row = conn.execute(
+            """
+            SELECT
+                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda,
+                ROUND(AVG(p.net_worth)) AS net_worth,
+                ROUND(AVG(p.player_damage)) AS damage
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE m.event_title = 'Night Shift'
+            """
+        ).fetchone()
+        league_baseline = {
+            "kda": league_row[0] if league_row else None,
+            "net_worth": league_row[1] if league_row else None,
+            "damage": league_row[2] if league_row else None,
+        }
+
+        # Hero usage matrix: every hero the team has picked becomes a column,
+        # busiest first. The league only ever sees ~38 distinct heroes, so the
+        # matrix stays a manageable width.
+        usage_heroes = hero_picks
+        usage_hero_ids = {hero["hero_id"] for hero in usage_heroes}
+        hero_usage = {
+            "heroes": [
+                {
+                    "hero_id": hero["hero_id"],
+                    "hero_name": hero["hero_name"],
+                    "picks": hero["picks"],
+                    "wins": hero["wins"],
+                    "win_rate": hero["win_rate"],
+                }
+                for hero in usage_heroes
+            ],
+            "rows": [
+                {
+                    "account_id": player["account_id"],
+                    "cells": {
+                        str(hero_id): stats
+                        for hero_id, stats in player_hero_stats.get(player["account_id"], {}).items()
+                        if hero_id in usage_hero_ids
+                    },
+                }
+                for player in players
+            ],
+        }
+
         return jsonify({
             "team_name": team_name,
             "max_week": max_week,
@@ -2698,6 +2943,8 @@ def get_team_detail(team_name: str):
                 "longest_win": longest_win,
                 "buckets": length_buckets,
             },
+            "leaderboard": {"league": league_baseline},
+            "hero_usage": hero_usage,
         })
 
 

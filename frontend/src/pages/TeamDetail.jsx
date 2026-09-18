@@ -44,6 +44,8 @@ function TeamDetail() {
     record = {},
     form = [],
     durations,
+    leaderboard,
+    hero_usage,
   } = data;
 
   // Split current roster (appeared in latest week) vs alumni
@@ -104,6 +106,8 @@ function TeamDetail() {
           currentPlayers={currentPlayers}
           historicPlayers={historicPlayers}
           max_week={max_week}
+          leaderboard={leaderboard}
+          heroUsage={hero_usage}
         />
       )}
     </div>

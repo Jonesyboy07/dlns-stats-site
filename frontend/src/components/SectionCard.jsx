@@ -9,7 +9,7 @@ function SectionCard({ title, subtitle, action, className = "", children }) {
 
   return (
     <section
-      className={`rounded-xl border border-gray-700/60 bg-gray-800/40 p-4 ${className}`}
+      className={`${className}`}
     >
       {hasHeader && (
         <header className="mb-3 flex items-start justify-between gap-3">

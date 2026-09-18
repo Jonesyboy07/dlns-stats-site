@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import DivisionBar from "../DivisionBar";
 import HeroIcon from "../HeroIcon";
+import PlayerAvatar from "../PlayerAvatar";
 import SectionCard from "../SectionCard";
 import {
   formatDuration,
@@ -11,27 +12,6 @@ import {
 } from "../../utils/format";
 
 const ROW = "flex items-center gap-3 rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2";
-
-function PlayerAvatar({ player }) {
-  const [failed, setFailed] = useState(false);
-
-  if (player.avatar_url && !failed) {
-    return (
-      <img
-        src={player.avatar_url}
-        alt=""
-        onError={() => setFailed(true)}
-        className="h-9 w-9 shrink-0 rounded-full border border-gray-700 object-cover"
-      />
-    );
-  }
-
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-700 text-xs font-bold text-gray-400">
-      {(player.persona_name || "?")[0].toUpperCase()}
-    </span>
-  );
-}
 
 /** One roster row: avatar, games + KDA, then the player's signature heroes. */
 function RosterRow({ player }) {

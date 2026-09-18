@@ -32,3 +32,16 @@ export function formatKda(value) {
   if (value == null || Number.isNaN(Number(value))) return null;
   return Number(value).toFixed(2);
 }
+
+/** Compact thousands: 1187 -> "1.2k", 816 -> "816". */
+export function formatCompact(value) {
+  if (value == null || Number.isNaN(Number(value))) return null;
+  const number = Number(value);
+  return Math.abs(number) >= 1000 ? `${(number / 1000).toFixed(1)}k` : `${Math.round(number)}`;
+}
+
+/** Grouped integer: 1240 -> "1,240". */
+export function formatInteger(value) {
+  if (value == null || Number.isNaN(Number(value))) return null;
+  return Math.round(Number(value)).toLocaleString();
+}

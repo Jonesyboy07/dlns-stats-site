@@ -238,7 +238,7 @@ function PlayerDetail() {
                         </Link>
                         <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0 ml-2">
                           {t.weeks.length > 0 && (
-                            <span>Wk {t.weeks[0]}{t.weeks.length > 1 ? `–${t.weeks[t.weeks.length - 1]}` : ""}</span>
+                            <span>NS {t.weeks[0]}{t.weeks.length > 1 ? `–${t.weeks[t.weeks.length - 1]}` : ""}</span>
                           )}
                           <span className="text-gray-500">{expandedTeams[t.name] ? "▲" : "▼"}</span>
                         </div>

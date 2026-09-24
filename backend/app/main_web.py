@@ -550,7 +550,7 @@ def create_app() -> Flask:
     @app.get("/api/openapi.json")
     def openapi_spec():  # type: ignore
         """Serve the OpenAPI specification JSON"""
-        from openapi_spec import get_openapi_spec
+        from .openapi_spec import get_openapi_spec
         
         spec = get_openapi_spec()
         # Update server URLs based on request

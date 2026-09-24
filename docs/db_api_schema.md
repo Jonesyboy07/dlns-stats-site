@@ -300,7 +300,8 @@ Each item object contains:
 | `item_tier` | integer or null |
 
 Notes:
-- Data is resolved against `https://assets.deadlock-api.com/v2/items`.
+- Data is resolved against `https://api.deadlock-api.com/v1/assets/items`
+  (see `backend/constants.py`).
 - If the external item catalog is unavailable, the route returns `{}`.
 
 ## Route: `/db/matches/<match_id>/users/<account_id>`

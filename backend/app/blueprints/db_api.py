@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from ..heroes import get_hero_name
 from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
+from ...constants import ITEMS_URL
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -1358,7 +1359,7 @@ def item_names():  # type: ignore
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=5,
             )
@@ -1441,7 +1442,7 @@ def match_items(match_id: int):  # type: ignore
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=3,
             )
@@ -1526,7 +1527,7 @@ def match_build(match_id: int):  # type: ignore
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=3,
             )
@@ -2114,7 +2115,7 @@ def hero_top_items(hero_id: int):
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=3,
             )
@@ -2437,10 +2438,118 @@ def get_teams():
         return jsonify({"teams": _rows_to_dicts(cur)})
 
 
+# Items above this shop tier cost 3200+ souls. The assets API exposes tiers
+# rather than soul costs, and tier 3 is the 3200 tier.
+MIN_SIGNATURE_ITEM_TIER = 3
+SIGNATURE_ITEM_LIMIT = 3
+
+
+def _icon_key(value: str) -> str:
+    """Punctuation-insensitive icon key.
+
+    Shipped filenames and the asset API disagree on punctuation (Hunter's Aura
+    is "hunter's_aura_psd.png" locally but "hunters_aura.png" upstream), so both
+    sides are reduced to lowercase alphanumerics with & read as "and".
+    """
+    return re.sub(r"[^a-z0-9]", "", (value or "").lower().replace("&", "and"))
+
+
+def _item_icon_index() -> Dict[str, str]:
+    """'<slot>/<key>' and '*/<key>' -> shipped filename under public/images/items."""
+    cached = cache.get("dlns_item_icon_index")
+    if cached is not None:
+        return cached
+
+    index: Dict[str, str] = {}
+    # current_app.root_path is backend/app, so parents[1] is the project root.
+    root = Path(current_app.root_path).resolve().parents[1] / "public" / "images" / "items"
+    try:
+        for path in sorted(root.rglob("*.png")):
+            rel = path.relative_to(root).as_posix()
+            slot, _, filename = rel.partition("/")
+            if not filename:
+                continue
+            stem = filename[:-4]
+            if stem.endswith("_psd"):
+                stem = stem[:-4]
+            key = _icon_key(stem)
+            if not key:
+                continue
+            index.setdefault(f"{slot}/{key}", rel)
+            # The asset API's item category drifts from the folders shipped
+            # here (Dispel Magic is "spirit" upstream, "vitality" here), so keep
+            # a slot-agnostic fallback too.
+            index.setdefault(f"*/{key}", rel)
+    except OSError:
+        current_app.logger.warning("Item icon folder unreadable: %s", root)
+
+    if index:
+        cache.set("dlns_item_icon_index", index, timeout=21600)
+    return index
+
+
+def _item_catalog() -> Dict[int, Dict[str, Any]]:
+    """Shop item id -> {name, slot, tier, type, icon} (cached)."""
+    cached = cache.get("dlns_item_catalog")
+    if cached is not None:
+        return cached
+
+    try:
+        resp = requests.get(
+            ITEMS_URL,
+            params={"language": "english"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        raw_catalog = resp.json()
+    except Exception as exc:  # requests raises several types
+        current_app.logger.warning("Item catalog unavailable: %s", exc)
+        raw_catalog = []
+
+    icons = _item_icon_index()
+    catalog: Dict[int, Dict[str, Any]] = {}
+    for item in raw_catalog if isinstance(raw_catalog, list) else []:
+        item_id = item.get("id")
+        if item_id is None:
+            continue
+        name = item.get("name") or ""
+        class_name = item.get("class_name") or ""
+        # Internal variants (e.g. upgrade_clip_size_fixed_t3) carry no display
+        # name and are never real purchases, so keep them out of the catalog.
+        if not name or name == class_name or name.startswith("upgrade_"):
+            continue
+
+        slot = item.get("item_slot_type") or ""
+        shop_image = item.get("shop_image") or ""
+        shop_base = shop_image.rsplit("/", 1)[-1].rsplit(".", 1)[0] if shop_image else ""
+
+        # shop_image usually matches the shipped asset, but some items still
+        # point at a legacy filename (Dispel Magic -> debuff_remover.png), so
+        # fall back to the display name.
+        candidates = []
+        for key in (_icon_key(shop_base), _icon_key(name)):
+            if key:
+                candidates += [f"{slot}/{key}", f"*/{key}"]
+        shipped = next((icons[key] for key in candidates if key in icons), None)
+
+        catalog[int(item_id)] = {
+            "name": name,
+            "slot": slot,
+            "tier": item.get("item_tier"),
+            "type": item.get("type") or "",
+            "icon": f"items/{shipped}" if shipped else None,
+        }
+
+    if catalog:
+        cache.set("dlns_item_catalog", catalog, timeout=21600)
+    return catalog
+
+
 @bp.get("/team/<path:team_name>")
 @cache.cached(timeout=1800)
 def get_team_detail(team_name: str):
-    """Return team detail: players sorted by appearances and full match history."""
+    """Return team detail: roster with per-player stats, records, pacing, hero
+    pool/history and the league baseline used by the Overview and Players tabs."""
     with get_ro_conn() as conn:
         canonical_row = conn.execute(
             """
@@ -2462,39 +2571,70 @@ def get_team_detail(team_name: str):
             if canonical_row2 and canonical_row2[0]:
                 team_name = canonical_row2[0]
 
-        row = conn.execute(
-            """
-            SELECT MAX(event_week) FROM matches
-            WHERE (LOWER(event_team_a) = LOWER(?) OR LOWER(event_team_b) = LOWER(?)) AND event_week IS NOT NULL
+        # "Night Shift Open 1" is a separate qualifier event whose rows carry no
+        # event_team_a_ingame_side, so the side-unknown fallback below would
+        # count BOTH teams' players for it. Ignore that event, unless doing so
+        # would leave the team with nothing at all to show.
+        EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
+        has_non_open_match = conn.execute(
+            f"""
+            SELECT 1 FROM matches m
+            WHERE {EXCLUDE_OPEN_SQL}
+              AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+            LIMIT 1
             """,
             (team_name, team_name),
         ).fetchone()
-        max_week = row[0] if row else None
+        SCOPE_SQL = EXCLUDE_OPEN_SQL if has_non_open_match else "1 = 1"
+
+        # Matches with no player rows are placeholders (several feed ids are
+        # negative bracket placeholders). They carry no data but do inflate
+        # match counts, so the match list below drops them.
+        playable_ids = {
+            row[0]
+            for row in conn.execute(
+                """
+                SELECT DISTINCT p.match_id
+                FROM players p
+                JOIN matches m ON m.match_id = p.match_id
+                WHERE LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)
+                """,
+                (team_name, team_name),
+            )
+        }
 
         # Use event_team_a_ingame_side to restrict to players on the correct side.
         # When team is team_a: their in-game side = event_team_a_ingame_side → p.team = event_team_a_ingame_side
         # When team is team_b: their in-game side = 1 - event_team_a_ingame_side → p.team != event_team_a_ingame_side
         # Fallback (no ingame_side data): include all players from matching matches.
+        ON_TEAM_SQL = f"""
+                ((LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+                OR
+                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
+                OR
+                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))))
+                AND ({SCOPE_SQL})
+        """
+
         cur = conn.execute(
-            """
+            f"""
             SELECT
                 p.account_id,
                 u.persona_name,
                 u.avatar_url,
                 COUNT(DISTINCT m.match_id) AS appearances,
                 MAX(m.event_week) AS last_week,
-                MIN(m.event_week) AS first_week
+                MIN(m.event_week) AS first_week,
+                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda,
+                ROUND(AVG(CASE WHEN m.duration_s > 0 THEN CAST(p.net_worth AS REAL) * 60.0 / m.duration_s END)) AS nw_per_min,
+                ROUND(AVG(CASE WHEN m.duration_s > 0 THEN CAST(p.player_damage AS REAL) * 60.0 / m.duration_s END)) AS dmg_per_min,
+                ROUND(AVG(p.net_worth)) AS nw_per_game,
+                ROUND(AVG(p.player_damage)) AS dmg_per_game
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             LEFT JOIN users u ON u.account_id = p.account_id
             WHERE p.account_id IS NOT NULL
-              AND (
-                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
-                OR
-                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
-                OR
-                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
-              )
+              AND ({ON_TEAM_SQL})
             GROUP BY p.account_id, u.persona_name, u.avatar_url
             ORDER BY appearances DESC, u.persona_name ASC
             LIMIT 200
@@ -2503,69 +2643,371 @@ def get_team_detail(team_name: str):
         )
         players = _rows_to_dicts(cur)
 
+        # Hero picks per player: feeds the signature heroes on the roster card
+        # and the per-player cells of the hero usage matrix.
+        cur_sig = conn.execute(
+            f"""
+            SELECT
+                p.account_id,
+                p.hero_id,
+                COUNT(*) AS games,
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) AS wins
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.account_id IS NOT NULL AND p.hero_id IS NOT NULL
+              AND ({ON_TEAM_SQL})
+            GROUP BY p.account_id, p.hero_id
+            ORDER BY games DESC
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        from ..heroes import get_all_hero_names
+        all_names = get_all_hero_names()
+
+        signature_heroes: Dict[int, List[Dict[str, Any]]] = {}
+        player_hero_stats: Dict[int, Dict[int, Dict[str, int]]] = {}
+        for account_id, hero_id, games, wins in cur_sig.fetchall():
+            wins = wins or 0
+            player_hero_stats.setdefault(account_id, {})[hero_id] = {
+                "games": games,
+                "wins": wins,
+            }
+            bucket = signature_heroes.setdefault(account_id, [])
+            if len(bucket) < 3:
+                bucket.append({
+                    "hero_id": hero_id,
+                    "hero_name": all_names.get(str(hero_id), f"Hero {hero_id}"),
+                    "games": games,
+                    "wins": wins,
+                    "win_rate": round(wins / games * 100) if games else None,
+                })
+        for player in players:
+            player["signature_heroes"] = signature_heroes.get(player["account_id"], [])
+
+        # Signature items: most-bought 3200+ soul items per player. Raw purchase
+        # events are stored, so only unsold entries count as bought.
+        item_catalog = _item_catalog()
+        cur_items = conn.execute(
+            f"""
+            SELECT
+                p.account_id,
+                json_extract(entry.value, '$.item_id') AS item_id,
+                COUNT(DISTINCT p.match_id) AS games
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id,
+                 json_each(p.raw_items_json) AS entry
+            WHERE p.account_id IS NOT NULL
+              AND p.raw_items_json IS NOT NULL
+              AND ({ON_TEAM_SQL})
+              AND json_extract(entry.value, '$.item_id') IS NOT NULL
+              AND COALESCE(json_extract(entry.value, '$.sold_time_s'), 0) = 0
+            GROUP BY p.account_id, item_id
+            ORDER BY games DESC
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        signature_items: Dict[int, List[Dict[str, Any]]] = {}
+        for account_id, item_id, games in cur_items.fetchall():
+            meta = item_catalog.get(int(item_id))
+            if not meta or meta["type"] == "ability":
+                continue
+            if (meta["tier"] or 0) < MIN_SIGNATURE_ITEM_TIER:
+                continue
+            bucket = signature_items.setdefault(account_id, [])
+            if len(bucket) >= SIGNATURE_ITEM_LIMIT:
+                continue
+            bucket.append({
+                "item_id": int(item_id),
+                "item_name": meta["name"],
+                "slot": meta["slot"],
+                "tier": meta["tier"],
+                "icon": meta["icon"],
+                "games": games,
+            })
+        for player in players:
+            player["items"] = signature_items.get(player["account_id"], [])
+
         cur2 = conn.execute(
-            """
+            f"""
             SELECT
                 m.match_id, m.event_game, m.event_week, m.event_title,
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
                 m.winning_team, m.duration_s, m.start_time
             FROM matches m
-            WHERE LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)
+            WHERE (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+              AND {SCOPE_SQL}
             ORDER BY m.start_time DESC
             """,
             (team_name, team_name),
         )
-        matches = _rows_to_dicts(cur2)
+        matches = [m for m in _rows_to_dicts(cur2) if m["match_id"] in playable_ids]
+
+        # Latest week the team actually played, matching the filtered list.
+        max_week = max(
+            (m["event_week"] for m in matches if m["event_week"] is not None),
+            default=None,
+        )
+
+        # Roster timeline axis: the weeks the league actually ran, clipped to the
+        # team's own span. Derived from the fixtures rather than a numeric
+        # first..last range so that a genuine bye week (one with no fixtures
+        # anywhere) cannot render as an empty column that breaks every player's
+        # bar at once and reads as a mass roster change. The team's own weeks are
+        # unioned in so a week the team played is never dropped. Net effect: a
+        # break in a bar always means "the team played, this player did not".
+        team_weeks = {
+            m["event_week"] for m in matches if m["event_week"] is not None
+        }
+        league_weeks = {
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT m.event_week FROM matches m "
+                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
+                f"AND ({EXCLUDE_OPEN_SQL})"
+            )
+            if row[0] is not None
+        }
+        if team_weeks:
+            first_week, last_week = min(team_weeks), max(team_weeks)
+            roster_weeks = sorted(
+                week
+                for week in (league_weeks | team_weeks)
+                if first_week <= week <= last_week
+            )
+        else:
+            roster_weeks = []
+
+        # Weeks each player turned out, driving the timeline bars.
+        axis = set(roster_weeks)
+        cur_player_weeks = conn.execute(
+            f"""
+            SELECT p.account_id, m.event_week
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.account_id IS NOT NULL AND m.event_week IS NOT NULL
+              AND ({ON_TEAM_SQL})
+            GROUP BY p.account_id, m.event_week
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        weeks_by_player: Dict[int, List[int]] = {}
+        for account_id, week in cur_player_weeks.fetchall():
+            if week in axis:
+                weeks_by_player.setdefault(account_id, []).append(week)
+        for player in players:
+            player["weeks"] = sorted(weeks_by_player.get(player["account_id"], []))
 
         cur3 = conn.execute(
-            """
+            f"""
             SELECT
                 p.hero_id,
-                COUNT(*) AS picks
+                COUNT(*) AS picks,
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) AS wins
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             WHERE p.hero_id IS NOT NULL
-              AND (
-                (LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
-                OR
-                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
-                OR
-                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)))
-              )
+              AND ({ON_TEAM_SQL})
             GROUP BY p.hero_id
             ORDER BY picks DESC
-            LIMIT 20
             """,
             (team_name, team_name, team_name, team_name),
         )
         hero_picks_raw = _rows_to_dicts(cur3)
 
-        from ..heroes import get_all_hero_names
-        all_names = get_all_hero_names()
-        hero_picks = [
-            {
+        total_picks_row = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.hero_id IS NOT NULL AND ({ON_TEAM_SQL})
+            """,
+            (team_name, team_name, team_name, team_name),
+        ).fetchone()
+        total_picks = total_picks_row[0] if total_picks_row else 0
+
+        hero_picks = []
+        for row in hero_picks_raw:
+            picks = row["picks"] or 0
+            wins = row["wins"] or 0
+            hero_picks.append({
                 "hero_id": row["hero_id"],
                 "hero_name": all_names.get(str(row["hero_id"]), f"Hero {row['hero_id']}"),
-                "picks": row["picks"],
-            }
-            for row in hero_picks_raw
+                "picks": picks,
+                "wins": wins,
+                "win_rate": round(wins / picks * 100) if picks else None,
+                "pick_share": round(picks / total_picks * 100, 1) if total_picks else 0.0,
+            })
+
+        # ── Records, form, pacing (all derived from the match history) ──────
+        team_lower = team_name.lower()
+
+        def team_result(match: Dict[str, Any]):
+            """True when this team won, False when they lost, None if unscored."""
+            side = match.get("event_team_a_ingame_side")
+            if side is None or match.get("winning_team") is None:
+                return None
+            is_team_a = (match.get("event_team_a") or "").lower() == team_lower
+            return match["winning_team"] == side if is_team_a else match["winning_team"] != side
+
+        # `matches` is ordered by start_time DESC, so the head is the newest game.
+        scored = [(m, r) for m, r in ((m, team_result(m)) for m in matches) if r is not None]
+
+        game_wins = sum(1 for _, won in scored if won)
+        game_losses = len(scored) - game_wins
+
+        # Series = same opponents / title / week. Majority of games decides it.
+        series_map: Dict[str, List[bool]] = {}
+        for match, won in scored:
+            key = "||".join([
+                (match.get("event_team_a") or "").lower(),
+                (match.get("event_team_b") or "").lower(),
+                match.get("event_title") or "",
+                str(match.get("event_week")),
+            ])
+            series_map.setdefault(key, []).append(won)
+        series_wins = sum(1 for games in series_map.values() if sum(games) * 2 > len(games))
+        series_losses = sum(1 for games in series_map.values() if sum(games) * 2 < len(games))
+
+        # Last 10 games, oldest first so the strip reads left → right.
+        form = [
+            {"match_id": match["match_id"], "result": "W" if won else "L"}
+            for match, won in scored[:10]
+        ][::-1]
+
+        team_durations = [m["duration_s"] for m, _ in scored if m.get("duration_s")]
+        avg_s = round(sum(team_durations) / len(team_durations)) if team_durations else None
+
+        # Baseline = the whole Night Shift series (every week, every team).
+        baseline_row = conn.execute(
+            """
+            SELECT ROUND(AVG(duration_s)), COUNT(*)
+            FROM matches
+            WHERE event_title = 'Night Shift' AND duration_s IS NOT NULL
+            """
+        ).fetchone()
+        baseline_avg_s = baseline_row[0] if baseline_row else None
+        baseline_games = (baseline_row[1] or 0) if baseline_row else 0
+        delta_s = (
+            baseline_avg_s - avg_s
+            if avg_s is not None and baseline_avg_s is not None
+            else None
+        )
+
+        longest_win = None
+        for match, won in scored:
+            if not won or not match.get("duration_s"):
+                continue
+            if longest_win is None or match["duration_s"] > longest_win["duration_s"]:
+                is_team_a = (match.get("event_team_a") or "").lower() == team_lower
+                longest_win = {
+                    "match_id": match["match_id"],
+                    "duration_s": match["duration_s"],
+                    "opponent": match.get("event_team_b") if is_team_a else match.get("event_team_a"),
+                    "event_week": match.get("event_week"),
+                }
+
+        length_buckets = [
+            {"label": "< 25 min", "min_s": 0, "max_s": 1500},
+            {"label": "25–35 min", "min_s": 1500, "max_s": 2100},
+            {"label": "35+ min", "min_s": 2100, "max_s": None},
         ]
+        for bucket in length_buckets:
+            games = [
+                won
+                for match, won in scored
+                if match.get("duration_s") is not None
+                and match["duration_s"] >= bucket["min_s"]
+                and (bucket["max_s"] is None or match["duration_s"] < bucket["max_s"])
+            ]
+            bucket["games"] = len(games)
+            bucket["wins"] = sum(1 for won in games if won)
+            bucket["losses"] = len(games) - bucket["wins"]
+
+        # League baseline for the players-tab leaderboard: every player-game in
+        # the Night Shift series, all teams and weeks.
+        league_row = conn.execute(
+            """
+            SELECT
+                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda,
+                ROUND(AVG(p.net_worth)) AS net_worth,
+                ROUND(AVG(p.player_damage)) AS damage
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE m.event_title = 'Night Shift'
+            """
+        ).fetchone()
+        league_baseline = {
+            "kda": league_row[0] if league_row else None,
+            "net_worth": league_row[1] if league_row else None,
+            "damage": league_row[2] if league_row else None,
+        }
+
+        # Hero usage matrix: every hero the team has picked becomes a column,
+        # busiest first. The league only ever sees ~38 distinct heroes, so the
+        # matrix stays a manageable width.
+        usage_heroes = hero_picks
+        usage_hero_ids = {hero["hero_id"] for hero in usage_heroes}
+        hero_usage = {
+            "heroes": [
+                {
+                    "hero_id": hero["hero_id"],
+                    "hero_name": hero["hero_name"],
+                    "picks": hero["picks"],
+                    "wins": hero["wins"],
+                    "win_rate": hero["win_rate"],
+                }
+                for hero in usage_heroes
+            ],
+            "rows": [
+                {
+                    "account_id": player["account_id"],
+                    "cells": {
+                        str(hero_id): stats
+                        for hero_id, stats in player_hero_stats.get(player["account_id"], {}).items()
+                        if hero_id in usage_hero_ids
+                    },
+                }
+                for player in players
+            ],
+        }
 
         return jsonify({
             "team_name": team_name,
             "max_week": max_week,
+            "roster_weeks": roster_weeks,
+            "league_weeks": sorted(league_weeks),
             "total_matches": len(matches),
             "players": players,
             "matches": matches,
             "hero_picks": hero_picks,
+            "record": {
+                "games": {"wins": game_wins, "losses": game_losses},
+                "series": {"wins": series_wins, "losses": series_losses},
+            },
+            "form": form,
+            "durations": {
+                "avg_s": avg_s,
+                "games": len(team_durations),
+                "baseline_avg_s": baseline_avg_s,
+                "baseline_games": baseline_games,
+                "baseline_label": "Night Shift",
+                "delta_s": delta_s,
+                "longest_win": longest_win,
+                "buckets": length_buckets,
+            },
+            "leaderboard": {"league": league_baseline},
+            "hero_usage": hero_usage,
         })
 
 
 @bp.get("/nightshift/<int:week>")
-@cache.cached(timeout=1800)
+@cache.cached(timeout=1800, query_string=True)
 def nightshift_week(week: int):
     """Return all matches and summary stats for a given Night Shift week."""
-    event_title = request.args.get("event_title", "Night Shift")
+    # Event titles are hand-authored in data/matches.json and their casing has
+    # slipped before ("NIGHT SHIFT" vs "Night Shift"), which silently hides a
+    # whole week because SQLite's `=` on TEXT is case-sensitive. Match loosely.
+    event_title = (request.args.get("event_title") or "").strip() or "Night Shift"
     with get_ro_conn() as conn:
         # Summary stats for the week
         stats_row = conn.execute(
@@ -2577,7 +3019,7 @@ def nightshift_week(week: int):
                 ROUND(AVG(duration_s), 0) AS avg_duration_s,
                 MIN(start_time) AS first_match_time
             FROM matches
-            WHERE event_title = ? AND event_week = ?
+            WHERE LOWER(event_title) = LOWER(?) AND event_week = ?
             """,
             (event_title, week),
         ).fetchone()
@@ -2593,7 +3035,7 @@ def nightshift_week(week: int):
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
                 m.start_time, m.event_subtitle
             FROM matches m
-            WHERE m.event_title = ? AND m.event_week = ?
+            WHERE LOWER(m.event_title) = LOWER(?) AND m.event_week = ?
             ORDER BY m.start_time ASC, m.match_id ASC
             """,
             (event_title, week),
@@ -2631,7 +3073,7 @@ def nightshift_week(week: int):
         neighbours = conn.execute(
             """
             SELECT DISTINCT event_week FROM matches
-            WHERE event_title = ? AND event_week IS NOT NULL
+            WHERE LOWER(event_title) = LOWER(?) AND event_week IS NOT NULL
             ORDER BY event_week ASC
             """,
             (event_title,),

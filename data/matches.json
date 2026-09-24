@@ -360,8 +360,8 @@
               "matches": [
                 {
                   "game": "GAME 1",
-                  "match_id": 41787534,
-                  "team_a_side": 1,
+                  "match_id": 41787634,
+                  "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=zkSX9d0CR2g"
                 }
               ],
@@ -515,7 +515,7 @@
                 {
                   "game": "GAME 1",
                   "match_id": 43176704,
-                  "team_a_side": 1,
+                  "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=n8jzzgUtCS0"
                 }
               ],
@@ -2208,7 +2208,7 @@
                 {
                   "game": "Game 1",
                   "team_a_side": 1,
-                  "match_id": 68525762
+                  "match_id": 68542295
                 },
                 {
                   "game": "Game 2",
@@ -2434,7 +2434,7 @@
           "games": [
             {
               "team_a": "Lowkey W",
-              "team_b": "Abrahams",
+              "team_b": "LEVIATHAN",
               "matches": [
                 {
                   "game": "Game 1",
@@ -2511,14 +2511,16 @@
               "team_b": "Abrahams",
               "matches": [
                 {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 75981955
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 75993888,
+                  "match_vod": "https://www.youtube.com/watch?v=MLDb2-QjMUA"
                 },
                 {
-                  "game": "Game 2",
+                  "game": "Game 1",
                   "team_a_side": 0,
-                  "match_id": 75993888
+                  "match_id": 75981955,
+                  "match_vod": "https://www.youtube.com/watch?v=MLDb2-QjMUA"
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=MLDb2-QjMUA",
@@ -2548,21 +2550,6 @@
               "region": "NA"
             },
             {
-              "team_a": "Abrahams",
-              "team_b": "Leviathan",
-              "matches": [
-                {
-                  "game": "GAME 1",
-                  "team_a_side": 0,
-                  "match_id": 75968492,
-                  "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE"
-                }
-              ],
-              "region": "EU",
-              "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE",
-              "title": "Challenger Match"
-            },
-            {
               "team_a": "Melee Creeps",
               "team_b": "FPS Lounge",
               "matches": [
@@ -2575,6 +2562,21 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=kvMpEjfYgOM",
+              "title": "Challenger Match"
+            },
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                {
+                  "game": "GAME 1",
+                  "team_a_side": 1,
+                  "match_id": 75968492,
+                  "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE"
+                }
+              ],
+              "region": "EU",
+              "match_vod": "https://www.youtube.com/watch?v=lNvlLIZasFE",
               "title": "Challenger Match"
             }
           ],
@@ -2636,7 +2638,7 @@
                 {
                   "game": "Game 1",
                   "team_a_side": 0,
-                  "match_id": 77673941
+                  "match_id": 77673841
                 },
                 {
                   "game": "Game 2",
@@ -3106,8 +3108,8 @@
               "matches": [
                 {
                   "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 88062417,
+                  "team_a_side": 0,
+                  "match_id": 88031565,
                   "match_vod": "https://www.youtube.com/watch?v=6-wCzQDICMI"
                 }
               ],
@@ -3742,6 +3744,106 @@
           ]
         },
         {
+          "week": 49,
+          "games": [
+            {
+              "team_a": "SILENCE",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 96111552
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 96119633
+                }
+              ],
+              "region": "EU",
+              "title": "QUALIFIERS"
+            },
+            {
+              "team_a": "LEVIATHAN",
+              "team_b": "BUFF ENJOYERS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 96296607
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=TYOCmt_SRZo",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "BUFF ENJOYERS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 96306309
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 96316159
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=Mp_AIDXSQs4",
+              "region": "EU",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "PULSAR ESPORTS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 96325538
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=CYcGa8G7BkI",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "POPPERS' PUPILS",
+              "team_b": "MELEE CREEPS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 96333692
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 96341507
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 0,
+                  "match_id": 96349946
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=R1XBzcz0caY",
+              "region": "NA",
+              "title": "FINALS"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=MnQ-aSxXVOc"
+            }
+          ]
+        },
+        {
           "week": 50,
           "games": [
             {
@@ -4238,6 +4340,160 @@
               "url": "https://www.youtube.com/watch?v=aQpc2fodaWw"
             }
           ]
+        },
+        {
+          "week": 56,
+          "games": [
+            {
+              "team_a": "KASTALIA",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 106028407
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=rVBCz9a0YZs",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "KASTALIA",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 106040199
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 106047868
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=fPU3kJMP_9Q",
+              "region": "EU",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "PULSAR ESPORTS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 106058394
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=C0w6u2jd6QQ",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "POPPERS' PUPILS",
+              "team_b": "MELEE CREEPS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 106068688
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 106079718
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=6u_Tv2jaZw4",
+              "region": "NA",
+              "title": "FINALS"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=asncyibFTgE"
+            }
+          ]
+        },
+        {
+          "week": 57,
+          "games": [
+            {
+              "team_a": "KASTALIA",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 107347490
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=_19uCKPWe2E",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "ABRAHAMS",
+              "team_b": "LEVIATHAN",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 107356285
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 107363657
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=dyx0hiOwAVc",
+              "region": "EU",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "PULSAR ESPORTS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 107374334
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=mALd-gdHnHQ",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "POPPERS' PUPILS",
+              "team_b": "MELEE CREEPS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 107383018
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 1073892640
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=QC_iVZFiJ1I",
+              "region": "NA",
+              "title": "FINALS"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=W7CoJiNcbdI"
+            }
+          ]
         }
       ]
     },
@@ -4562,106 +4818,6 @@
                 }
               ],
               "title": "Finals"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "NIGHT SHIFT",
-      "weeks": [
-        {
-          "week": 49,
-          "games": [
-            {
-              "team_a": "SILENCE",
-              "team_b": "LEVIATHAN",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 96111552
-                },
-                {
-                  "game": "Game 2",
-                  "team_a_side": 0,
-                  "match_id": 96119633
-                }
-              ],
-              "region": "EU",
-              "title": "QUALIFIERS"
-            },
-            {
-              "team_a": "LEVIATHAN",
-              "team_b": "BUFF ENJOYERS",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 96119633
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=TYOCmt_SRZo",
-              "region": "EU",
-              "title": "CHALLENGER MATCH"
-            },
-            {
-              "team_a": "ABRAHAMS",
-              "team_b": "BUFF ENJOYERS",
-              "matches": [
-                {
-                  "game": "Game 2",
-                  "team_a_side": 1,
-                  "match_id": 96306309
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=Mp_AIDXSQs4",
-              "region": "EU",
-              "title": "FINALS"
-            },
-            {
-              "team_a": "MELEE CREEPS",
-              "team_b": "PULSAR ESPORTS",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "team_a_side": 0,
-                  "match_id": 96306309
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=CYcGa8G7BkI",
-              "region": "NA",
-              "title": "CHALLENGER MATCH"
-            },
-            {
-              "team_a": "POPPERS' PUPILS",
-              "team_b": "MELEE CREEPS",
-              "matches": [
-                {
-                  "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 96333692
-                },
-                {
-                  "game": "Game 2",
-                  "team_a_side": 1,
-                  "match_id": 96341507
-                },
-                {
-                  "game": "Game 3",
-                  "team_a_side": 0,
-                  "match_id": 96349946
-                }
-              ],
-              "match_vod": "https://www.youtube.com/watch?v=R1XBzcz0caY",
-              "region": "NA",
-              "title": "FINALS"
-            }
-          ],
-          "vod_links": [
-            {
-              "title": "",
-              "url": "https://www.youtube.com/watch?v=MnQ-aSxXVOc"
             }
           ]
         }

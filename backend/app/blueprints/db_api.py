@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from ..heroes import get_hero_name
 from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
+from ...constants import ITEMS_URL
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -1358,7 +1359,7 @@ def item_names():  # type: ignore
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=5,
             )
@@ -1441,7 +1442,7 @@ def match_items(match_id: int):  # type: ignore
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=3,
             )
@@ -1526,7 +1527,7 @@ def match_build(match_id: int):  # type: ignore
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=3,
             )
@@ -2114,7 +2115,7 @@ def hero_top_items(hero_id: int):
     if item_catalog is None:
         try:
             resp = requests.get(
-                "https://assets.deadlock-api.com/v2/items",
+                ITEMS_URL,
                 params={"language": "english"},
                 timeout=3,
             )
@@ -2495,7 +2496,7 @@ def _item_catalog() -> Dict[int, Dict[str, Any]]:
 
     try:
         resp = requests.get(
-            "https://assets.deadlock-api.com/v2/items",
+            ITEMS_URL,
             params={"language": "english"},
             timeout=5,
         )
@@ -2747,6 +2748,55 @@ def get_team_detail(team_name: str):
             default=None,
         )
 
+        # Roster timeline axis: the weeks the league actually ran, clipped to the
+        # team's own span. Derived from the fixtures rather than a numeric
+        # first..last range so that a genuine bye week (one with no fixtures
+        # anywhere) cannot render as an empty column that breaks every player's
+        # bar at once and reads as a mass roster change. The team's own weeks are
+        # unioned in so a week the team played is never dropped. Net effect: a
+        # break in a bar always means "the team played, this player did not".
+        team_weeks = {
+            m["event_week"] for m in matches if m["event_week"] is not None
+        }
+        league_weeks = {
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT m.event_week FROM matches m "
+                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
+                f"AND ({EXCLUDE_OPEN_SQL})"
+            )
+            if row[0] is not None
+        }
+        if team_weeks:
+            first_week, last_week = min(team_weeks), max(team_weeks)
+            roster_weeks = sorted(
+                week
+                for week in (league_weeks | team_weeks)
+                if first_week <= week <= last_week
+            )
+        else:
+            roster_weeks = []
+
+        # Weeks each player turned out, driving the timeline bars.
+        axis = set(roster_weeks)
+        cur_player_weeks = conn.execute(
+            f"""
+            SELECT p.account_id, m.event_week
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.account_id IS NOT NULL AND m.event_week IS NOT NULL
+              AND ({ON_TEAM_SQL})
+            GROUP BY p.account_id, m.event_week
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        weeks_by_player: Dict[int, List[int]] = {}
+        for account_id, week in cur_player_weeks.fetchall():
+            if week in axis:
+                weeks_by_player.setdefault(account_id, []).append(week)
+        for player in players:
+            player["weeks"] = sorted(weeks_by_player.get(player["account_id"], []))
+
         cur3 = conn.execute(
             f"""
             SELECT
@@ -2924,6 +2974,8 @@ def get_team_detail(team_name: str):
         return jsonify({
             "team_name": team_name,
             "max_week": max_week,
+            "roster_weeks": roster_weeks,
+            "league_weeks": sorted(league_weeks),
             "total_matches": len(matches),
             "players": players,
             "matches": matches,
@@ -2949,10 +3001,13 @@ def get_team_detail(team_name: str):
 
 
 @bp.get("/nightshift/<int:week>")
-@cache.cached(timeout=1800)
+@cache.cached(timeout=1800, query_string=True)
 def nightshift_week(week: int):
     """Return all matches and summary stats for a given Night Shift week."""
-    event_title = request.args.get("event_title", "Night Shift")
+    # Event titles are hand-authored in data/matches.json and their casing has
+    # slipped before ("NIGHT SHIFT" vs "Night Shift"), which silently hides a
+    # whole week because SQLite's `=` on TEXT is case-sensitive. Match loosely.
+    event_title = (request.args.get("event_title") or "").strip() or "Night Shift"
     with get_ro_conn() as conn:
         # Summary stats for the week
         stats_row = conn.execute(
@@ -2964,7 +3019,7 @@ def nightshift_week(week: int):
                 ROUND(AVG(duration_s), 0) AS avg_duration_s,
                 MIN(start_time) AS first_match_time
             FROM matches
-            WHERE event_title = ? AND event_week = ?
+            WHERE LOWER(event_title) = LOWER(?) AND event_week = ?
             """,
             (event_title, week),
         ).fetchone()
@@ -2980,7 +3035,7 @@ def nightshift_week(week: int):
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
                 m.start_time, m.event_subtitle
             FROM matches m
-            WHERE m.event_title = ? AND m.event_week = ?
+            WHERE LOWER(m.event_title) = LOWER(?) AND m.event_week = ?
             ORDER BY m.start_time ASC, m.match_id ASC
             """,
             (event_title, week),
@@ -3018,7 +3073,7 @@ def nightshift_week(week: int):
         neighbours = conn.execute(
             """
             SELECT DISTINCT event_week FROM matches
-            WHERE event_title = ? AND event_week IS NOT NULL
+            WHERE LOWER(event_title) = LOWER(?) AND event_week IS NOT NULL
             ORDER BY event_week ASC
             """,
             (event_title,),

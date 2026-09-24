@@ -34,6 +34,16 @@ _jobs: Dict[str, Dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
 _matches_json_lock = threading.Lock()
 
+# Tables whose rows hang off matches(match_id). They cascade on DELETE but have
+# no ON UPDATE CASCADE, so changing a match id has to move these rows as well.
+_MATCH_CHILD_TABLES = (
+    "players",
+    "player_snapshots",
+    "player_deaths",
+    "player_gold_sources",
+    "player_damage_sources",
+)
+
 
 def _matches_json_path() -> Path:
     db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3"))
@@ -1248,11 +1258,25 @@ def admin_match_edit():
             while conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (match_id,)).fetchone():
                 match_id -= 1
 
-        if current_match_id != match_id:
+        renaming = current_match_id != match_id
+        if renaming:
             existing = conn.execute('SELECT 1 FROM matches WHERE match_id = ?', (match_id,)).fetchone()
             if existing:
                 conn.close()
                 return jsonify({'ok': False, 'error': f'Match ID {match_id} already exists'}), 400
+
+            # Moving a primary key: rows in _MATCH_CHILD_TABLES reference
+            # matches(match_id) with ON DELETE CASCADE but no ON UPDATE CASCADE,
+            # and SQLite enforces foreign keys per statement unless they are
+            # deferred. Take explicit control of the transaction so
+            # PRAGMA defer_foreign_keys applies (it is a no-op outside a
+            # transaction), then move the parent and every child row before the
+            # check runs at COMMIT.
+            if conn.in_transaction:
+                conn.commit()
+            conn.isolation_level = None
+            conn.execute('BEGIN')
+            conn.execute('PRAGMA defer_foreign_keys = ON')
 
         conn.execute(
             '''
@@ -1271,11 +1295,12 @@ def admin_match_edit():
             (match_id, series_title, week, team_a, team_b, game_label, team_a_side, match_vod or None, region or None, current_match_id),
         )
 
-        if current_match_id != match_id:
-            conn.execute(
-                'UPDATE players SET match_id = ? WHERE match_id = ?',
-                (match_id, current_match_id),
-            )
+        if renaming:
+            for table in _MATCH_CHILD_TABLES:
+                conn.execute(
+                    f'UPDATE {table} SET match_id = ? WHERE match_id = ?',
+                    (match_id, current_match_id),
+                )
 
         if winner_team is not None:
             winning_team = team_a_side if winner_team == 'team_a' else (1 - team_a_side)

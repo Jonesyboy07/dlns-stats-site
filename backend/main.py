@@ -18,6 +18,15 @@ import asqlite
 
 from dotenv import load_dotenv
 
+# Asset endpoints are shared with the web app (see backend/constants.py) so a
+# host move is a one-line change. This script is launched as
+# `python backend/main.py`, so `constants` resolves as a top-level module; the
+# fallback covers `python -m backend.main`.
+try:
+    from constants import HERO_DETAILS_URL as _ASSETS_HERO_DETAILS_URL
+except ImportError:  # pragma: no cover - module execution
+    from backend.constants import HERO_DETAILS_URL as _ASSETS_HERO_DETAILS_URL
+
 
 # ----------------- Config -----------------
 
@@ -35,9 +44,9 @@ DEFAULT_MAX_RETRY_WAIT_S = 20.0
 
 # Deadlock + Steam APIs
 MATCH_METADATA_URL = "https://api.deadlock-api.com/v1/matches/{match_id}/metadata"
-HERO_DETAILS_URL = (
-    "https://assets.deadlock-api.com/v2/heroes/{hero_id}?language=english&client_version=6181"
-)
+# Hero caches pin language + the client version their payloads were validated
+# against, so the query string is added on top of the shared base URL.
+HERO_DETAILS_URL = f"{_ASSETS_HERO_DETAILS_URL}?language=english&client_version=6181"
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
 
 # Steam API key must be provided via environment (or .env). No hardcoded default.

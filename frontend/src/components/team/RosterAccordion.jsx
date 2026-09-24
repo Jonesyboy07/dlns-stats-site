@@ -5,12 +5,12 @@ import ItemIcon from "../ItemIcon";
 import PlayerAvatar from "../PlayerAvatar";
 import { formatCompact, formatInteger, formatKda } from "../../utils/format";
 
-/** "WK 47–55", or a single week when the player only appeared once. */
+/** "NS 47–55", or a single week when the player only appeared once. */
 const weekRange = (player) => {
   const { first_week: first, last_week: last } = player;
   if (first == null && last == null) return null;
-  if (first == null || first === last) return `WK ${last ?? first}`;
-  return `WK ${first}\u2013${last}`;
+  if (first == null || first === last) return `NS ${last ?? first}`;
+  return `NS ${first}\u2013${last}`;
 };
 
 function StatTile({ label, value }) {

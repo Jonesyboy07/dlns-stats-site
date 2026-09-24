@@ -16,6 +16,7 @@ import requests
 from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 from ..heroes import get_hero_name as get_local_hero_name
 from ..cache import cache
+from ...constants import HERO_DETAILS_URL, ITEM_DETAILS_URL, ITEMS_URL
 
 # Unique, isolated Blueprint for the DLNS exporter UI and API
 # Static folder points to project root's public folder
@@ -30,11 +31,11 @@ expo_bp = Blueprint(
 )
 
 
-# --- API endpoints and config (copied from app module, hardcoded as requested) ---
+# --- API endpoints and config ---
+# Asset URLs are imported from the shared module (see backend/constants.py) so a
+# host move only has to be made in one place.
 MATCH_METADATA_URL = "https://api.deadlock-api.com/v1/matches/{match_id}/metadata"
-HERO_DETAILS_URL = "https://assets.deadlock-api.com/v2/heroes/{hero_id}"
 HERO_CLIENT_VERSION = os.getenv("HERO_CLIENT_VERSION", "6181").strip()
-ITEM_DETAILS_URL = "https://assets.deadlock-api.com/v2/items/{item_id}"
 ITEM_CLIENT_VERSION = os.getenv("ITEM_CLIENT_VERSION", HERO_CLIENT_VERSION).strip()
 ITEM_REQUEST_TIMEOUT_S = int(os.getenv("ITEM_REQUEST_TIMEOUT_S", "6"))
 ITEM_LOOKUP_WORKERS = max(1, min(int(os.getenv("ITEM_LOOKUP_WORKERS", "12")), 32))
@@ -885,7 +886,7 @@ def items_list():  # type: ignore
         return jsonify(cached)
     try:
         resp = requests.get(
-            "https://assets.deadlock-api.com/v2/items",
+            ITEMS_URL,
             params={"language": "english"},
             timeout=10,
         )

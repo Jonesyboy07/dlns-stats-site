@@ -179,7 +179,7 @@ function TeamOverviewTab({ players = [], maxWeek, durations, heroPicks }) {
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
       <SectionCard
         title="Roster"
-        subtitle={maxWeek != null ? `WK ${maxWeek}` : null}
+        subtitle={maxWeek != null ? `NS ${maxWeek}` : null}
         action={
           <span className="text-[10px] uppercase tracking-wider text-gray-600">
             Signature heroes

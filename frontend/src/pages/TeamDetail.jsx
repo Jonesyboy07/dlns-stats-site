@@ -5,6 +5,7 @@ import TeamOverviewTab from "../components/team/TeamOverviewTab";
 import TeamPlayersTab from "../components/team/TeamPlayersTab";
 import TeamSeriesTab from "../components/team/TeamSeriesTab";
 import { formatRecord } from "../utils/format";
+import { isActivePlayer } from "../utils/timeline";
 
 const TABS = ["Overview", "Series", "Players"];
 
@@ -38,6 +39,8 @@ function TeamDetail() {
   const {
     team_name,
     max_week,
+    roster_weeks = [],
+    league_weeks = [],
     players = [],
     matches = [],
     hero_picks = [],
@@ -48,14 +51,10 @@ function TeamDetail() {
     hero_usage,
   } = data;
 
-  // Split current roster (appeared in latest week) vs alumni
-  const currentPlayers = players.filter(
-    (p) => max_week == null || p.last_week === max_week
-  );
+  // Current roster = players who turned out in the team's latest week. The
+  // roster timeline covers everyone, so there is no separate alumni list.
+  const currentPlayers = players.filter((p) => isActivePlayer(p, max_week));
   const rosterPlayers = currentPlayers.length > 0 ? currentPlayers : players;
-  const historicPlayers = players.filter(
-    (p) => max_week != null && p.last_week < max_week
-  );
 
   const seriesRecord = formatRecord(record.series?.wins, record.series?.losses);
   const gameRecord = formatRecord(record.games?.wins, record.games?.losses);
@@ -104,7 +103,9 @@ function TeamDetail() {
       {activeTab === "Players" && (
         <TeamPlayersTab
           currentPlayers={currentPlayers}
-          historicPlayers={historicPlayers}
+          players={players}
+          rosterWeeks={roster_weeks}
+          leagueWeeks={league_weeks}
           max_week={max_week}
           leaderboard={leaderboard}
           heroUsage={hero_usage}

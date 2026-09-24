@@ -1,22 +1,29 @@
 import React from "react";
-import PlayerCard from "./PlayerCard";
 import HeroUsage from "./HeroUsage";
 import Leaderboard from "./Leaderboard";
 import RosterAccordion from "./RosterAccordion";
+import RosterTimeline from "./RosterTimeline";
 import SectionCard from "../SectionCard";
 
 function TeamPlayersTab({
   currentPlayers = [],
-  historicPlayers = [],
+  players = [],
+  rosterWeeks = [],
+  leagueWeeks = [],
   max_week,
   leaderboard,
   heroUsage,
 }) {
+  const span =
+    rosterWeeks.length > 0
+      ? `NS ${rosterWeeks[0]}\u2013${rosterWeeks[rosterWeeks.length - 1]}`
+      : null;
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <SectionCard
-          title={`Active Roster${max_week != null ? ` \u00b7 WK ${max_week}` : ""}`}
+          title={`Active Roster${max_week != null ? ` \u00b7 NS ${max_week}` : ""}`}
           subtitle="click a row to expand"
         >
           <RosterAccordion players={currentPlayers} />
@@ -38,18 +45,22 @@ function TeamPlayersTab({
         </div>
       </div>
 
-      {/* Former Players keeps its current treatment until its own spec lands. */}
-      {historicPlayers.length > 0 && (
-        <section>
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Former Players
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {historicPlayers.map((p) => (
-              <PlayerCard key={p.account_id} player={p} isCurrent={false} />
-            ))}
-          </div>
-        </section>
+      {/* Replaces the old "Former Players" grid: one shared timeline showing
+          when each player was on the roster, gaps included. Hidden for the
+          pre-season qualifier teams, whose single Night Shift Open match carries
+          no event week, so there is nothing to plot. */}
+      {rosterWeeks.length > 0 && (
+        <SectionCard
+          title="Roster Timeline"
+          subtitle={`every player's tenure across ${span}`}
+        >
+          <RosterTimeline
+            players={players}
+            weeks={rosterWeeks}
+            leagueWeeks={leagueWeeks}
+            maxWeek={max_week}
+          />
+        </SectionCard>
       )}
     </div>
   );

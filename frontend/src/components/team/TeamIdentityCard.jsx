@@ -66,8 +66,8 @@ function TeamIdentityCard({
         </div>
       </div>
 
-      <div className="ml-auto flex flex-col items-end gap-1.5">
-        <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+      <div className="mt-auto flex flex-col gap-1.5">
+        <span className="flex items-center gap-1 text-[12px] uppercase tracking-wider text-gray-400">
           Last 10 games
           <span aria-hidden="true">&rarr;</span>
         </span>

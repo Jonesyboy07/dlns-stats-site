@@ -5,6 +5,7 @@ import {
   formatDurationDelta,
   formatInteger,
   formatKda,
+  formatMatchDate,
   formatPercent,
   formatRecord,
 } from "./format";
@@ -104,5 +105,17 @@ describe("formatInteger", () => {
 
   it("returns null when there is no value", () => {
     expect(formatInteger(null)).toBeNull();
+  });
+});
+
+describe("formatMatchDate", () => {
+  it("reads as day, short month and year", () => {
+    // Noon UTC so the expectation holds in any timezone.
+    expect(formatMatchDate("2026-09-24T12:00:00+00:00")).toBe("24 Sep 2026");
+  });
+
+  it("returns null for missing or unusable input", () => {
+    expect(formatMatchDate(null)).toBeNull();
+    expect(formatMatchDate("not a date")).toBeNull();
   });
 });

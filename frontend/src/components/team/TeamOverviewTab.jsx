@@ -74,7 +74,7 @@ function HowTheyWin({ durations }) {
 
   return (
     <SectionCard
-      title="How They Win"
+      title="Game Length"
       subtitle={baseline ? `Night Shift avg ${baseline}` : null}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -21,9 +21,9 @@ function DivisionBar({ wins = 0, losses = 0, title, className = "" }) {
   return (
     <div
       title={title}
-      className={`flex h-4 w-full overflow-hidden rounded bg-red-500/80 ${className}`}
+      className={`flex h-4 w-full overflow-hidden rounded bg-rose-800 ${className}`}
     >
-      <div className="h-full bg-green-500" style={{ width: `${winShare}%` }} />
+      <div className="h-full bg-green-700" style={{ width: `${winShare}%` }} />
     </div>
   );
 }

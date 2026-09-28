@@ -5,6 +5,7 @@ import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
+import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -64,22 +65,8 @@ const PLAYER_METRICS = [
   { key: "player_healing", label: "Healing" },
 ];
 
-// Soul-income source labels (deadlock-api gold_sources source ids), user-confirmed.
-const SOUL_SOURCE_LABELS = {
-  1: "Enemy Kills",
-  2: "Troopers",
-  3: "Neutral Enemies",
-  4: "Objectives",
-  5: "Urn",
-  6: "Kill Assists",
-  7: "Denies",
-  8: "Team Catch-Up",
-  9: "Ability Assassinate",
-  10: "Trophy Collector",
-  11: "Cultist Sacrifice",
-  12: "Breakable Pickups",
-  13: "Golden Goose Egg",
-};
+// Soul-source labels live in utils/soulSources.js so the player profile's Souls
+// Profile panel and this tooltip share one map.
 
 // ── Damage-source labels (deadlock-api damage_matrix source names) ──
 // Ability display names come from data/hero_meta.json (image filenames carry the

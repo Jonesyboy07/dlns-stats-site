@@ -8,7 +8,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import requests
@@ -24,6 +24,10 @@ from ...constants import ITEMS_URL
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
 _replay_file_cache_lock = threading.Lock()
+
+# DLNS's 3-lane map, in scoreboard order: York, Greenwich, Broadway. Mirrors
+# LANE_ORDER in MatchDetail.jsx so hero lineups read identically in both places.
+LANE_ORDER = (1, 4, 6)
 
 
 def _rows_to_dicts(cur: sqlite3.Cursor) -> List[Dict[str, Any]]:
@@ -1355,30 +1359,7 @@ def match_players(match_id: int):  # type: ignore
 @cache.cached(timeout=21600)  # Cache for 6 hours
 def item_names():  # type: ignore
     """Return class_name -> display name for items (for damage-source labels)."""
-    item_catalog = cache.get("dlns_items_list")
-    if item_catalog is None:
-        try:
-            resp = requests.get(
-                ITEMS_URL,
-                params={"language": "english"},
-                timeout=5,
-            )
-            resp.raise_for_status()
-            item_catalog = resp.json()
-            cache.set("dlns_items_list", item_catalog, timeout=600)
-        except Exception as e:
-            current_app.logger.warning("Item catalog unavailable: %s", e)
-            item_catalog = []
-    names: Dict[str, str] = {}
-    if isinstance(item_catalog, list):
-        for it in item_catalog:
-            if not isinstance(it, dict):
-                continue
-            cn = it.get("class_name")
-            nm = it.get("name")
-            if isinstance(cn, str) and isinstance(nm, str) and nm and nm != cn:
-                names[cn] = nm
-    return jsonify(names)
+    return jsonify(_item_class_names())
 
 
 @bp.get("/matches/<int:match_id>/timeline")
@@ -1737,8 +1718,12 @@ def user_stats(account_id: int):  # type: ignore
 def user_matches_api(account_id: int):
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, m.duration_s, m.winning_team, m.game_mode, m.match_mode, m.start_time, m.created_at, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.event_week "
-            "FROM players p JOIN matches m ON m.match_id = p.match_id WHERE p.account_id = ? ORDER BY m.created_at DESC",
+            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.net_worth, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, p.level, p.lane, p.lane_real, m.duration_s, m.winning_team, m.game_mode, m.match_mode, m.start_time, m.created_at, m.event_title, m.event_week, m.event_game, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.match_vod "
+            # Order by when the game was PLAYED, not when it was ingested —
+            # `created_at` reorders a player's history whenever a week is
+            # re-ingested (e.g. the week-49 repair), which broke "last 10 games".
+            "FROM players p JOIN matches m ON m.match_id = p.match_id WHERE p.account_id = ? "
+            "ORDER BY COALESCE(m.start_time, m.created_at) DESC",
             (account_id,),
         )
         data = _rows_to_dicts(cur)
@@ -1750,13 +1735,27 @@ def user_matches_api(account_id: int):
         
         return jsonify({"matches": data})
 
+# Whitelisted ORDER BY fragments for /users/<id>/matches/paged. Anything else
+# falls back to newest-first, so the sort param can never reach the SQL string.
+_USER_MATCH_SORTS = {
+    "date": "COALESCE(m.start_time, m.created_at)",
+    "kda": "(p.kills + p.assists) * 1.0 / MAX(COALESCE(p.deaths, 0), 1)",
+    "souls": "p.net_worth",
+    "duration": "m.duration_s",
+}
+
+
 @bp.get("/users/<int:account_id>/matches/paged")
 @cache.cached(timeout=900, query_string=True)
 def user_matches_paged_api(account_id: int):
     order = (request.args.get("order") or "desc").lower()
     order = "asc" if order == "asc" else "desc"
     res = (request.args.get("res") or "").lower()  # win|loss|''
-    teamf = request.args.get("team") or ""
+    # The player's own side: 0 = Amber, 1 = Sapphire. `team` is the legacy name
+    # for the same filter and is still honoured.
+    sidef = request.args.get("side") or request.args.get("team") or ""
+    sort = (request.args.get("sort") or "date").lower()
+    order_by = _USER_MATCH_SORTS.get(sort, _USER_MATCH_SORTS["date"])
     try:
         page = max(1, int(request.args.get("page", 1)))
     except Exception:
@@ -1772,9 +1771,16 @@ def user_matches_paged_api(account_id: int):
     if res in ("win", "loss"):
         conds.append("p.result = ?")
         params.append("Win" if res == "win" else "Loss")
-    if teamf in ("0", "1"):
+    if sidef in ("0", "1"):
         conds.append("p.team = ?")
-        params.append(int(teamf))
+        params.append(int(sidef))
+    herof = request.args.get("hero") or ""
+    if herof:
+        try:
+            conds.append("p.hero_id = ?")
+            params.append(int(herof))
+        except Exception:
+            pass
 
     where = " WHERE p.account_id = ?" + (" AND " + " AND ".join(conds) if conds else "")
     with get_ro_conn() as conn:
@@ -1784,9 +1790,9 @@ def user_matches_paged_api(account_id: int):
         )
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.creep_kills, p.last_hits, p.denies, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, m.duration_s, m.winning_team, m.start_time, m.created_at "
+            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.net_worth, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, p.level, p.lane, p.lane_real, m.duration_s, m.winning_team, m.start_time, m.created_at, m.event_week, m.event_game, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.match_vod "
             "FROM players p JOIN matches m ON m.match_id = p.match_id" + where +
-            f" ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
+            f" ORDER BY {order_by} {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
         data = _rows_to_dicts(cur)
@@ -1803,6 +1809,372 @@ def user_matches_paged_api(account_id: int):
             "total": total,
             "total_pages": (total + per_page - 1) // per_page
         })
+
+@bp.get("/users/<int:account_id>/souls")
+@cache.cached(timeout=1800)
+def user_souls_api(account_id: int):  # type: ignore
+    """Soul income per source, averaged over the games that carry soul data.
+
+    `player_gold_sources` holds one row per (match, source), so dividing by the
+    number of games that HAVE soul data keeps the shares consistent and makes the
+    per-game values add up to the player's souls per game. A source a game never
+    produced simply contributes nothing, which is how the in-game breakdown works.
+
+    Source ids are resolved to names in the frontend (SOUL_SOURCE_LABELS), the
+    same map MatchDetail's tooltip uses.
+    """
+    with get_ro_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT source,
+                   SUM(COALESCE(gold, 0) + COALESCE(gold_orbs, 0)) AS total,
+                   COUNT(DISTINCT match_id) AS games
+              FROM player_gold_sources
+             WHERE account_id = ?
+             GROUP BY source
+            """,
+            (account_id,),
+        ).fetchall()
+        total_games = conn.execute(
+            "SELECT COUNT(*) FROM players WHERE account_id = ?",
+            (account_id,),
+        ).fetchone()[0]
+
+    # Every game with data contributes at least one source row, so the largest
+    # per-source game count is the number of games that have soul data at all.
+    games = max((row[2] or 0) for row in rows) if rows else 0
+    total = sum(row[1] or 0 for row in rows)
+
+    sources = [
+        {
+            "source": row[0],
+            "total": int(row[1] or 0),
+            "per_game": (row[1] or 0) / games if games else None,
+            "share": (row[1] or 0) / total if total else None,
+        }
+        for row in rows
+    ]
+    sources.sort(key=lambda item: item["total"], reverse=True)
+
+    return jsonify(
+        {
+            "account_id": account_id,
+            "games": games,  # games that carry soul data
+            "total_games": total_games,  # every game the player played
+            "total_per_game": total / games if games else None,
+            "sources": sources,
+        }
+    )
+
+
+@bp.get("/users/<int:account_id>/deaths")
+@cache.cached(timeout=1800)
+def user_deaths_api(account_id: int):  # type: ignore
+    """Death rate and timing, split by game phase.
+
+    Two sources, on purpose: `players.deaths` is the authoritative per-game
+    count (it is what every other page shows), while `player_deaths` carries the
+    per-death time used for the phase split — those rows only exist for matches
+    that have stats snapshots.
+
+    There is deliberately no "overextension" figure: `player_deaths.midpoint_distance`
+    is NULL in every stored row, because the ingest only fills it when x, y AND z
+    are all present and the snapshots never carry a z. A 2D stand-in from
+    `position_x`/`position_y` is possible but would be a different metric, so it is
+    not served until the league asks for one.
+    """
+    with get_ro_conn() as conn:
+        games, deaths, seconds = conn.execute(
+            """
+            SELECT COUNT(*) AS games,
+                   COALESCE(SUM(p.deaths), 0) AS deaths,
+                   COALESCE(SUM(m.duration_s), 0) AS seconds
+              FROM players p
+              JOIN matches m ON m.match_id = p.match_id
+             WHERE p.account_id = ?
+            """,
+            (account_id,),
+        ).fetchone()
+
+        timed, avg_time, early, mid, late = conn.execute(
+            """
+            SELECT COUNT(d.death_time_s),
+                   AVG(d.death_time_s),
+                   SUM(CASE WHEN d.death_time_s < 900 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN d.death_time_s >= 900 AND d.death_time_s <= 1800 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN d.death_time_s > 1800 THEN 1 ELSE 0 END)
+              FROM player_deaths d
+             WHERE d.account_id = ?
+            """,
+            (account_id,),
+        ).fetchone()
+
+        games_with_death_data = conn.execute(
+            "SELECT COUNT(DISTINCT match_id) FROM player_deaths WHERE account_id = ?",
+            (account_id,),
+        ).fetchone()[0]
+
+    return jsonify(
+        {
+            "account_id": account_id,
+            "games": games,
+            "deaths": deaths,
+            "deaths_per_game": deaths / games if games else None,
+            "deaths_per_min": deaths / (seconds / 60) if seconds else None,
+            "avg_death_time_s": avg_time,
+            "timed_deaths": timed or 0,
+            # Death timing/positions only exist for matches with stats snapshots.
+            "games_with_death_data": games_with_death_data,
+            "phases": [
+                {"id": "early", "label": "< 15 min", "count": early or 0},
+                {"id": "mid", "label": "15 – 30 min", "count": mid or 0},
+                {"id": "late", "label": "30+ min", "count": late or 0},
+            ],
+        }
+    )
+
+
+@bp.get("/users/<int:account_id>/items")
+@cache.cached(timeout=1800)
+def user_items_api(account_id: int):  # type: ignore
+    """Signature items (3,200+ souls) and the typical build order.
+
+    `players.raw_items_json` holds one entry per purchase event, so entries with
+    a non-zero `sold_time_s` were bought and later sold and are excluded — the
+    same rule the team page uses. Median buy time is computed here rather than in
+    SQL because SQLite has no median aggregate.
+    """
+    catalog = _item_catalog()
+    with get_ro_conn() as conn:
+        total_games = conn.execute(
+            "SELECT COUNT(*) FROM players WHERE account_id = ?",
+            (account_id,),
+        ).fetchone()[0]
+        rows = conn.execute(
+            """
+            SELECT p.match_id,
+                   json_extract(entry.value, '$.item_id') AS item_id,
+                   json_extract(entry.value, '$.game_time_s') AS game_time_s
+              FROM players p,
+                   json_each(p.raw_items_json) AS entry
+             WHERE p.account_id = ?
+               AND p.raw_items_json IS NOT NULL
+               AND json_extract(entry.value, '$.item_id') IS NOT NULL
+               AND COALESCE(json_extract(entry.value, '$.sold_time_s'), 0) = 0
+            """,
+            (account_id,),
+        ).fetchall()
+
+    # item id -> the games it was bought in and the buy times collected
+    stats: Dict[int, Dict[str, Any]] = {}
+    games_with_items = set()
+    for match_id, item_id, game_time_s in rows:
+        games_with_items.add(match_id)
+        bucket = stats.setdefault(int(item_id), {"games": set(), "times": []})
+        bucket["games"].add(match_id)
+        if game_time_s is not None:
+            bucket["times"].append(game_time_s)
+
+    def median(values: List[float]) -> Optional[float]:
+        if not values:
+            return None
+        ordered = sorted(values)
+        middle = len(ordered) // 2
+        if len(ordered) % 2:
+            return ordered[middle]
+        return (ordered[middle - 1] + ordered[middle]) / 2
+
+    entries = []
+    for item_id, bucket in stats.items():
+        meta = catalog.get(item_id)
+        if not meta or meta["type"] == "ability":
+            continue
+        bought = len(bucket["games"])
+        entries.append(
+            {
+                "item_id": item_id,
+                "item_name": meta["name"],
+                "tier": meta["tier"],
+                "slot": meta["slot"],
+                "icon": meta["icon"],
+                "games": bought,
+                "share": bought / total_games if total_games else None,
+                "median_time_s": median(bucket["times"]),
+            }
+        )
+
+    signature = sorted(
+        (item for item in entries if (item["tier"] or 0) >= MIN_SIGNATURE_ITEM_TIER),
+        key=lambda item: (-item["games"], item["item_name"]),
+    )[:SIGNATURE_ITEM_PROFILE_LIMIT]
+
+    # The build order is the most-bought items, laid out by when they are
+    # typically finished — an item nobody buys has no place on a build timeline.
+    build = sorted(
+        (item for item in entries if item["games"] >= 2 and item["median_time_s"] is not None),
+        key=lambda item: (-item["games"], item["item_name"]),
+    )[:BUILD_ORDER_LIMIT]
+    build.sort(key=lambda item: item["median_time_s"])
+
+    return jsonify(
+        {
+            "account_id": account_id,
+            "games": total_games,
+            "games_with_items": len(games_with_items),
+            "signature": signature,
+            "build": build,
+        }
+    )
+
+
+@bp.get("/users/<int:account_id>/damage")
+@cache.cached(timeout=1800)
+def user_damage_api(account_id: int):  # type: ignore
+    """Hero damage by source, grouped the way the Damage Profile panel shows it.
+
+    `player_damage_sources` stores the upstream damage matrix verbatim, which
+    mixes generic buckets ("Ability", "Bullet", "Melee", "Misc"), per-hero weapon
+    sets and internal ability keys. Labelling an ability key needs the hero the
+    player was on, so the rows are aggregated per (source, hero) and classified in
+    Python — see `_classify_damage_source`.
+
+    `per_game` divides by the games that actually carry damage data (the same
+    denominator the souls panel uses), so the group shares always add up to 100%.
+    """
+    index = _damage_source_index()
+    item_names = _item_class_names()
+    from ..heroes import get_all_hero_names
+
+    hero_names = get_all_hero_names()
+
+    with get_ro_conn() as conn:
+        total_games = conn.execute(
+            "SELECT COUNT(*) FROM players WHERE account_id = ?",
+            (account_id,),
+        ).fetchone()[0]
+        rows = conn.execute(
+            """
+            SELECT s.source, p.hero_id, SUM(s.damage) AS damage
+              FROM player_damage_sources s
+              JOIN players p ON p.match_id = s.match_id AND p.account_id = s.account_id
+             WHERE s.account_id = ?
+             GROUP BY s.source, p.hero_id
+            """,
+            (account_id,),
+        ).fetchall()
+        games_with_damage = conn.execute(
+            "SELECT COUNT(DISTINCT match_id) FROM player_damage_sources WHERE account_id = ?",
+            (account_id,),
+        ).fetchone()[0]
+
+    group_totals: Dict[str, int] = {}
+    ability_rows: Dict[tuple, Dict[str, Any]] = {}
+    # Rows that are one line in the panel however many sources feed them.
+    fixed_rows: Dict[str, Dict[str, Any]] = {}
+    item_damage = 0
+    total = 0
+
+    for source, hero_id, damage in rows:
+        damage = int(damage or 0)
+        if not damage:
+            continue
+        group, label, sub = _classify_damage_source(source, hero_id, index, item_names)
+        total += damage
+        group_totals[group] = group_totals.get(group, 0) + damage
+
+        if group == "abilities":
+            hero_name = hero_names.get(str(hero_id)) or f"Hero {hero_id}"
+            # A named ability is labelled with the hero who cast it, and the same
+            # key can show up for several heroes (a Shiv ability hit taken while
+            # on someone else), so the hero stays part of the row key. The generic
+            # bucket has its own sub-label and must not split per hero.
+            key = (label, sub, hero_id if not sub else None)
+            row = ability_rows.setdefault(
+                key, {"label": label, "sub": sub or hero_name, "damage": 0}
+            )
+            row["damage"] += damage
+        elif group == "items":
+            # Item procs are itemised in Items & Build, so the damage panel keeps
+            # one line for them and their individual names are not repeated here.
+            item_damage += damage
+        else:
+            row = fixed_rows.setdefault(
+                label, {"label": label, "sub": sub, "group": group, "damage": 0}
+            )
+            row["damage"] += damage
+
+    def per_game(value: int) -> Optional[float]:
+        return value / games_with_damage if games_with_damage else None
+
+    def as_source_row(row: Dict[str, Any], group: str) -> Dict[str, Any]:
+        return {
+            "label": row["label"],
+            "sub": row["sub"],
+            "group": group,
+            "damage": row["damage"],
+            "share": row["damage"] / total if total else None,
+            "per_game": per_game(row["damage"]),
+        }
+
+    ordered_abilities = sorted(ability_rows.values(), key=lambda row: (-row["damage"], row["label"]))
+    sources = [
+        as_source_row(row, "abilities") for row in ordered_abilities[:MAX_DAMAGE_ABILITY_ROWS]
+    ]
+
+    # Whatever the top-N cut off is rolled into one remainder row, so the ability
+    # lines still add up to the Abilities share printed above them.
+    rest = ordered_abilities[MAX_DAMAGE_ABILITY_ROWS:]
+    if rest:
+        remainder = sum(row["damage"] for row in rest)
+        sources.append(
+            as_source_row(
+                {
+                    "label": "Other abilities",
+                    "sub": f"{len(rest)} more",
+                    "damage": remainder,
+                },
+                "abilities",
+            )
+        )
+
+    for label in ("Bullets", "Headshots / crits"):
+        row = fixed_rows.get(label)
+        if row:
+            sources.append(as_source_row(row, "weapon"))
+    if item_damage:
+        sources.append(
+            as_source_row(
+                {"label": "Item procs", "sub": "all items", "damage": item_damage},
+                "items",
+            )
+        )
+    for label in ("Melee", "Misc"):
+        row = fixed_rows.get(label)
+        if row:
+            sources.append(as_source_row(row, row["group"]))
+
+    return jsonify(
+        {
+            "account_id": account_id,
+            "games": total_games,
+            "games_with_damage": games_with_damage,
+            "total_damage": total,
+            "total_per_game": per_game(total),
+            "groups": [
+                {
+                    "id": group_id,
+                    "label": DAMAGE_GROUP_LABELS[group_id],
+                    "damage": group_totals[group_id],
+                    "share": group_totals[group_id] / total if total else None,
+                    "per_game": per_game(group_totals[group_id]),
+                }
+                for group_id in DAMAGE_GROUP_ORDER
+                if group_totals.get(group_id)
+            ],
+            "sources": sources,
+        }
+    )
+
 
 @bp.get("/search/suggest")
 @cache.cached(timeout=120, query_string=True)
@@ -2442,6 +2814,9 @@ def get_teams():
 # rather than soul costs, and tier 3 is the 3200 tier.
 MIN_SIGNATURE_ITEM_TIER = 3
 SIGNATURE_ITEM_LIMIT = 3
+# The player profile's Items & Build panel shows more than the roster card does.
+SIGNATURE_ITEM_PROFILE_LIMIT = 6
+BUILD_ORDER_LIMIT = 6
 
 
 def _icon_key(value: str) -> str:
@@ -2543,6 +2918,253 @@ def _item_catalog() -> Dict[int, Dict[str, Any]]:
     if catalog:
         cache.set("dlns_item_catalog", catalog, timeout=21600)
     return catalog
+
+
+# ── Damage matrix labels ───────────────────────────────────────────────────
+# `player_damage_sources.source` keeps the upstream damage_matrix source name
+# verbatim, and those come in three flavours:
+#   1. generic buckets — "Bullet", "Ability", "Melee", "Misc"
+#   2. per-hero weapon sets — "citadel_weapon_mirage_set", "…_crit"
+#   3. internal ability keys — "ability_flame_dash", "citadel_ability_storm_cloud"
+# Only (3) needs translating, and those keys do NOT match the asset filenames in
+# data/hero_meta.json (the game renamed most abilities after those assets were
+# cut), so `_damage_source_index` offers progressively looser lookups: the exact
+# asset key for the hero, the same key from any hero, then the hero's ability
+# NAMES matched as token sets ("citadel_ability_lightning_ball" -> Lightning Ball).
+# Item keys resolve exactly — the item catalog is keyed by the same class_name.
+DAMAGE_GROUP_ORDER = ("abilities", "weapon", "items", "melee", "other")
+DAMAGE_GROUP_LABELS = {
+    "abilities": "Abilities",
+    "weapon": "Weapon",
+    "items": "Items",
+    "melee": "Melee",
+    "other": "Other",
+}
+# The panel lists the biggest ability sources; the rest is rolled into one row.
+MAX_DAMAGE_ABILITY_ROWS = 5
+# Sources that mean headshot/crit damage rather than a weapon, an item or a kit
+# ability. `_crit` suffixes are matched by pattern; these are exact names.
+_DAMAGE_HEADSHOT_SOURCES = {"headshot", "upgrade_headhunter", "upgrade_headshot_booster"}
+_DAMAGE_ITEM_PREFIXES = ("upgrade_", "item_", "mods_")
+_DAMAGE_SOURCE_PREFIXES = (
+    "citadel_ability_",
+    "ability_",
+    "citadel_weapon_",
+    "citadel_",
+    "weapon_",
+)
+
+
+def _item_class_names() -> Dict[str, str]:
+    """Item `class_name` -> display name, for labelling damage sources (cached).
+
+    The same catalog the /items/names endpoint serves; kept in one helper so the
+    damage panel and the match tooltips can never disagree about an item's name.
+    """
+    cached = cache.get("dlns_item_class_names")
+    if cached is not None:
+        return cached
+
+    raw = cache.get("dlns_items_list")
+    if raw is None:
+        try:
+            resp = requests.get(ITEMS_URL, params={"language": "english"}, timeout=5)
+            resp.raise_for_status()
+            raw = resp.json()
+            cache.set("dlns_items_list", raw, timeout=600)
+        except Exception as exc:  # requests raises several types
+            current_app.logger.warning("Item catalog unavailable: %s", exc)
+            raw = []
+
+    names: Dict[str, str] = {}
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        class_name = item.get("class_name")
+        name = item.get("name")
+        # Internal variants repeat their class name and are never real purchases.
+        if isinstance(class_name, str) and isinstance(name, str) and name and name != class_name:
+            names[class_name] = name
+
+    if names:
+        cache.set("dlns_item_class_names", names, timeout=21600)
+    return names
+
+
+def _damage_source_index() -> Dict[str, Any]:
+    """Ability lookups for the damage matrix, built from data/hero_meta.json."""
+    cached = cache.get("dlns_damage_source_index")
+    if cached is not None:
+        return cached
+
+    meta_path = Path(current_app.root_path).parent.parent / "data" / "hero_meta.json"
+    raw: Dict[str, Any] = {}
+    try:
+        with meta_path.open(encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except (OSError, ValueError) as exc:
+        current_app.logger.warning("Ability index unavailable: %s", exc)
+
+    by_hero: Dict[str, Dict[str, str]] = {}
+    tokens_by_hero: Dict[str, List[Any]] = {}
+    prefixes_by_hero: Dict[str, set] = {}
+    any_key: Dict[str, str] = {}
+
+    for hero_id, hero in (raw if isinstance(raw, dict) else {}).items():
+        keys: Dict[str, str] = {}
+        tokens: List[Any] = []
+        prefixes: set = set()
+        for ability in (hero or {}).get("abilities") or []:
+            name = ability.get("name")
+            if not name:
+                continue
+            image = (ability.get("image") or "").replace("/", "\\")
+            stem = re.sub(r"_psd\.png$", "", image.split("\\")[-1]).lower()
+            if stem:
+                keys[stem] = name
+                any_key.setdefault(stem, name)
+                # The first word of a kit's asset names is the hero's internal
+                # prefix ("vampirebat_lovebites", "priest_flashbang"), which the
+                # damage keys reuse.
+                prefixes.add(stem.split("_")[0])
+            words = frozenset(
+                re.findall(r"[a-z0-9]+", re.sub(r"['\u2019]s\b", "", name.lower()))
+            )
+            if words:
+                tokens.append((words, name))
+        by_hero[str(hero_id)] = keys
+        tokens_by_hero[str(hero_id)] = tokens
+        prefixes_by_hero[str(hero_id)] = prefixes
+
+    index: Dict[str, Any] = {
+        "by_hero": by_hero,
+        "any": any_key,
+        "tokens": tokens_by_hero,
+        "prefixes": prefixes_by_hero,
+    }
+    if raw:
+        cache.set("dlns_damage_source_index", index, timeout=21600)
+    return index
+
+
+def _titleise_damage_source(key: str) -> str:
+    """Best-effort name for a source the catalogs do not know.
+
+    "shiv_defer_damage" -> "Shiv Defer Damage", "UnknownAbility" -> "Unknown Ability".
+    """
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", key or "")
+    return spaced.replace("_", " ").strip().title()
+
+
+def _classify_damage_source(
+    source: str,
+    hero_id: Any,
+    index: Dict[str, Any],
+    item_names: Dict[str, str],
+) -> tuple:
+    """-> (group id, row label, row sub-label). The one place these rules live."""
+    low = (source or "").lower()
+    key = low
+    for prefix in _DAMAGE_SOURCE_PREFIXES:
+        if key.startswith(prefix):
+            key = key[len(prefix):]
+            break
+    key = re.sub(r"_(crit|amp)$", "", key).strip()
+
+    hero_keys = index["by_hero"].get(str(hero_id), {})
+    if key in hero_keys:
+        return "abilities", hero_keys[key], ""
+    if key in index["any"]:
+        return "abilities", index["any"][key], ""
+
+    words = set(key.split("_"))
+    best = None
+    for name_words, name in index["tokens"].get(str(hero_id), []):
+        if name_words <= words and (best is None or len(name) > len(best)):
+            best = name
+    if best:
+        return "abilities", best, ""
+
+    if "_crit" in low:
+        return "weapon", "Headshots / crits", ""
+    if low in _DAMAGE_HEADSHOT_SOURCES:
+        return "weapon", "Headshots / crits", ""
+    if low == "bullet" or low.startswith("citadel_weapon"):
+        return "weapon", "Bullets", "body"
+    if (low == "melee" or "melee" in low) and not low.startswith(_DAMAGE_ITEM_PREFIXES):
+        return "melee", "Melee", "light + heavy"
+    if source == "Ability":
+        return "abilities", "Abilities", "unattributed"
+    if low.startswith(_DAMAGE_ITEM_PREFIXES):
+        return "items", item_names.get(source) or _titleise_damage_source(key), ""
+    if low == "misc":
+        return "other", "Misc", "unattributed"
+
+    # Anything left is ability damage the catalogs cannot name, so it is named as
+    # well as possible: drop the hero's own internal prefix when the key carries
+    # one ("vampirebat_lovebites" -> Lovebites) and then prettify.
+    parts = key.split("_")
+    if len(parts) > 1 and parts[0] in index["prefixes"].get(str(hero_id), set()):
+        parts = parts[1:]
+    return "abilities", _titleise_damage_source("_".join(parts)), ""
+
+
+@bp.get("/team/<path:team_name>/weeks")
+@cache.cached(timeout=1800)
+def team_weeks_api(team_name: str):
+    """Week axis for one team: the weeks it played plus the league's weeks.
+
+    `/db/team/<name>` already computes both, but it carries the whole roster,
+    item catalogue and hero usage (145 KB for a busy team). The player page's
+    tenure timeline needs one call per team, so this is the same scoping with
+    only the weeks in the payload.
+    """
+    EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
+    with get_ro_conn() as conn:
+        has_non_open_match = conn.execute(
+            f"""
+            SELECT 1 FROM matches m
+            WHERE {EXCLUDE_OPEN_SQL}
+              AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+            LIMIT 1
+            """,
+            (team_name, team_name),
+        ).fetchone()
+        scope_sql = EXCLUDE_OPEN_SQL if has_non_open_match else "1 = 1"
+
+        team_weeks = [
+            row[0]
+            for row in conn.execute(
+                f"""
+                SELECT DISTINCT m.event_week
+                FROM matches m
+                WHERE (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+                  AND m.event_week IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM players p WHERE p.match_id = m.match_id)
+                  AND ({scope_sql})
+                """,
+                (team_name, team_name),
+            )
+            if row[0] is not None
+        ]
+
+        league_weeks = [
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT m.event_week FROM matches m "
+                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
+                f"AND ({EXCLUDE_OPEN_SQL})"
+            )
+            if row[0] is not None
+        ]
+
+    return jsonify(
+        {
+            "team_name": team_name,
+            "weeks": sorted(team_weeks),
+            "league_weeks": sorted(league_weeks),
+        }
+    )
 
 
 @bp.get("/team/<path:team_name>")
@@ -2732,7 +3354,7 @@ def get_team_detail(team_name: str):
             SELECT
                 m.match_id, m.event_game, m.event_week, m.event_title,
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
-                m.winning_team, m.duration_s, m.start_time
+                m.winning_team, m.duration_s, m.start_time, m.match_vod
             FROM matches m
             WHERE (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
               AND {SCOPE_SQL}
@@ -2741,6 +3363,50 @@ def get_team_detail(team_name: str):
             (team_name, team_name),
         )
         matches = [m for m in _rows_to_dicts(cur2) if m["match_id"] in playable_ids]
+
+        # Per-game hero lineups for the Series tab, in the order the scoreboard
+        # reads: lane by lane (York, Greenwich, Broadway), then in-game slot.
+        # heroes_a / heroes_b are aligned with event_team_a / event_team_b so the
+        # caller never has to work out which side is which.
+        lineups: Dict[int, Dict[int, List[Any]]] = {}
+        if matches:
+            match_ids = [m["match_id"] for m in matches]
+            placeholders = ",".join("?" * len(match_ids))
+            hero_rows = conn.execute(
+                f"""
+                SELECT p.match_id, p.team, p.hero_id, p.lane, p.lane_real, p.player_slot
+                FROM players p
+                WHERE p.match_id IN ({placeholders}) AND p.hero_id IS NOT NULL
+                """,
+                tuple(match_ids),
+            ).fetchall()
+            for mid, side, hero_id, lane, lane_real, slot in hero_rows:
+                # lane_real corrects early-game lane swaps; fall back to the
+                # lane the game assigned, exactly as the scoreboard does.
+                effective = lane_real if lane_real is not None else lane
+                try:
+                    rank = LANE_ORDER.index(int(effective))
+                except (TypeError, ValueError):
+                    rank = len(LANE_ORDER)  # unknown lane sorts last
+                lineups.setdefault(mid, {}).setdefault(int(side), []).append(
+                    (rank, slot if slot is not None else 99, int(hero_id))
+                )
+
+        for m in matches:
+            team_a_side = m.get("event_team_a_ingame_side")
+            if team_a_side in (0, 1):
+                sides = {"heroes_a": team_a_side, "heroes_b": 1 - team_a_side}
+            else:
+                sides = {"heroes_a": None, "heroes_b": None}
+            for key, side in sides.items():
+                m[key] = (
+                    [
+                        {"hero_id": hero_id, "hero_name": get_hero_name(hero_id)}
+                        for _, _, hero_id in sorted(lineups.get(m["match_id"], {}).get(side, []))
+                    ]
+                    if side is not None
+                    else []
+                )
 
         # Latest week the team actually played, matching the filtered list.
         max_week = max(

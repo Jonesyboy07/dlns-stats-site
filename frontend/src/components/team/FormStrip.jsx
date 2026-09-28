@@ -11,14 +11,14 @@ function FormStrip({ form = [] }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-end gap-1.5">
       {form.map((game) => (
         <Link
           key={game.match_id}
           to={`/match/${game.match_id}`}
           title={`Match ${game.match_id}: ${game.result === "W" ? "Win" : "Loss"}`}
           className={`h-3.5 w-5 rounded-sm transition-opacity hover:opacity-70 ${
-            game.result === "W" ? "bg-green-500" : "bg-red-500"
+            game.result === "W" ? "bg-green-700" : "bg-rose-800"
           }`}
         />
       ))}

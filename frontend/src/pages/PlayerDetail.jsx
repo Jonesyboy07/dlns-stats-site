@@ -3,11 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import ErrorMessage from "../components/ErrorMessage";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import HeroPool from "../components/player/HeroPool";
-import PanelStub from "../components/player/PanelStub";
+import HeroWeekMatrix from "../components/player/HeroWeekMatrix";
+import OpponentsPanel from "../components/player/OpponentsPanel";
 import PlayerIdentityCard from "../components/player/PlayerIdentityCard";
 import PlayerMatchTable from "../components/player/PlayerMatchTable";
 import ProfileTab from "../components/player/ProfileTab";
 import StatTiles from "../components/player/StatTiles";
+import TeammatesPanel from "../components/player/TeammatesPanel";
 import TenureTimeline from "../components/player/TenureTimeline";
 import { heroPool, playedTeams } from "../utils/playerStats";
 
@@ -154,7 +156,7 @@ function PlayerDetail() {
                   playerName={persona}
                   limit={20}
                 />
-                <PanelStub title="Hero × week" note="Heat matrix of picks per week." />
+                <HeroWeekMatrix matches={matches} />
               </>
             )}
 
@@ -172,10 +174,10 @@ function PlayerDetail() {
             {activeTab === "Teams" && (
               <>
                 <TenureTimeline matches={matches} />
-                <PanelStub
-                  title="Teammates & opponents"
-                  note="Who they win with, and who they beat."
-                />
+                <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+                  <TeammatesPanel accountId={accountId} />
+                  <OpponentsPanel accountId={accountId} />
+                </div>
               </>
             )}
 

@@ -38,6 +38,12 @@ function StatTile({ label, value, sub = null, delta = null }) {
  * P1-2: the six headline tiles. Deltas are passed in per tile key and are simply
  * omitted while there is no league-baseline endpoint — the tile renders without
  * the badge row rather than showing a meaningless comparison.
+ *
+ * Games, record and win rate are ONE tile: they are three views of the same series,
+ * and splitting them wasted two columns saying almost the same thing. The games
+ * played ride in brackets next to the record so a W–L that does not add up to the
+ * games count (unknown results) is visible in place, and the win rate sits on the
+ * sub line it belongs to.
  */
 export default function StatTiles({ matches = [], deltas = null }) {
   const stats = headlineStats(matches);
@@ -48,27 +54,24 @@ export default function StatTiles({ matches = [], deltas = null }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
       <StatTile
-        label="Games"
-        value={stats.games}
-        sub={stats.unknown > 0 ? `${stats.unknown} with unknown result` : null}
-        delta={badge("games")}
-      />
-      <StatTile
-        label="W–L"
+        label="Record"
         value={
-          <ScoreChip
-            wins={stats.wins}
-            losses={stats.losses}
-            className="text-[28px] leading-[1.05]"
-          />
+          <span className="flex items-baseline gap-1.5">
+            <ScoreChip
+              wins={stats.wins}
+              losses={stats.losses}
+              className="text-[28px] leading-[1.05]"
+              title={
+                stats.unknown > 0
+                  ? `${stats.unknown} game${stats.unknown === 1 ? "" : "s"} with no result`
+                  : undefined
+              }
+            />
+            <span className="font-valve-pulp text-[18px] tabular-nums text-dim">
+              ({stats.games})
+            </span>
+          </span>
         }
-        sub={stats.unknown > 0 ? "unknown results excluded" : null}
-        delta={badge("record")}
-      />
-      <StatTile
-        label="Win rate"
-        value={percent(stats.winRate)}
-        delta={badge("winRate", { unit: "pts" })}
       />
       <StatTile label="Avg KDA" value={average(stats.kda)} delta={badge("kda")} />
       <StatTile
@@ -82,6 +85,18 @@ export default function StatTiles({ matches = [], deltas = null }) {
         value={compact(stats.damagePerGame)}
         sub={coverage(stats.damageGames, stats.games)}
         delta={badge("damagePerGame")}
+      />
+      <StatTile
+        label="Healing/game"
+        value={compact(stats.healingPerGame)}
+        sub={coverage(stats.healingGames, stats.games)}
+        delta={badge("healingPerGame")}
+      />
+      <StatTile
+        label="Obj dmg/game"
+        value={compact(stats.objDamagePerGame)}
+        sub={coverage(stats.objDamageGames, stats.games)}
+        delta={badge("objDamagePerGame")}
       />
     </div>
   );

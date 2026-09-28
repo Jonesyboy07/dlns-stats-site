@@ -5,6 +5,7 @@ import {
   formatDurationDelta,
   formatInteger,
   formatKda,
+  formatLongDate,
   formatMatchDate,
   formatPercent,
   formatRecord,
@@ -117,5 +118,23 @@ describe("formatMatchDate", () => {
   it("returns null for missing or unusable input", () => {
     expect(formatMatchDate(null)).toBeNull();
     expect(formatMatchDate("not a date")).toBeNull();
+  });
+});
+
+describe("formatLongDate", () => {
+  it("reads as short month, day and year", () => {
+    // Noon UTC so the expectation holds in any timezone.
+    expect(formatLongDate("2026-09-13T12:00:00+00:00")).toBe("Sep 13, 2026");
+  });
+
+  it("keeps September three characters wide", () => {
+    // The team page's date column is fixed width, so "Sept" (ICU's en-GB form)
+    // would push the row out of alignment.
+    expect(formatLongDate("2026-09-01T12:00:00+00:00").startsWith("Sep ")).toBe(true);
+  });
+
+  it("returns null for missing or unusable input", () => {
+    expect(formatLongDate(null)).toBeNull();
+    expect(formatLongDate("not a date")).toBeNull();
   });
 });

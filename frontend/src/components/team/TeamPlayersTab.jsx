@@ -9,7 +9,6 @@ function TeamPlayersTab({
   currentPlayers = [],
   players = [],
   rosterWeeks = [],
-  leagueWeeks = [],
   max_week,
   leaderboard,
   heroUsage,
@@ -20,24 +19,28 @@ function TeamPlayersTab({
       : null;
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-        <SectionCard
-          title={`Active Roster${max_week != null ? ` \u00b7 NS ${max_week}` : ""}`}
-          subtitle="click a row to expand"
-        >
-          <RosterAccordion players={currentPlayers} />
-        </SectionCard>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-start gap-6">
+        <div className="min-w-0 flex-[1_1_100%]">
+          <SectionCard
+            title={`Active Roster${max_week != null ? ` \u00b7 NS ${max_week}` : ""}`}
+            subtitle="click a row to expand"
+          >
+            <RosterAccordion players={currentPlayers} maxWeek={max_week} />
+          </SectionCard>
+        </div>
 
-        <div className="space-y-6">
-          <Leaderboard players={currentPlayers} league={leaderboard?.league} />
+        <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-6">
+          <SectionCard title="Leaderboard" subtitle="per game vs league average">
+            <Leaderboard players={currentPlayers} league={leaderboard?.league} />
+          </SectionCard>
 
           <SectionCard
             title="Hero Usage"
             subtitle={
               heroUsage?.heroes?.length
-                ? `player \u00d7 ${heroUsage.heroes.length} heroes`
-                : "player \u00d7 heroes"
+                ? `games per player \u00d7 ${heroUsage.heroes.length} heroes`
+                : "games per player \u00d7 heroes"
             }
           >
             <HeroUsage usage={heroUsage} players={currentPlayers} />
@@ -45,21 +48,16 @@ function TeamPlayersTab({
         </div>
       </div>
 
-      {/* Replaces the old "Former Players" grid: one shared timeline showing
-          when each player was on the roster, gaps included. Hidden for the
-          pre-season qualifier teams, whose single Night Shift Open match carries
-          no event week, so there is nothing to plot. */}
+      {/* Replaces the old "Former Players" grid: one shared grid showing when each
+          player was on the roster, gaps included. Hidden for the pre-season
+          qualifier teams, whose single Night Shift Open match carries no event
+          week, so there is nothing to plot. */}
       {rosterWeeks.length > 0 && (
         <SectionCard
           title="Roster Timeline"
-          subtitle={`every player's tenure across ${span}`}
+          subtitle={span ? `${span} · one cell per week · hover a week for its lineup` : "hover a week for its lineup"}
         >
-          <RosterTimeline
-            players={players}
-            weeks={rosterWeeks}
-            leagueWeeks={leagueWeeks}
-            maxWeek={max_week}
-          />
+          <RosterTimeline players={players} weeks={rosterWeeks} maxWeek={max_week} />
         </SectionCard>
       )}
     </div>

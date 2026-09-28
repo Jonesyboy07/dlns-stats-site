@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import PlayerAvatar from "../PlayerAvatar";
+import SteamAvatar from "./SteamAvatar";
 import { formatCompact, formatKda } from "../../utils/format";
 
 /** Metrics offered by the segmented control, in tab order. */
@@ -13,19 +13,25 @@ function LeaderboardBar({ value, max, ratioLabel, muted = false }) {
   const width = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
 
   return (
-    <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-700/70">
-      <div
+    <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-input">
+      {/* The accent gradient is a `background` value rather than a colour, so it
+          has to go through an arbitrary property — `bg-*` would emit an invalid
+          background-color and the bar would come out empty. */}
+      <span
         title={ratioLabel}
-        className={`h-full rounded-full ${muted ? "bg-gray-500" : "bg-purple-500"}`}
+        className={`block h-full rounded-full ${
+          muted ? "bg-dim" : "[background:var(--color-accent-secondary-gradient)]"
+        }`}
         style={{ width: `${width}%` }}
       />
-    </div>
+    </span>
   );
 }
 
 /**
- * Roster leaderboard: pick a metric, see the roster ranked with a league
- * average baseline pinned at the bottom.
+ * Roster leaderboard: pick a metric, see the roster ranked with a league average
+ * baseline pinned at the bottom. The card's title and subtitle come from the
+ * caller, so this renders only the control and the bars.
  */
 function Leaderboard({ players = [], league }) {
   const [metricKey, setMetricKey] = useState(METRICS[0].key);
@@ -33,7 +39,8 @@ function Leaderboard({ players = [], league }) {
 
   const scored = players
     .map((player) => ({ player, value: player[metric.key] }))
-    .filter((row) => row.value != null);
+    .filter((row) => row.value != null)
+    .sort((a, b) => b.value - a.value);
 
   const baseline = league?.[metric.baselineKey];
   const hasBaseline = baseline != null;
@@ -44,73 +51,64 @@ function Leaderboard({ players = [], league }) {
   );
 
   return (
-    <section className="space-y-3">
-      <header className="flex items-start justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-          Leaderboard
-        </h2>
-        <div className="flex shrink-0 gap-0.5 rounded-lg border border-gray-700/60 bg-gray-800/40 p-0.5">
-          {METRICS.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => setMetricKey(option.key)}
-              aria-pressed={option.key === metricKey}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                option.key === metricKey
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-400 hover:text-gray-200"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </header>
+    <div className="flex flex-col gap-3.5">
+      <div className="flex gap-0.5 self-start rounded-lg border border-border-light bg-badge-bg p-[3px]">
+        {METRICS.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            aria-pressed={option.key === metricKey}
+            onClick={() => setMetricKey(option.key)}
+            className={`rounded-md px-3 py-1 text-[13px] transition-colors motion-reduce:transition-none ${
+              option.key === metricKey
+                ? "bg-accent-secondary-bg-strong font-semibold text-accent-secondary-light"
+                : "font-medium text-muted hover:bg-hover hover:text-primary"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
 
       {scored.length === 0 ? (
-        <p className="text-sm text-gray-600">No {metric.label.toLowerCase()} data.</p>
+        <p className="text-[13px] text-dim">No {metric.label.toLowerCase()} data.</p>
       ) : (
-        <div className="space-y-1.5">
-          {scored
-            .sort((a, b) => b.value - a.value)
-            .map(({ player, value }) => (
-              <div key={player.account_id} className="flex items-center gap-3">
-                <PlayerAvatar player={player} size="h-7 w-7" />
-                <span className="w-24 shrink-0 truncate text-sm text-gray-200">
-                  {player.persona_name || `Player ${player.account_id}`}
-                </span>
-                <LeaderboardBar
-                  value={value}
-                  max={max}
-                  ratioLabel={`${player.persona_name}: ${metric.format(value)}`}
-                />
-                <span className="w-14 shrink-0 text-right text-sm font-semibold text-white">
-                  {metric.format(value)}
-                </span>
-              </div>
-            ))}
+        <div className="flex flex-col gap-2">
+          {scored.map(({ player, value }) => (
+            <div key={player.account_id} className="flex items-center gap-3">
+              <SteamAvatar player={player} size="h-7 w-7" rounded="rounded-full" />
+              <span className="w-24 shrink-0 truncate text-[14px] text-secondary">
+                {player.persona_name || `Player ${player.account_id}`}
+              </span>
+              <LeaderboardBar
+                value={value}
+                max={max}
+                ratioLabel={`${player.persona_name}: ${metric.format(value)}`}
+              />
+              <span className="w-14 shrink-0 text-right font-valve-oracle text-[16px] font-semibold text-primary">
+                {metric.format(value)}
+              </span>
+            </div>
+          ))}
 
           {hasBaseline && (
-            <div className="flex items-center gap-3 pt-0.5">
+            <div className="flex items-center gap-3 border-t border-dashed border-border-light pt-2">
               <span className="h-7 w-7 shrink-0" aria-hidden="true" />
-              <span className="w-24 shrink-0 truncate text-sm lowercase text-gray-500">
-                league
-              </span>
+              <span className="w-24 shrink-0 truncate text-[13px] text-dim">League avg</span>
               <LeaderboardBar
                 value={baseline}
                 max={max}
                 muted
                 ratioLabel={`League average: ${metric.format(baseline)}`}
               />
-              <span className="w-14 shrink-0 text-right text-sm text-gray-400">
+              <span className="w-14 shrink-0 text-right text-[14px] text-muted">
                 {metric.format(baseline)}
               </span>
             </div>
           )}
         </div>
       )}
-    </section>
+    </div>
   );
 }
 

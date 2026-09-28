@@ -12,6 +12,7 @@ import {
   kda,
   lastNOn,
   matchOutcome,
+  nextSort,
   opponentForMatch,
   pickShare,
   poolCallouts,
@@ -148,14 +149,12 @@ export default function HeroPool({ matches = [], accountId, playerName, limit = 
   const visible = showAll ? sorted : sorted.slice(0, limit);
   const record = summarise(matches);
 
-  const toggleSort = (key) => {
-    if (!key) return;
-    setSort((current) =>
-      current.key === key
-        ? { key, direction: current.direction === "desc" ? "asc" : "desc" }
-        : { key, direction: "desc" },
-    );
-  };
+  /**
+   * Highest -> lowest -> the default. The third click returns the table to the
+   * most-played hero, so a column head never strands you in a sort with no way back
+   * to the view the table opens on.
+   */
+  const toggleSort = (key) => setSort((current) => nextSort(current, key, DEFAULT_SORT));
 
   return (
     <Panel
@@ -246,10 +245,23 @@ export default function HeroPool({ matches = [], accountId, playerName, limit = 
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <HeroIcon name={hero.hero_name} size="h-7 w-7" />
+                        {/* The icon goes to the hero, the name to this pairing — the
+                            row itself still expands, so both links stop the click. */}
                         <Link
                           to={`/hero/${hero.hero_id}`}
-                          title={hero.hero_name}
+                          title={`${hero.hero_name} hero page`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="shrink-0 rounded transition-opacity hover:opacity-80"
+                        >
+                          <HeroIcon name={hero.hero_name} size="h-7 w-7" />
+                        </Link>
+                        <Link
+                          to={`/player/${accountId}/hero/${hero.hero_id}`}
+                          title={
+                            playerName
+                              ? `${playerName} on ${hero.hero_name}`
+                              : `${hero.hero_name} details`
+                          }
                           onClick={(event) => event.stopPropagation()}
                           className="truncate font-semibold text-accent-secondary-light hover:underline"
                         >

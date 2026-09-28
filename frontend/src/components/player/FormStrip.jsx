@@ -11,14 +11,20 @@ export default function FormStrip({
   matches = [],
   size = 10,
   showSummary = true,
+  label = null,
+  direction = "column",
   className = "",
 }) {
   const { slots, summary } = formStrip(matches, size);
 
   return (
-    <div className={`flex flex-col items-end gap-1.5 ${className}`}>
+    <div
+      className={`flex gap-1.5 ${
+        direction === "row" ? "flex-row items-center" : "flex-col items-end"
+      } ${className}`}
+    >
       <span className="text-[10px] uppercase tracking-[.06em] text-dim">
-        Last {size} · oldest → newest
+        {label ?? `Last ${size} · oldest → newest`}
       </span>
       <div className="flex gap-[3px]">
         {slots.map((slot, index) =>

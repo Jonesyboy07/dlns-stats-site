@@ -281,26 +281,90 @@ export function playedTeams(matches = []) {
 }
 
 /**
- * The six headline tile values. Averages skip rows where the stat is missing, so
- * a player whose oldest games have no snapshot data gets null (rendered "—")
- * instead of a misleading zero.
+ * The headline tile values. Averages skip rows where the stat is missing, so a
+ * player whose oldest games have no snapshot data gets null (rendered "—") instead
+ * of a misleading zero — every average carries the count it was taken over so the
+ * tile can say how many games it covers. The per-minute figures are the "vs own"
+ * baselines on the Player × Hero page, which is why they are averaged per minute
+ * rather than per game.
+ *
+ * `players.player_healing` and `players.obj_damage` are fully populated for every
+ * ingesting match, unlike the snapshot-backed stats, so those two averages normally
+ * cover the whole history. A stored 0 is real data (a game with no healing done),
+ * not a missing value.
  */
 export function headlineStats(matches = []) {
   const mean = (values) =>
     values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-  const souls = matches.map((match) => match.net_worth).filter((value) => value != null);
-  const damage = matches.map((match) => match.player_damage).filter((value) => value != null);
+  const present = (field) =>
+    matches.map((match) => match[field]).filter((value) => value != null);
+  const souls = present("net_worth");
+  const damage = present("player_damage");
+  const healing = present("player_healing");
+  const objDamage = present("obj_damage");
   const kdas = matches
     .filter((match) => match.kills != null || match.deaths != null)
     .map((match) => kda(match));
+  const soulsPerMin = matches
+    .map((match) => perMinute(match.net_worth, match.duration_s))
+    .filter((value) => value != null);
+  const damagePerMin = matches
+    .map((match) => perMinute(match.player_damage, match.duration_s))
+    .filter((value) => value != null);
 
   return {
     ...summarise(matches),
     kda: mean(kdas),
     soulsPerGame: mean(souls),
     damagePerGame: mean(damage),
+    healingPerGame: mean(healing),
+    objDamagePerGame: mean(objDamage),
+    soulsPerMin: mean(soulsPerMin),
+    damagePerMin: mean(damagePerMin),
     soulsGames: souls.length,
     damageGames: damage.length,
+    healingGames: healing.length,
+    objDamageGames: objDamage.length,
+  };
+}
+
+/** The metrics the Player × Hero trend can plot. */
+export const TREND_METRICS = ["kda", "spm"];
+
+/**
+ * One point per game for the Player × Hero trend, OLDEST first so the chart reads
+ * left to right in the order the games were played.
+ *
+ * `metric` is "kda" or "spm" (souls per minute). A game with no data for the
+ * metric keeps a null value instead of a fake zero bar, and the average only
+ * covers the games that have one — the oldest games carry no snapshot data at
+ * all. Unknown results stay in the series: they were played, only not decided.
+ */
+export function heroTrend(matches = [], metric = "kda") {
+  const read = (match) =>
+    metric === "spm" ? perMinute(match.net_worth, match.duration_s) : kda(match);
+  const hasData = (match) =>
+    metric === "spm"
+      ? match.net_worth != null && match.duration_s != null && match.duration_s > 0
+      : match.kills != null || match.deaths != null || match.assists != null;
+
+  const points = [...matches].reverse().map((match) => {
+    const value = hasData(match) ? read(match) : null;
+    return {
+      match,
+      value: value == null || Number.isNaN(value) ? null : value,
+      outcome: matchOutcome(match),
+      label: matchLabel(match),
+      week: match.event_week ?? null,
+    };
+  });
+
+  const values = points.map((point) => point.value).filter((value) => value != null);
+  return {
+    points,
+    games: values.length,
+    average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null,
+    max: values.length ? Math.max(...values) : null,
   };
 }
 
@@ -439,6 +503,70 @@ export function personalBests(matches = []) {
   };
 }
 
+/**
+ * Hero × Week matrix: one row per hero and one column per week, counting the games.
+ *
+ * The axis runs from the player's first to their last league week and weeks they
+ * sat out stay EMPTY rather than being skipped, so a gap reads as a gap. Heroes
+ * past `topHeroes` fold into one "Others" row whose cell is the TOTAL games across
+ * those heroes (not an average), so the matrix cannot grow without bound. Games
+ * with no week at all (pre-season) cannot be placed and are reported separately.
+ */
+export function heroWeekMatrix(matches = [], { topHeroes = 7 } = {}) {
+  const played = matches.filter(
+    (match) => match?.event_week != null && match?.hero_id != null,
+  );
+  const unplaced = matches.length - played.length;
+  if (played.length === 0) return { weeks: [], rows: [], unplaced };
+
+  const weeks = played.map((match) => match.event_week);
+  const first = Math.min(...weeks);
+  const last = Math.max(...weeks);
+  const axis = Array.from({ length: last - first + 1 }, (_, index) => first + index);
+
+  const byHero = new Map();
+  for (const match of played) {
+    const id = match.hero_id;
+    if (!byHero.has(id)) {
+      byHero.set(id, {
+        hero_id: id,
+        hero_name: match.hero_name || `Hero ${id}`,
+        games: 0,
+        cells: new Map(),
+      });
+    }
+    const entry = byHero.get(id);
+    entry.games += 1;
+    entry.cells.set(match.event_week, (entry.cells.get(match.event_week) ?? 0) + 1);
+  }
+
+  const ordered = [...byHero.values()].sort(
+    (a, b) => b.games - a.games || a.hero_name.localeCompare(b.hero_name),
+  );
+  const rows = ordered.slice(0, Math.max(1, topHeroes)).map((entry) => ({
+    id: String(entry.hero_id),
+    hero_id: entry.hero_id,
+    label: entry.hero_name,
+    games: entry.games,
+    cells: axis.map((week) => entry.cells.get(week) ?? 0),
+  }));
+
+  const rest = ordered.slice(Math.max(1, topHeroes));
+  if (rest.length > 0) {
+    rows.push({
+      id: "others",
+      hero_id: null,
+      label: `Others (${rest.length})`,
+      games: rest.reduce((sum, entry) => sum + entry.games, 0),
+      cells: axis.map((week) =>
+        rest.reduce((sum, entry) => sum + (entry.cells.get(week) ?? 0), 0),
+      ),
+    });
+  }
+
+  return { weeks: axis, rows, unplaced };
+}
+
 /** Sort keys the hero pool table exposes. Unknown keys fall back to games. */
 const POOL_SORT_KEYS = {
   games: (hero) => hero.games,
@@ -468,4 +596,21 @@ export function sortPool(pool = [], key = "games", direction = "desc") {
     if (left === right) return a.hero_name.localeCompare(b.hero_name);
     return (left - right) * sign;
   });
+}
+
+/**
+ * The column-head sort cycle: first click shows the highest value, the second the
+ * lowest, and the third hands the table back to `defaultSort`. Three states, so a
+ * column head can never leave you stuck in a sort with no way back to the view you
+ * started from.
+ *
+ * `current` is `{ key, direction }`. `defaultSort` is passed in rather than
+ * imported because the tables start on different keys (the hero pool on the
+ * most-played hero, the match list on the newest match).
+ */
+export function nextSort(current, key, defaultSort) {
+  if (!key) return current;
+  if (current?.key !== key) return { key, direction: "desc" };
+  if (current.direction === "desc") return { key, direction: "asc" };
+  return { ...defaultSort };
 }

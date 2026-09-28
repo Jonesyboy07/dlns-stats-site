@@ -61,3 +61,17 @@ export function formatMatchDate(value) {
   if (Number.isNaN(date.getTime())) return null;
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
+
+/**
+ * Long form for the team page's series and game rows: "Sep 13, 2026".
+ *
+ * Same hand-built month list as `formatMatchDate`, for the same reason — and
+ * because the team page puts the date in a fixed-width column, an ICU-only day
+ * like "Sept" would break the alignment.
+ */
+export function formatLongDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}

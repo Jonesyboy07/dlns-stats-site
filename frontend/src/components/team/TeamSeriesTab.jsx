@@ -1,305 +1,208 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import HeroIcon from "../HeroIcon";
-import { formatDuration } from "../../utils/format";
+import SectionCard from "../SectionCard";
+import TeamLogo from "../TeamLogo";
+import { formatDuration, formatLongDate } from "../../utils/format";
+import { DASH, gameResult, recordOf, seriesGroups } from "../../utils/team";
 
-/** Team names are hand-authored in matches.json, so compare them without case. */
-const sameTeam = (a, b) => (a || "").toLowerCase() === (b || "").toLowerCase();
-
-const formatDate = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
+/**
+ * Header and rows share this template so the labels sit over their columns.
+ * The trailing 16px column is the chevron.
+ */
+const GRID =
+  "grid grid-cols-[minmax(170px,1.4fr)_48px_64px_132px_64px_96px_16px] items-center gap-4";
 
 /** "GAME 1" -> "Game 1"; anything else is shown as-is. */
 const shortGame = (label) => {
   const match = /^game\s*(\w+)$/i.exec((label || "").trim());
-  return match ? `Game ${match[1]}` : label || "—";
+  return match ? `Game ${match[1]}` : label || DASH;
 };
 
-/**
- * Group flat match list into series by (event_team_a, event_team_b, event_title, event_week).
- * Matches arrive newest first, but a series reads far better as game 1 -> N, so
- * each group is re-ordered oldest first (the score chips follow the same order).
- */
-function groupIntoSeries(matches) {
-  const map = new Map();
-  for (const m of matches) {
-    const key = [m.event_team_a, m.event_team_b, m.event_title, m.event_week].join("||");
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(m);
-  }
-  return Array.from(map.values(), (games) => {
-    if (games.length < 2) return games;
-    if (games.every((m) => m.start_time)) {
-      return [...games].sort((a, b) =>
-        String(a.start_time).localeCompare(String(b.start_time))
-      );
-    }
-    return [...games].reverse(); // the input list is newest-first
-  });
-}
-
-/**
- * Fold the series list into weeks. Matches arrive newest first, so walking the
- * list in order keeps the weeks in recency order with each week's series
- * contiguous — that is what makes the dividers meaningful.
- */
-function groupIntoWeeks(series) {
-  const weeks = new Map();
-  for (const games of series) {
-    const week = games[0].event_week ?? null;
-    if (!weeks.has(week)) weeks.set(week, []);
-    weeks.get(week).push(games);
-  }
-  return Array.from(weeks, ([week, rows]) => ({ week, rows }));
-}
-
-/** Win = true, loss = false, null when the side or the winner is unknown. */
-function gameResult(match, teamName) {
-  const side = match.event_team_a_ingame_side;
-  if (side == null || match.winning_team == null) return null;
-  const weAreTeamA = sameTeam(match.event_team_a, teamName);
-  return weAreTeamA ? match.winning_team === side : match.winning_team !== side;
-}
-
-/** Tally game results from the page team's point of view. */
-function tally(matchGroups, teamName) {
-  let wins = 0;
-  let losses = 0;
-  for (const games of matchGroups) {
-    for (const m of games) {
-      const result = gameResult(m, teamName);
-      if (result === true) wins++;
-      else if (result === false) losses++;
-    }
-  }
-  return { wins, losses, played: wins + losses > 0 };
-}
-
-/**
- * Week separator. Deliberately quiet — a hairline rule with the week on the
- * left and that week's game record on the right — so it groups the cards
- * beneath it without competing with them.
- */
-function WeekDivider({ week, rows, team_name }) {
-  const { wins, losses, played } = tally(rows, team_name);
-
+/** A win-rate cell: 6px track, then the percentage in a fixed column. */
+function WinRateCell({ record }) {
   return (
-    <div className="flex items-center gap-3 pt-1">
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-        {week != null ? `NS ${week}` : "Pre-season"}
+    <span className="flex items-center gap-2">
+      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-table">
+        <span
+          className="block h-full rounded-full bg-success"
+          style={{ width: `${record.barPct}%` }}
+        />
       </span>
-      <span className="h-px flex-1 bg-gray-700/60" />
-      {played && (
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-gray-600 tabular-nums">
-          {wins}–{losses}
-        </span>
-      )}
-    </div>
+      <span className="w-[38px] shrink-0 text-[14px] font-semibold tabular-nums text-primary">
+        {record.pct ?? DASH}
+      </span>
+    </span>
   );
 }
 
-function SeriesCard({ team_name, games }) {
-  const [open, setOpen] = useState(false);
+function ScoreCell({ record }) {
+  return (
+    <span className="flex items-center justify-center gap-1.5 text-[14px] font-semibold tabular-nums">
+      <span className={record.winsTone}>{record.wins}</span>
+      <span className="text-dim">–</span>
+      <span className={record.lossesTone}>{record.losses}</span>
+    </span>
+  );
+}
 
-  const first = games[0];
-  const opponent = sameTeam(first.event_team_a, team_name)
-    ? first.event_team_b
-    : first.event_team_a;
-
-  const { wins, losses, played } = tally([games], team_name);
-  const seriesWon = played && wins > losses;
-  const seriesLost = played && losses > wins;
+/** One matchup inside a week: a table row that opens its games. */
+function SeriesRow({ series, teamName, open, onToggle }) {
+  const record = recordOf(series.wins, series.losses);
+  const date = formatLongDate(series.date);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800/40">
+    <div className="flex flex-col border-b border-border last:border-b-0">
       <button
-        onClick={() => setOpen((o) => !o)}
+        type="button"
+        onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-4 px-3 py-3 text-left transition-colors hover:bg-gray-700/50"
+        className={`${GRID} px-4 py-3 text-left transition-colors motion-reduce:transition-none ${
+          open ? "bg-hover" : "hover:bg-hover"
+        }`}
       >
-        {/* Result bar: green won, red lost, gray when the result is unknown. */}
-        <div
-          aria-hidden="true"
-          className={`w-1 shrink-0 self-stretch rounded-full ${
-            seriesWon ? "bg-green-500" : seriesLost ? "bg-red-500" : "bg-gray-600"
-          }`}
-        />
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className="text-[13px] text-dim">vs</span>
+          {series.opponent ? (
+            <TeamLogo name={series.opponent} size="h-6 w-6" rounded="rounded" />
+          ) : null}
+          <span className="truncate text-[15px] font-bold text-accent-secondary-light">
+            {series.opponent || "Unknown"}
+          </span>
+        </span>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="min-w-0 truncate text-sm font-semibold text-gray-100">
-              vs {opponent || "Unknown"}
-            </span>
+        <span className="text-right text-[14px] font-semibold tabular-nums text-secondary">
+          {series.games.length}
+        </span>
 
-            {/* Score, page team first. Only the number that decided the series
-                carries a colour — the other stays white. */}
-            {played && (
-              <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
-                  seriesWon
-                    ? "bg-green-700/40"
-                    : seriesLost
-                    ? "bg-red-700/40"
-                    : "bg-gray-700"
-                }`}
-              >
-                <span className={seriesWon ? "text-green-400" : "text-green-500"}>
-                  {wins}
-                </span>
-                <span className="text-gray-500">–</span>
-                <span className={seriesLost ? "text-red-400" : "text-red-400"}>
-                  {losses}
-                </span>
-              </span>
-            )}
+        <ScoreCell record={record} />
 
-            <span className="shrink-0 text-xs text-gray-500">
-              {games.length} game{games.length !== 1 ? "s" : ""}
-            </span>
-          </div>
+        <WinRateCell record={record} />
 
-          <p className="mt-0.5 truncate text-xs text-gray-500">
-            {first.event_title && `${first.event_title} · `}
-            {first.event_week != null && `Week ${first.event_week} · `}
-            {formatDate(first.start_time)}
-          </p>
-        </div>
+        <span className="text-right text-[14px] font-semibold tabular-nums text-secondary">
+          {formatDuration(series.avgSeconds) ?? DASH}
+        </span>
 
-        {/* Chevron */}
+        <span className="whitespace-nowrap text-right text-[13px] text-muted">{date}</span>
+
         <span
-          className={`shrink-0 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+          className={`text-[11px] text-dim transition-transform duration-200 motion-reduce:transition-none ${
+            open ? "rotate-180" : ""
+          }`}
         >
           ▾
         </span>
       </button>
 
       {open && (
-        <div className="border-t border-gray-700/60 px-3 py-2">
-          {/* Hero rows and the two-colour ladder are wide; scroll rather than squeeze. */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[560px]">
+        <div className="bg-table">
+          {series.games.map((game, index) => {
+            const result = gameResult(game, teamName);
+            return (
+              <Link
+                key={game.match_id}
+                to={`/match/${game.match_id}`}
+                className="flex items-center gap-3.5 border-t border-border py-2.5 pl-10 pr-4 text-secondary transition-all motion-reduce:transition-none hover:bg-accent-secondary-bg hover:pl-11"
+              >
+                <span
+                  className={`inline-flex min-w-11 justify-center rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+                    result === true
+                      ? "border-success-border bg-success-bg text-success"
+                      : result === false
+                        ? "border-danger-border bg-danger-bg text-danger-text"
+                        : "border-border text-dim"
+                  }`}
+                >
+                  {result === true ? "Win" : result === false ? "Loss" : DASH}
+                </span>
 
-              <div className="divide-y divide-gray-700/40">
-                {/* Column labels. The nesting mirrors a game row exactly
-                    (flex-1 group + trailing VOD slot) so the labels sit over
-                    the columns they describe. */}
-                <div className="flex items-center gap-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className="w-[4.5rem] shrink-0">Game</span>
-                    <span className="min-w-0 flex-1 truncate">
-                      {team_name} — hero icons
-                    </span>
-                    <span className="w-6 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate">
-                      Opponent — hero icons
-                    </span>
-                    <span className="w-12 shrink-0 text-right">Length</span>
-                  </div>
-                  <span className="w-14 shrink-0 text-right">VOD</span>
-                </div>
+                <span className="w-16 shrink-0 text-[14px] font-medium text-primary">
+                  {shortGame(game.event_game) || `Game ${index + 1}`}
+                </span>
 
-                {games.map((m) => {
-                  const result = gameResult(m, team_name);
-                  const weAreTeamA = sameTeam(m.event_team_a, team_name);
-                  const ours = (weAreTeamA ? m.heroes_a : m.heroes_b) || [];
-                  const theirs = (weAreTeamA ? m.heroes_b : m.heroes_a) || [];
+                <span className="min-w-0 flex-1 truncate text-[13px] text-muted">
+                  {formatLongDate(game.start_time ?? game.created_at) ?? DASH}
+                  {game.duration_s ? ` · ${formatDuration(game.duration_s)}` : ""}
+                </span>
 
-                  return (
-                    <div
-                      key={m.match_id}
-                      className="flex items-center gap-3 py-1.5 transition-colors hover:bg-gray-700/30"
-                    >
-                      <Link
-                        to={`/match/${m.match_id}`}
-                        className="flex min-w-0 flex-1 items-center gap-3"
-                      >
-                        <span className="flex w-[4.5rem] shrink-0 items-center gap-2">
-                          <span className="whitespace-nowrap text-[11px] font-semibold text-gray-400">
-                            {shortGame(m.event_game)}
-                          </span>
-                          {result != null && (
-                            <span
-                              className={`rounded px-1 py-px text-[10px] font-semibold ${
-                                result
-                                  ? "bg-green-700/40 text-green-400"
-                                  : "bg-red-700/40 text-red-400"
-                              }`}
-                            >
-                              {result ? "W" : "L"}
-                            </span>
-                          )}
-                        </span>
-
-                        <span className="flex min-w-0 flex-1 items-center gap-0.5">
-                          {ours.map((hero, i) => (
-                            <HeroIcon key={`a${i}`} name={hero.hero_name} size="h-8 w-8" />
-                          ))}
-                        </span>
-
-                        <span className="w-6 shrink-0 text-center text-[10px] font-semibold uppercase text-gray-600">
-                          vs
-                        </span>
-
-                        <span className="flex min-w-0 flex-1 items-center gap-0.5">
-                          {theirs.map((hero, i) => (
-                            <HeroIcon key={`b${i}`} name={hero.hero_name} size="h-8 w-8" />
-                          ))}
-                        </span>
-
-                        <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-gray-400">
-                          {formatDuration(m.duration_s)}
-                        </span>
-                      </Link>
-
-                      <span className="w-14 shrink-0 text-right">
-                        {m.match_vod ? (
-                          <a
-                            href={m.match_vod}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center rounded border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-300 transition-colors hover:bg-purple-500/25"
-                          >
-                            VOD
-                          </a>
-                        ) : null}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                <span className="shrink-0 font-mono text-[12px] text-dim">
+                  #{game.match_id}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function TeamSeriesTab({ team_name, matches }) {
-  const series = groupIntoSeries(matches);
-
-  if (series.length === 0)
-    return <p className="text-gray-600 text-sm">No series recorded.</p>;
-
-  const weeks = groupIntoWeeks(series);
+/** Week separator: the week on the left, a rule, then what the week holds. */
+function WeekDivider({ week, items }) {
+  const date = formatLongDate(items[0]?.date);
+  const label = `${items.length} series${date ? ` · ${date}` : ""}`;
 
   return (
-    <div className="space-y-6">
-      {weeks.map(({ week, rows }) => (
-        <div key={week ?? "preseason"} className="space-y-2">
-          <WeekDivider week={week} rows={rows} team_name={team_name} />
-          {rows.map((games, i) => (
-            <SeriesCard key={i} team_name={team_name} games={games} />
+    <div className="flex items-center gap-3 px-4 pb-2 pt-5">
+      <span className="whitespace-nowrap text-[12px] font-bold uppercase tracking-[.05em] text-muted">
+        {week != null ? `NS ${week}` : "Pre-season"}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+      <span className="whitespace-nowrap text-[12px] text-dim">{label}</span>
+    </div>
+  );
+}
+
+function TeamSeriesTab({ team_name, matches = [] }) {
+  const weeks = seriesGroups(matches, team_name);
+  const seriesCount = weeks.reduce((sum, week) => sum + week.items.length, 0);
+  // The newest series opens by default: it is the one being looked for.
+  const [openKey, setOpenKey] = useState(() => weeks[0]?.items[0]?.key ?? null);
+
+  if (weeks.length === 0) {
+    return (
+      <SectionCard title="Series">
+        <p className="text-[13px] text-dim">No series recorded.</p>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard
+      title="Series"
+      subtitle={`${seriesCount} series · newest first · click a row for its games`}
+    >
+      <div className="-mx-2 overflow-x-auto">
+        <div className="flex min-w-[780px] flex-col">
+          <div
+            className={`${GRID} border-b border-border px-4 pb-2.5 text-[12px] uppercase tracking-[.05em] text-muted`}
+          >
+            <span>Opponent</span>
+            <span className="text-right">Games</span>
+            <span className="text-center">Score</span>
+            <span>Game win rate</span>
+            <span className="text-right">Avg</span>
+            <span className="text-right">Date</span>
+            <span />
+          </div>
+
+          {weeks.map((week) => (
+            <div key={week.week ?? "preseason"}>
+              <WeekDivider week={week.week} items={week.items} />
+              {week.items.map((series) => (
+                <SeriesRow
+                  key={series.key}
+                  series={series}
+                  teamName={team_name}
+                  open={openKey === series.key}
+                  onToggle={() => setOpenKey(openKey === series.key ? null : series.key)}
+                />
+              ))}
+            </div>
           ))}
         </div>
-      ))}
-    </div>
+      </div>
+    </SectionCard>
   );
 }
 

@@ -11,12 +11,15 @@ import {
   formStrip,
   headlineStats,
   heroPool,
+  heroTrend,
+  heroWeekMatrix,
   kda,
   lastNOn,
   leagueGames,
   longestWinStreak,
   matchLabel,
   matchOutcome,
+  nextSort,
   opponentForMatch,
   perMinute,
   personalBests,
@@ -325,8 +328,24 @@ describe("playedTeams", () => {
 describe("headlineStats", () => {
   it("averages only the rows that carry the stat", () => {
     const rows = [
-      match({ kills: 4, deaths: 2, assists: 10, net_worth: 30000, player_damage: 20000 }),
-      match({ kills: 6, deaths: 4, assists: 14, net_worth: null, player_damage: null }),
+      match({
+        kills: 4,
+        deaths: 2,
+        assists: 10,
+        net_worth: 30000,
+        player_damage: 20000,
+        player_healing: 12000,
+        obj_damage: 8000,
+      }),
+      match({
+        kills: 6,
+        deaths: 4,
+        assists: 14,
+        net_worth: null,
+        player_damage: null,
+        player_healing: null,
+        obj_damage: 4000,
+      }),
     ];
     const stats = headlineStats(rows);
     expect(stats.games).toBe(2);
@@ -336,8 +355,18 @@ describe("headlineStats", () => {
     expect(stats.kda).toBeCloseTo((7 + 5) / 2, 5);
     expect(stats.soulsPerGame).toBe(30000);
     expect(stats.damagePerGame).toBe(20000);
+    expect(stats.healingPerGame).toBe(12000);
+    expect(stats.objDamagePerGame).toBe(6000);
     expect(stats.soulsGames).toBe(1);
     expect(stats.damageGames).toBe(1);
+    expect(stats.healingGames).toBe(1);
+    expect(stats.objDamageGames).toBe(2);
+  });
+
+  it("counts a stored zero as data, not as a missing stat", () => {
+    const withZero = [match({ player_healing: 0 })];
+    expect(headlineStats(withZero).healingPerGame).toBe(0);
+    expect(headlineStats(withZero).healingGames).toBe(1);
   });
 
   it("reports null averages for a player with no games", () => {
@@ -345,6 +374,8 @@ describe("headlineStats", () => {
     expect(stats.kda).toBeNull();
     expect(stats.soulsPerGame).toBeNull();
     expect(stats.damagePerGame).toBeNull();
+    expect(stats.healingPerGame).toBeNull();
+    expect(stats.objDamagePerGame).toBeNull();
     expect(stats.winRate).toBeNull();
   });
 });
@@ -469,6 +500,38 @@ describe("sortPool", () => {
       "Zed",
     ]);
     expect(pool).toEqual(copy);
+  });
+});
+
+describe("nextSort", () => {
+  const defaultSort = { key: "games", direction: "desc" };
+
+  it("starts a new column at the highest value", () => {
+    expect(nextSort(defaultSort, "winRate", defaultSort)).toEqual({
+      key: "winRate",
+      direction: "desc",
+    });
+  });
+
+  it("goes highest -> lowest -> back to the default", () => {
+    const high = nextSort(defaultSort, "winRate", defaultSort);
+    const low = nextSort(high, "winRate", defaultSort);
+    expect(low).toEqual({ key: "winRate", direction: "asc" });
+    expect(nextSort(low, "winRate", defaultSort)).toEqual(defaultSort);
+  });
+
+  it("restarts at the highest when you jump to another column", () => {
+    const low = { key: "winRate", direction: "asc" };
+    expect(nextSort(low, "kda", defaultSort)).toEqual({ key: "kda", direction: "desc" });
+  });
+
+  it("hands back a fresh default object so React re-renders", () => {
+    const low = { key: "kda", direction: "asc" };
+    expect(nextSort(low, "kda", defaultSort)).not.toBe(defaultSort);
+  });
+
+  it("ignores a column that is not sortable", () => {
+    expect(nextSort(defaultSort, null, defaultSort)).toBe(defaultSort);
   });
 });
 
@@ -621,5 +684,146 @@ describe("personalBests", () => {
   it("has nothing to show for an empty history", () => {
     expect(personalBests([]).records).toEqual([]);
     expect(personalBests([]).games).toBe(0);
+  });
+});
+
+describe("heroTrend", () => {
+  // Newest first, as the endpoint returns them.
+  const rows = [
+    match({ match_id: 30, kills: 8, deaths: 2, assists: 10, net_worth: 40000, duration_s: 2000, event_week: 51 }),
+    match({ match_id: 29, kills: 4, deaths: 4, assists: 4, net_worth: 30000, duration_s: 1500, event_week: 50 }),
+    match({ match_id: 28, kills: 2, deaths: 0, assists: 2, net_worth: null, duration_s: null, event_week: 49 }),
+  ];
+
+  it("plots oldest → newest with the match attached", () => {
+    const { points } = heroTrend(rows, "kda");
+    expect(points.map((point) => point.match.match_id)).toEqual([28, 29, 30]);
+    expect(points.map((point) => point.week)).toEqual([49, 50, 51]);
+    expect(points[1].value).toBeCloseTo(2);
+    expect(points[2].value).toBeCloseTo(9);
+  });
+
+  it("keeps a game with no data as null instead of a zero bar", () => {
+    const { points, games, average, max } = heroTrend(rows, "spm");
+    expect(points[0].value).toBeNull();
+    expect(games).toBe(2);
+    expect(average).toBeCloseTo((1200 + 1200) / 2);
+    expect(max).toBeCloseTo(1200);
+  });
+
+  it("averages only the games that carry the metric", () => {
+    const { average, games } = heroTrend(rows, "kda");
+    // 28 is a real 2/0/2 game, so it counts even though it has no souls data.
+    expect(games).toBe(3);
+    expect(average).toBeCloseTo((4 + 2 + 9) / 3);
+  });
+
+  it("keeps an undecided game in the series", () => {
+    const undecided = match({ match_id: 1, team: null, winning_team: null, result: null });
+    const { points, games } = heroTrend([undecided], "kda");
+    expect(points[0].outcome).toBe(UNKNOWN);
+    expect(games).toBe(1);
+  });
+
+  it("has no average without data", () => {
+    const empty = heroTrend([], "kda");
+    expect(empty.points).toEqual([]);
+    expect(empty.average).toBeNull();
+    expect(empty.max).toBeNull();
+  });
+});
+
+describe("headlineStats per-minute baselines", () => {
+  it("averages the per-minute rates over the games that have them", () => {
+    const stats = headlineStats([
+      match({ match_id: 1, net_worth: 30000, player_damage: 30000, duration_s: 1500 }),
+      match({ match_id: 2, net_worth: 60000, player_damage: 15000, duration_s: 3000 }),
+      match({ match_id: 3, net_worth: null, player_damage: null, duration_s: null }),
+    ]);
+    // 1200 and 1200 souls/min, 1200 and 300 damage/min — the third game drops out.
+    expect(stats.soulsPerMin).toBeCloseTo(1200);
+    expect(stats.damagePerMin).toBeCloseTo(750);
+    expect(stats.soulsGames).toBe(2);
+  });
+
+  it("has no per-minute baseline when nothing has a duration", () => {
+    const stats = headlineStats([match({ net_worth: 30000, duration_s: null })]);
+    expect(stats.soulsPerMin).toBeNull();
+    expect(stats.damagePerMin).toBeNull();
+  });
+});
+
+describe("heroWeekMatrix", () => {
+  const hero = (id, name) => ({ hero_id: id, hero_name: name });
+  const rows = [
+    match({ match_id: 1, event_week: 50, ...hero(52, "Mirage") }),
+    match({ match_id: 2, event_week: 50, ...hero(52, "Mirage") }),
+    match({ match_id: 3, event_week: 52, ...hero(52, "Mirage") }),
+    match({ match_id: 4, event_week: 50, ...hero(1, "Infernus") }),
+    match({ match_id: 5, event_week: 53, ...hero(1, "Infernus") }),
+  ];
+
+  it("builds a contiguous axis with empty columns for weeks not played", () => {
+    const { weeks } = heroWeekMatrix(rows);
+    expect(weeks).toEqual([50, 51, 52, 53]);
+  });
+
+  it("counts games per hero per week and sorts rows by games", () => {
+    const { rows: matrix } = heroWeekMatrix(rows);
+    expect(matrix.map((row) => row.label)).toEqual(["Mirage", "Infernus"]);
+    expect(matrix[0].cells).toEqual([2, 0, 1, 0]);
+    expect(matrix[1].cells).toEqual([1, 0, 0, 1]);
+    expect(matrix[0].games).toBe(3);
+  });
+
+  it("keeps every cell aligned with the week axis", () => {
+    const { weeks, rows: matrix } = heroWeekMatrix(rows);
+    matrix.forEach((row) => expect(row.cells).toHaveLength(weeks.length));
+  });
+
+  it("folds the heroes past the limit into one Others row", () => {
+    const many = [52, 1, 50, 2, 4, 65, 20, 72, 80].map((id, index) =>
+      match({ match_id: index + 1, event_week: 50 + index, ...hero(id, `Hero ${id}`) }),
+    );
+    const { rows: matrix } = heroWeekMatrix(many, { topHeroes: 7 });
+    expect(matrix).toHaveLength(8);
+    const others = matrix[matrix.length - 1];
+    expect(others.label).toBe("Others (2)");
+    expect(others.games).toBe(2);
+    // The Others cell is the TOTAL picks that week, so it can exceed 1.
+    expect(others.cells.filter((value) => value > 0)).toHaveLength(2);
+  });
+
+  it("reports games that have no week to place them on", () => {
+    const { unplaced } = heroWeekMatrix([
+      match({ match_id: 1, event_week: null, ...hero(52, "Mirage") }),
+      ...rows,
+    ]);
+    expect(unplaced).toBe(1);
+  });
+
+  it("has nothing to show without a placed game", () => {
+    const empty = heroWeekMatrix([match({ event_week: null })]);
+    expect(empty.weeks).toEqual([]);
+    expect(empty.rows).toEqual([]);
+    expect(empty.unplaced).toBe(1);
+  });
+
+  it("survives a single hero in a single week", () => {
+    const { weeks, rows: matrix } = heroWeekMatrix([
+      match({ match_id: 1, event_week: 57, ...hero(52, "Mirage") }),
+    ]);
+    expect(weeks).toEqual([57]);
+    expect(matrix).toHaveLength(1);
+    expect(matrix[0].cells).toEqual([1]);
+  });
+
+  it("ignores a game with no hero id", () => {
+    const { rows: matrix, unplaced } = heroWeekMatrix([
+      match({ match_id: 1, event_week: 50, hero_id: null, hero_name: null }),
+      ...rows,
+    ]);
+    expect(matrix).toHaveLength(2);
+    expect(unplaced).toBe(1);
   });
 });

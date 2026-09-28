@@ -52,6 +52,9 @@
   <div id="root"></div>
   <script>
     window.__DLNS_HELP_CONFIG__ = {{ help_config | default({}, true) | tojson }};
+    // Lets the crest folder be repointed without rebuilding the frontend bundle.
+    // Empty falls through to VITE_TEAM_LOGO_BASE, then the built-in default.
+    window.DLNS_TEAM_LOGO_BASE = {{ TEAM_LOGO_BASE | default("", true) | tojson }};
   </script>
 
   <!-- React scripts will be injected by Vite -->

@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from ..heroes import get_hero_name
 from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
-from ...constants import ITEMS_URL
+from ...constants import HEROES_URL, ITEMS_URL
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -1937,33 +1937,51 @@ def user_deaths_api(account_id: int):  # type: ignore
 @bp.get("/users/<int:account_id>/items")
 @cache.cached(timeout=1800)
 def user_items_api(account_id: int):  # type: ignore
-    """Signature items (3,200+ souls) and the typical build order.
+    """Signature items (3,200+ souls) and the typical build order."""
+    with get_ro_conn() as conn:
+        summary = _item_summary(conn, account_id)
 
-    `players.raw_items_json` holds one entry per purchase event, so entries with
-    a non-zero `sold_time_s` were bought and later sold and are excluded — the
-    same rule the team page uses. Median buy time is computed here rather than in
-    SQL because SQLite has no median aggregate.
+    return jsonify({"account_id": account_id, **summary})
+
+
+def _item_summary(
+    conn: sqlite3.Connection, account_id: int, hero_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """Signature items and the build order for one player, optionally on one hero.
+
+    Shared by /users/<id>/items (whole career) and /users/<id>/hero/<hero_id>, so
+    the two panels can never disagree about a median buy time. `players.raw_items_json`
+    holds one entry per purchase event, so entries with a non-zero `sold_time_s`
+    were bought and later sold and are excluded — the same rule the team page
+    uses. Median buy time is computed here rather than in SQL because SQLite has
+    no median aggregate.
     """
     catalog = _item_catalog()
-    with get_ro_conn() as conn:
-        total_games = conn.execute(
-            "SELECT COUNT(*) FROM players WHERE account_id = ?",
-            (account_id,),
-        ).fetchone()[0]
-        rows = conn.execute(
-            """
-            SELECT p.match_id,
-                   json_extract(entry.value, '$.item_id') AS item_id,
-                   json_extract(entry.value, '$.game_time_s') AS game_time_s
-              FROM players p,
-                   json_each(p.raw_items_json) AS entry
-             WHERE p.account_id = ?
-               AND p.raw_items_json IS NOT NULL
-               AND json_extract(entry.value, '$.item_id') IS NOT NULL
-               AND COALESCE(json_extract(entry.value, '$.sold_time_s'), 0) = 0
-            """,
-            (account_id,),
-        ).fetchall()
+    scope = ""
+    params: List[Any] = [account_id]
+    if hero_id is not None:
+        scope = " AND p.hero_id = ?"
+        params.append(hero_id)
+
+    total_games = conn.execute(
+        "SELECT COUNT(*) FROM players p WHERE p.account_id = ?" + scope,
+        tuple(params),
+    ).fetchone()[0]
+    rows = conn.execute(
+        """
+        SELECT p.match_id,
+               json_extract(entry.value, '$.item_id') AS item_id,
+               json_extract(entry.value, '$.game_time_s') AS game_time_s
+          FROM players p,
+               json_each(p.raw_items_json) AS entry
+         WHERE p.account_id = ?
+           AND p.raw_items_json IS NOT NULL
+           AND json_extract(entry.value, '$.item_id') IS NOT NULL
+           AND COALESCE(json_extract(entry.value, '$.sold_time_s'), 0) = 0
+        """
+        + scope,
+        tuple(params),
+    ).fetchall()
 
     # item id -> the games it was bought in and the buy times collected
     stats: Dict[int, Dict[str, Any]] = {}
@@ -2016,13 +2034,158 @@ def user_items_api(account_id: int):  # type: ignore
     )[:BUILD_ORDER_LIMIT]
     build.sort(key=lambda item: item["median_time_s"])
 
+    return {
+        "games": total_games,
+        "games_with_items": len(games_with_items),
+        "signature": signature,
+        "build": build,
+    }
+
+
+@bp.get("/users/<int:account_id>/hero/<int:hero_id>")
+@cache.cached(timeout=1800)
+def user_hero_api(account_id: int, hero_id: int):  # type: ignore
+    """Everything the Player × Hero page needs that is not already in the player's
+    match list: league baselines on the hero, the standings on it, the ability
+    point orders and the matchups.
+
+    The page's own tiles, form strip, trend and lane split are derived from
+    `/users/<id>/matches` in the browser, so they use the same rules as the
+    player page; only the cross-player figures are computed here.
+    """
+    from ..heroes import get_all_hero_names
+
+    hero_names = get_all_hero_names()
+    slots = _hero_ability_slots().get(hero_id) or {"abilities": [], "slots": {}}
+
+    with get_ro_conn() as conn:
+        mine = conn.execute(
+            """
+            SELECT p.match_id, p.team, p.result, p.kills, p.deaths, p.assists,
+                   p.net_worth, p.player_damage, p.ability_order,
+                   m.duration_s, m.winning_team, m.event_week, m.event_team_a,
+                   m.event_team_b, m.event_team_a_ingame_side,
+                   COALESCE(m.start_time, m.created_at) AS played
+              FROM players p
+              JOIN matches m ON m.match_id = p.match_id
+             WHERE p.account_id = ? AND p.hero_id = ?
+             ORDER BY played ASC
+            """,
+            (account_id, hero_id),
+        ).fetchall()
+
+        # The whole hero pool, small enough (a few hundred rows at most) to rank
+        # in Python with the exact same win/loss rule the UI uses.
+        pool = conn.execute(
+            """
+            SELECT p.account_id, p.team, p.result, p.kills, p.deaths, p.assists,
+                   p.net_worth, p.player_damage, m.duration_s, m.winning_team
+              FROM players p
+              JOIN matches m ON m.match_id = p.match_id
+             WHERE p.hero_id = ?
+            """,
+            (hero_id,),
+        ).fetchall()
+
+        matchups = conn.execute(
+            """
+            SELECT p.match_id, e.hero_id
+              FROM players p
+              JOIN players e ON e.match_id = p.match_id AND e.team <> p.team
+             WHERE p.account_id = ? AND p.hero_id = ?
+               AND p.team IN (0, 1) AND e.team IN (0, 1)
+            """,
+            (account_id, hero_id),
+        ).fetchall()
+
+        items = _item_summary(conn, account_id, hero_id)
+
+    games = len(mine)
+    wins = sum(1 for row in mine if _match_won(row[1], row[10], row[2]) is True)
+    losses = sum(1 for row in mine if _match_won(row[1], row[10], row[2]) is False)
+    weeks = [row[11] for row in mine if row[11] is not None]
+    # The team from the most recent game whose side is resolvable — a side-less
+    # qualifier match cannot say which of the two named teams the player was on.
+    team = None
+    for row in reversed(mine):
+        team = _named_team(row[1], row[14], row[12], row[13])
+        if team:
+            break
+
+    own = _hero_aggregate([
+        (row[3], row[4], row[5], row[6], row[7], row[9], _match_won(row[1], row[10], row[2]))
+        for row in mine
+    ])
+
+    per_player: Dict[int, Dict[str, Any]] = {}
+    league_rows = []
+    for account, side, result, kills, deaths, assists, net_worth, damage, duration, winner in pool:
+        won = _match_won(side, winner, result)
+        league_rows.append((kills, deaths, assists, net_worth, damage, duration, won))
+        entry = per_player.setdefault(account, {"games": 0, "wins": 0, "losses": 0})
+        entry["games"] += 1
+        if won is True:
+            entry["wins"] += 1
+        elif won is False:
+            entry["losses"] += 1
+
+    league = _hero_aggregate(league_rows)
+    league_wins = sum(entry["wins"] for entry in per_player.values())
+    league_losses = sum(entry["losses"] for entry in per_player.values())
+    league["games"] = len(league_rows)
+    league["decided"] = league_wins + league_losses
+    league["win_rate"] = (
+        league_wins / (league_wins + league_losses) if league_wins + league_losses else None
+    )
+    standings = _hero_standings(per_player, account_id, RANK_TOP_N, RANK_MIN_GAMES)
+
+    matchup_rows: Dict[int, Dict[str, Any]] = {}
+    outcomes = {row[0]: _match_won(row[1], row[10], row[2]) for row in mine}
+    for match_id, enemy_hero_id in matchups:
+        won = outcomes.get(match_id)
+        entry = matchup_rows.setdefault(
+            int(enemy_hero_id), {"games": 0, "wins": 0, "losses": 0}
+        )
+        entry["games"] += 1
+        if won is True:
+            entry["wins"] += 1
+        elif won is False:
+            entry["losses"] += 1
+
+    matchups_out = [
+        {
+            "hero_id": enemy_hero_id,
+            "hero_name": hero_names.get(str(enemy_hero_id), f"Hero {enemy_hero_id}"),
+            **entry,
+        }
+        for enemy_hero_id, entry in matchup_rows.items()
+    ]
+    matchups_out.sort(key=lambda row: (-row["games"], row["hero_name"]))
+
     return jsonify(
         {
             "account_id": account_id,
-            "games": total_games,
-            "games_with_items": len(games_with_items),
-            "signature": signature,
-            "build": build,
+            "hero_id": hero_id,
+            "hero_name": hero_names.get(str(hero_id), f"Hero {hero_id}"),
+            "games": games,
+            "wins": wins,
+            "losses": losses,
+            "decided": wins + losses,
+            "win_rate": wins / (wins + losses) if wins + losses else None,
+            **own,
+            "team": team,
+            "first_week": min(weeks) if weeks else None,
+            "last_week": max(weeks) if weeks else None,
+            "league": {"players": len(per_player), **league},
+            "rank": standings,
+            "ability_builds": _ability_builds(mine, slots, games),
+            "items": {
+                "games": items["games"],
+                "games_with_items": items["games_with_items"],
+                "build": items["build"],
+                "signature": items["signature"],
+            },
+            "matchups": matchups_out,
         }
     )
 
@@ -2172,6 +2335,229 @@ def user_damage_api(account_id: int):  # type: ignore
                 if group_totals.get(group_id)
             ],
             "sources": sources,
+        }
+    )
+
+
+def _named_team(side: Any, side_a: Any, team_a: Any, team_b: Any) -> Optional[str]:
+    """The team the player was on, or None when the metadata cannot say.
+
+    `players.team` is the in-game side (a bare 0/1) and `event_team_a_ingame_side`
+    maps one of the two NAMED teams onto it. The 63 Night Shift Open 1 matches
+    never had that mapping authored, so they resolve to nothing rather than to a
+    guess — callers count them instead of attributing them.
+    """
+    if side in (0, 1) and side_a in (0, 1) and team_a and team_b:
+        return team_a if side == side_a else team_b
+    return None
+
+
+def _opponent_team(side: Any, side_a: Any, team_a: Any, team_b: Any) -> Optional[str]:
+    """The other team in the match, or None when the player's own side is unclear."""
+    mine = _named_team(side, side_a, team_a, team_b)
+    if not mine:
+        return None
+    return team_b if mine == team_a else team_a
+
+
+def _teammate_rows(rows: List[Any]) -> List[Dict[str, Any]]:
+    """Group the player's team-mates by account.
+
+    `players.team` is the in-game side and is populated for every row, including
+    the side-less qualifier matches, so no game is lost here. The team name shown
+    is the one they shared most often — a rosters' worth of players move between
+    teams, and the name is only context for the win rate.
+    """
+    grouped: Dict[int, Dict[str, Any]] = {}
+    for account, persona, avatar, team_name, won in rows:
+        entry = grouped.setdefault(
+            account,
+            {
+                "account_id": account,
+                "persona_name": persona or f"Player {account}",
+                "avatar_url": avatar,
+                "games": 0,
+                "wins": 0,
+                "losses": 0,
+                "teams": {},
+            },
+        )
+        entry["games"] += 1
+        if won is True:
+            entry["wins"] += 1
+        elif won is False:
+            entry["losses"] += 1
+        if team_name:
+            entry["teams"][team_name] = entry["teams"].get(team_name, 0) + 1
+
+    teammates = []
+    for entry in grouped.values():
+        decided = entry["wins"] + entry["losses"]
+        shared = entry.pop("teams")
+        top_team = (
+            sorted(shared.items(), key=lambda kv: (-kv[1], kv[0]))[0][0] if shared else None
+        )
+        teammates.append(
+            {
+                **entry,
+                "team": top_team,
+                "decided": decided,
+                "win_rate": entry["wins"] / decided if decided else None,
+            }
+        )
+    teammates.sort(key=lambda row: (-row["games"], row["persona_name"].lower()))
+    return teammates
+
+
+@bp.get("/users/<int:account_id>/teammates")
+@cache.cached(timeout=1800)
+def user_teammates_api(account_id: int):  # type: ignore
+    """Everyone the player has shared a side with, most games first.
+
+    A teammate is another row in the same match with the same `players.team`, which
+    is the in-game side and therefore carries no name of its own — the team shown
+    comes from the match metadata, so a side-less qualifier game contributes to the
+    games and the win rate but not to the name.
+    """
+    with get_ro_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT e.account_id, u.persona_name, u.avatar_url,
+                   m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
+                   p.team, p.result, m.winning_team
+              FROM players p
+              JOIN players e
+                ON e.match_id = p.match_id AND e.account_id <> p.account_id AND e.team = p.team
+              JOIN matches m ON m.match_id = p.match_id
+              LEFT JOIN users u ON u.account_id = e.account_id
+             WHERE p.account_id = ?
+            """,
+            (account_id,),
+        ).fetchall()
+
+    prepared = []
+    for account, persona, avatar, team_a, team_b, side_a, side, result, winner in rows:
+        prepared.append(
+            (
+                account,
+                persona,
+                avatar,
+                _named_team(side, side_a, team_a, team_b),
+                _match_won(side, winner, result),
+            )
+        )
+
+    teammates = _teammate_rows(prepared)
+    return jsonify(
+        {
+            "account_id": account_id,
+            "count": len(teammates),
+            "teammates": teammates,
+        }
+    )
+
+
+@bp.get("/users/<int:account_id>/opponents")
+@cache.cached(timeout=1800)
+def user_opponents_api(account_id: int):  # type: ignore
+    """Who the player has faced, by player and by team.
+
+    The player side is a plain self-join on the opposite `players.team`. The team
+    side needs the match metadata to turn an in-game side into a team NAME, so the
+    side-less qualifier matches are counted in `unresolved_games` instead of being
+    attributed to whichever team they might have been.
+    """
+    with get_ro_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT e.account_id, u.persona_name, u.avatar_url,
+                   m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
+                   p.team, p.result, m.winning_team, p.match_id
+              FROM players p
+              JOIN players e ON e.match_id = p.match_id AND e.team <> p.team
+              JOIN matches m ON m.match_id = p.match_id
+              LEFT JOIN users u ON u.account_id = e.account_id
+             WHERE p.account_id = ? AND p.team IN (0, 1) AND e.team IN (0, 1)
+            """,
+            (account_id,),
+        ).fetchall()
+
+    players: Dict[int, Dict[str, Any]] = {}
+    teams: Dict[str, Dict[str, Any]] = {}
+    unresolved_matches: set = set()
+    # The join returns one row per ENEMY PLAYER, so a team would otherwise count a
+    # single game six times. The players list wants that; the team list does not.
+    counted_team_games: set = set()
+
+    for account, persona, avatar, team_a, team_b, side_a, side, result, winner, match_id in rows:
+        won = _match_won(side, winner, result)
+        entry = players.setdefault(
+            account,
+            {
+                "account_id": account,
+                "name": persona or f"Player {account}",
+                "avatar_url": avatar,
+                "games": 0,
+                "wins": 0,
+                "losses": 0,
+            },
+        )
+        entry["games"] += 1
+        if won is True:
+            entry["wins"] += 1
+        elif won is False:
+            entry["losses"] += 1
+
+        enemy = _opponent_team(side, side_a, team_a, team_b)
+        if not enemy:
+            unresolved_matches.add(match_id)
+            continue
+        # Team names are hand-authored and drift in case ("MELEE CREEPS" and
+        # "Melee Creeps" are one team), so the grouping is case-insensitive and the
+        # most-used spelling is the one shown — the team route is case-insensitive
+        # as well, so either spelling links correctly.
+        key = enemy.lower()
+        if (match_id, key) in counted_team_games:
+            continue
+        counted_team_games.add((match_id, key))
+        team_entry = teams.setdefault(
+            key, {"name": enemy, "spellings": {}, "games": 0, "wins": 0, "losses": 0}
+        )
+        team_entry["spellings"][enemy] = team_entry["spellings"].get(enemy, 0) + 1
+        team_entry["name"] = max(
+            team_entry["spellings"].items(), key=lambda kv: (kv[1], kv[0])
+        )[0]
+        team_entry["games"] += 1
+        if won is True:
+            team_entry["wins"] += 1
+        elif won is False:
+            team_entry["losses"] += 1
+
+    def finish(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
+        for row in rows_in:
+            decided = row["wins"] + row["losses"]
+            out.append(
+                {
+                    **row,
+                    "decided": decided,
+                    "win_rate": row["wins"] / decided if decided else None,
+                }
+            )
+        out.sort(key=lambda row: (-row["games"], row["name"].lower()))
+        return out
+
+    for entry in teams.values():
+        entry.pop("spellings", None)
+
+    return jsonify(
+        {
+            "account_id": account_id,
+            "players": finish(list(players.values())),
+            # A game faces six players but only one team, and a game whose metadata
+            # never named the sides lands in neither list.
+            "teams": finish(list(teams.values())),
+            "unresolved_games": len(unresolved_matches),
         }
     )
 
@@ -2788,25 +3174,83 @@ def series_detail(match_id: int):
     })
 
 
+# The teams index. One row per team (case-folded), ordered by games played so the
+# list opens on the teams the league actually revolves around.
+#
+# Two scopes are applied, both copied from `get_team_detail` so the two pages
+# cannot drift apart:
+#   * "Night Shift Open 1" is excluded — its rows carry no
+#     `event_team_a_ingame_side`, so a side-dependent record is not derivable for
+#     it. Teams that never played anything else keep their Open games.
+#   * Matches with no player rows are placeholders (several feed ids are negative
+#     bracket ids); they carry no data but would inflate the counts.
+_TEAMS_SQL = """
+WITH playable AS (
+    SELECT DISTINCT match_id FROM players WHERE match_id IS NOT NULL
+),
+sides AS (
+    SELECT m.event_team_a AS team_name,
+           m.match_id,
+           m.event_week,
+           (m.event_title = 'Night Shift Open 1') AS is_open,
+           CASE
+               WHEN m.event_team_a_ingame_side IS NOT NULL AND m.winning_team IS NOT NULL
+               THEN m.winning_team = m.event_team_a_ingame_side
+           END AS won
+    FROM matches m
+    JOIN playable pl ON pl.match_id = m.match_id
+    WHERE m.event_team_a IS NOT NULL AND m.event_team_a <> ''
+
+    UNION ALL
+
+    SELECT m.event_team_b,
+           m.match_id,
+           m.event_week,
+           (m.event_title = 'Night Shift Open 1'),
+           CASE
+               WHEN m.event_team_a_ingame_side IS NOT NULL AND m.winning_team IS NOT NULL
+               THEN m.winning_team <> m.event_team_a_ingame_side
+           END
+    FROM matches m
+    JOIN playable pl ON pl.match_id = m.match_id
+    WHERE m.event_team_b IS NOT NULL AND m.event_team_b <> ''
+)
+SELECT
+    MIN(s.team_name) AS team_name,
+    COUNT(DISTINCT s.match_id) AS matches,
+    SUM(CASE WHEN s.won = 1 THEN 1 ELSE 0 END) AS wins,
+    SUM(CASE WHEN s.won = 0 THEN 1 ELSE 0 END) AS losses,
+    MAX(s.event_week) AS latest_week
+FROM sides s
+JOIN (
+    SELECT LOWER(team_name) AS key,
+           SUM(CASE WHEN NOT is_open THEN 1 ELSE 0 END) AS league_games
+    FROM sides
+    GROUP BY LOWER(team_name)
+) scope ON scope.key = LOWER(s.team_name)
+WHERE scope.league_games = 0 OR NOT s.is_open
+GROUP BY LOWER(s.team_name)
+ORDER BY matches DESC, LOWER(s.team_name) ASC
+"""
+
+
 @bp.get("/teams")
 @cache.cached(timeout=3600)
 def get_teams():
-    """Return list of all unique team names with match counts."""
+    """Every team with its league record and the week it last played.
+
+    The scope deliberately mirrors `/team/<name>` so the list and a team's own
+    page can never disagree: the "Night Shift Open 1" qualifier is ignored
+    (unless that is all the team ever played, which keeps the pre-season entries
+    visible) and placeholder matches with no player rows are dropped.
+
+    `won` uses `event_team_a_ingame_side` + `winning_team` — the SQL twin of the
+    team page's `team_result` — so an unscored match adds to the count but not to
+    either side of the record. Verified: `wins + losses == matches` for all 67
+    teams, and every figure matches the corresponding `/db/team` payload.
+    """
     with get_ro_conn() as conn:
-        cur = conn.execute(
-            """
-            SELECT MIN(team_name) AS team_name, COUNT(DISTINCT match_id) AS matches
-            FROM (
-                SELECT event_team_a AS team_name, match_id FROM matches
-                WHERE event_team_a IS NOT NULL AND event_team_a != ''
-                UNION ALL
-                SELECT event_team_b AS team_name, match_id FROM matches
-                WHERE event_team_b IS NOT NULL AND event_team_b != ''
-            )
-            GROUP BY LOWER(team_name)
-            ORDER BY LOWER(team_name) ASC
-            """
-        )
+        cur = conn.execute(_TEAMS_SQL)
         return jsonify({"teams": _rows_to_dicts(cur)})
 
 
@@ -2817,6 +3261,18 @@ SIGNATURE_ITEM_LIMIT = 3
 # The player profile's Items & Build panel shows more than the roster card does.
 SIGNATURE_ITEM_PROFILE_LIMIT = 6
 BUILD_ORDER_LIMIT = 6
+
+# ── Player × Hero ───────────────────────────────────────────────────────
+# Ability point orders. A game spends 16 points: one unlock per ability plus its
+# 1/2/5 AP upgrades, so the build grid is always 16 steps wide.
+ABILITY_SLOTS = ("signature1", "signature2", "signature3", "signature4")
+ABILITY_GRID_STEPS = 16
+MAX_ABILITY_TIER = 3  # tier 3 is the 5 AP upgrade, the one the "max order" tracks
+ABILITY_BUILD_LIMIT = 3  # the panel shows the three most common orders
+# The rank block only renders while the player is inside the top N of the hero's
+# pool, and win-rate standings need this many decided games.
+RANK_TOP_N = 10
+RANK_MIN_GAMES = 5
 
 
 def _icon_key(value: str) -> str:
@@ -2965,19 +3421,8 @@ def _item_class_names() -> Dict[str, str]:
     if cached is not None:
         return cached
 
-    raw = cache.get("dlns_items_list")
-    if raw is None:
-        try:
-            resp = requests.get(ITEMS_URL, params={"language": "english"}, timeout=5)
-            resp.raise_for_status()
-            raw = resp.json()
-            cache.set("dlns_items_list", raw, timeout=600)
-        except Exception as exc:  # requests raises several types
-            current_app.logger.warning("Item catalog unavailable: %s", exc)
-            raw = []
-
     names: Dict[str, str] = {}
-    for item in raw if isinstance(raw, list) else []:
+    for item in _items_raw():
         if not isinstance(item, dict):
             continue
         class_name = item.get("class_name")
@@ -2989,6 +3434,342 @@ def _item_class_names() -> Dict[str, str]:
     if names:
         cache.set("dlns_item_class_names", names, timeout=21600)
     return names
+
+
+def _items_raw() -> List[Any]:
+    """The upstream item + ability catalogue, verbatim (cached briefly)."""
+    cached = cache.get("dlns_items_list")
+    if cached is not None:
+        return cached
+
+    raw: List[Any] = []
+    try:
+        resp = requests.get(ITEMS_URL, params={"language": "english"}, timeout=5)
+        resp.raise_for_status()
+        raw = resp.json()
+    except Exception as exc:  # requests raises several types
+        current_app.logger.warning("Item catalog unavailable: %s", exc)
+    raw = raw if isinstance(raw, list) else []
+    if raw:
+        cache.set("dlns_items_list", raw, timeout=600)
+    return raw
+
+
+def _heroes_raw() -> List[Any]:
+    """The upstream hero catalogue, verbatim (cached briefly).
+
+    Carries the `signature1..4` item slots, which is the only place that maps a
+    hero to its four levelable abilities in a stable order.
+    """
+    cached = cache.get("dlns_heroes_list")
+    if cached is not None:
+        return cached
+
+    raw: List[Any] = []
+    try:
+        resp = requests.get(HEROES_URL, params={"language": "english"}, timeout=5)
+        resp.raise_for_status()
+        raw = resp.json()
+    except Exception as exc:  # requests raises several types
+        current_app.logger.warning("Hero catalog unavailable: %s", exc)
+    raw = raw if isinstance(raw, list) else []
+    if raw:
+        cache.set("dlns_heroes_list", raw, timeout=600)
+    return raw
+
+
+def _ability_icon_index() -> Dict[str, str]:
+    """'<key>' -> shipped ability icon path under public/images/abilities."""
+    cached = cache.get("dlns_ability_icon_index")
+    if cached is not None:
+        return cached
+
+    index: Dict[str, str] = {}
+    # current_app.root_path is backend/app, so parents[1] is the project root.
+    root = Path(current_app.root_path).resolve().parents[1] / "public" / "images" / "abilities"
+    try:
+        for path in sorted(root.rglob("*.png")):
+            rel = path.relative_to(root).as_posix()
+            stem = rel.rsplit("/", 1)[-1][:-4]
+            if stem.endswith("_psd"):
+                stem = stem[:-4]
+            key = _icon_key(stem)
+            if key:
+                index.setdefault(key, rel)
+    except OSError:
+        current_app.logger.warning("Ability icon folder unreadable: %s", root)
+
+    if index:
+        cache.set("dlns_ability_icon_index", index, timeout=21600)
+    return index
+
+
+def _hero_ability_slots() -> Dict[int, Dict[str, Any]]:
+    """hero_id -> its four levelable abilities, in upstream slot order.
+
+    The abilities in the items catalogue do not carry a hero, and
+    `data/hero_meta.json` has names plus shipped image paths but no ids, so the
+    slots are read from the HERO catalogue's `signature1..4` class names and
+    resolved through the items catalogue — the only place holding both the class
+    name and the ability id the match data stores.
+    """
+    cached = cache.get("dlns_hero_ability_slots")
+    if cached is not None:
+        return cached
+
+    by_class: Dict[str, Dict[str, Any]] = {}
+    for item in _items_raw():
+        class_name = item.get("class_name") if isinstance(item, dict) else None
+        if isinstance(class_name, str) and item.get("id") is not None:
+            by_class[class_name] = item
+
+    icons = _ability_icon_index()
+    slots: Dict[int, Dict[str, Any]] = {}
+    for hero in _heroes_raw():
+        if not isinstance(hero, dict) or hero.get("id") is None:
+            continue
+        hero_items = hero.get("items") or {}
+        abilities: List[Dict[str, Any]] = []
+        by_id: Dict[int, int] = {}
+        for slot, key in enumerate(ABILITY_SLOTS, start=1):
+            class_name = hero_items.get(key)
+            entry = by_class.get(class_name or "")
+            if not entry:
+                continue
+            name = entry.get("name") or class_name
+            icon = icons.get(_icon_key(entry.get("class_name") or name))
+            abilities.append(
+                {
+                    "slot": slot,
+                    "ability_id": int(entry["id"]),
+                    "name": name,
+                    "icon": f"abilities/{icon}" if icon else None,
+                }
+            )
+            by_id[int(entry["id"])] = slot
+        if abilities:
+            slots[int(hero["id"])] = {"abilities": abilities, "slots": by_id}
+
+    if slots:
+        cache.set("dlns_hero_ability_slots", slots, timeout=21600)
+    return slots
+
+
+def _match_won(side: Any, winner: Any, result: Any) -> Optional[bool]:
+    """The SQL-side twin of the UI's `matchOutcome`: True/False/<none>.
+
+    The stored result is only trusted when the sides are unknown, exactly like the
+    frontend, so a cross-player baseline can never disagree with the page above it.
+    """
+    if side in (0, 1) and winner in (0, 1):
+        return side == winner
+    if result == "Win":
+        return True
+    if result == "Loss":
+        return False
+    return None
+
+
+def _hero_aggregate(rows: List[Any]) -> Dict[str, Any]:
+    """Per-game averages over (kills, deaths, assists, souls, damage, seconds, won).
+
+    KDA is the MEAN OF PER-GAME KDA and the per-minute figures average the games
+    that have them, so a hero page's "vs own" and "vs league" numbers are built
+    the same way as the hero pool table on the player page.
+    """
+    kdas: List[float] = []
+    souls: List[float] = []
+    damage: List[float] = []
+    for kills, deaths, assists, net_worth, player_damage, duration, _won in rows:
+        kdas.append(((kills or 0) + (assists or 0)) / max(deaths or 0, 1))
+        if duration and duration > 0 and net_worth is not None:
+            souls.append(net_worth * 60 / duration)
+        if duration and duration > 0 and player_damage is not None:
+            damage.append(player_damage * 60 / duration)
+
+    def mean(values: List[float]) -> Optional[float]:
+        return sum(values) / len(values) if values else None
+
+    return {
+        "kda": mean(kdas),
+        "souls_per_min": mean(souls),
+        "damage_per_min": mean(damage),
+    }
+
+
+def _hero_standings(
+    per_player: Dict[int, Dict[str, int]],
+    account_id: int,
+    top_n: int = RANK_TOP_N,
+    min_games: int = RANK_MIN_GAMES,
+) -> Dict[str, Any]:
+    """Where one player sits in a hero's pool, by games and by win rate.
+
+    Ties share the better rank (the count of players strictly ahead, plus one),
+    and the win-rate table only lists players with `min_games` decided games —
+    "1 win, 0 losses" must not top it.
+    """
+    mine = per_player.get(account_id)
+    by_games = None
+    if mine:
+        ahead = sum(1 for entry in per_player.values() if entry["games"] > mine["games"])
+        by_games = {"rank": ahead + 1, "of": len(per_player), "value": mine["games"]}
+
+    rated = [
+        (account, entry)
+        for account, entry in per_player.items()
+        if entry["wins"] + entry["losses"] >= min_games
+    ]
+    by_win_rate = None
+    if mine and mine["wins"] + mine["losses"] >= min_games:
+        decided = mine["wins"] + mine["losses"]
+        rate = mine["wins"] / decided
+        ahead = sum(
+            1
+            for _, entry in rated
+            if entry["wins"] / (entry["wins"] + entry["losses"]) > rate
+        )
+        by_win_rate = {
+            "rank": ahead + 1,
+            "of": len(rated),
+            "value": rate,
+            "min_games": min_games,
+        }
+
+    return {
+        "eligible": bool(
+            (by_games and by_games["rank"] <= top_n)
+            or (by_win_rate and by_win_rate["rank"] <= top_n)
+        ),
+        "by_games": by_games,
+        "by_win_rate": by_win_rate,
+        "pool": [
+            {
+                "account_id": account,
+                "games": entry["games"],
+                "wins": entry["wins"],
+                "losses": entry["losses"],
+                "is_player": account == account_id,
+            }
+            for account, entry in sorted(
+                per_player.items(), key=lambda kv: (-kv[1]["games"], kv[0])
+            )
+        ],
+    }
+
+
+def _ability_builds(rows: List[Any], slots: Dict[str, Any], games: int) -> Dict[str, Any]:
+    """The ability point orders for one player on one hero, as up to three builds.
+
+    `players.ability_order` is polluted: the ingest calls an entry an ability when
+    its id repeats or it carries an `upgrade_id`, so ordinary tier-2/3 ITEM
+    purchases are stored in there too. Filtering to the hero's own ability ids is
+    what makes the sequence readable. `tier` is the index of that ability's own
+    purchase events (0 = unlock, then the 1/2/5 AP upgrades).
+
+    Builds are grouped by the ORDER THE FOUR ABILITIES ARE UNLOCKED. Comparing the
+    full 16-step sequence instead would be useless — measured on a 20-game player
+    it produced 18 distinct builds, one per game, because the later upgrades are
+    near-arbitrary — while the unlock order clusters properly (6 distinct, the top
+    three covering 45/20/15% of games). The grid shows each group's most common
+    full order, and every line states the group's real size, so nothing implies a
+    consistency the data does not have.
+    """
+    ability_slots: Dict[int, int] = slots.get("slots") or {}
+    groups: Dict[tuple, Dict[str, Any]] = {}
+
+    for row in rows:
+        raw = row[8]
+        if not raw:
+            continue
+        try:
+            events = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(events, list):
+            continue
+
+        # (slot, tier) -> the time it happened. A repeated entry keeps the earliest.
+        steps: Dict[tuple, float] = {}
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            slot = ability_slots.get(event.get("ability_id"))
+            if slot is None:
+                continue
+            key = (slot, int(event.get("tier") or 0))
+            time = event.get("game_time_s")
+            time = float(time) if time is not None else float("inf")
+            if key not in steps or time < steps[key]:
+                steps[key] = time
+        if not steps:
+            continue
+
+        ordered = sorted(steps.items(), key=lambda kv: (kv[1], kv[0][0], kv[0][1]))
+        sequence = tuple(step for step, _ in ordered)[:ABILITY_GRID_STEPS]
+        unlock_order = tuple(step[0] for step in sequence if step[1] == 0)
+        if not unlock_order:
+            continue
+        won = _match_won(row[1], row[10], row[2])
+
+        group = groups.setdefault(
+            unlock_order,
+            {
+                "unlock_order": list(unlock_order),
+                "games": 0,
+                "wins": 0,
+                "losses": 0,
+                "match_id": row[0],
+                "sequences": {},
+                "max_orders": {},
+            },
+        )
+        group["games"] += 1
+        if won is True:
+            group["wins"] += 1
+        elif won is False:
+            group["losses"] += 1
+        # `mine` is ordered oldest first, so the last write is the newest game.
+        group["match_id"] = row[0]
+        group["sequences"][sequence] = group["sequences"].get(sequence, 0) + 1
+        final = tuple(step[0] for step, _ in ordered if step[1] == MAX_ABILITY_TIER)
+        if final:
+            group["max_orders"][final] = group["max_orders"].get(final, 0) + 1
+
+    def most_common(counter: Dict[Any, int], fallback: Any = ()) -> Any:
+        if not counter:
+            return fallback
+        return max(counter.items(), key=lambda kv: (kv[1], kv[0]))[0]
+
+    by_slot = {ability["slot"]: ability["name"] for ability in slots.get("abilities") or []}
+    names = lambda order: [by_slot.get(slot, f"Ability {slot}") for slot in order]
+
+    ordered_groups = sorted(
+        groups.values(), key=lambda group: (-group["games"], -group["wins"], -group["match_id"])
+    )
+    builds = []
+    for group in ordered_groups[:ABILITY_BUILD_LIMIT]:
+        decided = group["wins"] + group["losses"]
+        builds.append(
+            {
+                "steps": [list(step) for step in most_common(group["sequences"])],
+                "unlock_order": names(group["unlock_order"]),
+                "games": group["games"],
+                "wins": group["wins"],
+                "losses": group["losses"],
+                "win_rate": group["wins"] / decided if decided else None,
+                "share": group["games"] / games if games else None,
+                "match_id": group["match_id"],
+                "max_order": names(most_common(group["max_orders"])),
+            }
+        )
+
+    return {
+        "abilities": slots.get("abilities") or [],
+        "games": games,
+        "other_games": max(0, games - sum(build["games"] for build in builds)),
+        "builds": builds,
+    }
 
 
 def _damage_source_index() -> Dict[str, Any]:
@@ -3247,6 +4028,11 @@ def get_team_detail(team_name: str):
                 COUNT(DISTINCT m.match_id) AS appearances,
                 MAX(m.event_week) AS last_week,
                 MIN(m.event_week) AS first_week,
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) AS wins,
+                SUM(CASE WHEN p.result = 'Loss' THEN 1 ELSE 0 END) AS losses,
+                ROUND(AVG(CAST(p.kills AS REAL)), 1) AS avg_kills,
+                ROUND(AVG(CAST(p.deaths AS REAL)), 1) AS avg_deaths,
+                ROUND(AVG(CAST(p.assists AS REAL)), 1) AS avg_assists,
                 ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) AS kda,
                 ROUND(AVG(CASE WHEN m.duration_s > 0 THEN CAST(p.net_worth AS REAL) * 60.0 / m.duration_s END)) AS nw_per_min,
                 ROUND(AVG(CASE WHEN m.duration_s > 0 THEN CAST(p.player_damage AS REAL) * 60.0 / m.duration_s END)) AS dmg_per_min,
@@ -3264,6 +4050,10 @@ def get_team_detail(team_name: str):
             (team_name, team_name, team_name, team_name),
         )
         players = _rows_to_dicts(cur)
+        # The per-player win/loss split reads `players.result`, the same field the
+        # hero-pick wins already trust. It is the player's OWN result, which is the
+        # only per-player signal stored — the team-level record is derived from the
+        # sides instead, so the two can differ on a side-less match.
 
         # Hero picks per player: feeds the signature heroes on the roster card
         # and the per-player cells of the hero usage matrix.

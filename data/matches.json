@@ -3184,7 +3184,7 @@
           "games": [
             {
               "team_a": "ABRAHAMS",
-              "team_b": "LEVIATAHAN",
+              "team_b": "Leviathan",
               "matches": [
                 {
                   "game": "Game 1",
@@ -3196,7 +3196,7 @@
               "region": "EU"
             },
             {
-              "team_a": "BUFF ENJOYER",
+              "team_a": "Buff Enjoyers",
               "team_b": "ABRAHAMS",
               "matches": [
                 {
@@ -4052,7 +4052,7 @@
             },
             {
               "team_a": "MELEE CREEPS",
-              "team_b": "VANGUARD GAMING",
+              "team_b": "Vanguard",
               "matches": [
                 {
                   "game": "Game 1",
@@ -4121,7 +4121,7 @@
             },
             {
               "team_a": "POPPERS' PUPILS",
-              "team_b": "VANGUARD",
+              "team_b": "Vanguard",
               "matches": [
                 {
                   "game": "Game 1",
@@ -4218,7 +4218,7 @@
             },
             {
               "team_a": "MELEE CREEPS",
-              "team_b": "VANGUARD",
+              "team_b": "Vanguard",
               "matches": [
                 {
                   "game": "Game 1",

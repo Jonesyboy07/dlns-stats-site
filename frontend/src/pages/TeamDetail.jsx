@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import ErrorMessage from "../components/ErrorMessage";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 import TeamIdentityCard from "../components/team/TeamIdentityCard";
 import TeamOverviewTab from "../components/team/TeamOverviewTab";
 import TeamPlayersTab from "../components/team/TeamPlayersTab";
 import TeamSeriesTab from "../components/team/TeamSeriesTab";
-import { formatRecord } from "../utils/format";
+import { formatPercent, formatRecord } from "../utils/format";
+import { recordOf, teamWeekRange } from "../utils/team";
 import { isActivePlayer } from "../utils/timeline";
 
 const TABS = ["Overview", "Series", "Players"];
@@ -19,28 +22,37 @@ function TeamDetail() {
   const [activeTab, setActiveTab] = useState("Overview");
 
   useEffect(() => {
+    let alive = true;
     setLoading(true);
     setData(null);
+    setError(null);
     fetch(`/db/team/${encodeURIComponent(decodedName)}`)
       .then((r) => {
         if (!r.ok) throw new Error("Team not found");
         return r.json();
       })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((json) => {
+        if (alive) setData(json);
+      })
+      .catch((e) => {
+        if (alive) setError(e.message);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, [decodedName]);
 
-  if (loading)
-    return <div className="p-8 text-center text-gray-300">Loading team...</div>;
-  if (error) return <div className="p-8 text-red-400">Error: {error}</div>;
+  if (loading) return <LoadingSkeleton variant="detail" />;
+  if (error) return <ErrorMessage message={error} />;
   if (!data) return null;
 
   const {
     team_name,
     max_week,
     roster_weeks = [],
-    league_weeks = [],
     players = [],
     matches = [],
     hero_picks = [],
@@ -51,36 +63,50 @@ function TeamDetail() {
     hero_usage,
   } = data;
 
-  // Current roster = players who turned out in the team's latest week. The
-  // roster timeline covers everyone, so there is no separate alumni list.
+  // Current roster = players who turned out in the team's latest week. The tenure
+  // grid covers everyone, so there is no separate alumni list.
   const currentPlayers = players.filter((p) => isActivePlayer(p, max_week));
   const rosterPlayers = currentPlayers.length > 0 ? currentPlayers : players;
 
-  const seriesRecord = formatRecord(record.series?.wins, record.series?.losses);
-  const gameRecord = formatRecord(record.games?.wins, record.games?.losses);
+  const gameRecord = recordOf(record.games?.wins, record.games?.losses);
+  const weekRange = teamWeekRange(matches);
 
   return (
     <div className="w-full px-4 py-6">
-      {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-3">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] font-semibold">
+          <Link to="/teams" className="text-muted transition-colors hover:text-primary">
+            Teams
+          </Link>
+          <span className="text-dim">/</span>
+          <span className="min-w-0 truncate text-secondary">{team_name}</span>
+        </nav>
+
         <TeamIdentityCard
           teamName={team_name}
-          seriesRecord={seriesRecord}
-          gameRecord={gameRecord}
+          seriesRecord={formatRecord(record.series?.wins, record.series?.losses)}
+          gameRecord={formatRecord(record.games?.wins, record.games?.losses)}
+          winRate={gameRecord.played ? formatPercent(gameRecord.barPct) : null}
+          weekRange={weekRange}
+          activePlayers={currentPlayers.length > 0 ? currentPlayers.length : null}
           form={form}
         />
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-gray-700 mb-6">
+      {/* Same tab treatment as the player pages: a rule under the row with the
+          active tab's underline sitting on it, rather than a filled pill. */}
+      <div role="tablist" className="mb-6 flex gap-1 border-b border-border-light">
         {TABS.map((tab) => (
           <button
             key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 text-sm font-semibold rounded-t transition-colors ${
+            className={`-mb-px border-b-2 px-4 py-2.5 font-valve-oracle text-[15px] font-semibold transition-colors ${
               activeTab === tab
-                ? "bg-gray-800 text-white border-b-2 border-blue-400"
-                : "text-gray-400 hover:text-gray-200"
+                ? "border-accent-secondary text-primary"
+                : "border-transparent text-muted hover:text-secondary"
             }`}
           >
             {tab}
@@ -88,7 +114,6 @@ function TeamDetail() {
         ))}
       </div>
 
-      {/* Tab content */}
       {activeTab === "Overview" && (
         <TeamOverviewTab
           players={rosterPlayers}
@@ -105,7 +130,6 @@ function TeamDetail() {
           currentPlayers={currentPlayers}
           players={players}
           rosterWeeks={roster_weeks}
-          leagueWeeks={league_weeks}
           max_week={max_week}
           leaderboard={leaderboard}
           heroUsage={hero_usage}

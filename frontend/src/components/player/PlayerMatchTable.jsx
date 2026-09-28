@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ErrorMessage from "../ErrorMessage";
 import HeroIcon from "../HeroIcon";
 import LoadingSkeleton from "../LoadingSkeleton";
 import Panel from "./Panel";
 import { RESULT_CHIP_CLASS, resultGlyph } from "./resultStyles";
 import { formatCompact, formatDuration, formatKda, formatMatchDate } from "../../utils/format";
-import { kda, matchOutcome, opponentForMatch } from "../../utils/playerStats";
+import { laneMeta, playerLane } from "../../utils/lanes";
+import { kda, matchOutcome, nextSort, opponentForMatch } from "../../utils/playerStats";
 
 const DASH = "—";
 
@@ -27,7 +28,6 @@ const COLUMNS = [
   { label: "Week", key: null, align: "justify-end" },
   { label: "VOD", key: null, align: "justify-end" },
 ];
-
 const DEFAULT_SORT = { sort: "date", order: "desc" };
 
 /** Every reachable sort state has a matching option, so the select never lies. */
@@ -50,12 +50,19 @@ const RESULT_FILTERS = [
 
 const SIDE_FILTERS = [
   { value: "", label: "Both" },
-  { value: "0", label: "Amber" },
-  { value: "1", label: "Sapphire" },
+  { value: "0", label: "Hidden King" },
+  { value: "1", label: "Archmother" },
 ];
 
 const SIDE_DOT_CLASS = { 0: "bg-team-amber", 1: "bg-team-sapphire" };
-const SIDE_NAME = { 0: "Amber", 1: "Sapphire" };
+/** The league's two sides, as the team pages name them. */
+const SIDE_NAME = { 0: "Hidden King", 1: "Archmother" };
+
+/**
+ * The native dropdown is painted by the OS, so it needs its own colours — without
+ * them the options inherit nothing and land light-on-light on Windows.
+ */
+const OPTION_CLASS = "bg-table text-secondary";
 
 const playerSide = (match) => (match?.team === 0 || match?.team === 1 ? match.team : null);
 
@@ -89,6 +96,11 @@ function Segmented({ options, value, onChange, label }) {
  * P1-4: the player's games, paged and filtered SERVER-SIDE (a 400-game player
  * must not download 400 rows to show 10). Filters, sort and page can live in the
  * URL so a view is shareable, and any filter change resets to page 1.
+ *
+ * `firstColumn="lane"` swaps the Hero column for the lane, which is what the
+ * Player × Hero page wants: every row is the same hero, so the hero column would
+ * be a column of identical cells. The hero filter is hidden there too, because it
+ * is already locked to the page's hero.
  */
 export default function PlayerMatchTable({
   accountId,
@@ -99,8 +111,10 @@ export default function PlayerMatchTable({
   title = "Matches",
   showFilters = true,
   syncUrl = false,
+  firstColumn = "hero",
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const lockedHero = heroId == null ? "" : String(heroId);
 
   const [filters, setFilters] = useState(() => ({
@@ -187,19 +201,19 @@ export default function PlayerMatchTable({
 
   const clearFilters = () => patchFilters({ res: "", side: "", hero: lockedHero, ...DEFAULT_SORT });
 
-  /** desc -> asc -> back to the default sort, matching the handoff. */
+  /**
+   * Highest -> lowest -> back to the default, so a column head always cycles back
+   * to the newest-match view instead of trapping you in a sort.
+   */
   const cycleSort = (key) => {
     if (!key) return;
     setPage(1);
-    if (filters.sort !== key) {
-      setFilters((current) => ({ ...current, sort: key, order: "desc" }));
-      return;
-    }
-    if (filters.order === "desc") {
-      setFilters((current) => ({ ...current, order: "asc" }));
-      return;
-    }
-    setFilters((current) => ({ ...current, ...DEFAULT_SORT }));
+    const next = nextSort(
+      { key: filters.sort, direction: filters.order },
+      key,
+      { key: DEFAULT_SORT.sort, direction: DEFAULT_SORT.order },
+    );
+    setFilters((current) => ({ ...current, sort: next.key, order: next.direction }));
   };
 
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -207,10 +221,18 @@ export default function PlayerMatchTable({
   const countLabel = isFiltered
     ? `${total} of ${totalGames ?? total} games`
     : `${total} game${total === 1 ? "" : "s"}`;
+  // Scoped to one hero the Hero column would repeat the page title on every row,
+  // so it becomes the lane instead.
+  const columns =
+    firstColumn === "lane"
+      ? [{ label: "Lane", key: null, align: "" }, ...COLUMNS.slice(1)]
+      : COLUMNS;
 
   return (
     <Panel title={title}>
-      {showFilters && total > 1 && (
+      {/* Keyed on the player's TOTAL games, not the filtered count: a filter that
+          narrows the list to one game must not take the filters away with it. */}
+      {showFilters && (totalGames ?? total) > 1 && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Segmented
             label="Result"
@@ -233,9 +255,11 @@ export default function PlayerMatchTable({
                 onChange={(event) => patchFilters({ hero: event.target.value })}
                 className="bg-transparent py-1 text-[12px] text-secondary outline-none"
               >
-                <option value="">All heroes</option>
+                <option className={OPTION_CLASS} value="">
+                  All heroes
+                </option>
                 {heroChoices.map((hero) => (
-                  <option key={hero.hero_id} value={String(hero.hero_id)}>
+                  <option className={OPTION_CLASS} key={hero.hero_id} value={String(hero.hero_id)}>
                     {hero.hero_name} ({hero.games})
                   </option>
                 ))}
@@ -264,7 +288,7 @@ export default function PlayerMatchTable({
               className="bg-transparent py-1.5 text-[12px] text-secondary outline-none"
             >
               {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option className={OPTION_CLASS} key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -300,7 +324,7 @@ export default function PlayerMatchTable({
             <div
               className={`${GRID} border-b border-border-light bg-table px-3 py-2 text-[11px] uppercase tracking-[.05em] text-muted`}
             >
-              {COLUMNS.map((column, index) => (
+              {columns.map((column, index) => (
                 <span key={index} className={`flex items-center gap-1 ${column.align}`}>
                   {column.key ? (
                     <button
@@ -331,27 +355,80 @@ export default function PlayerMatchTable({
                 const opponent = opponentForMatch(match);
                 const side = playerSide(match);
                 const date = formatMatchDate(match.start_time || match.created_at);
+                const lane = laneMeta(playerLane(match));
                 return (
-                  <div key={match.match_id} className={`${GRID} min-h-11 px-3 py-1.5 transition-colors hover:bg-accent-secondary/[0.08]`}>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <HeroIcon name={match.hero_name} size="h-[26px] w-[26px]" />
-                      <Link
-                        to={`/hero/${match.hero_id}`}
-                        title={match.hero_name || `Hero ${match.hero_id}`}
-                        className="truncate text-[13px] text-secondary transition-colors hover:text-accent-secondary-light"
+                  <div
+                    key={match.match_id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open match ${match.match_id}`}
+                    onClick={() => navigate(`/match/${match.match_id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate(`/match/${match.match_id}`);
+                      }
+                    }}
+                    className={`${GRID} min-h-11 cursor-pointer px-3 py-1.5 transition-colors hover:bg-accent-secondary/[0.08]`}
+                  >
+                    {firstColumn === "lane" ? (
+                      <span
+                        className="flex min-w-0 items-center gap-2"
+                        title={lane ? `${lane.name} lane` : "Lane not recorded"}
                       >
-                        {match.hero_name || `Hero ${match.hero_id}`}
-                      </Link>
-                    </span>
+                        {lane ? (
+                          <>
+                            <span
+                              aria-hidden="true"
+                              className="h-2 w-2 shrink-0 rounded-[2px]"
+                              style={{ background: lane.color }}
+                            />
+                            <span className="truncate text-[13px] text-secondary">{lane.name}</span>
+                          </>
+                        ) : (
+                          <span className="text-dim">{DASH}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="flex min-w-0 items-center gap-2">
+                        {/* The art goes to the hero, the name to the match. The whole
+                            row opens the match too, so both links stop the click. */}
+                        <Link
+                          to={`/hero/${match.hero_id}`}
+                          title={`${match.hero_name || `Hero ${match.hero_id}`} hero page`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="shrink-0 rounded transition-opacity hover:opacity-80"
+                        >
+                          <HeroIcon name={match.hero_name} size="h-[26px] w-[26px]" />
+                        </Link>
+                        <Link
+                          to={`/match/${match.match_id}`}
+                          title={`Open match ${match.match_id}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="truncate text-[13px] text-secondary transition-colors hover:text-accent-secondary-light"
+                        >
+                          {match.hero_name || `Hero ${match.hero_id}`}
+                        </Link>
+                      </span>
+                    )}
 
-                    <span className="min-w-0 truncate text-[13px]" title={opponent || "Unknown opponent"}>
+                    <span className="min-w-0 truncate text-[13px]">
                       {opponent ? (
                         <>
                           <span className="text-dim">vs </span>
-                          <span className="text-secondary">{opponent}</span>
+                          <Link
+                            to={`/team/${encodeURIComponent(opponent)}`}
+                            title={`${opponent} team page`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="text-secondary transition-colors hover:text-accent-secondary-light hover:underline"
+                          >
+                            {opponent}
+                          </Link>
                         </>
                       ) : (
-                        <span className="text-dim">{DASH}</span>
+                        <span className="text-dim" title="Unknown opponent">
+                          {DASH}
+                        </span>
                       )}
                     </span>
 
@@ -359,6 +436,7 @@ export default function PlayerMatchTable({
                       <Link
                         to={`/match/${match.match_id}`}
                         title={`Open match ${match.match_id}`}
+                        onClick={(event) => event.stopPropagation()}
                         className={`inline-flex min-w-11 justify-center rounded border px-1.5 py-0.5 text-[11px] font-bold ${RESULT_CHIP_CLASS[outcome]}`}
                       >
                         {resultGlyph(outcome, { long: true })}
@@ -393,6 +471,7 @@ export default function PlayerMatchTable({
                         <Link
                           to={`/week/${match.event_week}`}
                           title={`Night Shift ${match.event_week}`}
+                          onClick={(event) => event.stopPropagation()}
                           className="text-dim transition-colors hover:text-secondary"
                         >
                           NS {match.event_week}
@@ -409,6 +488,7 @@ export default function PlayerMatchTable({
                           href={match.match_vod}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
                           className="rounded-full border border-accent-secondary-border bg-accent-secondary-bg px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-accent-secondary-light transition-colors hover:bg-accent-secondary-bg-strong"
                         >
                           VOD

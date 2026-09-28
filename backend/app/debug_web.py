@@ -56,6 +56,12 @@ def create_app() -> Flask:
     app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5050')  # Use env variable
     app.config['OG_IMAGE'] = os.getenv('OG_IMAGE', 'og.png')  # place og.png in /static
     app.config['IMAGE_CDN_BASE'] = os.getenv('IMAGE_CDN_BASE', 'https://cdn.dlns-stats.co.uk/public/images')
+    # Team crests sit in a teamLogos/ folder beside the other art on the images
+    # CDN, so the crest base FOLLOWS IMAGE_CDN_BASE — repointing the CDN must not
+    # need a second setting. TEAM_LOGO_CDN_BASE is only for hosting the crests
+    # somewhere else entirely (it used to be a separate file host).
+    _crest_default = (app.config['IMAGE_CDN_BASE'] or '').strip().rstrip('/') or 'https://cdn.dlns-stats.co.uk/public/images'
+    app.config['TEAM_LOGO_BASE'] = (os.getenv('TEAM_LOGO_CDN_BASE') or '').strip().rstrip('/') or f'{_crest_default}/teamLogos'
     
     # Default DB path is ./data/dlns.sqlite3 from current working directory
     default_db = Path.cwd() / "data" / "dlns.sqlite3"
@@ -345,6 +351,7 @@ def create_app() -> Flask:
             PATREON_URL=app.config.get("PATREON_URL", ""),
             BASE_URL=app.config.get("BASE_URL", "").rstrip('/'),
             IMAGE_CDN_BASE=app.config.get("IMAGE_CDN_BASE", "").rstrip('/'),
+            TEAM_LOGO_BASE=app.config.get("TEAM_LOGO_BASE", "").rstrip('/'),
         )
 
     # Add authentication context processor

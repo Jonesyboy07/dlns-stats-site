@@ -40,6 +40,17 @@ def player_detail(account_id):
     return render_template('react.html', page='player_detail')
 
 
+@react_stats_bp.get('/player/<int:account_id>/hero/<int:hero_id>')
+def player_hero_detail(account_id, hero_id):
+    """Serve the React Player × Hero page.
+
+    Must be its own route: `/player/<account_id>` does not match a longer path, so
+    without this a shared or reloaded Player × Hero URL 404s even though in-app
+    navigation to it works.
+    """
+    return render_template('react.html', page='player_detail')
+
+
 @react_stats_bp.get('/heroes')
 def heroes_list():
     """Serve the React heroes list page."""

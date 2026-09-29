@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ErrorMessage from "../ErrorMessage";
 import HeroIcon from "../HeroIcon";
@@ -168,22 +168,35 @@ export default function PlayerMatchTable({
     };
   }, [accountId, page, pageSize, filters.res, filters.side, filters.hero, filters.sort, filters.order, reloadKey]);
 
-  // A new player means a fresh page.
+  // A new player means a fresh page — but NOT on the first render, or the
+  // `?page=` this table writes to the URL would be discarded on every reload.
+  const lastAccount = useRef(accountId);
   useEffect(() => {
+    if (lastAccount.current === accountId) return;
+    lastAccount.current = accountId;
     setPage(1);
   }, [accountId]);
 
   useEffect(() => {
     if (!syncUrl) return;
-    const next = new URLSearchParams();
+    // Start from the params already in the URL and rewrite only the ones this
+    // table owns. The player page keeps its active tab in `?tab=`, so building a
+    // fresh URLSearchParams here would wipe it and bounce you back to Overview.
+    const OWNED = ["res", "side", "hero", "sort", "order", "page"];
+    const next = new URLSearchParams(searchParams);
+    OWNED.forEach((key) => next.delete(key));
     if (filters.res) next.set("res", filters.res);
     if (filters.side) next.set("side", filters.side);
     if (!lockedHero && filters.hero) next.set("hero", filters.hero);
     if (filters.sort !== DEFAULT_SORT.sort) next.set("sort", filters.sort);
     if (filters.order !== DEFAULT_SORT.order) next.set("order", filters.order);
     if (page > 1) next.set("page", String(page));
-    setSearchParams(next, { replace: true });
-  }, [syncUrl, filters, page, lockedHero, setSearchParams]);
+    // Bail out when nothing moved, so this cannot ping-pong with the other
+    // writer of the query string.
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [syncUrl, filters, page, lockedHero, searchParams, setSearchParams]);
 
   const rows = data?.matches ?? [];
   const total = data?.total ?? 0;

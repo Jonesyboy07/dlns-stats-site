@@ -4,10 +4,16 @@ import { IMAGE_CDN_BASE } from "./cdn";
  * Team crest URLs.
  *
  * Crests live in a `teamLogos/` folder beside the site's other art on the images
- * CDN, so the default base FOLLOWS `IMAGE_CDN_BASE` — repointing the CDN must
+ * CDN, so the production base FOLLOWS `IMAGE_CDN_BASE` — repointing the CDN must
  * not need a second setting. `TEAM_LOGO_CDN_BASE` (injected as
  * `window.DLNS_TEAM_LOGO_BASE`) exists only to host crests somewhere else
  * entirely, and is not needed for the normal case.
+ *
+ * In DEV the base is the repo's own `public/images/teamLogos` instead, because
+ * Flask only injects `window.DLNS_TEAM_LOGO_BASE` into its own template — under
+ * `npm run dev` there is no injection at all, so without this the dev server
+ * would fetch crests from the CDN and 404 (and Cloudflare caches those misses).
+ * The Vite dev server proxies `/public` to Flask so the path resolves there too.
  *
  * The filename is derived from the team name with the SAME rule the backend's
  * `_icon_key()` uses — lowercase, `&` -> "and", drop everything that is not
@@ -19,7 +25,9 @@ import { IMAGE_CDN_BASE } from "./cdn";
  * belong in ALIASES. Correcting the feed is preferable; the alias map is for
  * spellings that are never going to be fixed.
  */
-const DEFAULT_TEAM_LOGO_BASE = `${IMAGE_CDN_BASE}/teamLogos`;
+const DEFAULT_TEAM_LOGO_BASE = import.meta.env?.DEV
+  ? "/public/images/teamLogos"
+  : `${IMAGE_CDN_BASE}/teamLogos`;
 
 const resolveBase = () => {
   const windowBase =

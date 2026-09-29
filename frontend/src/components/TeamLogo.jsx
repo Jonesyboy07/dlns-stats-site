@@ -21,8 +21,8 @@ const initialsOf = (teamName) =>
  * Deliberately `object-contain`, not `object-cover`: crests are not a uniform
  * aspect ratio, and cropping a logo is worse than letterboxing it.
  *
- * Every team logo is served from one folder on a separate file host, so a team
- * with no crest is normal and must not throw or log.
+ * Crests are a hand-collected set with gaps, so "no crest for this team" is a
+ * normal state and must not throw or log.
  */
 function TeamLogo({
   name,
@@ -62,7 +62,7 @@ function TeamLogo({
       alt={name}
       title={name}
       onError={() => setStage((current) => current + 1)}
-      className={`${box} border border-border-lighter bg-input object-contain ${className}`}
+      className={`${box} object-contain ${className}`}
     />
   );
 }

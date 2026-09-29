@@ -32,7 +32,7 @@ function TeamIdentityCard({
     <header className="flex flex-wrap items-center gap-6 rounded-2xl border border-border bg-card px-6 py-5 shadow">
       <TeamLogo
         name={teamName}
-        size="h-[72px] w-[72px]"
+        size="h-[112px] w-[96px]"
         rounded="rounded-xl"
         textClass="font-valve-pulp text-[26px]"
       />

@@ -6,34 +6,17 @@ import { formatDuration, formatLongDate } from "../../utils/format";
 import { DASH, gameResult, recordOf, seriesGroups } from "../../utils/team";
 
 /**
- * Header and rows share this template so the labels sit over their columns.
- * The trailing 16px column is the chevron.
+ * Header and rows share this template so the labels sit over their columns:
+ * opponent, score, date, then the trailing 16px chevron.
  */
 const GRID =
-  "grid grid-cols-[minmax(170px,1.4fr)_48px_64px_132px_64px_96px_16px] items-center gap-4";
+  "grid grid-cols-[minmax(170px,1.4fr)_64px_96px_16px] items-center gap-4";
 
 /** "GAME 1" -> "Game 1"; anything else is shown as-is. */
 const shortGame = (label) => {
   const match = /^game\s*(\w+)$/i.exec((label || "").trim());
   return match ? `Game ${match[1]}` : label || DASH;
 };
-
-/** A win-rate cell: 6px track, then the percentage in a fixed column. */
-function WinRateCell({ record }) {
-  return (
-    <span className="flex items-center gap-2">
-      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-table">
-        <span
-          className="block h-full rounded-full bg-success"
-          style={{ width: `${record.barPct}%` }}
-        />
-      </span>
-      <span className="w-[38px] shrink-0 text-[14px] font-semibold tabular-nums text-primary">
-        {record.pct ?? DASH}
-      </span>
-    </span>
-  );
-}
 
 function ScoreCell({ record }) {
   return (
@@ -70,17 +53,7 @@ function SeriesRow({ series, teamName, open, onToggle }) {
           </span>
         </span>
 
-        <span className="text-right text-[14px] font-semibold tabular-nums text-secondary">
-          {series.games.length}
-        </span>
-
         <ScoreCell record={record} />
-
-        <WinRateCell record={record} />
-
-        <span className="text-right text-[14px] font-semibold tabular-nums text-secondary">
-          {formatDuration(series.avgSeconds) ?? DASH}
-        </span>
 
         <span className="whitespace-nowrap text-right text-[13px] text-muted">{date}</span>
 
@@ -139,16 +112,15 @@ function SeriesRow({ series, teamName, open, onToggle }) {
 
 /** Week separator: the week on the left, a rule, then what the week holds. */
 function WeekDivider({ week, items }) {
-  const date = formatLongDate(items[0]?.date);
-  const label = `${items.length} series${date ? ` · ${date}` : ""}`;
-
+  // Deliberately no date: every row below carries its own, so repeating it on
+  // the divider was noise.
   return (
     <div className="flex items-center gap-3 px-4 pb-2 pt-5">
       <span className="whitespace-nowrap text-[12px] font-bold uppercase tracking-[.05em] text-muted">
         {week != null ? `NS ${week}` : "Pre-season"}
       </span>
       <span className="h-px flex-1 bg-border" />
-      <span className="whitespace-nowrap text-[12px] text-dim">{label}</span>
+      <span className="whitespace-nowrap text-[12px] text-dim">{items.length} series</span>
     </div>
   );
 }
@@ -173,15 +145,12 @@ function TeamSeriesTab({ team_name, matches = [] }) {
       subtitle={`${seriesCount} series · newest first · click a row for its games`}
     >
       <div className="-mx-2 overflow-x-auto">
-        <div className="flex min-w-[780px] flex-col">
+        <div className="flex min-w-[460px] flex-col">
           <div
             className={`${GRID} border-b border-border px-4 pb-2.5 text-[12px] uppercase tracking-[.05em] text-muted`}
           >
             <span>Opponent</span>
-            <span className="text-right">Games</span>
             <span className="text-center">Score</span>
-            <span>Game win rate</span>
-            <span className="text-right">Avg</span>
             <span className="text-right">Date</span>
             <span />
           </div>

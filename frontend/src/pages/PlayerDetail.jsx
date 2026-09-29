@@ -12,6 +12,7 @@ import StatTiles from "../components/player/StatTiles";
 import TeammatesPanel from "../components/player/TeammatesPanel";
 import TenureTimeline from "../components/player/TenureTimeline";
 import { heroPool, playedTeams } from "../utils/playerStats";
+import { useUrlParam } from "../utils/useUrlParam";
 
 /** Layout 1a: identity card first, then tabs underneath it. */
 const TABS = ["Overview", "Heroes", "Matches", "Teams", "Profile"];
@@ -35,7 +36,8 @@ function PlayerDetail() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("Overview");
+  // The tab lives in the URL, so refreshing keeps you where you were.
+  const [activeTab, setActiveTab] = useUrlParam("tab", TABS, "Overview");
   const [reloadKey, setReloadKey] = useState(0);
   // Shared by the hero pool and the match table's hero filter.
   const heroOptions = useMemo(() => heroPool(matches), [matches]);

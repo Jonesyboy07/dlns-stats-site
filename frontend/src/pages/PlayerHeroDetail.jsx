@@ -17,6 +17,7 @@ import SegmentedControl from "../components/player/SegmentedControl";
 import TrendChart from "../components/player/TrendChart";
 import { laneBreakdown } from "../utils/lanes";
 import { headlineStats, heroPool, heroTrend } from "../utils/playerStats";
+import { useUrlParam } from "../utils/useUrlParam";
 
 /** The metrics the trend can plot, in toggle order. */
 const TREND_METRICS = [
@@ -29,6 +30,10 @@ const SIDE_TABS = [
   { id: "lane", label: "Lane" },
   { id: "matchups", label: "Matchups" },
 ];
+
+// Canonical values for the URL-backed switches below.
+const SIDE_TAB_IDS = SIDE_TABS.map((tab) => tab.id);
+const TREND_METRIC_IDS = TREND_METRICS.map((entry) => entry.id);
 
 /**
  * Player × Hero (layout 2a): how good this player is on one hero.
@@ -47,8 +52,9 @@ function PlayerHeroDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [metric, setMetric] = useState("kda");
-  const [sideTab, setSideTab] = useState("lane");
+  // Both view switches live in the URL, so refreshing keeps the view you were on.
+  const [metric, setMetric] = useUrlParam("metric", TREND_METRIC_IDS, "kda");
+  const [sideTab, setSideTab] = useUrlParam("view", SIDE_TAB_IDS, "lane");
 
   useEffect(() => {
     let alive = true;

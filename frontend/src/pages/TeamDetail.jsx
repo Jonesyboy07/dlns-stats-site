@@ -9,6 +9,7 @@ import TeamSeriesTab from "../components/team/TeamSeriesTab";
 import { formatPercent, formatRecord } from "../utils/format";
 import { recordOf, teamWeekRange } from "../utils/team";
 import { isActivePlayer } from "../utils/timeline";
+import { useUrlParam } from "../utils/useUrlParam";
 
 const TABS = ["Overview", "Series", "Players"];
 
@@ -19,7 +20,8 @@ function TeamDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("Overview");
+  // The tab lives in the URL, so refreshing keeps you where you were.
+  const [activeTab, setActiveTab] = useUrlParam("tab", TABS, "Overview");
 
   useEffect(() => {
     let alive = true;

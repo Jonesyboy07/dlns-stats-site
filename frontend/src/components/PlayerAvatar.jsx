@@ -10,7 +10,7 @@ function PlayerAvatar({ player, size = "h-9 w-9", rounded = "rounded-full", clas
         src={player.avatar_url}
         alt=""
         onError={() => setFailed(true)}
-        className={`${size} shrink-0 ${rounded} border border-gray-700 object-cover ${className}`}
+        className={`${size} shrink-0 ${rounded} object-cover ${className}`}
       />
     );
   }

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import ReplayButton from "./ReplayButton";
+import TeamLogo from "./TeamLogo";
 
 export default function MatchHeader({
   matchId = "93812686",
@@ -94,6 +95,9 @@ export default function MatchHeader({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               {amberTeamName ? (
+                <TeamLogo name={amberTeamName} size="h-9 w-9" rounded="rounded-md" />
+              ) : null}
+              {amberTeamName ? (
                 <Link
                   to={`/team/${encodeURIComponent(amberTeamName)}`}
                   className="block text-amber-50 text-2xl font-bold uppercase hover:underline truncate"
@@ -165,6 +169,9 @@ export default function MatchHeader({
                   Sapphire
                 </span>
               )}
+              {sapphireTeamName ? (
+                <TeamLogo name={sapphireTeamName} size="h-9 w-9" rounded="rounded-md" />
+              ) : null}
             </div>
             <div className="text-sm text-blue-100/80 mt-0.5 whitespace-nowrap">
               <span className="text-blue-400 font-semibold">
@@ -224,6 +231,9 @@ export default function MatchHeader({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               {amberTeamName ? (
+                <TeamLogo name={amberTeamName} size="h-7 w-7" rounded="rounded" />
+              ) : null}
+              {amberTeamName ? (
                 <Link
                   to={`/team/${encodeURIComponent(amberTeamName)}`}
                   className="block text-amber-50 text-xl font-bold uppercase hover:underline truncate"
@@ -260,6 +270,9 @@ export default function MatchHeader({
               ) : (
                 <span className="block text-blue-200 text-xl font-bold uppercase">Sapphire</span>
               )}
+              {sapphireTeamName ? (
+                <TeamLogo name={sapphireTeamName} size="h-7 w-7" rounded="rounded" />
+              ) : null}
             </div>
             <div className="text-[13px] text-blue-100/80 mt-0.5 whitespace-nowrap">
                 <span className="text-blue-400 font-semibold">{sapphireSouls.toLocaleString()} souls</span>

@@ -1,219 +1,262 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { cdnImage } from '../utils/cdn';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import ErrorMessage from "../components/ErrorMessage";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import HeroCard from "../components/HeroCard";
+import HeroIcon from "../components/HeroIcon";
+import HeroRankBadges from "../components/player/HeroRankBadges";
+import PlayerAvatar from "../components/PlayerAvatar";
+import AbilityBuildBody from "../components/player/AbilityBuildBody";
+import FormStrip from "../components/player/FormStrip";
+import HeroItemBuildBody from "../components/player/HeroItemBuildBody";
+import HeroStatTiles from "../components/player/HeroStatTiles";
+import LaneCardBody from "../components/player/LaneCardBody";
+import Panel from "../components/player/Panel";
+import PlayerMatchTable from "../components/player/PlayerMatchTable";
+import SegmentedControl from "../components/player/SegmentedControl";
+import TrendChart from "../components/player/TrendChart";
+import { laneBreakdown } from "../utils/lanes";
+import { headlineStats, heroPool, heroTrend } from "../utils/playerStats";
+import { useUrlParam } from "../utils/useUrlParam";
 
+/** The metrics the trend can plot, in toggle order. */
+const TREND_METRICS = [
+  { id: "kda", label: "KDA" },
+  { id: "spm", label: "Souls/min" },
+];
+
+/** The two views the card beside the trend can show. */
+const SIDE_TABS = [
+  { id: "lane", label: "Lane" },
+  { id: "matchups", label: "Matchups" },
+];
+
+// Canonical values for the URL-backed switches below.
+const SIDE_TAB_IDS = SIDE_TABS.map((tab) => tab.id);
+const TREND_METRIC_IDS = TREND_METRICS.map((entry) => entry.id);
+
+/**
+ * Player × Hero (layout 2a): how good this player is on one hero.
+ *
+ * The player's own numbers (tiles, form, trend, lane split) are derived from the
+ * match list the page already loads, so they follow exactly the same rules as the
+ * player page. Only the cross-player figures — league baselines on this hero, the
+ * standings, the ability orders and the matchups — come from
+ * `/db/users/:id/hero/:heroId`.
+ */
 function PlayerHeroDetail() {
   const { accountId, heroId } = useParams();
   const [user, setUser] = useState(null);
   const [matches, setMatches] = useState([]);
-  const [heroName, setHeroName] = useState('');
+  const [hero, setHero] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Both view switches live in the URL, so refreshing keeps the view you were on.
+  const [metric, setMetric] = useUrlParam("metric", TREND_METRIC_IDS, "kda");
+  const [sideTab, setSideTab] = useUrlParam("view", SIDE_TAB_IDS, "lane");
 
   useEffect(() => {
-    fetchData();
-  }, [accountId, heroId]);
+    let alive = true;
+    setLoading(true);
+    setError(null);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-
-      const [userRes, matchesRes] = await Promise.all([
-        fetch(`/db/users/${accountId}`),
-        fetch(`/db/users/${accountId}/matches`),
-      ]);
-
-      if (!userRes.ok) throw new Error('Player not found');
-      const userData = await userRes.json();
-      setUser(userData.user);
-
-      if (matchesRes.ok) {
-        const matchesData = await matchesRes.json();
-        const filtered = (matchesData.matches || []).filter(
-          (m) => String(m.hero_id) === String(heroId)
-        );
-        setMatches(filtered);
-        if (filtered.length > 0) {
-          setHeroName(filtered[0].hero_name || `Hero ${heroId}`);
-        }
+    (async () => {
+      try {
+        const [userRes, matchesRes, heroRes] = await Promise.all([
+          fetch(`/db/users/${accountId}`),
+          fetch(`/db/users/${accountId}/matches`),
+          fetch(`/db/users/${accountId}/hero/${heroId}`),
+        ]);
+        if (!userRes.ok) throw new Error("Player not found");
+        const userData = await userRes.json();
+        const matchesData = matchesRes.ok ? await matchesRes.json() : { matches: [] };
+        const heroData = heroRes.ok ? await heroRes.json() : null;
+        if (!alive) return;
+        setUser(userData.user);
+        setMatches(matchesData.matches || []);
+        setHero(heroData);
+      } catch (err) {
+        if (alive) setError(err.message);
+      } finally {
+        if (alive) setLoading(false);
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
 
-  const heroCardUrl = (name) => {
-    const slug = name.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '_');
-    return cdnImage(`cardicons/${slug}_card_psd.png`);
-  };
+    return () => {
+      alive = false;
+    };
+  }, [accountId, heroId, reloadKey]);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString();
-  };
+  const heroMatches = useMemo(
+    () => matches.filter((match) => String(match.hero_id) === String(heroId)),
+    [matches, heroId],
+  );
+  const pool = useMemo(() => heroPool(heroMatches)[0] ?? null, [heroMatches]);
+  const own = useMemo(() => headlineStats(matches), [matches]);
+  const trend = useMemo(() => heroTrend(heroMatches, metric), [heroMatches, metric]);
+  const lanes = useMemo(() => laneBreakdown(heroMatches), [heroMatches]);
 
-  const formatDuration = (s) => {
-    if (!s) return '-';
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${String(sec).padStart(2, '0')}`;
-  };
-
-  const wins = matches.filter((m) => m.result === 'Win').length;
-  const losses = matches.length - wins;
-  const totalKills = matches.reduce((a, m) => a + (m.kills || 0), 0);
-  const totalDeaths = matches.reduce((a, m) => a + (m.deaths || 0), 0);
-  const totalAssists = matches.reduce((a, m) => a + (m.assists || 0), 0);
-  const avgKDA = matches.length
-    ? ((totalKills + totalAssists) / Math.max(totalDeaths, 1)).toFixed(2)
-    : '0.00';
-  const avgK = matches.length ? (totalKills / matches.length).toFixed(1) : '0.0';
-  const avgD = matches.length ? (totalDeaths / matches.length).toFixed(1) : '0.0';
-  const avgA = matches.length ? (totalAssists / matches.length).toFixed(1) : '0.0';
-  const winRate = matches.length ? ((wins / matches.length) * 100).toFixed(1) : '0.0';
-
-  if (loading) {
-    return (
-      <div className="w-full p-8">
-        <div className="text-center text-xl">Loading...</div>
-      </div>
-    );
-  }
-
+  if (loading) return <LoadingSkeleton variant="detail" />;
   if (error) {
-    return (
-      <div className="w-full p-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          Error: {error}
-        </div>
-      </div>
-    );
+    return <ErrorMessage message={error} onRetry={() => setReloadKey((key) => key + 1)} />;
   }
+
+  const persona = user?.persona_name || "Unknown Player";
+  const heroName = hero?.hero_name || heroMatches[0]?.hero_name || `Hero ${heroId}`;
+  const hasGames = heroMatches.length > 0;
 
   return (
-    <div className="w-full p-8">
-      <Link
-        to={`/player/${accountId}`}
-        className="text-blue-600 hover:underline mb-4 inline-block"
-      >
-        ← Back to {user?.persona_name || 'Player'}
-      </Link>
+    <div className="w-full px-4 py-6">
+      <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-dim">
+        <Link to={`/player/${accountId}`} className="transition-colors hover:text-secondary">
+          {persona}
+        </Link>
+        <span>/</span>
+        <span className="min-w-0 truncate text-muted">{heroName}</span>
+        <span className="ml-auto">
+          <Link to={`/hero/${heroId}`} className="transition-colors hover:text-secondary">
+            {heroName} hero page →
+          </Link>
+        </span>
+      </nav>
 
-      {/* Header */}
-      <div className="flex items-center gap-6 mb-8">
-        {heroName && (
-          <img
-            src={heroCardUrl(heroName)}
-            alt={heroName}
-            className="w-20 h-28 object-cover rounded shadow"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        )}
-        <div>
-          <h1 className="text-white text-3xl font-bold">{heroName || `Hero ${heroId}`}</h1>
-          <p className="text-gray-400 text-lg mt-1">
-            {user?.persona_name || 'Unknown Player'}
+      <section className="mb-4 grid items-end gap-6 rounded-xl border border-border-light bg-card p-5 shadow md:grid-cols-[120px_minmax(0,1fr)_auto]">
+        <div className="relative h-[200px] w-[120px]">
+          <HeroCard name={heroName} size="h-[200px] w-[120px]" className="rounded-xl" />
+          <span className="absolute -bottom-2.5 -right-2.5 rounded-[10px] border-[3px] border-card bg-input p-0.5">
+            <HeroIcon name={heroName} size="h-9 w-9" className="rounded-lg" />
+          </span>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-2.5 pb-1">
+          <span className="text-[11px] uppercase tracking-[.08em] text-dim">Player on hero</span>
+          <h1 className="truncate font-valve-pulp text-[40px] leading-[.95] text-primary md:text-[52px]">
+            {heroName}
+          </h1>
+          <Link
+            to={`/player/${accountId}`}
+            className="flex min-w-0 items-center gap-2.5 transition-colors hover:text-secondary"
+          >
+            <PlayerAvatar player={user} size="h-8 w-8" rounded="rounded-lg" />
+            <span className="flex min-w-0 flex-col">
+              <b className="truncate text-[15px] text-primary">{persona}</b>
+              <span className="truncate text-[12px] text-muted">
+                {hero?.team ? `${hero.team} · ` : ""}
+                {hasGames ? `${heroMatches.length} games on ${heroName}` : `no ${heroName} games`}
+                {hero?.first_week != null
+                  ? ` · first NS ${hero.first_week} · last NS ${hero.last_week}`
+                  : ""}
+              </span>
+            </span>
+          </Link>
+
+          {hasGames && (
+            <FormStrip
+              matches={heroMatches}
+              size={10}
+              showSummary={false}
+              direction="row"
+              label={`Last 10 on ${heroName}`}
+            />
+          )}
+        </div>
+
+        <HeroRankBadges rank={hero?.rank} heroName={heroName} />
+      </section>
+
+      {!hasGames ? (
+        <section className="rounded-xl border border-dashed border-border-lighter px-5 py-10 text-center">
+          <h2 className="font-valve-oracle text-lg text-primary">No {heroName} games yet</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+            {persona} has not played {heroName} in a league game, so there are no numbers
+            for this pairing. The hero page holds the league-wide picture instead.
           </p>
-        </div>
-      </div>
+          <Link
+            to={`/hero/${heroId}`}
+            className="mt-4 inline-block rounded-lg border border-border-light bg-input px-4 py-2 text-[13px] font-semibold text-secondary transition-colors hover:bg-hover"
+          >
+            {heroName} hero page
+          </Link>
+        </section>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <HeroStatTiles
+            pool={pool}
+            own={own}
+            league={hero?.league ?? {}}
+            rank={hero?.rank}
+            heroName={heroName}
+            totalGames={matches.length}
+          />
 
-      {/* Summary Stats */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 mb-6">
-        <h2 className="text-2xl font-bold mb-4">Summary</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div>
-            <p className="text-gray-500 text-sm">Games</p>
-            <p className="text-2xl font-bold">{matches.length}</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">W-L</p>
-            <p className="text-2xl font-bold">
-              <span className="text-green-600">{wins}</span>
-              <span className="text-gray-400"> - </span>
-              <span className="text-red-600">{losses}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">Win Rate</p>
-            <p className="text-2xl font-bold">{winRate}%</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">Avg KDA</p>
-            <p className="text-2xl font-bold">{avgKDA}</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">Avg K / D / A</p>
-            <p className="text-2xl font-bold">
-              {avgK} / {avgD} / {avgA}
-            </p>
-          </div>
-        </div>
-      </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Panel
+              title="Performance Trend"
+              subtitle="One bar per game, oldest → newest · dashed line = average"
+              action={
+                <SegmentedControl
+                  options={TREND_METRICS}
+                  value={metric}
+                  onChange={setMetric}
+                  label="Trend metric"
+                />
+              }
+            >
+              <TrendChart trend={trend} metric={metric} />
+            </Panel>
 
-      {/* Match History */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
-        <h2 className="text-2xl font-bold mb-4">Match History</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-3">Match</th>
-                <th className="text-left p-3">Result</th>
-                <th className="text-left p-3">K / D / A</th>
-                <th className="text-left p-3">KDA</th>
-                <th className="text-left p-3">Duration</th>
-                <th className="text-left p-3">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {matches.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="p-4 text-center text-gray-400">
-                    No matches found
-                  </td>
-                </tr>
-              ) : (
-                matches.map((match) => (
-                  <tr key={match.match_id} className="border-b border-gray-700 hover:bg-slate-800/90">
-                    <td className="p-3">
-                      <Link
-                        to={`/match/${match.match_id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {match.match_id}
-                      </Link>
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`font-semibold ${
-                          match.result === 'Win' ? 'text-green-600' : 'text-red-600'
-                        }`}
-                      >
-                        {match.result || '-'}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      {match.kills || 0} / {match.deaths || 0} / {match.assists || 0}
-                    </td>
-                    <td className="p-3">
-                      {(
-                        (match.kills + match.assists) /
-                        Math.max(match.deaths, 1)
-                      ).toFixed(2)}
-                    </td>
-                    <td className="p-3">{formatDuration(match.duration_s)}</td>
-                    <td className="p-3 text-sm text-gray-600">
-                      {formatDate(match.start_time || match.created_at)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+            <Panel
+              title={sideTab === "lane" ? "Lane" : "Matchups"}
+              subtitle={
+                sideTab === "lane"
+                  ? "Where they played · win rate per lane"
+                  : `Record against the heroes faced on ${heroName}`
+              }
+              action={
+                <SegmentedControl
+                  options={SIDE_TABS}
+                  value={sideTab}
+                  onChange={setSideTab}
+                  label="Lane or matchups"
+                />
+              }
+            >
+              <LaneCardBody
+                tab={sideTab}
+                lanes={lanes}
+                matchups={hero?.matchups ?? []}
+                heroName={heroName}
+              />
+            </Panel>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Panel
+              title="Ability Build"
+              subtitle={`Ability point order on ${heroName} · one column per unlock or upgrade, in order`}
+            >
+              <AbilityBuildBody builds={hero?.ability_builds} heroName={heroName} />
+            </Panel>
+
+            <Panel
+              title="Item Build"
+              subtitle={`Most common order on ${heroName} · median buy time`}
+            >
+              <HeroItemBuildBody items={hero?.items} heroName={heroName} />
+            </Panel>
+          </div>
+
+          <PlayerMatchTable
+            accountId={accountId}
+            heroId={heroId}
+            totalGames={heroMatches.length}
+            pageSize={10}
+            title={`Match History on ${heroName}`}
+            firstColumn="lane"
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 }

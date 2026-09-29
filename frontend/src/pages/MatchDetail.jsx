@@ -5,6 +5,8 @@ import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
+import { heroIconUrl } from "../components/HeroIcon";
+import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -64,22 +66,8 @@ const PLAYER_METRICS = [
   { key: "player_healing", label: "Healing" },
 ];
 
-// Soul-income source labels (deadlock-api gold_sources source ids), user-confirmed.
-const SOUL_SOURCE_LABELS = {
-  1: "Enemy Kills",
-  2: "Troopers",
-  3: "Neutral Enemies",
-  4: "Objectives",
-  5: "Urn",
-  6: "Kill Assists",
-  7: "Denies",
-  8: "Team Catch-Up",
-  9: "Ability Assassinate",
-  10: "Trophy Collector",
-  11: "Cultist Sacrifice",
-  12: "Breakable Pickups",
-  13: "Golden Goose Egg",
-};
+// Soul-source labels live in utils/soulSources.js so the player profile's Souls
+// Profile panel and this tooltip share one map.
 
 // ── Damage-source labels (deadlock-api damage_matrix source names) ──
 // Ability display names come from data/hero_meta.json (image filenames carry the
@@ -154,13 +142,18 @@ const damageSourceLabel = (src, heroId, itemNames) => {
 function HeroIcon({ src, name, className = "w-8 h-8" }) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef(null);
+  // Last-resort net for an image that fires neither load nor error. The timeout
+  // has to be GENEROUS and the <img> must NOT be lazy: a lazy image that is
+  // off-screen never starts loading, so a short timer marks every
+  // below-the-fold icon as failed and unmounts it — meaning it can never load
+  // later, even once scrolled into view. 404s are caught by onError below.
   useEffect(() => {
     const t = setTimeout(() => {
       const img = imgRef.current;
       if (img && !(img.complete && img.naturalWidth > 0)) {
         setFailed(true);
       }
-    }, 2000);
+    }, 10000);
     return () => clearTimeout(t);
   }, [src]);
   if (failed) {
@@ -178,7 +171,6 @@ function HeroIcon({ src, name, className = "w-8 h-8" }) {
       ref={imgRef}
       src={src}
       alt={name}
-      loading="lazy"
       className={`${className} rounded-md object-cover`}
       title={name}
       onError={() => setFailed(true)}
@@ -351,12 +343,10 @@ function MatchDetail() {
     return hero?.name || hero || `Hero ${heroId}`;
   };
 
-  const getHeroIcon = (heroId) => {
-    const heroName = getHeroName(heroId);
-    // Convert hero name to lowercase and replace spaces with underscores
-    const formattedName = heroName.toLowerCase().replace(/\s+/g, "_");
-    return cdnImage(`hero icons/${formattedName}_sm_psd.png`);
-  };
+  // Shared with the rest of the site: the square icon filenames spell "&" out as
+  // "and" ("mo_and_krill_sm_psd.png"), which a plain space-to-underscore rule
+  // misses — it produced "mo_&_krill_sm_psd.png" and fell back to initials.
+  const getHeroIcon = (heroId) => heroIconUrl(getHeroName(heroId));
 
   const previousMatchId = adjacentMatches.previous_match_id;
   const nextMatchId = adjacentMatches.next_match_id;

@@ -1,24 +1,26 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { axisLabels, tenureCells, tenureSummary } from "../../utils/team";
 import {
   isActivePlayer,
   lineupsByWeek,
   orderTimelineRows,
   playedWeeks,
-  spanPercentages,
-  toSegments,
 } from "../../utils/timeline";
 
 /**
- * Column width limits, in px.
+ * Fixed cell geometry, in px.
  *
- * MIN is the base width: it keeps a long history compact and scrollable. A team
- * whose history is short stretches its columns up to MAX so the timeline reads as
- * zoomed in and fills the space, rather than sitting as a narrow strip with dead
- * space beside it.
+ * Every week box is the same size no matter how long the team's history is: a
+ * league-spanning team would otherwise squeeze 57 columns into a few pixels each.
+ * The track scrolls instead, which is also what lets the week axis be hoverable —
+ * a hit target needs a predictable size to sit under the cursor.
  */
-const MIN_COLUMN_PX = 26;
-const MAX_COLUMN_PX = 72;
+const CELL_W = 22;
+const CELL_H = 18;
+const X_GAP = 2;
+const Y_GAP = 6;
+const PITCH = CELL_W + X_GAP;
 
 /** Fixed tooltip width, used to keep it from spilling outside the track. */
 const TOOLTIP_WIDTH = 208;
@@ -27,50 +29,38 @@ const TOOLTIP_WIDTH = 208;
 const SCROLLBAR =
   "[scrollbar-color:rgb(75_85_99)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-600";
 
-function Legend() {
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500">
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-sm bg-purple-500/80" />
-        active
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-sm bg-gray-600" />
-        departed
-      </span>
-      <span className="text-gray-600">
-        {"hover a week for the lineup \u00b7 hover a bar for the weeks played \u00b7 click for the player page"}
-      </span>
-    </div>
-  );
-}
+const ROW_GAP = { gap: Y_GAP };
+
+const colWidth = {
+  width: CELL_W,
+  flex: `0 0 ${CELL_W}px`,
+};
 
 /**
- * Lineup for a single week, shown while hovering that week's column header.
- * The caller renders this OUTSIDE the scrolling track: the track uses
- * overflow-x-auto, which would clip anything positioned above it.
+ * Lineup for one week, shown while the cursor is anywhere over that week's column
+ * — the axis box or any player's cell in it. Rendered as a SIBLING of the scroller:
+ * the track uses overflow-x-auto, which would clip anything positioned inside it.
+ *
+ * Anchored just BELOW the axis, so it reads as belonging to the top of the column
+ * rather than following the cursor around and covering the rows it describes.
  */
 function WeekTooltip({ week, lineup, left }) {
   return (
     <div
-      className="pointer-events-none absolute z-20 rounded-lg border border-gray-700 bg-gray-900/95 p-2 shadow-2xl"
-      style={{
-        left,
-        top: 30,
-        width: TOOLTIP_WIDTH,
-        transform: "translateX(-50%)",
-      }}
+      aria-hidden="true"
+      className="pointer-events-none absolute z-20 rounded-lg border border-border bg-card p-2 shadow-2xl"
+      style={{ left, top: 30, width: TOOLTIP_WIDTH, transform: "translateX(-50%)" }}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+      <p className="text-[11px] font-semibold uppercase tracking-[.05em] text-muted">
         NS {week}
         {lineup.length > 0 && (
-          <span className="ml-1 font-normal normal-case text-gray-500">
+          <span className="ml-1 font-normal normal-case text-dim">
             · {lineup.length} player{lineup.length === 1 ? "" : "s"}
           </span>
         )}
       </p>
       {lineup.length === 0 ? (
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="mt-1 text-[12px] text-dim">
           No players — the team did not play this week.
         </p>
       ) : (
@@ -78,9 +68,7 @@ function WeekTooltip({ week, lineup, left }) {
           {lineup.map((row) => (
             <li
               key={row.player.account_id}
-              className={`truncate text-xs ${
-                row.active ? "text-gray-200" : "text-gray-500"
-              }`}
+              className={`truncate text-[12px] ${row.active ? "text-secondary" : "text-dim"}`}
             >
               {row.name}
             </li>
@@ -92,268 +80,191 @@ function WeekTooltip({ week, lineup, left }) {
 }
 
 /**
- * Roster tenure timeline: one row per player ever fielded, with a bar covering
- * the weeks they turned out. Breaks in a bar are real absences, because the axis
- * only contains weeks the league actually ran.
+ * Roster Timeline: one cell per league week for every player who ever turned out.
  *
- * Names are a fixed column and the "gp" tally is a fixed column, so both stay
- * readable while the track between them scrolls sideways.
+ * The axis is the weeks the LEAGUE ran, clipped to the team's own span, so a break
+ * in a row always means "the team played and this player did not" — never "the
+ * league took a week off". Names and summaries are their own fixed columns and only
+ * the week track scrolls, so a row stays identifiable however far right you are.
+ *
+ * Who is still on the roster is carried by the NAME alone — bold white for the
+ * current roster, grey for everyone who has moved on — rather than a badge, which
+ * cost a column of width in every row to say something a weight change says for
+ * free. A cell still means "rostered in this week", independent of that.
  */
-function RosterTimeline({
-  players = [],
-  weeks = [],
-  leagueWeeks = [],
-  maxWeek,
-}) {
+function RosterTimeline({ players = [], weeks = [], maxWeek }) {
   const axis = weeks ?? [];
   const [hovered, setHovered] = useState(null);
-  const [scrollInfo, setScrollInfo] = useState({ left: 0, width: 0 });
-  const [viewportWidth, setViewportWidth] = useState(0);
   const scrollerRef = useRef(null);
 
-  // Stretch the columns to fill the viewport when the team has few weeks, so a
-  // short history reads as zoomed in. Only teams that cover a lot of the axis
-  // stay at the base width and scroll.
-  const COLUMN_PX =
-    viewportWidth > 0 && axis.length > 0
-      ? Math.max(
-          MIN_COLUMN_PX,
-          Math.min(MAX_COLUMN_PX, viewportWidth / axis.length),
-        )
-      : MIN_COLUMN_PX;
-
-  // Measure the track's viewport. The scroller is `flex-1`, so its width does not
-  // depend on the column width — measuring it cannot feed back into itself.
-  useLayoutEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const measure = () => setViewportWidth(scroller.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(scroller);
-    return () => observer.disconnect();
-  }, [axis.length]);
-
-  // Track the visible slice so the league ruler can show where the view sits.
-  const syncViewport = () => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    setScrollInfo({ left: scroller.scrollLeft, width: scroller.clientWidth });
-  };
-
-  // Open on the most recent weeks. A long-running team would otherwise start at
-  // its oldest matches, and the interesting end is the current roster. Runs in a
-  // layout effect so the track is positioned before the first paint, avoiding a
-  // visible jump; keyed on the axis so manual scrolling is not fought.
-  //
-  // Deliberately right-aligns the TEAM's latest week rather than blindly jumping
-  // to the end of the axis. The two are the same today, but if the axis is ever
-  // widened past the team's own history, scrolling to the end would leave a
-  // disbanded team staring at nothing but empty space.
+  // Open on the most recent weeks: the current roster is the interesting end, and
+  // a 57-week team would otherwise start 30 weeks in the past. Runs in a layout
+  // effect so the track is positioned before the first paint, and is keyed on the
+  // axis so manual scrolling is not fought.
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
     const lastIndex = maxWeek == null ? axis.length - 1 : axis.indexOf(maxWeek);
-    const edge = (lastIndex >= 0 ? lastIndex + 1 : axis.length) * COLUMN_PX;
+    const edge = (lastIndex >= 0 ? lastIndex + 1 : axis.length) * PITCH;
     scroller.scrollLeft = Math.max(0, edge - scroller.clientWidth);
-    setScrollInfo({ left: scroller.scrollLeft, width: scroller.clientWidth });
-
-    window.addEventListener("resize", syncViewport);
-    return () => window.removeEventListener("resize", syncViewport);
-  }, [axis, maxWeek, COLUMN_PX]);
+  }, [axis, maxWeek]);
 
   if (axis.length === 0 || players.length === 0) {
-    return <p className="text-sm text-gray-600">No match data yet.</p>;
+    return <p className="text-[13px] text-dim">No match data yet.</p>;
   }
 
+  const labels = axisLabels(axis);
   const rows = orderTimelineRows(players, maxWeek).map((player) => {
     const played = playedWeeks(player.weeks ?? [], axis);
     const name = player.persona_name || `Player ${player.account_id}`;
-    const gp = player.appearances ?? 0;
-    const tooltip = played.length
-      ? `${name} \u2014 ${gp} gp\nWeeks played (${played.length}): ${played.join(", ")}`
-      : `${name} \u2014 ${gp} gp`;
 
     return {
       player,
       name,
-      gp,
-      tooltip,
-      played,
       active: isActivePlayer(player, maxWeek),
-      segments: toSegments(player.weeks ?? [], axis),
+      played,
+      cells: tenureCells(player.weeks ?? [], axis),
+      summary: tenureSummary({
+        first: player.first_week ?? played[0],
+        last: player.last_week ?? played[played.length - 1],
+        games: player.appearances ?? 0,
+      }),
     };
   });
 
   const lineups = lineupsByWeek(rows);
-  const trackWidth = axis.length * COLUMN_PX;
+  const trackWidth = axis.length * PITCH - X_GAP;
 
-  // League ruler: the team's tenure, and the slice currently on screen, both
-  // positioned inside the league's full history. A newcomer's band sits at the
-  // right edge, which conveys "this team is new" without naming a start week.
-  const tenure = spanPercentages(axis[0], axis[axis.length - 1], leagueWeeks);
-  const visibleBox = (() => {
-    if (!scrollInfo.width || axis.length === 0) return null;
-    const clamp = (index) => Math.max(0, Math.min(axis.length - 1, index));
-    const firstWeek = axis[clamp(Math.floor(scrollInfo.left / COLUMN_PX))];
-    const lastWeek =
-      axis[clamp(Math.ceil((scrollInfo.left + scrollInfo.width) / COLUMN_PX) - 1)];
-    return spanPercentages(firstWeek, lastWeek, leagueWeeks);
-  })();
-
-  // Anchor the lineup tooltip to the hovered column, clamped to the visible
-  // track. The track scrolls, so subtract its scroll offset from the position.
-  const showWeekLineup = (index, week) => {
-    const half = TOOLTIP_WIDTH / 2;
+  // Hover the WHOLE column, not just its axis box: the cursor is usually sitting on
+  // a player's cell, and that is exactly when "which week is this and who played it"
+  // is the question. One delegated move handler on the track does that without a
+  // listener on each of the ~1,300 cells.
+  //
+  // `currentTarget` is the track's inner wrapper, so its rect already accounts for
+  // the horizontal scroll — no scrollLeft subtraction needed here.
+  const handleColumnHover = (event) => {
     const scroller = scrollerRef.current;
-    if (!scroller) {
-      setHovered({ index, week, left: half });
+    if (!scroller) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const index = Math.floor((event.clientX - rect.left) / PITCH);
+    if (index < 0 || index >= axis.length) {
+      setHovered((current) => (current === null ? current : null));
       return;
     }
-    const centre = index * COLUMN_PX + COLUMN_PX / 2 - scroller.scrollLeft;
+
+    // Anchor the tooltip to the hovered column, clamped to the visible track.
+    const half = TOOLTIP_WIDTH / 2;
+    const centre = index * PITCH + CELL_W / 2 - scroller.scrollLeft;
     const maxLeft = Math.max(half, scroller.clientWidth - half);
-    setHovered({ index, week, left: Math.min(Math.max(centre, half), maxLeft) });
+    const left = Math.min(Math.max(centre, half), maxLeft);
+
+    // A mousemove fires constantly, so keep the SAME state object while the cursor
+    // stays in one column and React skips the re-render.
+    setHovered((current) =>
+      current && current.index === index ? current : { index, week: axis[index], left },
+    );
   };
 
   return (
-    <div>
-      <div className="flex">
-        {/* Fixed name column */}
-        <div className="flex w-28 shrink-0 flex-col gap-1 pr-2 sm:w-36">
-          <span className="h-6" aria-hidden="true" />
-          {rows.map((row) => (
-            <Link
-              key={row.player.account_id}
-              to={`/player/${row.player.account_id}`}
-              title={row.tooltip}
-              className="flex h-9 items-center truncate text-sm text-gray-200 hover:text-white"
-            >
-              {row.name}
-            </Link>
-          ))}
-        </div>
-
-        {/* Scrolling track: week header + one bar per player. The lineup tooltip
-            is rendered as a sibling of this scroller, because overflow-x-auto
-            would clip anything positioned inside it. */}
-        <div className="relative min-w-0 flex-1">
-          <div
-            ref={scrollerRef}
-            onScroll={() => {
-              setHovered(null);
-              syncViewport();
-            }}
-            className={`overflow-x-auto pb-1 ${SCROLLBAR}`}
+    <div className="flex">
+      {/* Fixed name column. The leading spacer sits where the week axis runs, so
+          every row keeps the same 24px rhythm as the track. */}
+      <div className="flex w-[140px] shrink-0 flex-col pr-2 sm:w-[180px]" style={ROW_GAP}>
+        <span style={{ height: CELL_H }} aria-hidden="true" />
+        {rows.map((row) => (
+          <Link
+            key={row.player.account_id}
+            to={`/player/${row.player.account_id}`}
+            title={row.name}
+            className={`min-w-0 truncate text-[14px] transition-colors hover:text-accent-secondary-light ${
+              row.active ? "font-bold text-primary" : "font-medium text-dim"
+            }`}
+            style={{ height: CELL_H, lineHeight: `${CELL_H}px` }}
           >
-            <div
-              className="relative flex flex-col gap-1"
-              style={{ width: trackWidth }}
-            >
-              <div className="flex h-6 items-center">
-                {axis.map((week, index) => (
-                  <span
-                    key={week}
-                    onMouseEnter={() => showWeekLineup(index, week)}
-                    onMouseLeave={() => setHovered(null)}
-                    className={`flex h-6 shrink-0 cursor-help items-center justify-center text-[10px] tabular-nums transition-colors ${
-                      hovered?.week === week ? "text-gray-200" : "text-gray-500"
-                    }`}
-                    style={{ width: COLUMN_PX }}
-                  >
-                    {week}
-                  </span>
-                ))}
-              </div>
+            {row.name}
+          </Link>
+        ))}
+      </div>
 
-              {/* Highlight the hovered week down the whole track. */}
-              {hovered && (
+      {/* Scrolling week track. The lineup tooltip is a sibling of this scroller,
+          because overflow-x-auto would clip anything positioned inside it. */}
+      <div className="relative min-w-0 flex-1">
+        <div
+          ref={scrollerRef}
+          onScroll={() => setHovered(null)}
+          className={`overflow-x-auto pb-1 ${SCROLLBAR}`}
+        >
+          <div
+            className="flex cursor-help flex-col"
+            style={{ ...ROW_GAP, width: trackWidth }}
+            onMouseMove={handleColumnHover}
+            onMouseLeave={() => setHovered(null)}
+          >
+            {/* Week axis on TOP: every third week plus the last one is labelled.
+                Every box in the grid is a hover target, so the lineup is one mouse
+                move away wherever the cursor happens to be. */}
+            <div className="flex" style={{ gap: X_GAP }}>
+              {axis.map((week) => (
                 <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute bottom-0 top-7 bg-white/5"
-                  style={{ left: hovered.index * COLUMN_PX, width: COLUMN_PX }}
-                />
-              )}
-
-              {rows.map((row) => (
-                <div
-                  key={row.player.account_id}
-                  className="relative h-9"
-                  style={{ width: trackWidth }}
+                  key={week}
+                  className={`text-center text-[11px] tabular-nums transition-colors ${
+                    hovered?.week === week ? "text-secondary" : "text-dim"
+                  }`}
+                  style={colWidth}
                 >
-                  {row.segments.map((segment) => (
-                    <Link
-                      key={segment.start}
-                      to={`/player/${row.player.account_id}`}
-                      title={row.tooltip}
-                      aria-label={`${row.name}: ${row.gp} game${row.gp === 1 ? "" : "s"} played`}
-                      className={`absolute top-1/2 h-3.5 -translate-y-1/2 rounded-sm transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-purple-400 ${
-                        row.active ? "bg-purple-500/80" : "bg-gray-600"
-                      }`}
-                      style={{
-                        left: segment.start * COLUMN_PX + 1,
-                        width: segment.span * COLUMN_PX - 2,
-                      }}
+                  {labels.has(week) ? week : ""}
+                </span>
+              ))}
+            </div>
+
+            {/* Player rows, with the hovered week highlighted down the whole track. */}
+            <div className="relative flex flex-col" style={ROW_GAP}>
+              {rows.map((row) => (
+                <div key={row.player.account_id} className="flex" style={{ height: CELL_H, gap: X_GAP }}>
+                  {row.cells.map((cell) => (
+                    <span
+                      key={cell.week}
+                      className={`rounded-[2px] ${cell.rostered ? "bg-accent-secondary" : "bg-table"}`}
+                      style={colWidth}
                     />
                   ))}
                 </div>
               ))}
+
+              {hovered && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 bg-white/5"
+                  style={{ left: hovered.index * PITCH - X_GAP / 2, width: PITCH }}
+                />
+              )}
             </div>
           </div>
-
-          {hovered && (
-            <WeekTooltip
-              week={hovered.week}
-              lineup={lineups.get(hovered.week) ?? []}
-              left={hovered.left}
-            />
-          )}
-
-          {/* League ruler: where this team's run sits in the league's history. */}
-          {tenure.total > 0 && (
-            <div
-              className="mt-2"
-              title={`Appeared in ${tenure.weeks} of the league's ${tenure.total} weeks.`}
-            >
-              <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
-                <span
-                  className="absolute inset-y-0 rounded-full bg-purple-500/60"
-                  style={{
-                    left: `${tenure.startPct}%`,
-                    width: `${tenure.widthPct}%`,
-                  }}
-                />
-                {visibleBox && (
-                  <span
-                    className="absolute inset-y-0 rounded-full border border-gray-500/80 bg-white/10"
-                    style={{
-                      left: `${visibleBox.startPct}%`,
-                      width: `${Math.max(visibleBox.widthPct, 2)}%`,
-                    }}
-                  />
-                )}
-              </div>
-              <p className="mt-1 text-right text-[10px] tabular-nums text-gray-600">
-                {tenure.weeks} / {tenure.total} league weeks
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Fixed games-played column */}
-        <div className="flex w-14 shrink-0 flex-col gap-1 pl-2">
-          <span className="h-6" aria-hidden="true" />
-          {rows.map((row) => (
-            <span
-              key={row.player.account_id}
-              className="flex h-9 items-center justify-end text-xs tabular-nums text-gray-400"
-            >
-              {row.gp} gp
-            </span>
-          ))}
-        </div>
+        {hovered && (
+          <WeekTooltip
+            week={hovered.week}
+            lineup={lineups.get(hovered.week) ?? []}
+            left={hovered.left}
+          />
+        )}
       </div>
 
-      <Legend />
+      {/* Fixed summary column, with the same leading spacer as the names. */}
+      <div className="flex w-[100px] shrink-0 flex-col pl-2" style={ROW_GAP}>
+        <span style={{ height: CELL_H }} aria-hidden="true" />
+        {rows.map((row) => (
+          <span
+            key={row.player.account_id}
+            className="whitespace-nowrap text-right text-[13px] tabular-nums text-muted"
+            style={{ height: CELL_H }}
+          >
+            {row.summary}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

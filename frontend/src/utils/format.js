@@ -45,3 +45,33 @@ export function formatInteger(value) {
   if (value == null || Number.isNaN(Number(value))) return null;
   return Math.round(Number(value)).toLocaleString();
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Match date as the tables show it: "24 Sep 2026". Null when unusable.
+ *
+ * Built by hand rather than with `toLocaleDateString`: ICU renders en-GB
+ * September as "Sept" (4 characters), which would widen the date column and
+ * disagree with the design's fixed three-letter format.
+ */
+export function formatMatchDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/**
+ * Long form for the team page's series and game rows: "Sep 13, 2026".
+ *
+ * Same hand-built month list as `formatMatchDate`, for the same reason — and
+ * because the team page puts the date in a fixed-width column, an ICU-only day
+ * like "Sept" would break the alignment.
+ */
+export function formatLongDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}

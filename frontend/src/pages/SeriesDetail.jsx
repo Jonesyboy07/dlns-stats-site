@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { cdnImage } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
+import { heroIconUrl } from "../components/HeroIcon";
 
 function SeriesDetail() {
   const { matchId } = useParams();
@@ -42,10 +42,10 @@ function SeriesDetail() {
     return hero?.name || hero || `Hero ${heroId}`;
   };
 
-  const getHeroIcon = (heroId) => {
-    const name = getHeroName(heroId).toLowerCase().replace(/\s+/g, "_");
-    return cdnImage(`hero icons/${name}_sm_psd.png`);
-  };
+  // Shared with the rest of the site: the square icon filenames spell "&" out as
+  // "and" ("mo_and_krill_sm_psd.png"), which a plain space-to-underscore rule
+  // misses — it produced "mo_&_krill_sm_psd.png" and fell back to initials.
+  const getHeroIcon = (heroId) => heroIconUrl(getHeroName(heroId));
 
   const formatDuration = (s) => {
     if (!s) return "";

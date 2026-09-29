@@ -31,6 +31,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // The repo's public/ folder is served by Flask at /public (crests live at
+      // /public/images/teamLogos), so dev builds need it proxied too.
+      '/public': {
+        target: 'http://127.0.0.1:5050',
+        changeOrigin: true,
+      },
       '/db': {
         target: 'http://127.0.0.1:5050',
         changeOrigin: true,

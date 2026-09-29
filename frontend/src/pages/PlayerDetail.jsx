@@ -1,534 +1,194 @@
-import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { cdnImage } from "../utils/cdn";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import ErrorMessage from "../components/ErrorMessage";
 import LoadingSkeleton from "../components/LoadingSkeleton";
+import HeroPool from "../components/player/HeroPool";
+import HeroWeekMatrix from "../components/player/HeroWeekMatrix";
+import OpponentsPanel from "../components/player/OpponentsPanel";
+import PlayerIdentityCard from "../components/player/PlayerIdentityCard";
+import PlayerMatchTable from "../components/player/PlayerMatchTable";
+import ProfileTab from "../components/player/ProfileTab";
+import StatTiles from "../components/player/StatTiles";
+import TeammatesPanel from "../components/player/TeammatesPanel";
+import TenureTimeline from "../components/player/TenureTimeline";
+import { heroPool, playedTeams } from "../utils/playerStats";
+import { useUrlParam } from "../utils/useUrlParam";
+
+/** Layout 1a: identity card first, then tabs underneath it. */
+const TABS = ["Overview", "Heroes", "Matches", "Teams", "Profile"];
+
+/** A player who exists but has never played a league game. */
+function NoGamesYet({ persona }) {
+  return (
+    <section className="rounded-xl border border-dashed border-border-lighter px-5 py-10 text-center">
+      <h2 className="font-valve-oracle text-lg text-primary">No league games yet</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+        {persona} has no Night Shift games on record, so there are no stats to show. Their
+        matches may still be sitting in a pre-season bracket.
+      </p>
+    </section>
+  );
+}
 
 function PlayerDetail() {
   const { accountId } = useParams();
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState(null);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [expandedHero, setExpandedHero] = useState(null);
+  // The tab lives in the URL, so refreshing keeps you where you were.
+  const [activeTab, setActiveTab] = useUrlParam("tab", TABS, "Overview");
+  const [reloadKey, setReloadKey] = useState(0);
+  // Shared by the hero pool and the match table's hero filter.
+  const heroOptions = useMemo(() => heroPool(matches), [matches]);
 
   useEffect(() => {
-    fetchPlayerData();
-  }, [accountId]);
+    // Guard against a stale response landing after the id changed.
+    let alive = true;
+    setLoading(true);
+    setError(null);
 
-  const fetchPlayerData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch user info
-      const userResponse = await fetch(`/db/users/${accountId}`);
-      if (!userResponse.ok) {
-        throw new Error("Player not found");
-      }
-      const userData = await userResponse.json();
-      setUser(userData.user);
-
-      // Fetch user stats
-      const statsResponse = await fetch(`/db/users/${accountId}/stats`);
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData.stats);
-      }
-
-      // Fetch recent matches
-      const matchesResponse = await fetch(`/db/users/${accountId}/matches`);
-      if (matchesResponse.ok) {
-        const matchesData = await matchesResponse.json();
+    (async () => {
+      try {
+        const [userRes, matchesRes] = await Promise.all([
+          fetch(`/db/users/${accountId}`),
+          fetch(`/db/users/${accountId}/matches`),
+        ]);
+        if (!userRes.ok) throw new Error("Player not found");
+        const userData = await userRes.json();
+        const matchesData = matchesRes.ok ? await matchesRes.json() : { matches: [] };
+        if (!alive) return;
+        setUser(userData.user);
         setMatches(matchesData.matches || []);
+      } catch (err) {
+        if (alive) setError(err.message);
+      } finally {
+        if (alive) setLoading(false);
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleString();
-  };
+    return () => {
+      alive = false;
+    };
+  }, [accountId, reloadKey]);
 
-  const formatDuration = (seconds) => {
-    if (seconds == null) return "-";
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
-  };
-
-  const teamName = (team) => {
-    return team === 0 ? "Amber" : team === 1 ? "Sapphire" : "Unknown";
-  };
-
-  const heroCardUrl = (heroName) => {
-    const slug = heroName
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/\s+/g, "_");
-    return cdnImage(`cardicons/${slug}_card_psd.png`);
-  };
-
-  const getHeroIcon = (heroName) => {
-    const slug = heroName.toLowerCase().replace(/\s+/g, "_");
-    return cdnImage(`hero icons/${slug}_sm_psd.png`);
-  };
-
-  const [expandedTeams, setExpandedTeams] = useState({});
-
-  const toggleTeam = (name) =>
-    setExpandedTeams((prev) => ({ ...prev, [name]: !prev[name] }));
-
-  const getTeamHistory = () => {
-    const teamMap = {};
-    for (const match of matches) {
-      const { event_team_a, event_team_b, event_team_a_ingame_side, team, result, event_week } = match;
-      if (!event_team_a && !event_team_b) continue;
-      let rawTeamName = null;
-      if (event_team_a_ingame_side != null) {
-        rawTeamName = team === event_team_a_ingame_side ? event_team_a : event_team_b;
-      }
-      if (!rawTeamName) continue;
-      const key = rawTeamName.toLowerCase();
-      if (!teamMap[key]) {
-        teamMap[key] = { name: rawTeamName, games: 0, wins: 0, weeks: new Set() };
-      }
-      teamMap[key].games++;
-      if (result === "Win") teamMap[key].wins++;
-      if (event_week != null) teamMap[key].weeks.add(event_week);
-    }
-    return Object.values(teamMap)
-      .map((t) => ({
-        ...t,
-        weeks: [...t.weeks].sort((a, b) => a - b),
-        weekStats: Object.fromEntries(
-          [...t.weeks].sort((a, b) => a - b).map((w) => [
-            w,
-            (() => {
-              const wMatches = matches.filter(
-                (m) =>
-                  m.event_week === w &&
-                  m.event_team_a_ingame_side != null &&
-                  (m.team === m.event_team_a_ingame_side
-                    ? m.event_team_a
-                    : m.event_team_b)?.toLowerCase() === t.name.toLowerCase()
-              );
-              return {
-                games: wMatches.length,
-                wins: wMatches.filter((m) => m.result === "Win").length,
-              };
-            })()
-          ])
-        ),
-      }))
-      .sort((a, b) => b.games - a.games);
-  };
-
-  const getPlayerStats = () => {
-    const played = matches.filter((m) => m.kills != null || m.deaths != null);
-    if (played.length === 0) return null;
-    const fields = [
-      { key: "kills", label: "Kills" },
-      { key: "deaths", label: "Deaths" },
-      { key: "assists", label: "Assists" },
-      { key: "net_worth", label: "Net Worth" },
-      { key: "player_damage", label: "Player Dmg" },
-      { key: "obj_damage", label: "Obj Dmg" },
-      { key: "player_healing", label: "Healing" },
-    ];
-    return fields.map(({ key, label }) => {
-      const values = played.map((m) => m[key] || 0);
-      const highest = Math.max(...values);
-      const avg = values.reduce((s, v) => s + v, 0) / played.length;
-      return { key, label, highest, avg };
-    });
-  };
-
-  const getMostPlayedHeroes = () => {
-    const heroMap = {};
-    for (const match of matches) {
-      const id = match.hero_id;
-      if (!id) continue;
-      if (!heroMap[id]) {
-        heroMap[id] = {
-          hero_id: id,
-          hero_name: match.hero_name || `Hero ${id}`,
-          games: 0,
-          wins: 0,
-          kills: 0,
-          deaths: 0,
-          assists: 0,
-        };
-      }
-      heroMap[id].games++;
-      if (match.result === "Win") heroMap[id].wins++;
-      heroMap[id].kills += match.kills || 0;
-      heroMap[id].deaths += match.deaths || 0;
-      heroMap[id].assists += match.assists || 0;
-    }
-    return Object.values(heroMap)
-      .sort((a, b) => b.games - a.games);
-  };
-
-  if (loading) {
-    return <LoadingSkeleton variant="detail" />;
-  }
-
+  if (loading) return <LoadingSkeleton variant="detail" />;
   if (error) {
     return (
-      <div className="w-full p-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          Error: {error}
-        </div>
-      </div>
+      <ErrorMessage message={error} onRetry={() => setReloadKey((key) => key + 1)} />
     );
   }
 
+  const persona = user?.persona_name || "Unknown Player";
+  const teamMeta = playedTeams(matches);
+
   return (
-    <div className="w-full p-4 md:p-8">
-      {/* Two-column responsive grid */}
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-start">
+    <div className="w-full px-4 py-6">
+      <nav className="mb-3 flex items-center gap-1.5 text-xs text-dim">
+        <Link to="/players" className="transition-colors hover:text-secondary">
+          Players
+        </Link>
+        <span>/</span>
+        <span className="min-w-0 truncate text-muted" title={persona}>
+          {persona}
+        </span>
+      </nav>
 
-        {/* ── LEFT COLUMN ── */}
-        <div className="flex flex-col gap-6">
+      <PlayerIdentityCard
+        user={user}
+        accountId={accountId}
+        matches={matches}
+        teamMeta={teamMeta}
+      />
 
-          {/* Player identity card */}
-          <div className="bg-panel text-gray-300 shadow rounded-lg p-5 flex items-center gap-4">
-            {user?.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt={user.persona_name}
-                className="w-16 h-16 rounded object-cover border border-slate-600 flex-shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded bg-slate-700 border border-slate-600 flex-shrink-0 flex items-center justify-center text-2xl font-bold text-gray-400 select-none">
-                {(user?.persona_name || "?")[0].toUpperCase()}
-              </div>
+      {matches.length === 0 ? (
+        // Identity plus the tiles (all dashes) and one explanation — no tab bar,
+        // because every tab would be empty.
+        <div className="mt-6 flex flex-col gap-4">
+          <StatTiles matches={matches} />
+          <NoGamesYet persona={persona} />
+        </div>
+      ) : (
+        <>
+          <div role="tablist" className="mt-6 flex gap-1 border-b border-border-light">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab}
+                onClick={() => setActiveTab(tab)}
+                className={`-mb-px border-b-2 px-4 py-2.5 font-valve-oracle text-[15px] font-semibold transition-colors ${
+                  activeTab === tab
+                    ? "border-accent-secondary text-primary"
+                    : "border-transparent text-muted hover:text-secondary"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-col gap-4">
+            {activeTab === "Overview" && (
+              <>
+                <StatTiles matches={matches} />
+                <HeroPool
+                  matches={matches}
+                  accountId={accountId}
+                  playerName={persona}
+                  limit={6}
+                />
+                <PlayerMatchTable
+                  accountId={accountId}
+                  totalGames={matches.length}
+                  heroOptions={heroOptions}
+                  pageSize={8}
+                  title="Recent matches"
+                />
+                <TenureTimeline matches={matches} />
+              </>
             )}
-            <div className="min-w-0">
-              <h1 className="text-white text-xl font-bold leading-tight truncate">
-                {user?.persona_name || "Unknown Player"}
-              </h1>
-              <p className="text-gray-500 text-xs mt-0.5">ID: {accountId}</p>
-            </div>
-          </div>
 
-          {/* Team History */}
-          {(() => {
-            const teamHistory = getTeamHistory();
-            return teamHistory.length > 0 ? (
-              <div className="bg-panel text-gray-300 shadow rounded-lg p-5">
-                <h2 className="text-lg font-bold mb-3">Team History</h2>
-                <div className="space-y-2">
-                  {teamHistory.map((t) => (
-                    <div key={t.name} className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-hidden">
-                      <button
-                        onClick={() => toggleTeam(t.name)}
-                        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-700/50 transition-all text-left"
-                      >
-                        <Link
-                          to={`/team/${encodeURIComponent(t.name)}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-gray-100 hover:underline text-sm truncate"
-                        >
-                          {t.name}
-                        </Link>
-                        <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0 ml-2">
-                          {t.weeks.length > 0 && (
-                            <span>NS {t.weeks[0]}{t.weeks.length > 1 ? `–${t.weeks[t.weeks.length - 1]}` : ""}</span>
-                          )}
-                          <span className="text-gray-500">{expandedTeams[t.name] ? "▲" : "▼"}</span>
-                        </div>
-                      </button>
-                      {expandedTeams[t.name] && (
-                        <div className="border-t border-gray-700/60 divide-y divide-gray-700/40">
-                          {t.weeks.map((w) => {
-                            const ws = t.weekStats[w];
-                            return (
-                              <Link
-                                key={w}
-                                to={`/week/${w}`}
-                                className="flex items-center justify-between px-5 py-2 hover:bg-gray-700/40 transition-all"
-                              >
-                                <span className="text-sm text-gray-300">Week {w}</span>
-                                <div className="flex items-center gap-3 text-xs text-gray-400">
-                                  <span>{ws.games} match{ws.games !== 1 ? "es" : ""}</span>
-                                  <span>
-                                    <span className="text-green-400">{ws.wins}W</span>
-                                    {" – "}
-                                    <span className="text-red-400">{ws.games - ws.wins}L</span>
-                                  </span>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+            {activeTab === "Heroes" && (
+              <>
+                <HeroPool
+                  matches={matches}
+                  accountId={accountId}
+                  playerName={persona}
+                  limit={20}
+                />
+                <HeroWeekMatrix matches={matches} />
+              </>
+            )}
+
+            {activeTab === "Matches" && (
+              <PlayerMatchTable
+                accountId={accountId}
+                totalGames={matches.length}
+                heroOptions={heroOptions}
+                pageSize={20}
+                title="All matches"
+                syncUrl
+              />
+            )}
+
+            {activeTab === "Teams" && (
+              <>
+                <TenureTimeline matches={matches} />
+                <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+                  <TeammatesPanel accountId={accountId} />
+                  <OpponentsPanel accountId={accountId} />
                 </div>
-              </div>
-            ) : null;
-          })()}
+              </>
+            )}
 
-          {/* Stats Summary */}
-          {(() => {
-            const playerStats = getPlayerStats();
-            if (!playerStats) return null;
-            const fmtK = (v) => v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toFixed(0);
-            return (
-              <div className="bg-panel text-gray-300 shadow rounded-lg p-5">
-                <h2 className="text-lg font-bold mb-3">Stats Summary</h2>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-1.5 pr-3 text-gray-400 font-semibold">Stat</th>
-                      <th className="text-right py-1.5 px-3 text-gray-400 font-semibold">Best</th>
-                      <th className="text-right py-1.5 pl-3 text-gray-400 font-semibold">Avg</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {playerStats.map(({ key, label, highest, avg }) => (
-                      <tr key={key} className="border-b border-gray-700/50 hover:bg-gray-800/40">
-                        <td className="py-1.5 pr-3 text-gray-300 font-medium">{label}</td>
-                        <td className="py-1.5 px-3 text-right">
-                          <span className="text-yellow-300 font-semibold" title={highest.toLocaleString()}>
-                            {fmtK(highest)}
-                          </span>
-                        </td>
-                        <td className="py-1.5 pl-3 text-right">
-                          <span className="text-gray-200" title={avg.toLocaleString()}>
-                            {fmtK(avg)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* ── RIGHT COLUMN ── */}
-        <div className="flex flex-col gap-6">
-
-          {/* Most Played Heroes */}
-          {matches.length > 0 && (
-            <div className="bg-panel text-gray-300 shadow rounded-lg p-5">
-              <h2 className="text-lg font-bold mb-3">Heroes</h2>
-              <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-2">Hero</th>
-                      <th className="text-left py-2">Games</th>
-                      <th className="text-left py-2">W-L</th>
-                      <th className="text-left py-2">Avg KDA</th>
-                      <th className="text-left py-2">Win Rate</th>
-                      <th className="text-right py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getMostPlayedHeroes().map((hero) => {
-                      const isOpen = expandedHero === hero.hero_id;
-                      const heroMatches = matches.filter(
-                        (m) => m.hero_id === hero.hero_id
-                      );
-                      return (
-                        <React.Fragment key={hero.hero_id}>
-                          <tr
-                            onClick={() =>
-                              setExpandedHero(isOpen ? null : hero.hero_id)
-                            }
-                            className="border-b border-gray-700 hover:bg-slate-800/90 cursor-pointer transition-colors"
-                          >
-                            <td className="p-2">
-                              <div className="flex items-center gap-2">
-                                <img
-                                  src={heroCardUrl(hero.hero_name)}
-                                  alt={hero.hero_name}
-                                  className="w-10 h-12 object-cover border border-slate-800/90 rounded-xs flex-shrink-0"
-                                  onError={(e) => { e.target.style.display = "none"; }}
-                                />
-                                <img
-                                  src={getHeroIcon(hero.hero_name)}
-                                  alt=""
-                                  className="w-7 h-7 rounded object-cover flex-shrink-0"
-                                  onError={(e) => { e.target.style.display = "none"; }}
-                                />
-                                <Link
-                                  to={`/player/${accountId}/hero/${hero.hero_id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="font-medium text-blue-400 hover:underline"
-                                >
-                                  {hero.hero_name}
-                                </Link>
-                              </div>
-                            </td>
-                            <td className="p-2">{hero.games}</td>
-                            <td className="p-2">
-                              <span className="text-green-500">{hero.wins}</span>
-                              <span className="text-gray-500"> - </span>
-                              <span className="text-red-500">{hero.games - hero.wins}</span>
-                            </td>
-                            <td className="p-2">
-                              {((hero.kills + hero.assists) / Math.max(hero.deaths, 1)).toFixed(2)}
-                              <span className="text-gray-500 text-xs ml-1">
-                                ({(hero.kills / hero.games).toFixed(1)} /{" "}
-                                {(hero.deaths / hero.games).toFixed(1)} /{" "}
-                                {(hero.assists / hero.games).toFixed(1)})
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-20 bg-slate-700 rounded-full h-2">
-                                  <div
-                                    className="bg-green-500 h-2 rounded-full transition-all"
-                                    style={{ width: `${((hero.wins / hero.games) * 100).toFixed(0)}%` }}
-                                  />
-                                </div>
-                                <span className="text-xs">{((hero.wins / hero.games) * 100).toFixed(0)}%</span>
-                              </div>
-                            </td>
-                            <td className="p-2 text-right text-xs text-gray-500">
-                              {isOpen ? "▲" : "▼"}
-                            </td>
-                          </tr>
-                          {isOpen && (
-                            <tr>
-                              <td colSpan={6} className="p-0">
-                                <div className="bg-gray-800/60 border-t border-b border-gray-700/60">
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="border-b border-gray-700/50 text-gray-400">
-                                        <th className="text-left py-1.5 px-3 font-semibold">Match</th>
-                                        <th className="text-left py-1.5 px-3 font-semibold">Result</th>
-                                        <th className="text-left py-1.5 px-3 font-semibold">K/D/A</th>
-                                        <th className="text-left py-1.5 px-3 font-semibold">Duration</th>
-                                        <th className="text-left py-1.5 px-3 font-semibold">Date</th>
-                                        <th className="text-left py-1.5 px-3 font-semibold">Week</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {heroMatches.map((m) => (
-                                        <tr key={m.match_id} className="border-b border-gray-700/30 hover:bg-gray-700/40">
-                                          <td className="py-1.5 px-3">
-                                            <Link
-                                              to={`/match/${m.match_id}`}
-                                              className="text-blue-400 hover:underline font-mono"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              {m.match_id}
-                                            </Link>
-                                          </td>
-                                          <td className="py-1.5 px-3">
-                                            <span className={`font-semibold ${m.result === "Win" ? "text-green-500" : "text-red-500"}`}>
-                                              {m.result || "-"}
-                                            </span>
-                                          </td>
-                                          <td className="py-1.5 px-3 text-gray-200">
-                                            {m.kills || 0} / {m.deaths || 0} / {m.assists || 0}
-                                          </td>
-                                          <td className="py-1.5 px-3 text-gray-400">
-                                            {formatDuration(m.duration_s)}
-                                          </td>
-                                          <td className="py-1.5 px-3 text-gray-400 whitespace-nowrap">
-                                            {m.start_time
-                                              ? new Date(m.start_time).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-                                              : m.created_at
-                                                ? new Date(m.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-                                                : "-"}
-                                          </td>
-                                          <td className="py-1.5 px-3">
-                                            {m.event_team_a || m.event_team_b ? (
-                                              <Link
-                                                to={`/series/${m.match_id}`}
-                                                className="text-blue-400 hover:underline"
-                                                onClick={(e) => e.stopPropagation()}
-                                              >
-                                                {m.event_week != null ? `Night Shift ${m.event_week}` : "Series"}
-                                              </Link>
-                                            ) : (
-                                              <span className="text-gray-500">—</span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Recent Matches */}
-          <div className="bg-panel text-gray-300 shadow rounded-lg p-5">
-            <h2 className="text-lg font-bold mb-3">Matches</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left p-2">Match</th>
-                    <th className="text-left p-2">Hero</th>
-                    <th className="text-left p-2">Result</th>
-                    <th className="text-left p-2">Team</th>
-                    <th className="text-left p-2">K/D/A</th>
-                    <th className="text-left p-2">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matches.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="p-4 text-center text-gray-400">
-                        No matches found
-                      </td>
-                    </tr>
-                  ) : (
-                    matches.slice(0, 20).map((match) => (
-                      <tr
-                        key={match.match_id}
-                        className="border-b border-gray-700 hover:bg-slate-800/90"
-                      >
-                        <td className="p-2">
-                          <Link to={`/match/${match.match_id}`} className="text-blue-600 hover:underline">
-                            {match.match_id}
-                          </Link>
-                        </td>
-                        <td className="p-2">{match.hero_name || match.hero_id || "-"}</td>
-                        <td className="p-2">
-                          <span className={`font-semibold ${match.result === "Win" ? "text-green-600" : "text-red-600"}`}>
-                            {match.result || "-"}
-                          </span>
-                        </td>
-                        <td className="p-2">{teamName(match.team)}</td>
-                        <td className="p-2">
-                          {match.kills || 0} / {match.deaths || 0} / {match.assists || 0}
-                        </td>
-                        <td className="p-2 text-sm text-gray-400">
-                          {formatDate(match.start_time || match.created_at)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {activeTab === "Profile" && (
+              <ProfileTab accountId={accountId} matches={matches} />
+            )}
           </div>
-
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

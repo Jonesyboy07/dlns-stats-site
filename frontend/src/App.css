@@ -326,3 +326,11 @@ html.matchlist-theme-dark body {
     radial-gradient(circle at top, rgba(255, 255, 255, 0.03), transparent 28%),
     linear-gradient(180deg, #050507 0%, #09090d 45%, #08080a 100%);
 }
+
+/* The only animation the app ships is the loading skeleton's pulse; honour a
+   reduced-motion preference by stopping it rather than hiding the loading state. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+}

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
+import { heroIconUrl } from "../components/HeroIcon";
 
 function HeroDetail() {
   const { heroId } = useParams();
@@ -78,11 +79,10 @@ function HeroDetail() {
   const hero = heroes[heroId];
   const heroName = hero?.name || hero || "Unknown Hero";
 
-  const heroIcon = (hid) => {
-    const h = heroes[hid];
-    const name = (h?.name || h || "").toLowerCase().replace(/\s+/g, "_");
-    return cdnImage(`hero icons/${name}_sm_psd.png`);
-  };
+  // Shared with the rest of the site: the square icon filenames spell "&" out as
+  // "and" ("mo_and_krill_sm_psd.png"), which the space-to-underscore rule used for
+  // cardIcons below does NOT do — that one is correct only for its own folder.
+  const heroIcon = (hid) => heroIconUrl(heroes[hid]?.name || heroes[hid] || "");
   const heroDisplayName = (hid) => {
     const h = heroes[hid];
     return h?.name || h || `Hero ${hid}`;

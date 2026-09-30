@@ -2822,30 +2822,100 @@ def get_heroes():
         return jsonify(_names)
 
 
+@bp.get("/heroes/trending")
+@cache.cached(timeout=1800)
+def heroes_trending():
+    """Win rate per hero for the two most recent league weeks.
+
+    Powers the Heroes list page: the "Trending This Week" strip and the
+    week-over-week arrow on each card. Returns the two weeks compared plus a
+    per-hero map keyed by hero id, so the client can decorate a hero selection
+    table it already has without a second round trip.
+    """
+    with get_ro_conn() as conn:
+        weeks = [
+            row[0]
+            for row in conn.execute(
+                """
+                SELECT DISTINCT event_week
+                FROM matches
+                WHERE event_week IS NOT NULL AND match_id > 0
+                ORDER BY event_week DESC
+                LIMIT 2
+                """
+            ).fetchall()
+        ]
+        if len(weeks) < 2:
+            return jsonify({"current_week": weeks[0] if weeks else None, "previous_week": None, "heroes": {}})
+
+        current_week, previous_week = weeks[0], weeks[1]
+        rows = conn.execute(
+            """
+            SELECT m.event_week, p.hero_id, COUNT(*) AS games,
+                   SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) AS wins
+              FROM players p
+              JOIN matches m ON m.match_id = p.match_id
+             WHERE m.event_week IN (?, ?) AND p.hero_id IS NOT NULL
+             GROUP BY m.event_week, p.hero_id
+            """,
+            (current_week, previous_week),
+        ).fetchall()
+
+    heroes: Dict[str, Dict[str, Any]] = {}
+    for week, hero_id, games, wins in rows:
+        entry = heroes.setdefault(str(int(hero_id)), {})
+        entry["current" if week == current_week else "previous"] = {
+            "week": week,
+            "games": int(games or 0),
+            "win_rate": (wins / games) if games else None,
+        }
+
+    return jsonify(
+        {
+            "current_week": current_week,
+            "previous_week": previous_week,
+            "heroes": heroes,
+        }
+    )
+
+
 @bp.get("/heroes/<int:hero_id>/stats")
 @cache.cached(timeout=1800)
 def hero_stats(hero_id: int):
-    """Return aggregated stats for a specific hero across all matches."""
+    """Return aggregated stats for a specific hero across all matches.
+
+    Alongside the per-game averages this returns per-minute rates, which the
+    hero profile's headline tiles and Combat & Economy panel compare against the
+    league: the match duration is summed so the rate is the true total-over-total
+    rather than an average of per-game rates.
+    """
     with get_ro_conn() as conn:
         cur = conn.execute(
             """
             SELECT
                 COUNT(*) as games_played,
-                SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) as wins,
-                ROUND(AVG(kills), 2) as avg_kills,
-                ROUND(AVG(deaths), 2) as avg_deaths,
-                ROUND(AVG(assists), 2) as avg_assists,
-                ROUND(AVG(CAST(kills + assists AS REAL) / MAX(deaths, 1)), 2) as avg_kda,
-                ROUND(AVG(player_damage), 0) as avg_damage,
-                ROUND(AVG(obj_damage), 0) as avg_obj_damage,
-                ROUND(AVG(player_healing), 0) as avg_healing,
-                ROUND(AVG(net_worth), 0) as avg_souls,
-                MAX(kills) as max_kills,
-                MAX(player_damage) as max_damage,
-                MAX(player_healing) as max_healing,
-                MAX(obj_damage) as max_obj_damage
-            FROM players
-            WHERE hero_id = ?
+                SUM(CASE WHEN p.result = 'Win' THEN 1 ELSE 0 END) as wins,
+                ROUND(AVG(p.kills), 2) as avg_kills,
+                ROUND(AVG(p.deaths), 2) as avg_deaths,
+                ROUND(AVG(p.assists), 2) as avg_assists,
+                ROUND(AVG(CAST(p.kills + p.assists AS REAL) / MAX(p.deaths, 1)), 2) as avg_kda,
+                ROUND(AVG(p.player_damage), 0) as avg_damage,
+                ROUND(AVG(p.obj_damage), 0) as avg_obj_damage,
+                ROUND(AVG(p.player_healing), 0) as avg_healing,
+                ROUND(AVG(p.net_worth), 0) as avg_souls,
+                ROUND(AVG(m.duration_s), 0) as avg_duration,
+                ROUND(SUM(p.player_damage) / (SUM(m.duration_s) / 60.0), 0) as damage_per_min,
+                ROUND(SUM(p.net_worth) / (SUM(m.duration_s) / 60.0), 0) as souls_per_min,
+                ROUND(SUM(p.kills) / (SUM(m.duration_s) / 60.0), 2) as kills_per_min,
+                ROUND(SUM(p.deaths) / (SUM(m.duration_s) / 60.0), 2) as deaths_per_min,
+                ROUND(SUM(p.assists) / (SUM(m.duration_s) / 60.0), 2) as assists_per_min,
+                MAX(p.kills) as max_kills,
+                MAX(p.player_damage) as max_damage,
+                MAX(p.player_healing) as max_healing,
+                MAX(p.obj_damage) as max_obj_damage
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            WHERE p.hero_id = ?
             """,
             (hero_id,)
         )

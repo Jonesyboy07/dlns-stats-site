@@ -9,14 +9,12 @@ import TrendingStrip from "../components/heroes/TrendingStrip";
 const SORTS = [
   { id: "win", label: "Win rate" },
   { id: "pick", label: "Pick rate" },
-  { id: "games", label: "Games" },
   { id: "name", label: "A–Z" },
 ];
 
 const COMPARATORS = {
   win: (a, b) => (b.win ?? -1) - (a.win ?? -1),
   pick: (a, b) => (b.pick ?? -1) - (a.pick ?? -1),
-  games: (a, b) => (b.games ?? 0) - (a.games ?? 0),
   name: (a, b) => a.name.localeCompare(b.name),
 };
 
@@ -95,16 +93,6 @@ function HeroesList() {
           : null;
       return { id, name, games, win, pick, delta };
     });
-
-    // Win-rate rank among released heroes with a decided game.
-    const ranked = rows
-      .filter((row) => row.win != null && row.games)
-      .sort((a, b) => b.win - a.win)
-      .map((row) => row.id);
-    for (const row of rows) {
-      const index = ranked.indexOf(row.id);
-      row.rank = index === -1 ? null : index + 1;
-    }
 
     return rows;
   }, [released, selection, trending, totalGames]);

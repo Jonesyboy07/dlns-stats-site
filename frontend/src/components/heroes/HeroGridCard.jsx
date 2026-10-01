@@ -46,7 +46,7 @@ function HeroTileArt({ name }) {
  * current sort is by is highlighted.
  */
 function HeroGridCard({ hero, sortKey }) {
-  const { id, name, rank, trend, pick, win, games } = hero;
+  const { id, name, trend, pick, win, games } = hero;
 
   const up = trend != null && trend >= 0;
   const value = (text, active, dim) => (
@@ -73,9 +73,6 @@ function HeroGridCard({ hero, sortKey }) {
     >
       <div className="relative">
         <HeroTileArt name={name} />
-        <span className={`${PILL} left-2 top-2 text-primary`}>
-          {rank == null ? "—" : `#${rank}`}
-        </span>
         <span
           title={
             trend == null

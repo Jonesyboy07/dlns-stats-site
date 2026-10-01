@@ -48,6 +48,12 @@ if errorlevel 1 (
 )
 
 echo.
+echo Re-applying feed metadata to existing matches (team names, sides, week, VOD)...
+REM Corrections to ALREADY-ingested matches are skipped by the ingest above (their
+REM status is checked), so this pass is what actually carries a feed fix over.
+%PYTHON_EXE% backend\main.py -matchfile "%MATCHFILE%" -db "%DB_PATH%" -metasync true
+
+echo.
 echo Inferring real lanes from match_paths (lane_real)...
 %PYTHON_EXE% backend\main.py -db "%DB_PATH%" -laneinfer true
 

@@ -45,6 +45,13 @@ echo
     -recheckall "$RECHECK"
 
 echo
+echo "Re-applying feed metadata to existing matches (team names, sides, week, VOD)..."
+# Corrections to ALREADY-ingested matches are skipped by the ingest above (their
+# status is `checked`), so this pass is what actually carries a feed fix over.
+# It makes no API calls and only writes fields that differ.
+"$PYTHON_EXE" backend/main.py -matchfile "$MATCHFILE" -db "$DB_PATH" -metasync true
+
+echo
 echo "Refetching all cached users..."
 
 "$PYTHON_EXE" backend/main.py \

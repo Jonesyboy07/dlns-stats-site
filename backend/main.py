@@ -2152,6 +2152,99 @@ def mark_match_checked(status: Dict[str, Any], match_id: int, ok: bool, error: O
 	rec["error"] = (error or None)
 
 
+# Columns the FEED authors, as opposed to the data the match API returns.
+FEED_METADATA_FIELDS: Tuple[str, ...] = (
+	"event_title",
+	"event_week",
+	"event_team_a",
+	"event_team_b",
+	"event_game",
+	"event_team_a_ingame_side",
+	"match_vod",
+	"event_region",
+	"event_subtitle",
+)
+
+TITLE_CASED_FEED_FIELDS = {"event_team_a", "event_team_b"}
+
+
+def _feed_value_matches(existing: Any, proposed: Any, field: str) -> bool:
+	"""Whether the stored value already says what the feed says.
+
+	Team names are compared CASE-INSENSITIVELY on purpose. Python's `.title()`
+	is lossy on esports names (`PKP` -> `Pkp`, `1win Team` -> `1Win Team`,
+	`Virtus.pro` -> `Virtus.Pro`), so re-applying the feed must not be allowed to
+	cosmetically rewrite a name that is already correct -- only a real identity
+	change (a typo, a rename) should move a team name.
+	"""
+	if field in TITLE_CASED_FEED_FIELDS:
+		return str(existing or "").strip().casefold() == str(proposed or "").strip().casefold()
+	return existing == proposed
+
+
+def sync_feed_metadata(
+	conn: sqlite3.Connection,
+	match_ids: List[int],
+	context_by_id: Dict[int, Dict[str, Any]],
+) -> Dict[str, int]:
+	"""Re-apply the feed's authored metadata to matches that are ALREADY in the DB.
+
+	Why this exists: the ingest loop skips any match already marked `checked` in
+	matches_status.json, so correcting an EXISTING match in data/matches.json (a
+	team-name typo, a flipped `team_a_side`, a moved week) never reaches the
+	database -- only new matches are ingested. This pass applies just those
+	hand-authored columns and makes NO API calls, so it is cheap, idempotent and
+	safe to run on every deploy.
+
+	A field the feed does not provide is left untouched rather than nulled, so this
+	can never blank data that is already correct. Team names additionally ignore
+	cosmetic casing (see `_feed_value_matches`), so this only fixes real identity
+	changes. Matches absent from the DB are left for the normal ingest to pick up.
+	"""
+	updated = 0
+	unchanged = 0
+	not_in_db = 0
+
+	select_sql = "SELECT " + ", ".join(FEED_METADATA_FIELDS) + " FROM matches WHERE match_id = ?"
+
+	for mid in match_ids:
+		ctx = context_by_id.get(mid) or {}
+		changes: Dict[str, Any] = {}
+		for field in FEED_METADATA_FIELDS:
+			value = ctx.get(field)
+			if value is None:
+				continue
+			if field in TITLE_CASED_FEED_FIELDS:
+				value = str(value).strip().title()
+			changes[field] = value
+
+		row = conn.execute(select_sql, (mid,)).fetchone()
+		if row is None:
+			not_in_db += 1
+			continue
+
+		existing = dict(zip(FEED_METADATA_FIELDS, row))
+		differing = {
+			field: value
+			for field, value in changes.items()
+			if not _feed_value_matches(existing.get(field), value, field)
+		}
+		if not differing:
+			unchanged += 1
+			continue
+
+		# Field names come from the module constant above, never from user data.
+		set_clause = ", ".join(f"{field} = ?" for field in differing)
+		conn.execute(
+			f"UPDATE matches SET {set_clause} WHERE match_id = ?",
+			tuple(differing.values()) + (mid,),
+		)
+		updated += 1
+
+	conn.commit()
+	return {"updated": updated, "unchanged": unchanged, "not_in_db": not_in_db}
+
+
 def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any]]]:
 	"""Read match IDs and context from JSON.
 
@@ -2725,6 +2818,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-laneinfer", dest="laneinfer", type=str, default="false", help="If true, run positional lane inference backfill (lane_real) from match_paths and exit")
 	parser.add_argument("-goldbackfill", dest="goldbackfill", type=str, default="false", help="If true, backfill player_gold_sources (soul income) for matches missing it and exit")
 	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
+	parser.add_argument("-metasync", dest="metasync", type=str, default="false", help="If true, re-apply the feed's authored metadata (teams, week, side, vod) to matches already in the DB and exit. No API calls.")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
 	parser.add_argument("-cache", dest="cache_path", type=str, default=str(DEFAULT_CACHE_PATH), help="Path to user cache JSON {account_id: persona}")
 	parser.add_argument("-status", dest="status_path", type=str, default=str(DEFAULT_STATUS_PATH), help="Path to matches status JSON")
@@ -2831,6 +2925,25 @@ def main(argv: Optional[List[str]] = None) -> int:
 			print("[backfill-dmgsrc] Running damage-source backfill...")
 			backfill_all_player_damage_sources(conn)
 			print("[backfill-dmgsrc] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.metasync):
+		if not args.matchfile:
+			print("No -matchfile provided.")
+			return 2
+		feed_ids, feed_context = read_match_plan_file(Path(args.matchfile))
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print(f"[metasync] Re-applying feed metadata for {len(feed_ids)} feed matches...")
+			stats = sync_feed_metadata(conn, feed_ids, feed_context)
+			print(
+				f"[metasync] Updated {stats['updated']} - unchanged {stats['unchanged']} - "
+				f"not in DB yet {stats['not_in_db']}."
+			)
+			print("[metasync] Done.")
 			return 0
 		finally:
 			conn.close()

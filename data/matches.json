@@ -4494,6 +4494,83 @@
               "url": "https://www.youtube.com/watch?v=W7CoJiNcbdI"
             }
           ]
+        },
+        {
+          "week": 58,
+          "games": [
+            {
+              "team_a": "BUFF ENJOYERS",
+              "team_b": "ABRAHAMS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 109084310
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=9vHSjD0Mx_U&pp=0gcJCS4MAYcqIYzv",
+              "region": "EU",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "LEVIATHAN",
+              "team_b": "BUFF ENJOYERS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 109111762
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 109130915
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=qp0mpcj7qYs",
+              "region": "EU",
+              "title": "FINALS"
+            },
+            {
+              "team_a": "PULSAR ESPORTS",
+              "team_b": "VANGUARD",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 109153860
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=loT_Nx8HRV4",
+              "region": "NA",
+              "title": "CHALLENGER MATCH"
+            },
+            {
+              "team_a": "MELEE CREEPS",
+              "team_b": "PULSAR ESPORTS",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 109179641
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 109203102
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=-0UsFtzjE2o",
+              "region": "NA",
+              "title": "FINALS"
+            }
+          ],
+          "vod_links": [
+            {
+              "title": "",
+              "url": "https://www.youtube.com/watch?v=SN7HqwnP1aQ"
+            }
+          ]
         }
       ]
     },

@@ -1,384 +1,355 @@
-import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
-import LoadingSkeleton from "../components/LoadingSkeleton";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import heroNamesData from "../../../data/hero_names.json";
 import ErrorMessage from "../components/ErrorMessage";
-import { heroIconUrl } from "../components/HeroIcon";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import HeroIcon from "../components/HeroIcon";
+import HeroIdentityCard from "../components/heroes/HeroIdentityCard";
+import HeroHeadlineTiles from "../components/heroes/HeroHeadlineTiles";
+import HeroCombatPanel from "../components/heroes/HeroCombatPanel";
+import HeroItemBuildPanel from "../components/heroes/HeroItemBuildPanel";
+import HeroMatchupsPanel from "../components/heroes/HeroMatchupsPanel";
+import HeroTopPlayersPanel from "../components/heroes/HeroTopPlayersPanel";
+import HeroRecordsPanel from "../components/heroes/HeroRecordsPanel";
+import HeroBestDuoPanel from "../components/heroes/HeroBestDuoPanel";
+import HeroHeadToHeadPanel from "../components/heroes/HeroHeadToHeadPanel";
+import PlaceholderPanel from "../components/heroes/PlaceholderPanel";
+import {
+  HeroAbilityBuildPanel,
+  HeroGameLengthPanel,
+  HeroLanePanel,
+  HeroMetaTrendPanel,
+  HeroRecentGamesPanel,
+  HeroSideSplitPanel,
+  HeroSoulsCurvePanel,
+} from "../components/heroes/HeroPanels";
+import { formatInteger } from "../utils/format";
+import { LANE_META } from "../utils/lanes";
+import { formatPercent, ordinal, signedPoints } from "../utils/heroPages";
 
+const DASH = "—";
+/** Panels only unlock once a hero has this many games. */
+const MIN_GAMES = 10;
+
+/**
+ * Hero detail (layout 2a): the identity card, five headline tiles and the
+ * analysis panels, all driven by one profile payload.
+ *
+ * The scope is fixed — the whole Night Shift league run, every week to date — and
+ * every comparison is against the league average. Per-week samples are far too
+ * small for a hero to mean anything, so there is no scope selector. The label
+ * itself comes from the API (`profile.scope.label`) so it stays true as weeks
+ * are added; never hard-code the range here.
+ *
+ * Ban rate and the Death Profile need data that does not exist yet and render
+ * "Adding Soon".
+ */
 function HeroDetail() {
   const { heroId } = useParams();
-  const [heroes, setHeroes] = useState({});
-  const [heroStats, setHeroStats] = useState(null);
-  const [heroMeta, setHeroMeta] = useState(null);
-  const [topPlayers, setTopPlayers] = useState([]);
-  const [topItems, setTopItems] = useState([]);
-  const [effectiveWith, setEffectiveWith] = useState([]);
-  const [effectiveAgainst, setEffectiveAgainst] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showMorePlayers, setShowMorePlayers] = useState(false);
-  const [showMoreItems, setShowMoreItems] = useState(false);
-  const [showMoreWith, setShowMoreWith] = useState(false);
-  const [showMoreAgainst, setShowMoreAgainst] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    fetchHeroes();
+    let alive = true;
+    fetch(`/db/heroes/${heroId}/meta`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (alive) setMeta(data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [heroId]);
 
-  const fetchHeroes = async () => {
-    try {
-      setLoading(true);
-      const [heroesRes, statsRes, metaRes, topPlayersRes, topItemsRes, matchupsRes] = await Promise.all([
-        fetch("/db/heroes"),
-        fetch(`/db/heroes/${heroId}/stats`),
-        fetch(`/db/heroes/${heroId}/meta`),
-        fetch(`/db/heroes/${heroId}/top_players`),
-        fetch(`/db/heroes/${heroId}/top_items`),
-        fetch(`/db/heroes/${heroId}/matchups`),
-      ]);
-      if (heroesRes.ok) {
-        const data = await heroesRes.json();
-        setHeroes(data);
-      }
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setHeroStats(data.stats);
-      }
-      if (metaRes.ok) {
-        const data = await metaRes.json();
-        setHeroMeta(data);
-      }
-      if (topPlayersRes.ok) {
-        const data = await topPlayersRes.json();
-        setTopPlayers(data.players ?? []);
-      }
-      if (topItemsRes.ok) {
-        const data = await topItemsRes.json();
-        setTopItems(data.items ?? []);
-      }
-      if (matchupsRes.ok) {
-        const data = await matchupsRes.json();
-        setEffectiveWith(data.effective_with ?? []);
-        setEffectiveAgainst(data.effective_against ?? []);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError(null);
+
+    fetch(`/db/heroes/${heroId}/profile`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load hero profile");
+        return res.json();
+      })
+      .then((data) => {
+        if (!alive) return;
+        setProfile(data);
+      })
+      .catch((err) => {
+        if (alive) setError(err.message);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [heroId, reloadKey]);
+
+  const names = heroNamesData.heroes ?? {};
+  const heroName = profile?.hero_name ?? names[heroId]?.name ?? `Hero ${heroId}`;
+
+  const released = useMemo(
+    () =>
+      Object.entries(heroNamesData.heroes ?? {})
+        .filter(([, data]) => data.released)
+        .map(([id, data]) => ({ id, name: data.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [],
+  );
+  const index = released.findIndex((hero) => hero.id === heroId);
+  const prevHero = index >= 0 ? released[(index - 1 + released.length) % released.length] : null;
+  const nextHero = index >= 0 ? released[(index + 1) % released.length] : null;
+
+  const abilities = useMemo(
+    () =>
+      (meta?.abilities ?? []).map((ability) => ({
+        name: ability.name,
+        image: ability.image,
+        invert: ability.invert,
+      })),
+    [meta],
+  );
+
+  const perHero = profile?.per_hero ?? [];
+
+  const rankLabel = (key, label) => {
+    const entry = profile?.rank?.[key];
+    return entry ? `${ordinal(entry.rank)} of ${entry.of} by ${label}` : "Adding Soon";
   };
 
-  if (loading) {
-    return <LoadingSkeleton variant="detail" />;
-  }
-
-  if (error) {
-    return <ErrorMessage message={error} onRetry={fetchHeroes} />;
-  }
-
-  const hero = heroes[heroId];
-  const heroName = hero?.name || hero || "Unknown Hero";
-
-  // Shared with the rest of the site: the square icon filenames spell "&" out as
-  // "and" ("mo_and_krill_sm_psd.png"), which the space-to-underscore rule used for
-  // cardIcons below does NOT do — that one is correct only for its own folder.
-  const heroIcon = (hid) => heroIconUrl(heroes[hid]?.name || heroes[hid] || "");
-  const heroDisplayName = (hid) => {
-    const h = heroes[hid];
-    return h?.name || h || `Hero ${hid}`;
+  const meanOf = (key) => {
+    const values = perHero.map((row) => row[key]).filter((value) => value != null);
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   };
+
+  const rankIn = (key, lower = false) => {
+    const ranked = perHero
+      .filter((row) => row[key] != null)
+      .sort((a, b) => (lower ? a[key] - b[key] : b[key] - a[key]));
+    const at = ranked.findIndex((row) => row.hero_id === profile?.hero_id);
+    return at === -1 ? null : { rank: at + 1, of: ranked.length };
+  };
+
+  if (loading) return <LoadingSkeleton variant="detail" />;
+  if (error && !profile) {
+    return <ErrorMessage message={error} onRetry={() => setReloadKey((key) => key + 1)} />;
+  }
+
+  const games = profile?.games ?? 0;
+  const wins = profile?.wins ?? 0;
+  const losses = profile?.losses ?? 0;
+  const sparse = games < MIN_GAMES;
+  const league = profile?.league ?? {};
+  const leagueWinRate = league.win_rate ?? 0.5;
+
+  const tiles = [
+    {
+      label: "Win rate",
+      value: formatPercent(profile?.win_rate),
+      delta:
+        profile?.win_rate == null
+          ? null
+          : {
+              text: signedPoints((profile.win_rate - leagueWinRate) * 100),
+              tone: profile.win_rate >= leagueWinRate ? "good" : "bad",
+              title: `League-average hero: ${formatPercent(leagueWinRate)}`,
+            },
+      sub: `vs league-average hero (${formatPercent(leagueWinRate)})`,
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_win_rate", "win rate"),
+      rankDim: sparse,
+    },
+    {
+      label: "Pick rate",
+      value: formatPercent(perHero.find((row) => row.hero_id === profile?.hero_id)?.pick_rate),
+      delta: null,
+      sub: `vs average hero (${formatPercent(league.pick_rate)})`,
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_pick_rate", "pick rate"),
+      rankDim: sparse,
+    },
+    {
+      label: "Ban rate",
+      value: DASH,
+      sub: "of drafts banned · Adding Soon",
+      rank: "Adding Soon",
+      rankDim: true,
+    },
+    {
+      label: "Games played",
+      value: games ? String(games) : DASH,
+      sub:
+        profile?.total_matches != null
+          ? `of ${profile.total_matches.toLocaleString()} league games in scope`
+          : "Adding Soon",
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_games", "games"),
+      rankDim: sparse,
+    },
+    {
+      label: "Wins",
+      value: wins ? String(wins) : DASH,
+      wl: { wins, losses },
+      sub: "Win–loss record in scope",
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_wins", "wins"),
+      rankDim: sparse,
+    },
+  ];
+
+  const damageRank = rankIn("damage_per_game");
+  const soulsRank = rankIn("souls_per_game");
+  const deathsRank = rankIn("deaths_per_game", true);
+  const rankText = (rank) => (rank ? `${ordinal(rank.rank)} of ${rank.of}` : "Adding Soon");
+
+  const combat = profile?.combat ?? {};
+  const rates = [
+    {
+      label: "Damage",
+      value: formatInteger(combat.damage) ?? DASH,
+      caption: `League avg ${formatInteger(meanOf("damage_per_game")) ?? DASH} · ${rankText(damageRank)}`,
+    },
+    {
+      label: "Souls",
+      value: formatInteger(combat.souls) ?? DASH,
+      caption: `League avg ${formatInteger(meanOf("souls_per_game")) ?? DASH} · ${rankText(soulsRank)}`,
+    },
+    {
+      label: "Deaths",
+      value: combat.deaths == null ? DASH : combat.deaths.toFixed(1),
+      caption: `League avg ${
+        meanOf("deaths_per_game") == null ? DASH : meanOf("deaths_per_game").toFixed(1)
+      } · ${rankText(deathsRank)} (lower is better)`,
+    },
+  ];
+
+  const duos = (profile?.matchups?.with ?? [])
+    .slice()
+    .sort((a, b) => (b.win_rate ?? 0) - (a.win_rate ?? 0))
+    .slice(0, 3)
+    .map((row) => ({
+      heroId: String(row.hero_id),
+      name: row.hero_name,
+      games: row.games,
+      winRate: row.win_rate ?? 0,
+      delta: (row.win_rate ?? 0) - (profile?.win_rate ?? 0),
+    }));
+
+  const placeholder = (title, subtitle) => (
+    <PlaceholderPanel
+      key={title}
+      title={title}
+      subtitle={subtitle}
+      note={sparse ? "Not enough games" : "Adding Soon"}
+    />
+  );
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-10 p-4 sm:p-8">
-      {/* Hero Header */}
-      <div className="mb-6 md:mb-8 col-span-1 md:col-span-10 flex flex-col sm:flex-row items-center sm:items-center gap-4 text-center sm:text-left">
-        <img
-          src={cdnImage(`cardIcons/${heroName.toLowerCase().replace(/&/g, "and").replace(/\s+/g, "_")}_card_psd.png`)}
-          alt={heroName}
-          className="w-16 h-24 object-cover rounded shadow"
-          onError={(e) => {
-            e.target.style.display = "none";
-          }}
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-[14px]">
+          <Link to="/heroes" className="text-muted no-underline transition-colors hover:text-accent-secondary-light">
+            Heroes
+          </Link>
+          <span className="text-dim">/</span>
+          <span className="font-semibold text-primary">{heroName}</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {prevHero && (
+            <Link
+              to={`/hero/${prevHero.id}`}
+              title={prevHero.name}
+              className="flex max-w-[170px] items-center gap-2 rounded-full border border-border-light bg-card py-1 pl-1.5 pr-3 text-[13px] text-secondary no-underline transition-colors hover:bg-hover"
+            >
+              <span className="text-dim">‹</span>
+              <HeroIcon name={prevHero.name} size="h-6 w-6" className="rounded-full" />
+              <span className="truncate">{prevHero.name}</span>
+            </Link>
+          )}
+          {nextHero && (
+            <Link
+              to={`/hero/${nextHero.id}`}
+              title={nextHero.name}
+              className="flex max-w-[170px] items-center gap-2 rounded-full border border-border-light bg-card py-1 pl-3 pr-1.5 text-[13px] text-secondary no-underline transition-colors hover:bg-hover"
+            >
+              <span className="truncate">{nextHero.name}</span>
+              <HeroIcon name={nextHero.name} size="h-6 w-6" className="rounded-full" />
+              <span className="text-dim">›</span>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <HeroIdentityCard name={heroName} tagline={meta?.tagline ?? []} abilities={abilities} />
+
+      {sparse && (
+        <div className="rounded-xl border border-warning-border bg-warning-bg px-5 py-4">
+          <p className="m-0 font-semibold text-warning">Not enough games</p>
+          <p className="m-0 mt-0.5 text-[13px] text-secondary">
+            {heroName} has {games} game{games === 1 ? "" : "s"} in the Night Shift league.
+            Profile panels unlock at {MIN_GAMES} games.
+          </p>
+        </div>
+      )}
+
+      <HeroHeadlineTiles tiles={tiles} rates={rates} />
+
+      {sparse ? (
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+          {[
+            ["Meta Trend", "Win % and pick % by week"],
+            ["Recent Games", "Last 8 games in scope"],
+            ["Combat & Economy", "Per-minute and per-game averages"],
+            ["Item Builds", "Most-bought items by slot"],
+            ["Ability Build", "Ability point order"],
+            ["Matchups", "Win rate with and against other heroes"],
+            ["Souls Curve", "Net worth over game time"],
+            ["Lane Profile", "Assigned lane vs actual"],
+            ["Side Split", "Win rate by team side"],
+            ["Game-Length Profile", "Win rate by game length"],
+            ["Best Duo", "Standout partner hero"],
+            ["Top Players", "Most successful players"],
+            ["Death Profile", "When and where this hero dies"],
+            ["Records", "Best single games"],
+          ].map(([title, subtitle]) => placeholder(title, subtitle))}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-start gap-4">
+          <div className="flex min-w-0 flex-[7_1_560px] flex-col gap-4">
+            <HeroMetaTrendPanel weekly={profile?.weekly ?? []} heroName={heroName} />
+            <HeroRecentGamesPanel recent={profile?.recent ?? []} />
+            <HeroCombatPanel combat={combat} league={profile?.league_combat} />
+            <HeroItemBuildPanel slots={profile?.items?.slots} />
+            <HeroAbilityBuildPanel abilityBuilds={profile?.ability_builds} heroName={heroName} />
+            <HeroMatchupsPanel
+              matchups={profile?.matchups}
+              overallWinRate={profile?.win_rate ?? 0}
+            />
+            <HeroSoulsCurvePanel souls={profile?.souls} heroName={heroName} />
+          </div>
+
+          <div className="flex min-w-0 flex-[5_1_360px] flex-col gap-4">
+            <HeroLanePanel lane={profile?.lane} laneNames={LANE_META} />
+            <HeroSideSplitPanel sides={profile?.sides} />
+            <HeroGameLengthPanel lengths={profile?.lengths} />
+            <HeroBestDuoPanel heroName={heroName} duos={duos} />
+            <HeroTopPlayersPanel players={profile?.top_players} />
+            {placeholder("Death Profile", "When and where this hero dies")}
+            <HeroRecordsPanel records={profile?.records} />
+          </div>
+        </div>
+      )}
+
+      {!sparse && (
+        <HeroHeadToHeadPanel
+          heroId={profile?.hero_id ?? Number(heroId)}
+          heroName={heroName}
+          perHero={perHero}
         />
-        <div>
-          <h1 className="text-white text-4xl font-bold">{heroName}</h1>
-          <div className="flex gap-2 mt-1 font-valve-pulp">
-            <span className="inline-flex items-center px-2 py-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[4deg]">
-              {heroMeta?.tagline?.[0] ?? "—"}
-            </span>
-            <span className="inline-flex items-center px-3 py-1 mt-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[-4deg]">
-              {heroMeta?.tagline?.[1] ?? "—"}
-            </span>
-            <span className="inline-flex items-center px-2 py-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[4deg]">
-              {heroMeta?.tagline?.[2] ?? "—"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Abilities Section */}
-      <div className="mb-6 md:mb-8 col-span-1 md:col-span-4">
-        <h2 className="text-white text-center text-xl md:text-2xl font-bold">Abilities</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(heroMeta?.abilities ?? Array(4).fill(null)).map((ability, i) => (
-            <div key={i} className="shadow rounded-lg p-3 flex flex-col items-center text-center">
-              <div className="relative w-24 h-24">
-                <img
-                  src={cdnImage("abilities/ability_frame_standard.svg")}
-                  alt=""
-                  className="absolute inset-0 w-full h-full"
-                />
-                {ability?.image ? (
-                  <img
-                    src={staticImagePathToCdn((ability.image.startsWith("/") ? ability.image : `/${ability.image}`).replace(/\\/g, "/"))}
-                    alt={ability.name ?? ""}
-                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/5 h-2/5 object-contain opacity-75 ${ability.invert ? " invert" : ""}`}
-                  />
-                ) : (
-                  <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">
-                    {i + 1}
-                  </span>
-                )}
-              </div>
-              <h3 className="font-bold text-lg text-gray-200">{ability?.name ?? `Ability ${i + 1}`}</h3>
-              <p className="text-sm text-gray-400 mt-1">{ability?.description ?? ""}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Hero Stats */}
-      <div className="bg-panel text-gray-200 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-6 row-span-2 md:ml-4 mt-4 md:mt-0">
-        <h2 className="text-lg sm:text-xl font-bold mb-4">Stats</h2>
-
-        {/* Row 1 — Averages */}
-        <div className="mb-4">
-          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
-            Averages
-          </p>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
-            {[
-              ["Kills", heroStats?.avg_kills],
-              ["Deaths", heroStats?.avg_deaths],
-              ["Assists", heroStats?.avg_assists],
-              ["KDA", heroStats?.avg_kda],
-              ["Damage", heroStats?.avg_damage?.toLocaleString()],
-              ["Souls", heroStats?.avg_souls?.toLocaleString()],
-            ].map(([label, val]) => (
-              <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
-                <p className="text-gray-500 text-xs">{label}</p>
-                <p className="text-base sm:text-lg font-bold text-white">{val ?? "-"}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Row 2 — Highest */}
-        <div className="mb-4">
-          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
-            Highest
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-            {[
-              ["Kills", heroStats?.max_kills],
-              ["Damage", heroStats?.max_damage?.toLocaleString()],
-              ["Healing", heroStats?.max_healing?.toLocaleString()],
-              ["Obj Damage", heroStats?.max_obj_damage?.toLocaleString()],
-            ].map(([label, val]) => (
-              <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
-                <p className="text-gray-500 text-xs">{label}</p>
-                <p className="text-base sm:text-lg font-bold text-white">{val ?? "-"}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Row 3 — Rates */}
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">
-            Rates
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-            {[
-              ["Win Rate", heroStats?.win_rate != null ? (heroStats.win_rate * 100).toFixed(1) + "%" : "-"],
-              ["Pick Rate", heroStats?.pick_rate != null ? (heroStats.pick_rate * 100).toFixed(2) + "%" : "-"],
-              ["Games Played", heroStats?.games_played],
-              ["Wins", heroStats?.wins, "text-green-400"],
-            ].map(([label, val, extraClass]) => (
-              <div key={label} className="bg-slate-800 rounded p-2 sm:p-3">
-                <p className="text-gray-500 text-xs">{label}</p>
-                <p className={`text-base sm:text-lg font-bold text-white ${extraClass || ""}`}>{val ?? "-"}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Most Played By */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-4">
-        <h2 className="text-xl font-bold mb-4">Most Played By</h2>
-        {topPlayers.length === 0 ? (
-          <p className="text-gray-500 text-sm">No data available.</p>
-        ) : (
-          <>
-            <ol className="space-y-2">
-              {(showMorePlayers ? topPlayers : topPlayers.slice(0, 5)).map((p, i) => (
-                <li key={p.account_id} className="flex items-center gap-3">
-                  <span className="text-gray-500 text-sm w-5 text-right">{i + 1}.</span>
-                  <Link
-                    to={`/player/${p.account_id}`}
-                    className="flex-1 text-blue-400 hover:underline truncate"
-                  >
-                    {p.persona_name ?? p.account_id}
-                  </Link>
-                  <span className="text-gray-400 text-sm">{p.games_played}g</span>
-                  <span className={`text-sm font-semibold ${p.win_rate >= 0.5 ? "text-green-400" : "text-red-400"}`}>
-                    {(p.win_rate * 100).toFixed(0)}%
-                  </span>
-                </li>
-              ))}
-            </ol>
-            {topPlayers.length > 5 && (
-              <button
-                onClick={() => setShowMorePlayers((v) => !v)}
-                className="mt-3 text-xs text-blue-400 hover:underline"
-              >
-                {showMorePlayers ? 'Show less' : `Show ${topPlayers.length - 5} more`}
-              </button>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Most Bought Items */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-4 sm:p-6 col-span-1 md:col-span-10 mt-4">
-        <h2 className="text-xl font-bold mb-4">Most Bought Items</h2>
-        {topItems.length === 0 ? (
-          <p className="text-gray-500 text-sm">No item data available.</p>
-        ) : (
-          <>
-          <div className="flex flex-wrap gap-4">
-            {(showMoreItems ? topItems : topItems.slice(0, 10)).map((item) => {
-              const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
-              const imgSrc = folder
-                ? cdnImage(`items/${folder}/${item.name.toLowerCase().replace(/ /g, "_")}_psd.png`)
-                : null;
-              const slotColor =
-                item.item_slot_type === "weapon"
-                  ? "text-orange-400"
-                  : item.item_slot_type === "vitality"
-                  ? "text-green-400"
-                  : item.item_slot_type === "spirit"
-                  ? "text-purple-400"
-                  : "text-gray-400";
-              return (
-                <div
-                  key={item.id}
-                  className="flex flex-col items-center bg-slate-800 rounded p-3 w-24 text-center"
-                  title={item.name}
-                >
-                  {imgSrc && (
-                    <img
-                      src={imgSrc}
-                      alt={item.name}
-                      className="w-12 h-12 object-contain mb-1"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                  )}
-                  <p className="text-xs text-gray-200 leading-tight truncate w-full">{item.name}</p>
-                  <p className={`text-xs font-semibold mt-1 ${slotColor}`}>
-                    {(item.pick_rate * 100).toFixed(0)}%
-                  </p>
-                  <p className="text-xs text-gray-500">{item.count}×</p>
-                </div>
-              );
-            })}
-          </div>
-          </>
-        )}
-      </div>
-
-      {/* Matchups */}
-      <div className="col-span-1 md:col-span-10 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Effective With */}
-        <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
-          <h2 className="text-xl font-bold mb-4 text-green-400">Most Effective With</h2>
-          {effectiveWith.length === 0 ? (
-            <p className="text-gray-500 text-sm">Not enough data.</p>
-          ) : (
-            <>
-              <div className="space-y-2">
-                {(showMoreWith ? effectiveWith : effectiveWith.slice(0, 5)).map((h) => (
-                  <Link
-                    key={h.hero_id}
-                    to={`/hero/${h.hero_id}`}
-                    className="flex items-center gap-3 hover:bg-slate-700 rounded px-2 py-1 transition-colors"
-                  >
-                    <img
-                      src={heroIcon(h.hero_id)}
-                      alt={heroDisplayName(h.hero_id)}
-                      className="w-8 h-8 object-cover rounded"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                    <span className="flex-1 text-gray-200 text-sm">{heroDisplayName(h.hero_id)}</span>
-                    <span className="text-gray-500 text-xs">{h.games}g</span>
-                    <span className="text-green-400 text-sm font-semibold">
-                      {(h.win_rate * 100).toFixed(0)}%
-                    </span>
-                  </Link>
-                ))}
-              </div>
-              {effectiveWith.length > 5 && (
-                <button
-                  onClick={() => setShowMoreWith((v) => !v)}
-                  className="mt-3 text-xs text-blue-400 hover:underline"
-                >
-                  {showMoreWith ? 'Show less' : `Show ${effectiveWith.length - 5} more`}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Effective Against */}
-        <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
-          <h2 className="text-xl font-bold mb-4 text-red-400">Most Effective Against</h2>
-          {effectiveAgainst.length === 0 ? (
-            <p className="text-gray-500 text-sm">Not enough data.</p>
-          ) : (
-            <>
-              <div className="space-y-2">
-                {(showMoreAgainst ? effectiveAgainst : effectiveAgainst.slice(0, 5)).map((h) => (
-                  <Link
-                    key={h.hero_id}
-                    to={`/hero/${h.hero_id}`}
-                    className="flex items-center gap-3 hover:bg-slate-700 rounded px-2 py-1 transition-colors"
-                  >
-                    <img
-                      src={heroIcon(h.hero_id)}
-                      alt={heroDisplayName(h.hero_id)}
-                      className="w-8 h-8 object-cover rounded"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                    <span className="flex-1 text-gray-200 text-sm">{heroDisplayName(h.hero_id)}</span>
-                    <span className="text-gray-500 text-xs">{h.games}g</span>
-                    <span className="text-red-400 text-sm font-semibold">
-                    {(h.win_rate * 100).toFixed(0)}%
-                  </span>
-                  </Link>
-                ))}
-              </div>
-              {effectiveAgainst.length > 5 && (
-                <button
-                  onClick={() => setShowMoreAgainst((v) => !v)}
-                  className="mt-3 text-xs text-blue-400 hover:underline"
-                >
-                  {showMoreAgainst ? 'Show less' : `Show ${effectiveAgainst.length - 5} more`}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ npm run build:watch  # Watch mode during development
 ```bash
 python main.py -matchfile matches.json             # Ingest new matches
 python main.py -matchfile matches.json -recheckall true  # Re-ingest all
+python main.py -matchfile matches.json -metasync true    # Re-apply feed metadata (team names, sides, week, VOD) to matches already in the DB. No API calls.
 python main.py -lanebackfill true                 # Populate players.lane from deadlock-api assigned_lane (only visits matches missing lane data)
 python main.py -laneinfer true                    # Populate players.lane_real from match_paths positional inference (corrects lane swaps)
 ```

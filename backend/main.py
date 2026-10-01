@@ -607,6 +607,10 @@ def db_init(conn: sqlite3.Connection) -> bool:
 			conn.execute("ALTER TABLE players ADD COLUMN lane INTEGER")
 		if "lane_real" not in cols:
 			conn.execute("ALTER TABLE players ADD COLUMN lane_real INTEGER")
+		if "self_healing" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN self_healing INTEGER")
+		if "teammate_healing" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN teammate_healing INTEGER")
 		conn.commit()
 	except Exception:
 		pass

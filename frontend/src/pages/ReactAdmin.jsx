@@ -12,6 +12,11 @@ const adminCards = [
     href: '/admin/matches',
   },
   {
+    title: 'Brackets',
+    description: 'Create an event from a format, then add match IDs per series as they finish.',
+    href: '/admin/brackets/',
+  },
+  {
     title: 'Help Config Editor',
     description: 'Edit the modular help page content and the shared help banner.',
     href: '/react-admin/help-config',

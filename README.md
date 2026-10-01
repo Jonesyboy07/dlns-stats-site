@@ -160,6 +160,8 @@ docs/                   Project docs (schema notes, etc.)
 - /api/openapi.json
 - /sitemap.xml
 - /robots.txt
+- /admin/matches - bulk match submit and edit (admin)
+- /admin/brackets/ - bracket builder: create an event from a format, then add match IDs per series (admin). Brackets are stored in `data/brackets.json`; saving a series ingests its games like bulk submit.
 
 ## API Notes
 

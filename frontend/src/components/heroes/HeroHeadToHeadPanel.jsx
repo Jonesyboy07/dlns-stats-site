@@ -13,13 +13,13 @@ function CompareRow({ label, a, b, aText, bText, lower = false }) {
   const max = Math.max(aNum, bNum) || 1;
   const tie = aNum === bNum;
   const aBetter = lower ? aNum < bNum : aNum > bNum;
-  const aColor = aBetter || tie ? "text-accent-secondary-light" : "text-secondary";
-  const bColor = !aBetter || tie ? "text-accent-secondary-light" : "text-secondary";
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_110px_minmax(0,1fr)] items-center gap-3 border-t border-border py-2 text-[14px] tabular-nums">
       <div className="flex items-center justify-end gap-2.5">
-        <span className={`font-bold ${aColor}`}>{aText}</span>
+        <span className={`font-bold ${aBetter || tie ? "text-accent-secondary-light" : "text-secondary"}`}>
+          {aText}
+        </span>
         <div className="flex h-2 flex-none basis-[220px] justify-end overflow-hidden rounded bg-table">
           <div
             className={`h-full rounded ${aBetter ? "bg-accent-secondary" : "bg-hover"}`}
@@ -27,9 +27,7 @@ function CompareRow({ label, a, b, aText, bText, lower = false }) {
           />
         </div>
       </div>
-      <span className="text-center text-[12px] uppercase tracking-[.05em] text-dim">
-        {label}
-      </span>
+      <span className="text-center text-[12px] uppercase tracking-[.05em] text-dim">{label}</span>
       <div className="flex items-center gap-2.5">
         <div className="h-2 flex-none basis-[220px] overflow-hidden rounded bg-table">
           <div
@@ -37,101 +35,94 @@ function CompareRow({ label, a, b, aText, bText, lower = false }) {
             style={{ width: `${(bNum / max) * 100}%` }}
           />
         </div>
-        <span className={`font-bold ${bColor}`}>{bText}</span>
+        <span className={`font-bold ${!aBetter || tie ? "text-accent-secondary-light" : "text-secondary"}`}>
+          {bText}
+        </span>
       </div>
     </div>
   );
 }
 
 /**
- * Head-to-Head: this hero vs another, in the same All-time scope. The opponent's
- * figures are fetched on demand, so only the ban rate (which has no data yet) is
- * a placeholder.
+ * Head-to-Head: this hero vs another, in the same scope. Both sides come from the
+ * profile's per-hero table, so choosing an opponent needs no extra request.
+ * Ban rate has no data yet and is the only placeholder row.
  */
-function HeroHeadToHeadPanel({ selfId, selfStats, heroOptions = [], selectionById = {}, totalGames }) {
-  const others = heroOptions.filter((option) => option.id !== selfId);
-  const [opponentId, setOpponentId] = useState(() => others[0]?.id ?? null);
-  const [opponentStats, setOpponentStats] = useState(null);
+function HeroHeadToHeadPanel({ heroId, heroName, perHero = [] }) {
+  const others = useMemo(
+    () => perHero.filter((row) => row.hero_id !== heroId).sort((a, b) => a.hero_name.localeCompare(b.hero_name)),
+    [perHero, heroId],
+  );
+  const [opponentId, setOpponentId] = useState(() => others[0]?.hero_id ?? null);
 
   useEffect(() => {
-    if (!opponentId) return undefined;
-    let alive = true;
-    setOpponentStats(null);
-    fetch(`/db/heroes/${opponentId}/stats`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (alive) setOpponentStats(data?.stats ?? null);
-      })
-      .catch(() => {
-        if (alive) setOpponentStats(null);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [opponentId]);
+    if (opponentId == null && others.length > 0) setOpponentId(others[0].hero_id);
+  }, [others, opponentId]);
 
-  const pickRateOf = (id) => {
-    const games = selectionById[String(id)]?.pick_count;
-    return games != null && totalGames ? games / totalGames : null;
-  };
-
-  const nameById = useMemo(
-    () => new Map(heroOptions.map((option) => [option.id, option.name])),
-    [heroOptions],
+  const self = useMemo(() => perHero.find((row) => row.hero_id === heroId), [perHero, heroId]);
+  const opponent = useMemo(
+    () => others.find((row) => row.hero_id === opponentId) ?? others[0] ?? null,
+    [others, opponentId],
   );
 
-  const opponentName = opponentId ? nameById.get(opponentId) ?? `Hero ${opponentId}` : DASH;
+  if (!self || !opponent) {
+    return (
+      <Panel title="Head-to-Head" subtitle="Compare against another hero in the same scope">
+        <p className="text-[13px] text-dim">Adding Soon</p>
+      </Panel>
+    );
+  }
 
   const rows = [
     {
       label: "Win rate",
-      a: selfStats?.win_rate,
-      b: opponentStats?.win_rate,
-      aText: formatPercent(selfStats?.win_rate),
-      bText: formatPercent(opponentStats?.win_rate),
+      a: self.win_rate,
+      b: opponent.win_rate,
+      aText: formatPercent(self.win_rate),
+      bText: formatPercent(opponent.win_rate),
     },
     {
       label: "Pick rate",
-      a: pickRateOf(selfId),
-      b: pickRateOf(opponentId),
-      aText: formatPercent(pickRateOf(selfId)),
-      bText: formatPercent(pickRateOf(opponentId)),
+      a: self.pick_rate,
+      b: opponent.pick_rate,
+      aText: formatPercent(self.pick_rate),
+      bText: formatPercent(opponent.pick_rate),
     },
     { label: "Ban rate", soon: true },
     {
       label: "Games",
-      a: selfStats?.games_played,
-      b: opponentStats?.games_played,
-      aText: selfStats?.games_played ?? DASH,
-      bText: opponentStats?.games_played ?? DASH,
+      a: self.games,
+      b: opponent.games,
+      aText: String(self.games),
+      bText: String(opponent.games),
     },
     {
       label: "KDA",
-      a: selfStats?.avg_kda,
-      b: opponentStats?.avg_kda,
-      aText: formatKda(selfStats?.avg_kda) ?? DASH,
-      bText: formatKda(opponentStats?.avg_kda) ?? DASH,
+      a: self.kda,
+      b: opponent.kda,
+      aText: formatKda(self.kda) ?? DASH,
+      bText: formatKda(opponent.kda) ?? DASH,
     },
     {
-      label: "Damage / min",
-      a: selfStats?.damage_per_min,
-      b: opponentStats?.damage_per_min,
-      aText: formatInteger(selfStats?.damage_per_min) ?? DASH,
-      bText: formatInteger(opponentStats?.damage_per_min) ?? DASH,
+      label: "Damage",
+      a: self.damage_per_game,
+      b: opponent.damage_per_game,
+      aText: formatInteger(self.damage_per_game) ?? DASH,
+      bText: formatInteger(opponent.damage_per_game) ?? DASH,
     },
     {
-      label: "Souls / min",
-      a: selfStats?.souls_per_min,
-      b: opponentStats?.souls_per_min,
-      aText: formatInteger(selfStats?.souls_per_min) ?? DASH,
-      bText: formatInteger(opponentStats?.souls_per_min) ?? DASH,
+      label: "Souls",
+      a: self.souls_per_game,
+      b: opponent.souls_per_game,
+      aText: formatInteger(self.souls_per_game) ?? DASH,
+      bText: formatInteger(opponent.souls_per_game) ?? DASH,
     },
     {
-      label: "Deaths / min",
-      a: selfStats?.deaths_per_min,
-      b: opponentStats?.deaths_per_min,
-      aText: selfStats?.deaths_per_min ?? DASH,
-      bText: opponentStats?.deaths_per_min ?? DASH,
+      label: "Deaths",
+      a: self.deaths_per_game,
+      b: opponent.deaths_per_game,
+      aText: self.deaths_per_game == null ? DASH : self.deaths_per_game.toFixed(1),
+      bText: opponent.deaths_per_game == null ? DASH : opponent.deaths_per_game.toFixed(1),
       lower: true,
     },
   ];
@@ -141,25 +132,23 @@ function HeroHeadToHeadPanel({ selfId, selfStats, heroOptions = [], selectionByI
       <div className="flex flex-col gap-3.5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <HeroIcon name={nameById.get(selfId)} size="h-11 w-11" />
-            <span className="truncate font-valve-oracle text-[20px] text-primary">
-              {nameById.get(selfId) ?? "This hero"}
-            </span>
+            <HeroIcon name={heroName} size="h-11 w-11" />
+            <span className="truncate font-valve-oracle text-[20px] text-primary">{heroName}</span>
           </div>
           <span className="font-valve-pulp text-[18px] text-dim">VS</span>
           <div className="flex min-w-0 items-center justify-end gap-2.5">
             <select
-              value={opponentId ?? ""}
-              onChange={(event) => setOpponentId(event.target.value)}
-              className="min-w-0 flex-0 basis-[190px] rounded-lg border border-border-light bg-input px-3 py-2 text-[13px] text-secondary outline-none focus:border-accent-secondary-border"
+              value={opponent.hero_id}
+              onChange={(event) => setOpponentId(Number(event.target.value))}
+              className="min-w-0 flex-none basis-[190px] rounded-lg border border-border-light bg-input px-3 py-2 text-[13px] text-secondary outline-none focus:border-accent-secondary-border"
             >
               {others.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
+                <option key={option.hero_id} value={option.hero_id} className="bg-table text-secondary">
+                  {option.hero_name}
                 </option>
               ))}
             </select>
-            <HeroIcon name={opponentName} size="h-11 w-11" />
+            <HeroIcon name={opponent.hero_name} size="h-11 w-11" />
           </div>
         </div>
 
@@ -170,9 +159,7 @@ function HeroHeadToHeadPanel({ selfId, selfStats, heroOptions = [], selectionByI
                 key={row.label}
                 className="grid grid-cols-[minmax(0,1fr)_110px_minmax(0,1fr)] items-center gap-3 border-t border-border py-2"
               >
-                <span className="text-right text-[12px] font-semibold text-dim">
-                  Adding Soon
-                </span>
+                <span className="text-right text-[12px] font-semibold text-dim">Adding Soon</span>
                 <span className="text-center text-[12px] uppercase tracking-[.05em] text-dim">
                   {row.label}
                 </span>
@@ -185,7 +172,7 @@ function HeroHeadToHeadPanel({ selfId, selfStats, heroOptions = [], selectionByI
         </div>
 
         <span className="text-[12px] text-dim">
-          Better value in each row is highlighted. Deaths/min: lower is better.
+          Better value in each row is highlighted. Deaths: lower is better.
         </span>
       </div>
     </Panel>

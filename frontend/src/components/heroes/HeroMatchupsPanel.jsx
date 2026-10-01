@@ -16,41 +16,32 @@ const MODES = [
 ];
 
 const SORTS = {
-  games: (a, b) => b.games - a.games || b.winRate - a.winRate,
-  win: (a, b) => b.winRate - a.winRate || b.games - a.games,
+  games: (a, b) => b.games - a.games || (b.winRate ?? 0) - (a.winRate ?? 0),
+  win: (a, b) => (b.winRate ?? 0) - (a.winRate ?? 0) || b.games - a.games,
   delta: (a, b) => b.delta - a.delta,
 };
 
 /**
- * Matchups: win rate against (or alongside) every other hero, compared against
- * this hero's own overall win rate. Bars are diverging around that overall rate.
+ * Matchups: win rate against (or alongside) every other hero, compared with this
+ * hero's own overall win rate in the same scope. Bars diverge around that rate.
  */
-function HeroMatchupsPanel({ matchups, overallWinRate, heroNames = {} }) {
+function HeroMatchupsPanel({ matchups, overallWinRate }) {
   const [mode, setMode] = useState("against");
   const [minGames, setMinGames] = useState(10);
   const [sort, setSort] = useState("games");
   const [showAll, setShowAll] = useState(false);
 
   const rows = useMemo(() => {
-    const source = (mode === "against" ? matchups?.effective_against : matchups?.effective_with) ?? [];
+    const source = matchups?.[mode] ?? [];
     return source
       .filter((row) => (row.games ?? 0) >= minGames)
-      .map((row) => {
-        const winRate = row.win_rate ?? 0;
-        // Accept either a plain name or a hero entry ({ name, released }) so a
-        // caller cannot accidentally render an object as a React child.
-        const entry = heroNames[String(row.hero_id)];
-        const name = (typeof entry === "string" ? entry : entry?.name) ?? `Hero ${row.hero_id}`;
-        return {
-          heroId: row.hero_id,
-          name,
-          games: row.games ?? 0,
-          winRate,
-          delta: winRate - (overallWinRate ?? 0),
-        };
-      })
+      .map((row) => ({
+        ...row,
+        winRate: row.win_rate,
+        delta: (row.win_rate ?? 0) - (overallWinRate ?? 0),
+      }))
       .sort(SORTS[sort]);
-  }, [matchups, mode, minGames, sort, overallWinRate, heroNames]);
+  }, [matchups, mode, minGames, sort, overallWinRate]);
 
   const visible = showAll ? rows : rows.slice(0, TOP_N);
 
@@ -103,22 +94,22 @@ function HeroMatchupsPanel({ matchups, overallWinRate, heroNames = {} }) {
           {visible.map((row) => {
             const magnitude = Math.min((Math.abs(row.delta) / FULL_BAR) * 50, 50);
             const positive = row.delta >= 0;
-            const tone = row.winRate >= 0.5 ? "text-success" : "text-danger-text";
+            const tone = (row.win_rate ?? 0) >= 0.5 ? "text-success" : "text-danger-text";
             return (
               <Link
-                key={row.heroId}
-                to={`/hero/${row.heroId}`}
+                key={row.hero_id}
+                to={`/hero/${row.hero_id}`}
                 className="grid grid-cols-[minmax(0,1.4fr)_56px_64px_minmax(0,1fr)] items-center gap-2.5 rounded-md border-t border-border px-2 py-[7px] text-[14px] no-underline transition-colors hover:bg-accent-secondary-bg"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <HeroIcon name={row.name} size="h-7 w-7" />
-                  <span title={row.name} className="truncate text-primary">
-                    {row.name}
+                  <HeroIcon name={row.hero_name} size="h-7 w-7" />
+                  <span title={row.hero_name} className="truncate text-primary">
+                    {row.hero_name}
                   </span>
                 </span>
                 <span className="tabular-nums text-muted">{row.games}</span>
                 <span className={`font-semibold tabular-nums ${tone}`}>
-                  {formatPercent(row.winRate)}
+                  {formatPercent(row.win_rate)}
                 </span>
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="relative h-2 flex-1 overflow-hidden rounded bg-table">

@@ -14,75 +14,77 @@ import HeroRecordsPanel from "../components/heroes/HeroRecordsPanel";
 import HeroBestDuoPanel from "../components/heroes/HeroBestDuoPanel";
 import HeroHeadToHeadPanel from "../components/heroes/HeroHeadToHeadPanel";
 import PlaceholderPanel from "../components/heroes/PlaceholderPanel";
+import {
+  HeroAbilityBuildPanel,
+  HeroGameLengthPanel,
+  HeroLanePanel,
+  HeroMetaTrendPanel,
+  HeroRecentGamesPanel,
+  HeroSideSplitPanel,
+  HeroSoulsCurvePanel,
+} from "../components/heroes/HeroPanels";
 import { formatInteger } from "../utils/format";
+import { LANE_META } from "../utils/lanes";
 import { formatPercent, ordinal, signedPoints } from "../utils/heroPages";
 
 const DASH = "—";
-/** Analysis panels only appear once a hero has this many games. */
+/** Panels only unlock once a hero has this many games. */
 const MIN_GAMES = 10;
 
-/** The panels that render as "Adding Soon" (or "Not enough games") for now. */
-const PLACEHOLDER_PANELS = [
-  ["Meta Trend", "Win % and pick % by week"],
-  ["Recent Games", "Last 8 games in scope"],
-  ["Ability Build", "Ability point order, one column per unlock or upgrade"],
-  ["Souls Curve", "Average net worth over game time vs the league-average hero"],
-  ["Lane Profile", "Assigned lane vs where the hero actually played"],
-  ["Side Split", "Win rate by team side"],
-  ["Game-Length Profile", "Win rate by game length"],
-  ["Death Profile", "When and where this hero dies"],
-];
-
 /**
- * Hero detail (layout 2a): a scope chip, the identity card, five headline tiles,
- * and the analysis panels. Panels whose data the API cannot supply yet render an
- * "Adding Soon" placeholder; the whole panel column collapses to placeholders when
- * the hero has fewer than ten games.
+ * Hero detail (layout 2a): the identity card, five headline tiles and the
+ * analysis panels, all driven by one profile payload.
+ *
+ * The scope is fixed — the whole Night Shift league run, every week to date — and
+ * every comparison is against the league average. Per-week samples are far too
+ * small for a hero to mean anything, so there is no scope selector. The label
+ * itself comes from the API (`profile.scope.label`) so it stays true as weeks
+ * are added; never hard-code the range here.
+ *
+ * Ban rate and the Death Profile need data that does not exist yet and render
+ * "Adding Soon".
  */
 function HeroDetail() {
   const { heroId } = useParams();
   const [meta, setMeta] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [items, setItems] = useState([]);
-  const [matchups, setMatchups] = useState(null);
-  const [players, setPlayers] = useState([]);
-  const [selection, setSelection] = useState([]);
-  const [overview, setOverview] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    fetch(`/db/heroes/${heroId}/meta`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (alive) setMeta(data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [heroId]);
+
+  useEffect(() => {
+    let alive = true;
     setLoading(true);
     setError(null);
 
-    (async () => {
-      try {
-        const [metaRes, statsRes, itemsRes, matchupsRes, playersRes, selectionRes, overviewRes] =
-          await Promise.all([
-            fetch(`/db/heroes/${heroId}/meta`),
-            fetch(`/db/heroes/${heroId}/stats`),
-            fetch(`/db/heroes/${heroId}/top_items`),
-            fetch(`/db/heroes/${heroId}/matchups`),
-            fetch(`/db/heroes/${heroId}/top_players`),
-            fetch("/db/stats/hero-selection"),
-            fetch("/db/stats/overview"),
-          ]);
+    fetch(`/db/heroes/${heroId}/profile`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load hero profile");
+        return res.json();
+      })
+      .then((data) => {
         if (!alive) return;
-        setMeta(metaRes.ok ? await metaRes.json() : null);
-        setStats(statsRes.ok ? (await statsRes.json()).stats ?? null : null);
-        setItems(itemsRes.ok ? (await itemsRes.json()).items ?? [] : []);
-        setMatchups(matchupsRes.ok ? await matchupsRes.json() : null);
-        setPlayers(playersRes.ok ? (await playersRes.json()).players ?? [] : []);
-        setSelection(selectionRes.ok ? (await selectionRes.json()).heroes ?? [] : []);
-        setOverview(overviewRes.ok ? (await overviewRes.json()).overview ?? null : null);
-      } catch (err) {
+        setProfile(data);
+      })
+      .catch((err) => {
         if (alive) setError(err.message);
-      } finally {
+      })
+      .finally(() => {
         if (alive) setLoading(false);
-      }
-    })();
+      });
 
     return () => {
       alive = false;
@@ -90,14 +92,7 @@ function HeroDetail() {
   }, [heroId, reloadKey]);
 
   const names = heroNamesData.heroes ?? {};
-  const heroName = names[heroId]?.name ?? `Hero ${heroId}`;
-
-  // `hero_names.json` stores each hero as { name, released }; child components
-  // that only need a label get a plain id -> name map, not the raw entry.
-  const heroNameById = useMemo(
-    () => Object.fromEntries(Object.entries(names).map(([id, data]) => [id, data.name])),
-    [names],
-  );
+  const heroName = profile?.hero_name ?? names[heroId]?.name ?? `Hero ${heroId}`;
 
   const released = useMemo(
     () =>
@@ -107,50 +102,9 @@ function HeroDetail() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [],
   );
-
   const index = released.findIndex((hero) => hero.id === heroId);
   const prevHero = index >= 0 ? released[(index - 1 + released.length) % released.length] : null;
   const nextHero = index >= 0 ? released[(index + 1) % released.length] : null;
-
-  const totalGames = overview?.total_matches ?? null;
-  const selectionById = useMemo(
-    () => new Map((selection ?? []).map((row) => [String(row.hero_id), row])),
-    [selection],
-  );
-
-  const pickRateOf = (id) => {
-    const games = selectionById.get(String(id))?.pick_count;
-    return games != null && totalGames ? games / totalGames : null;
-  };
-
-  const pool = useMemo(
-    () => (selection ?? []).filter((row) => (row.pick_count ?? 0) > 0),
-    [selection],
-  );
-
-  const rankBy = (key) => {
-    const sorted = pool.slice().sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0));
-    const at = sorted.findIndex((row) => String(row.hero_id) === String(heroId));
-    return at === -1 ? null : at + 1;
-  };
-
-  const rankTxt = (key, label) => {
-    const rank = rankBy(key);
-    return rank == null ? "Adding Soon" : `${ordinal(rank)} of ${pool.length} by ${label}`;
-  };
-
-  const avgWin = pool.length
-    ? pool.reduce((sum, row) => sum + (row.win_rate ?? 0), 0) / pool.length
-    : null;
-  const avgPick = pool.length
-    ? pool.reduce((sum, row) => sum + (row.pick_count ?? 0) / (totalGames || 1), 0) / pool.length
-    : null;
-
-  const games = stats?.games_played ?? 0;
-  const wins = stats?.wins ?? 0;
-  const losses = Math.max(0, games - wins);
-  const sparse = games < MIN_GAMES;
-  const selfPickRate = pickRateOf(heroId);
 
   const abilities = useMemo(
     () =>
@@ -162,35 +116,60 @@ function HeroDetail() {
     [meta],
   );
 
+  const perHero = profile?.per_hero ?? [];
+
+  const rankLabel = (key, label) => {
+    const entry = profile?.rank?.[key];
+    return entry ? `${ordinal(entry.rank)} of ${entry.of} by ${label}` : "Adding Soon";
+  };
+
+  const meanOf = (key) => {
+    const values = perHero.map((row) => row[key]).filter((value) => value != null);
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  };
+
+  const rankIn = (key, lower = false) => {
+    const ranked = perHero
+      .filter((row) => row[key] != null)
+      .sort((a, b) => (lower ? a[key] - b[key] : b[key] - a[key]));
+    const at = ranked.findIndex((row) => row.hero_id === profile?.hero_id);
+    return at === -1 ? null : { rank: at + 1, of: ranked.length };
+  };
+
+  if (loading) return <LoadingSkeleton variant="detail" />;
+  if (error && !profile) {
+    return <ErrorMessage message={error} onRetry={() => setReloadKey((key) => key + 1)} />;
+  }
+
+  const games = profile?.games ?? 0;
+  const wins = profile?.wins ?? 0;
+  const losses = profile?.losses ?? 0;
+  const sparse = games < MIN_GAMES;
+  const league = profile?.league ?? {};
+  const leagueWinRate = league.win_rate ?? 0.5;
+
   const tiles = [
     {
       label: "Win rate",
-      value: formatPercent(stats?.win_rate),
+      value: formatPercent(profile?.win_rate),
       delta:
-        stats?.win_rate == null
+        profile?.win_rate == null
           ? null
           : {
-              text: signedPoints((stats.win_rate - 0.5) * 100),
-              tone: stats.win_rate >= 0.5 ? "good" : "bad",
-              title: "League-average hero: 50.0%",
+              text: signedPoints((profile.win_rate - leagueWinRate) * 100),
+              tone: profile.win_rate >= leagueWinRate ? "good" : "bad",
+              title: `League-average hero: ${formatPercent(leagueWinRate)}`,
             },
-      sub: "vs league-average hero (50.0%)",
-      rank: sparse ? "Unranked · needs 10+ games" : rankTxt("win_rate", "win rate"),
+      sub: `vs league-average hero (${formatPercent(leagueWinRate)})`,
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_win_rate", "win rate"),
       rankDim: sparse,
     },
     {
       label: "Pick rate",
-      value: formatPercent(selfPickRate),
-      delta:
-        selfPickRate == null || avgPick == null
-          ? null
-          : {
-              text: signedPoints((selfPickRate - avgPick) * 100),
-              tone: selfPickRate >= avgPick ? "good" : "bad",
-              title: `Average hero pick rate ${formatPercent(avgPick)}`,
-            },
-      sub: `vs average hero (${formatPercent(avgPick)})`,
-      rank: sparse ? "Unranked · needs 10+ games" : rankTxt("pick_count", "pick rate"),
+      value: formatPercent(perHero.find((row) => row.hero_id === profile?.hero_id)?.pick_rate),
+      delta: null,
+      sub: `vs average hero (${formatPercent(league.pick_rate)})`,
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_pick_rate", "pick rate"),
       rankDim: sparse,
     },
     {
@@ -202,85 +181,73 @@ function HeroDetail() {
     },
     {
       label: "Games played",
-      value: String(games || DASH),
+      value: games ? String(games) : DASH,
       sub:
-        totalGames != null
-          ? `of ${totalGames.toLocaleString()} league games in scope`
+        profile?.total_matches != null
+          ? `of ${profile.total_matches.toLocaleString()} league games in scope`
           : "Adding Soon",
-      rank: sparse ? "Unranked · needs 10+ games" : rankTxt("pick_count", "games"),
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_games", "games"),
       rankDim: sparse,
     },
     {
       label: "Wins",
-      value: String(wins || DASH),
+      value: wins ? String(wins) : DASH,
       wl: { wins, losses },
       sub: "Win–loss record in scope",
-      rank: "Adding Soon",
-      rankDim: true,
+      rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_wins", "wins"),
+      rankDim: sparse,
     },
   ];
 
+  const damageRank = rankIn("damage_per_game");
+  const soulsRank = rankIn("souls_per_game");
+  const deathsRank = rankIn("deaths_per_game", true);
+  const rankText = (rank) => (rank ? `${ordinal(rank.rank)} of ${rank.of}` : "Adding Soon");
+
+  const combat = profile?.combat ?? {};
   const rates = [
     {
-      label: "Damage / min",
-      value: formatInteger(stats?.damage_per_min) ?? DASH,
-      caption: "League avg · Adding Soon",
+      label: "Damage",
+      value: formatInteger(combat.damage) ?? DASH,
+      caption: `League avg ${formatInteger(meanOf("damage_per_game")) ?? DASH} · ${rankText(damageRank)}`,
     },
     {
-      label: "Souls / min",
-      value: formatInteger(stats?.souls_per_min) ?? DASH,
-      caption: "League avg · Adding Soon",
+      label: "Souls",
+      value: formatInteger(combat.souls) ?? DASH,
+      caption: `League avg ${formatInteger(meanOf("souls_per_game")) ?? DASH} · ${rankText(soulsRank)}`,
     },
     {
-      label: "Deaths / min",
-      value: stats?.deaths_per_min == null ? DASH : Number(stats.deaths_per_min).toFixed(2),
-      caption: "League avg · Adding Soon",
+      label: "Deaths",
+      value: combat.deaths == null ? DASH : combat.deaths.toFixed(1),
+      caption: `League avg ${
+        meanOf("deaths_per_game") == null ? DASH : meanOf("deaths_per_game").toFixed(1)
+      } · ${rankText(deathsRank)} (lower is better)`,
     },
   ];
 
-  const combatCells = [
-    { label: "Kills / min", value: stats?.kills_per_min?.toFixed(2) ?? DASH },
-    { label: "Deaths / min", value: stats?.deaths_per_min?.toFixed(2) ?? DASH },
-    { label: "Assists / min", value: stats?.assists_per_min?.toFixed(2) ?? DASH },
-    { label: "Last hits", soon: true },
-    { label: "Denies", soon: true },
-    { label: "Hit %", soon: true },
-    { label: "Objective dmg", value: formatInteger(stats?.avg_obj_damage) ?? DASH },
-    { label: "Healing", value: formatInteger(stats?.avg_healing) ?? DASH },
-    { label: "Pings / game", soon: true },
-    { label: "Avg level", soon: true },
-  ].map((cell) => (cell.soon ? cell : { ...cell, avg: "Adding Soon", delta: "", tone: null }));
-
-  const records = [
-    { label: "Highest damage", value: formatInteger(stats?.max_damage) ?? DASH },
-    { label: "Most kills", value: stats?.max_kills != null ? String(stats.max_kills) : DASH },
-    { label: "Most healing", value: formatInteger(stats?.max_healing) ?? DASH },
-    { label: "Highest obj damage", value: formatInteger(stats?.max_obj_damage) ?? DASH },
-  ];
-
-  const duos = (matchups?.effective_with ?? [])
+  const duos = (profile?.matchups?.with ?? [])
     .slice()
     .sort((a, b) => (b.win_rate ?? 0) - (a.win_rate ?? 0))
     .slice(0, 3)
     .map((row) => ({
       heroId: String(row.hero_id),
-      name: names[String(row.hero_id)]?.name ?? `Hero ${row.hero_id}`,
-      games: row.games ?? 0,
+      name: row.hero_name,
+      games: row.games,
       winRate: row.win_rate ?? 0,
-      delta: (row.win_rate ?? 0) - (stats?.win_rate ?? 0),
+      delta: (row.win_rate ?? 0) - (profile?.win_rate ?? 0),
     }));
 
-  if (loading) return <LoadingSkeleton variant="detail" />;
-  if (error) return <ErrorMessage message={error} onRetry={() => setReloadKey((key) => key + 1)} />;
-
-  const placeholderNote = sparse ? "Not enough games" : "Adding Soon";
   const placeholder = (title, subtitle) => (
-    <PlaceholderPanel key={title} title={title} subtitle={subtitle} note={placeholderNote} />
+    <PlaceholderPanel
+      key={title}
+      title={title}
+      subtitle={subtitle}
+      note={sparse ? "Not enough games" : "Adding Soon"}
+    />
   );
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-6">
-      {/* Top bar: breadcrumb, prev/next, scope */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-[14px]">
           <Link to="/heroes" className="text-muted no-underline transition-colors hover:text-accent-secondary-light">
@@ -313,16 +280,6 @@ function HeroDetail() {
               <span className="text-dim">›</span>
             </Link>
           )}
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] uppercase tracking-[.05em] text-dim">Scope</span>
-            <span
-              title="Adding Soon"
-              className="rounded-lg border border-border-light bg-input px-3 py-2 text-[13px] text-secondary"
-            >
-              All time
-            </span>
-            <span className="text-[12px] font-semibold text-dim">Adding Soon</span>
-          </div>
         </div>
       </div>
 
@@ -332,8 +289,8 @@ function HeroDetail() {
         <div className="rounded-xl border border-warning-border bg-warning-bg px-5 py-4">
           <p className="m-0 font-semibold text-warning">Not enough games</p>
           <p className="m-0 mt-0.5 text-[13px] text-secondary">
-            {heroName} has {games} game{games === 1 ? "" : "s"} in All time. Profile panels unlock
-            at 10 games — try a wider scope such as All time.
+            {heroName} has {games} game{games === 1 ? "" : "s"} in the Night Shift league.
+            Profile panels unlock at {MIN_GAMES} games.
           </p>
         </div>
       )}
@@ -341,47 +298,56 @@ function HeroDetail() {
       <HeroHeadlineTiles tiles={tiles} rates={rates} />
 
       {sparse ? (
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}
-        >
-          {PLACEHOLDER_PANELS.map(([title, subtitle]) => placeholder(title, subtitle))}
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+          {[
+            ["Meta Trend", "Win % and pick % by week"],
+            ["Recent Games", "Last 8 games in scope"],
+            ["Combat & Economy", "Per-minute and per-game averages"],
+            ["Item Builds", "Most-bought items by slot"],
+            ["Ability Build", "Ability point order"],
+            ["Matchups", "Win rate with and against other heroes"],
+            ["Souls Curve", "Net worth over game time"],
+            ["Lane Profile", "Assigned lane vs actual"],
+            ["Side Split", "Win rate by team side"],
+            ["Game-Length Profile", "Win rate by game length"],
+            ["Best Duo", "Standout partner hero"],
+            ["Top Players", "Most successful players"],
+            ["Death Profile", "When and where this hero dies"],
+            ["Records", "Best single games"],
+          ].map(([title, subtitle]) => placeholder(title, subtitle))}
         </div>
       ) : (
         <div className="flex flex-wrap items-start gap-4">
           <div className="flex min-w-0 flex-[7_1_560px] flex-col gap-4">
-            {placeholder("Meta Trend", "Win % and pick % by week")}
-            {placeholder("Recent Games", "Last 8 games in scope")}
-            <HeroCombatPanel cells={combatCells} />
-            <HeroItemBuildPanel items={items} />
-            {placeholder("Ability Build", "Ability point order, one column per unlock or upgrade")}
+            <HeroMetaTrendPanel weekly={profile?.weekly ?? []} heroName={heroName} />
+            <HeroRecentGamesPanel recent={profile?.recent ?? []} />
+            <HeroCombatPanel combat={combat} league={profile?.league_combat} />
+            <HeroItemBuildPanel slots={profile?.items?.slots} />
+            <HeroAbilityBuildPanel abilityBuilds={profile?.ability_builds} heroName={heroName} />
             <HeroMatchupsPanel
-              matchups={matchups}
-              overallWinRate={stats?.win_rate ?? 0}
-              heroNames={heroNameById}
+              matchups={profile?.matchups}
+              overallWinRate={profile?.win_rate ?? 0}
             />
-            {placeholder("Souls Curve", "Average net worth over game time vs the league-average hero")}
+            <HeroSoulsCurvePanel souls={profile?.souls} heroName={heroName} />
           </div>
 
           <div className="flex min-w-0 flex-[5_1_360px] flex-col gap-4">
-            {placeholder("Lane Profile", "Assigned lane vs where the hero actually played")}
-            {placeholder("Side Split", "Win rate by team side")}
-            {placeholder("Game-Length Profile", "Win rate by game length")}
+            <HeroLanePanel lane={profile?.lane} laneNames={LANE_META} />
+            <HeroSideSplitPanel sides={profile?.sides} />
+            <HeroGameLengthPanel lengths={profile?.lengths} />
             <HeroBestDuoPanel heroName={heroName} duos={duos} />
-            <HeroTopPlayersPanel players={players} />
+            <HeroTopPlayersPanel players={profile?.top_players} />
             {placeholder("Death Profile", "When and where this hero dies")}
-            <HeroRecordsPanel records={records} />
+            <HeroRecordsPanel records={profile?.records} />
           </div>
         </div>
       )}
 
       {!sparse && (
         <HeroHeadToHeadPanel
-          selfId={heroId}
-          selfStats={stats}
-          heroOptions={released}
-          selectionById={selectionById}
-          totalGames={totalGames}
+          heroId={profile?.hero_id ?? Number(heroId)}
+          heroName={heroName}
+          perHero={perHero}
         />
       )}
     </div>

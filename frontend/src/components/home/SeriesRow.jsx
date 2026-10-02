@@ -18,7 +18,7 @@ export default function SeriesRow({ entry }) {
   const bWon = entry.wins_b > entry.wins_a;
 
   const gamePills = (
-    <div className="flex items-center justify-center gap-1.5">
+    <div className="flex items-center justify-center gap-1">
       {Array.from({ length: totalGames }, (_, idx) => {
         const played = entry.games[idx];
 
@@ -27,7 +27,7 @@ export default function SeriesRow({ entry }) {
             key={played.game}
             to={`/match/${played.matchId}`}
             title={`Open game ${played.game}`}
-            className={`flex h-5 w-5 items-center justify-center rounded-full border border-success-border bg-success-bg font-mono text-[10px] font-bold text-success transition-colors hover:bg-success/30 ${FOCUS_RING}`}
+            className={`flex h-5 w-5 items-center justify-center rounded-md border border-accent-border bg-accent-bg-strong font-mono text-[10px] font-bold text-accent-light transition-colors hover:bg-accent-bg ${FOCUS_RING}`}
           >
             {played.game}
           </Link>
@@ -35,7 +35,7 @@ export default function SeriesRow({ entry }) {
           <span
             key={`ghost-${idx}`}
             aria-hidden="true"
-            className="flex h-5 w-5 items-center justify-center rounded-full border border-border bg-white/[0.03] font-mono text-[10px] text-dim/40"
+            className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-transparent font-mono text-[10px] font-bold text-dim"
           >
             {idx + 1}
           </span>
@@ -44,80 +44,112 @@ export default function SeriesRow({ entry }) {
     </div>
   );
 
-  return (
-    <div className="px-3 pb-5 pt-3 transition-colors hover:bg-white/[0.02]">
-      {/* Top row: format badge + stage label */}
-      <div className="mb-1 flex items-center gap-2 pl-2">
-        <span className="rounded border border-border bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] font-semibold text-dim">
-          BO{totalGames}
+  /* The winner is full opacity and the loser is dimmed -- the design no longer
+     uses the success green for a win, so a draw leaves both at 1. */
+  const aOpacity = bWon ? " opacity-50" : "";
+  const bOpacity = aWon ? " opacity-50" : "";
+
+  const meta = (
+    <div className="flex shrink-0 flex-col gap-[3px]">
+      <span className="font-mono text-[11px] font-bold text-accent-light">
+        BO{totalGames}
+      </span>
+      {entry.series_title && (
+        <span className="text-[10px] font-semibold uppercase tracking-[.05em] text-dim">
+          {entry.series_title}
         </span>
-        {entry.series_title && (
-          <span className="text-[10px] font-semibold uppercase tracking-[.05em] text-accent-light">
-            {entry.series_title}
-          </span>
-        )}
-      </div>
+      )}
+    </div>
+  );
 
-      {/* Teams + score. Secondary actions drop to their own line on mobile. */}
-      <div className="flex flex-wrap items-center gap-y-2">
-        <Link
-          to={`/team/${encodeURIComponent(entry.team_a)}`}
-          className={`flex-1 min-w-0 text-right text-sm font-semibold hover:underline ${FOCUS_RING} ${
-            aWon ? "text-success" : "text-primary"
-          }`}
+  const score = (
+    <div className="flex shrink-0 items-center gap-2.5">
+      <span className={`font-valve-pulp text-[24px] leading-none text-primary${aOpacity}`}>
+        {entry.wins_a}
+      </span>
+      <span className="h-[18px] w-px bg-border-lighter" aria-hidden="true" />
+      <span className={`font-valve-pulp text-[24px] leading-none text-primary${bOpacity}`}>
+        {entry.wins_b}
+      </span>
+    </div>
+  );
+
+  const actions = (
+    <div className="flex items-center justify-end gap-3">
+      {entry.vod_url && (
+        <a
+          href={entry.vod_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`shrink-0 text-dim transition-colors hover:text-danger-text ${FOCUS_RING}`}
+          title="Watch VOD"
+          aria-label={`Watch the VOD for ${entry.team_a} versus ${entry.team_b}`}
         >
-          {entry.team_a}
-        </Link>
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+          </svg>
+        </a>
+      )}
 
-        <div className="mx-2 flex shrink-0 flex-col items-center sm:mx-4">
-          <span
-            className={`font-mono text-sm font-bold tabular-nums ${
-              aWon === bWon ? "text-dim" : "text-primary"
-            }`}
-          >
-            {entry.wins_a} <span className="text-dim">—</span> {entry.wins_b}
-          </span>
-          <div className="mt-1 hidden sm:block">{gamePills}</div>
-        </div>
+      <Link
+        to={`/series/${entry.firstMatchId}`}
+        className={`shrink-0 text-[12px] font-semibold tracking-[.02em] text-accent-light transition-colors hover:text-accent ${FOCUS_RING}`}
+      >
+        View series →
+      </Link>
+    </div>
+  );
 
-        <Link
-          to={`/team/${encodeURIComponent(entry.team_b)}`}
-          className={`flex-1 min-w-0 text-sm font-semibold hover:underline ${FOCUS_RING} ${
-            bWon ? "text-success" : "text-primary"
-          }`}
-        >
-          {entry.team_b}
-        </Link>
+  const teamA = (
+    <Link
+      to={`/team/${encodeURIComponent(entry.team_a)}`}
+      className={`min-w-0 flex-1 truncate text-[15px] font-semibold text-primary hover:underline sm:text-right ${FOCUS_RING}${aOpacity}`}
+    >
+      {entry.team_a}
+    </Link>
+  );
 
-        {/* Mobile: game pills centred on their own line. */}
-        <div className="flex w-full justify-center px-2 sm:hidden">
+  const teamB = (
+    <Link
+      to={`/team/${encodeURIComponent(entry.team_b)}`}
+      className={`min-w-0 flex-1 truncate text-[15px] font-semibold text-primary hover:underline ${FOCUS_RING}${bOpacity}`}
+    >
+      {entry.team_b}
+    </Link>
+  );
+
+  const CARD =
+    "rounded-xl border border-border bg-card px-4 py-[14px] transition-[transform,background-color,border-color] duration-200 ease-out";
+  const CARD_HOVER =
+    "hover:border-accent-border hover:bg-surface hover:translate-x-1 motion-reduce:hover:translate-x-0 motion-reduce:transition-none";
+
+  return (
+    <>
+      {/* Desktop: one five-column card. */}
+      <div
+        className={`${CARD} ${CARD_HOVER} hidden sm:grid sm:grid-cols-[72px_minmax(0,1fr)_150px_minmax(0,1fr)_110px] sm:items-center sm:gap-3`}
+      >
+        {meta}
+        {teamA}
+        <div className="flex flex-col items-center gap-1.5">
+          {score}
           {gamePills}
         </div>
-
-        <div className="flex w-full items-center justify-end gap-3 px-2 sm:ml-4 sm:w-auto sm:px-0">
-          {entry.vod_url && (
-            <a
-              href={entry.vod_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`shrink-0 text-dim transition-colors hover:text-danger-text ${FOCUS_RING}`}
-              title="Watch VOD"
-              aria-label={`Watch the VOD for ${entry.team_a} versus ${entry.team_b}`}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
-              </svg>
-            </a>
-          )}
-
-          <Link
-            to={`/series/${entry.firstMatchId}`}
-            className={`shrink-0 text-xs font-semibold tracking-[.02em] text-accent-secondary-light transition-colors hover:text-accent-secondary ${FOCUS_RING}`}
-          >
-            View series →
-          </Link>
-        </div>
+        {teamB}
+        {actions}
       </div>
-    </div>
+
+      {/* Mobile: the pills drop to their own line and the actions wrap, as before. */}
+      <div className={`${CARD} sm:hidden`}>
+        {meta}
+        <div className="mt-2 flex items-center gap-3">
+          {teamA}
+          {score}
+          {teamB}
+        </div>
+        <div className="mt-2">{gamePills}</div>
+        <div className="mt-2">{actions}</div>
+      </div>
+    </>
   );
 }

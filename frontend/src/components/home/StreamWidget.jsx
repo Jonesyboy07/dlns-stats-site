@@ -106,7 +106,7 @@ export default function StreamWidget({ stream }) {
         href={channelUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-3 inline-block text-xs font-semibold text-accent-secondary-light hover:text-accent-secondary transition-colors"
+        className="mt-2.5 inline-block text-[12px] font-semibold text-accent-light hover:text-accent transition-colors"
       >
         {live ? "Watch now →" : "Watch channel →"}
       </a>

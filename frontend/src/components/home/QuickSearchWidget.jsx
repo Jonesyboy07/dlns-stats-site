@@ -109,7 +109,7 @@ export default function QuickSearchWidget() {
     <Widget title="Quick Search">
       <div ref={boxRef} className="relative">
         <form onSubmit={handleSubmit}>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-input px-3 py-2 focus-within:border-accent-secondary-border-strong transition-colors">
+          <div className="flex h-10 items-center gap-2 rounded-full border border-border-light bg-input pl-3.5 pr-3 transition-colors focus-within:border-accent-border-strong">
             <svg
               aria-hidden="true"
               viewBox="0 0 20 20"
@@ -175,12 +175,12 @@ export default function QuickSearchWidget() {
       </div>
 
       {chips.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {chips.map((team) => (
             <Link
               key={team.team_name}
               to={`/team/${encodeURIComponent(team.team_name)}`}
-              className="rounded-full border border-border bg-white/[0.03] px-2.5 py-1 text-[11px] text-muted hover:border-accent-secondary-border hover:text-accent-secondary-light transition-colors"
+              className="rounded-full bg-accent-bg px-2.5 py-1 text-[11px] font-semibold text-accent-light transition-colors hover:bg-accent-bg-strong"
             >
               {team.team_name}
             </Link>

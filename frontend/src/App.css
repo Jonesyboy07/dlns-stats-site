@@ -233,28 +233,41 @@ body {
   --color-transparent: transparent;
 
   /* ── Core Backgrounds ── */
-  --color-base: oklch(0.2304 0.028 279.82);
+  --color-base: oklch(0.17 0.022 279.82);
+  --color-base-glass: oklch(0.17 0.022 279.82 / 0.5);
   --color-panel: oklch(0.28 0.03 279.82);
   --color-card: oklch(0.19 0.025 279.82);
-  --color-table: oklch(0.15 0.018 279.82);
+  --color-table: oklch(0.13 0.018 279.82);
   --color-input: oklch(0.26 0.032 279.82);
   --color-surface: oklch(0.25 0.028 279.82);
   --color-hover: oklch(0.32 0.035 279.82);
 
-  /* ── Accent — Cyan (current primary; same L/C as the retired violet, hue swapped) ── */
-  --color-accent: oklch(68.88% 0.187 200);
-  --color-accent-light: oklch(76.97% 0.2124 200);
+  /* ── Accent — Violet. The site's single warm-cool contrast note.
+     Cyan used to hold this slot and is now retired (see --color-cyan); it is
+     kept below as the secondary alias so the many `accent-secondary-*` usages
+     across the app resolve to the same violet without a rename. ── */
+  --color-accent: oklch(68.88% 0.187 300);
+  --color-accent-light: oklch(76.97% 0.2124 300);
   --color-accent-gradient: linear-gradient(
     90deg,
-    oklch(68.88% 0.187 200),
-    oklch(76.97% 0.2124 200)
+    oklch(68.88% 0.187 300),
+    oklch(76.97% 0.2124 300)
   );
-  --color-accent-bg: oklch(68.88% 0.187 200 / 0.1);
-  --color-accent-bg-strong: oklch(68.88% 0.187 200 / 0.15);
-  --color-accent-border: oklch(68.88% 0.187 200 / 0.3);
-  --color-accent-border-strong: oklch(68.88% 0.187 200 / 0.6);
+  /* The ONLY gradient on the site: the soft violet glow under the nav. */
+  --color-accent-glow: radial-gradient(
+    ellipse 60% 70% at 15% 0%,
+    oklch(68.88% 0.187 300 / 0.18),
+    transparent 70%
+  );
+  --color-accent-bg: oklch(68.88% 0.187 300 / 0.1);
+  --color-accent-bg-strong: oklch(68.88% 0.187 300 / 0.15);
+  --color-accent-border: oklch(68.88% 0.187 300 / 0.3);
+  --color-accent-border-strong: oklch(68.88% 0.187 300 / 0.6);
 
-  /* ── Secondary accent — Violet (previous primary, kept for reconsideration) ── */
+  /* ── Retired cyan (kept for the rare pairing that still wants it) ── */
+  --color-cyan: oklch(81.36% 0.1454 217.11);
+
+  /* ── Secondary accent — alias of the primary accent ── */
   --color-accent-secondary: oklch(68.88% 0.187 300);
   --color-accent-secondary-light: oklch(76.97% 0.2124 300);
   --color-accent-secondary-gradient: linear-gradient(

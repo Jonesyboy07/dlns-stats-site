@@ -139,15 +139,15 @@ function HomePage() {
     <div className="w-full px-4">
       <HomeHero />
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="min-w-0">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-[.1em] text-muted">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="flex min-w-0 flex-col gap-7">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-valve-oracle text-[14px] font-semibold uppercase tracking-[.16em] text-muted">
               Recent Series
             </h2>
             <Link
               to="/week"
-              className="shrink-0 text-xs font-semibold text-accent-secondary-light transition-colors hover:text-accent-secondary"
+              className="shrink-0 text-[12px] font-semibold text-accent-light transition-colors hover:text-accent"
             >
               All series →
             </Link>
@@ -161,9 +161,9 @@ function HomePage() {
 
           {!loading && !error && (
             <>
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-7">
                 {visibleGroups.length === 0 ? (
-                  <p className="rounded-lg border border-border bg-panel px-4 py-8 text-center text-sm text-muted">
+                  <p className="rounded-xl bg-card px-4 py-8 text-center text-[14px] text-muted">
                     No series published yet. Check back after the next Night
                     Shift.
                   </p>
@@ -182,12 +182,12 @@ function HomePage() {
               </div>
 
               {canLoadMore && (
-                <div className="mt-6 flex flex-col items-center gap-2">
+                <div className="flex flex-col items-center gap-2">
                   <button
                     type="button"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="rounded-full border border-accent-border bg-accent-bg px-5 py-2 text-xs font-semibold text-accent-light transition-colors hover:bg-accent-bg-strong disabled:opacity-60"
+                    className="rounded-xl bg-accent px-4 py-[10px] text-[14px] font-bold text-[#170a26] transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {loadingMore ? "Loading…" : "Load more series"}
                   </button>
@@ -200,11 +200,13 @@ function HomePage() {
           )}
         </section>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-4">
-          <QuickSearchWidget />
-          <StreamWidget stream={stream} />
-          <SeasonStatsWidget />
-          <ContributeWidget />
+        <aside className="lg:sticky lg:top-4">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border-light bg-table p-4">
+            <QuickSearchWidget />
+            <StreamWidget stream={stream} />
+            <SeasonStatsWidget />
+            <ContributeWidget />
+          </div>
         </aside>
       </div>
     </div>

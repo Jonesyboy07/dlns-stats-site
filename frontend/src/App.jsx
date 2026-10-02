@@ -78,8 +78,17 @@ function App() {
         {/* Background image, black & white, fades to bg colour toward bottom */}
         <div
           aria-hidden="true"
-          className="absolute top-0 left-0 right-0 h-[600px] bg-cover bg-top bg-no-repeat grayscale opacity-[0.1] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_30%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_30%,transparent_100%)]"
+          className="absolute top-0 left-0 right-0 h-[620px] bg-cover bg-top bg-no-repeat grayscale opacity-[0.16] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_25%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_25%,transparent_100%)]"
           style={{ backgroundImage: `url("${cdnImage("background/background_gothic_jpg.jpeg")}")` }}
+        />
+
+        {/* The site's only gradient: a soft violet glow under the nav, layered over
+            the grayscale image (so it is deliberately NOT part of the grayscale
+            filter above). */}
+        <div
+          aria-hidden="true"
+          className="absolute top-0 left-0 right-0 h-[620px] pointer-events-none z-0"
+          style={{ background: "var(--color-accent-glow)" }}
         />
 
         <div className="relative z-10 flex flex-col flex-1">

@@ -161,26 +161,28 @@ export default function LoadingSkeleton({
   if (variant === "series-list") {
     return (
       <div className={`w-full ${className}`}>
-        {/* Section heading */}
-        <div className={`${pulse} h-4 w-32 mb-6`} />
-        {/* Week panels */}
         {Array.from({ length: n }).map((_, group) => (
-          <div
-            key={group}
-            className="mb-6 overflow-hidden rounded-lg border border-border bg-panel"
-          >
-            <div className="h-11 w-full animate-pulse bg-gray-700/50" />
-            <div className="divide-y divide-border-dashed">
-              {Array.from({ length: 3 }).map((_, row) => (
-                <div key={row} className="flex items-center gap-4 px-3 py-3">
-                  <div className={`${pulse} h-4 w-10 shrink-0`} />
-                  <div className={`${pulse} h-4 flex-1`} />
-                  <div className={`${pulse} h-4 w-16 shrink-0`} />
-                  <div className={`${pulse} h-4 flex-1`} />
-                  <div className={`${pulse} h-4 w-20 shrink-0`} />
-                </div>
-              ))}
+          <div key={group} className="mb-7 flex flex-col gap-1.5">
+            {/* Divider row: week title, rule, meta. The "Recent Series" heading
+                itself is rendered by the page, so it is not duplicated here. */}
+            <div className="mb-1.5 flex items-center gap-3.5">
+              <div className={`${pulse} h-5 w-40`} />
+              <div className="h-px flex-1 bg-border-light" />
+              <div className={`${pulse} h-3 w-28`} />
             </div>
+            {/* Series cards */}
+            {Array.from({ length: 3 }).map((_, row) => (
+              <div
+                key={row}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-[14px]"
+              >
+                <div className={`${pulse} h-4 w-10 shrink-0`} />
+                <div className={`${pulse} h-4 flex-1`} />
+                <div className={`${pulse} h-6 w-16 shrink-0`} />
+                <div className={`${pulse} h-4 flex-1`} />
+                <div className={`${pulse} h-4 w-20 shrink-0`} />
+              </div>
+            ))}
           </div>
         ))}
       </div>

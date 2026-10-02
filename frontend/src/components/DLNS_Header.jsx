@@ -66,6 +66,8 @@ function DLNS_Header({ className = "" }) {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  /* No "Home" item: the wordmark beside the nav already links to /home, so a
+     nav entry next to it would be a duplicate affordance. */
   const primaryNav = [
     { path: "/matchlist", label: "Matches" },
     { path: "/players", label: "Players" },
@@ -78,29 +80,28 @@ function DLNS_Header({ className = "" }) {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <header className={`w-full bg-slate-800/90 text-white shadow-panel ${className}`}>
+    <header className={`sticky top-0 z-30 w-full border-b border-border bg-base-glass text-primary shadow-panel backdrop-blur-[10px] ${className}`}>
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center h-14">
+        <div className="flex items-center h-16">
           {/* Brand + Desktop nav together on the left */}
           <div className="flex items-center gap-4">
-            <Link to="/home" className="shrink-0 flex items-center" title="Home">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28">
-                <rect x="2" y="12" width="24" height="4" rx="1" fill="#ae7afc" transform="rotate(-12 14 14)"></rect>
-                <rect x="5" y="19" width="18" height="4" rx="1" fill="#cb8eff" transform="rotate(-12 14 21)"></rect>
-                <rect x="8" y="5" width="12" height="4" rx="1" fill="#00c57c" transform="rotate(-12 14 7)"></rect>
-              </svg>
+            <Link to="/home" className="flex shrink-0 items-center gap-2.5" title="Home">
+              <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+              <span className="font-valve-pulp text-[20px] font-bold text-primary">
+                DLNS Stats
+              </span>
             </Link>
 
             {/* Desktop nav */}
-            <nav className="hidden sm:flex items-center gap-1">
+            <nav className="hidden sm:flex items-center gap-0.5">
               {primaryNav.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`rounded-full px-3.5 py-[7px] font-valve-oracle text-[15px] font-medium tracking-[.02em] transition-colors ${
                     isActive(item.path)
-                      ? 'text-purple-300 bg-purple-500/15'
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                      ? 'bg-accent-bg-strong text-accent-light'
+                      : 'text-secondary hover:bg-hover hover:text-primary'
                   }`}
                 >
                   {item.label}
@@ -117,7 +118,7 @@ function DLNS_Header({ className = "" }) {
             <button
               type="button"
               onClick={() => setMatchDarkMode((current) => !current)}
-              className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/5 p-0.5 text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+              className="hidden sm:inline-flex items-center rounded-full border border-border-light bg-white/5 p-0.5 text-xs font-semibold text-secondary transition-colors hover:bg-hover"
               aria-pressed={matchDarkMode}
               title="Toggle dark mode"
               style={{ width: '62px', height: '28px', position: 'relative' }}
@@ -144,11 +145,11 @@ function DLNS_Header({ className = "" }) {
             <div className="hidden sm:flex items-center gap-3">
               {user === undefined ? null : user ? (
                 <>
-                  <span className="text-white/70 text-sm truncate max-w-[120px]">{user.username}</span>
-                  <a href="/auth/logout" className="text-white/60 hover:text-white text-xs transition-colors">Logout</a>
+                  <span className="text-secondary text-sm truncate max-w-[120px]">{user.username}</span>
+                  <a href="/auth/logout" className="text-dim hover:text-primary text-xs transition-colors">Logout</a>
                 </>
               ) : (
-                <a href="/auth/login" className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors">
+                <a href="/auth/login" className="bg-accent hover:opacity-90 text-[#170a26] text-[13px] font-bold px-3 py-1.5 rounded-xl transition-opacity">
                   Login
                 </a>
               )}
@@ -157,7 +158,7 @@ function DLNS_Header({ className = "" }) {
             {/* Hamburger button */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="sm:hidden p-2 text-white/80 hover:text-white rounded-md hover:bg-white/10 transition-colors"
+              className="sm:hidden p-2 text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors"
               aria-label="Toggle menu"
             >
               {menuOpen ? (
@@ -172,26 +173,26 @@ function DLNS_Header({ className = "" }) {
 
       {/* Mobile menu drawer */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-white/10 bg-slate-800/95">
+        <div className="sm:hidden border-t border-border bg-base">
           <nav className="max-w-7xl mx-auto px-4 py-3 space-y-1">
             {primaryNav.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`block px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`block px-3 py-2 text-sm font-medium rounded-full transition-colors ${
                   isActive(item.path)
-                    ? 'text-purple-300 bg-purple-500/15'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                    ? 'bg-accent-bg-strong text-accent-light'
+                    : 'text-secondary hover:bg-hover hover:text-primary'
                 }`}
               >
                 {item.label}
               </Link>
             ))}
-            <hr className="border-white/10 my-2" />
+            <hr className="border-border my-2" />
             <button
               type="button"
               onClick={() => setMatchDarkMode((current) => !current)}
-              className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-md transition-colors text-white/80 hover:text-white hover:bg-white/10"
+              className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-full transition-colors text-secondary hover:text-primary hover:bg-hover"
               aria-pressed={matchDarkMode}
             >
               <span className="text-sm">Appearance</span>
@@ -225,11 +226,11 @@ function DLNS_Header({ className = "" }) {
             {/* Auth mobile */}
             {user === undefined ? null : user ? (
               <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-white/70 text-sm">{user.username}</span>
-                <a href="/auth/logout" className="text-white/60 hover:text-white text-xs transition-colors">Logout</a>
+                <span className="text-secondary text-sm">{user.username}</span>
+                <a href="/auth/logout" className="text-dim hover:text-primary text-xs transition-colors">Logout</a>
               </div>
             ) : (
-              <a href="/auth/login" className="block px-3 py-2 text-sm font-medium text-indigo-300 hover:text-white transition-colors">
+              <a href="/auth/login" className="block px-3 py-2 text-sm font-medium text-accent-light hover:text-primary transition-colors">
                 Login
               </a>
             )}

@@ -18,7 +18,7 @@ export default function SeasonStatsWidget() {
       <p className="mt-1 text-xs text-dim">Check back soon.</p>
       <Link
         to="/stats"
-        className="mt-3 inline-block text-xs font-semibold text-accent-secondary-light hover:text-accent-secondary transition-colors"
+        className="mt-3 inline-block text-[12px] font-semibold text-accent-light hover:text-accent transition-colors"
       >
         Browse site stats →
       </Link>

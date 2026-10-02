@@ -1,24 +1,25 @@
 import React from "react";
 
 /**
- * Widget — shared shell for the home page sidebar panels so every card keeps
- * the same border, padding and heading treatment.
+ * Widget — shared shell for the home page rail items.
+ *
+ * The rail itself is the only panel; each item is a plain section separated by a
+ * divider, so widgets carry no card chrome of their own. The last item in the
+ * rail (Contribute) is the exception and styles itself.
  *
  * Props:
  *   title     – small uppercase heading (optional)
  *   action    – node rendered on the right of the heading row (optional)
  *   children  – widget body
- *   className – extra classes for the outer panel
+ *   className – extra classes for the outer section
  */
 export default function Widget({ title, action, children, className = "" }) {
   return (
-    <section
-      className={`bg-panel border border-border rounded-lg p-4 shadow-panel ${className}`}
-    >
+    <section className={`border-b border-border px-1 pt-1 pb-4 ${className}`}>
       {(title || action) && (
-        <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
           {title && (
-            <h2 className="text-[11px] font-semibold text-dim uppercase tracking-[.12em]">
+            <h2 className="font-valve-oracle text-[12px] font-semibold uppercase tracking-[.16em] text-dim">
               {title}
             </h2>
           )}

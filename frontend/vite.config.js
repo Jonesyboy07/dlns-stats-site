@@ -22,6 +22,7 @@ export default defineConfig({
         items: path.resolve(__dirname, 'src/entries/items.entry.jsx'),
         match_admin: path.resolve(__dirname, 'src/entries/match_admin.entry.jsx'),
         bracket_admin: path.resolve(__dirname, 'src/entries/bracket_admin.entry.jsx'),
+        bracket_view: path.resolve(__dirname, 'src/entries/bracket_view.entry.jsx'),
       },
       output: {
         entryFileNames: '[name].js',

@@ -24,7 +24,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=O6CLG-6Vufw"
+              "match_vod": "https://www.youtube.com/watch?v=O6CLG-6Vufw",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -44,14 +45,15 @@
                 }
               ],
               "region": "EU",
-              "match_vod": "https://youtu.be/xs_ps0K-UhA"
+              "match_vod": "https://youtu.be/xs_ps0K-UhA",
+              "title": "Finals"
             },
             {
               "team_a": "Virtus.pro",
               "team_b": "1win Team",
               "matches": [
                 {
-                  "game": "gAME 1",
+                  "game": "Game 1",
                   "match_id": 38782020,
                   "team_a_side": 1,
                   "match_vod": "https://youtu.be/k9u-ZXvALj4"
@@ -59,7 +61,7 @@
               ],
               "region": "EU",
               "match_vod": "https://youtu.be/k9u-ZXvALj4",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "Valhalla",
@@ -74,7 +76,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=UNI7d3h4f5E",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://www.youtube.com/live/Rw7dSjhC8lY?si=-AlGwES9mySQY9Bq"
@@ -99,7 +101,8 @@
                 }
               ],
               "match_vod": "https://youtu.be/U0mZD9r_AOw",
-              "region": "EU"
+              "region": "EU",
+              "title": "Finals"
             },
             {
               "team_a": "Hydra Nation",
@@ -123,14 +126,15 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=Ehz77GPOeeM",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Virtus.pro",
               "team_b": "Lotos",
               "matches": [
                 {
-                  "game": "gAME 1",
+                  "game": "Game 1",
                   "match_id": 39080962,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=fOabCLabNaw"
@@ -138,7 +142,21 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=fOabCLabNaw",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
+            },
+            {
+              "team_a": "Lil Troops",
+              "team_b": "PKP",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 39097534
+                }
+              ],
+              "region": "NA",
+              "title": "Challenger",
+              "match_vod": "https://youtu.be/ZRJJMBm7oRc?list=PLauCNOGoyYoHsOByAIFjw_bupa3FXnKcE"
             }
           ],
           "vod_link": "https://youtu.be/t3Mn968kD7M?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -163,7 +181,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=SgfBmPjHZso",
-              "region": "EU"
+              "region": "EU",
+              "title": "Finals"
             },
             {
               "team_a": "Hydra Nation",
@@ -182,7 +201,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=n3TS3FYw5ek",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "PKP",
@@ -191,20 +211,20 @@
                 {
                   "game": "Game 1",
                   "match_id": 39943414,
-                  "team_a_side": 0,
+                  "team_a_side": 1,
                   "match_vod": "https://www.youtube.com/watch?v=OokpkfiyjZM"
                 }
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=OokpkfiyjZM",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Abrahams",
               "team_b": "Lotos",
               "matches": [
                 {
-                  "game": "game 1",
+                  "game": "Game 1",
                   "match_id": 39915107,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=JIm2SB6K8hY"
@@ -212,7 +232,7 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=JIm2SB6K8hY",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/vG2yp4VLB40?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -232,7 +252,7 @@
                 {
                   "game": "Game 2",
                   "match_id": 40948993,
-                  "team_a_side": 0
+                  "team_a_side": 1
                 },
                 {
                   "game": "Game 3",
@@ -241,7 +261,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=LvrGnjPtkV4",
-              "region": "EU"
+              "region": "EU",
+              "title": "Finals"
             },
             {
               "team_a": "Hydra Nation",
@@ -260,7 +281,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": ""
+              "match_vod": "",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -275,7 +297,7 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=8ZBLzAWUi94",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Melee Creeps",
@@ -290,7 +312,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=2c3GnKt25Gs",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/SVTJahJGYJ0?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -319,7 +341,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=KkH9FP3dh3A",
-              "region": "EU"
+              "region": "EU",
+              "title": "Finals"
             },
             {
               "team_a": "Hydra Nation",
@@ -337,14 +360,15 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=4Unbji8V8kA",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Lotos",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 41768032,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=V2V6Ri7mO1Y&pp=0gcJCdMKAYcqIYzv"
@@ -352,14 +376,14 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=V2V6Ri7mO1Y&pp=0gcJCdMKAYcqIYzv",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Sneaky Golem",
               "team_b": "Maht's Fan Club",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 41787634,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=zkSX9d0CR2g"
@@ -367,7 +391,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=zkSX9d0CR2g",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/gKRxXr69L8I?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -396,7 +420,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=pS_AZHuj0jE",
-              "region": "EU"
+              "region": "EU",
+              "title": "Finals"
             },
             {
               "team_a": "Hydra Nation",
@@ -414,14 +439,15 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=N0x_E6eo5vM",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
               "team_b": "BOTs",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 42485898,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=6wUr5CLAXP8"
@@ -429,14 +455,14 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=6wUr5CLAXP8",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "The Baroness Hotel",
               "team_b": "Maht's Fan Club",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 42502377,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=i4MlsjGYcvQ"
@@ -444,7 +470,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=i4MlsjGYcvQ",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/VqXQrcGxpLE?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -468,7 +494,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=eV0bpu5TBOk&pp=0gcJCdMKAYcqIYzv",
-              "region": "EU"
+              "region": "EU",
+              "title": "Finals"
             },
             {
               "team_a": "The Baroness Hotel",
@@ -491,14 +518,15 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=ytqQNxwI_9c",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Buff Enjoyers",
               "team_b": "Lotos",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 43163800,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=NW8Ks0yZF0g"
@@ -506,14 +534,14 @@
               ],
               "region": "EU",
               "match_vod": "https://www.youtube.com/watch?v=NW8Ks0yZF0g",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Hydra Nation",
               "team_b": "Chain Gang",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 43176704,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=n8jzzgUtCS0"
@@ -521,7 +549,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=n8jzzgUtCS0",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/wOy9kxCYb7o?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -559,7 +587,7 @@
                 {
                   "game": "Game 1",
                   "match_id": 43837373,
-                  "team_a_side": 0
+                  "team_a_side": 1
                 },
                 {
                   "game": "Game 2",
@@ -568,7 +596,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=7f2IkSAhIUs&pp=0gcJCdMKAYcqIYzv",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -590,7 +619,7 @@
               "team_b": "Chain Gang",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 43832797,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=oFbHwWJdfIE"
@@ -598,7 +627,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=oFbHwWJdfIE",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/gArI-NjIZlA?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -645,7 +674,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=mqkmMgTmbQ8",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -667,7 +697,7 @@
               "team_b": "Chain Gang",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 44464516,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=S8N3wL0Q3tM"
@@ -675,7 +705,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=S8N3wL0Q3tM",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/38DbnxOFFvg?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -717,7 +747,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=QFh__x7viO8",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -739,7 +770,7 @@
               "team_b": "The Uncs",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 45049175,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=n_uDEMn4vyc&pp=0gcJCdMKAYcqIYzv"
@@ -747,7 +778,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=n_uDEMn4vyc&pp=0gcJCdMKAYcqIYzv",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/zX0wjXd64t0?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -794,14 +825,15 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=h1vJwWjCpgc",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Melee Creeps",
               "team_b": "Kawaii Crew",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 45602770,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=oiI2IOsHzsk"
@@ -809,7 +841,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=oiI2IOsHzsk",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Abrahams",
@@ -878,7 +910,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=dfYDr6oVzvw"
+              "match_vod": "https://www.youtube.com/watch?v=dfYDr6oVzvw",
+              "title": "Finals"
             },
             {
               "team_a": "Fearless Furies",
@@ -900,7 +933,7 @@
               "team_b": "Kawaii Crew",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 46145955,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=fFJUSG-oOZM"
@@ -908,7 +941,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=fFJUSG-oOZM",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/CaV0CQ4-gTU?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -955,7 +988,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=KWQEpNTloQ8",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Fearless Furies",
@@ -977,7 +1011,7 @@
               "team_b": "Bunny With Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 46611968,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=nTrDBEIW36I"
@@ -985,7 +1019,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=nTrDBEIW36I",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/G_Td-MMELB4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1032,7 +1066,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=ouYVWEGatmc",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1054,7 +1089,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 47062957,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=dq99i6Rm_sE"
@@ -1062,7 +1097,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=dq99i6Rm_sE",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/sEEt9-cMSdc?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1114,7 +1149,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=1L68TfD4daI",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Buff Enjoyers",
@@ -1136,7 +1172,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 47481210,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=2H4njLtPoSI"
@@ -1144,7 +1180,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=2H4njLtPoSI",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/Usd3Zb0ecWQ?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1186,7 +1222,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=HwKhWXQ-sxc",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1208,7 +1245,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 47923808,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=PXyyXNf5Mmw"
@@ -1216,7 +1253,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=PXyyXNf5Mmw",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/r2n5R1TwrYc?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1266,7 +1303,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=QibO7xTxbu4",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1288,7 +1326,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 48347919,
                   "team_a_side": 0,
                   "match_vod": "https://www.youtube.com/watch?v=325gfN-qE-c"
@@ -1296,7 +1334,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=325gfN-qE-c",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/tgaUqSznN_4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1338,7 +1376,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=VbtaXYgMDSI",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1360,15 +1399,15 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 48759374,
-                  "team_a_side": 0,
+                  "team_a_side": 1,
                   "match_vod": "https://www.youtube.com/watch?v=53WEqQaQ_rI"
                 }
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=53WEqQaQ_rI",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/CL_cL_BvD0U?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1410,7 +1449,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=wZ4koNzm9lc",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1432,7 +1472,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 49159907,
                   "team_a_side": 1,
                   "match_vod": "https://www.youtube.com/watch?v=yoOefGgEwGY&pp=0gcJCdMKAYcqIYzv"
@@ -1440,7 +1480,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=yoOefGgEwGY&pp=0gcJCdMKAYcqIYzv",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/sedjk6kChd8?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1487,7 +1527,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=_nVWJrs4hVE&t=7745s"
+              "match_vod": "https://www.youtube.com/watch?v=_nVWJrs4hVE&t=7745s",
+              "title": "Finals"
             },
             {
               "team_a": "Fearless Furies",
@@ -1509,7 +1550,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 50433990,
                   "team_a_side": 1,
                   "match_vod": "https://www.youtube.com/watch?v=PwjyipU23RM"
@@ -1517,7 +1558,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=PwjyipU23RM",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/FnwOBF-HQxE?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1564,7 +1605,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=Ku2GLeH07U0",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1586,7 +1628,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "match_id": 50881282,
                   "team_a_side": 1,
                   "match_vod": "https://www.youtube.com/watch?v=N8NmvU3Q34M"
@@ -1594,7 +1636,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=N8NmvU3Q34M",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/invYf05fUqE?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1637,22 +1679,24 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Floormen",
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 51316473,
-                  "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI"
+                  "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI",
+                  "unavailable": true
                 }
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=KFkiSmFa8qI",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Fearless Furies",
@@ -1709,7 +1753,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=oqpAH8iUAO4",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -1731,7 +1776,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 1,
                   "match_id": 53102141,
                   "match_vod": "https://www.youtube.com/watch?v=ZBercMjpVbo"
@@ -1739,7 +1784,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=ZBercMjpVbo",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/yJbMdjnlrT4?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1786,7 +1831,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=-NiTws3XE6g&pp=0gcJCcMKAYcqIYzv"
+              "match_vod": "https://www.youtube.com/watch?v=-NiTws3XE6g&pp=0gcJCcMKAYcqIYzv",
+              "title": "Finals"
             },
             {
               "team_a": "Lowkey W",
@@ -1808,7 +1854,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 55326187,
                   "match_vod": "https://www.youtube.com/watch?v=AnTXesU5Y2g"
@@ -1816,7 +1862,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=AnTXesU5Y2g",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/Y6OAkd6Ra3U?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1858,7 +1904,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=9FiFV0jH1h4",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Lowkey W",
@@ -1880,7 +1927,7 @@
               "team_b": "Bunny with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 1,
                   "match_id": 57633259,
                   "match_vod": "https://www.youtube.com/watch?v=EvR1i-44hQQ&pp=0gcJCcMKAYcqIYzv"
@@ -1888,7 +1935,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=EvR1i-44hQQ&pp=0gcJCcMKAYcqIYzv",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/N51U7s_ld78?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -1930,7 +1977,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=b_fGPPvLnEY",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Lowkey W",
@@ -1960,7 +2008,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=Ydi7D9OBaAg",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/n-oc6wDE62M?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2009,7 +2057,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=q26nqLAXDbY"
+              "match_vod": "https://www.youtube.com/watch?v=q26nqLAXDbY",
+              "title": "Finals"
             },
             {
               "team_a": "Lowkey W",
@@ -2031,7 +2080,7 @@
               "team_b": "Bird with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 62133731,
                   "match_vod": "https://www.youtube.com/watch?v=RRRhr__mTLE&pp=0gcJCcMKAYcqIYzv"
@@ -2039,7 +2088,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=RRRhr__mTLE&pp=0gcJCcMKAYcqIYzv",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/RBeEwaNXjRQ?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2081,7 +2130,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=L6Wa3na-ic8",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Leviathan",
@@ -2103,7 +2153,7 @@
               "team_b": "Bird with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 64270120,
                   "match_vod": "https://www.youtube.com/watch?v=ecFNru3pfMc"
@@ -2111,7 +2161,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=ecFNru3pfMc",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/sbq5RIHgwEs?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2163,7 +2213,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=pHFCVtsSGm0",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -2185,7 +2236,7 @@
               "team_b": "Bird with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 1,
                   "match_id": 66447214,
                   "match_vod": "https://www.youtube.com/watch?v=42BdBHKixYk"
@@ -2193,7 +2244,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=42BdBHKixYk",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/H6I-tkiR4Es?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2240,7 +2291,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=OMhnF3Z_QrI",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -2262,7 +2314,7 @@
               "team_b": "No Earnings",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 68577039,
                   "match_vod": "https://www.youtube.com/watch?v=gmYFeklsoSw"
@@ -2270,7 +2322,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=gmYFeklsoSw",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/76vRnids4QY?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2322,7 +2374,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=TZ6VrTGW7Yg",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -2344,7 +2397,7 @@
               "team_b": "FPS Lounge",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 1,
                   "match_id": 70518888,
                   "match_vod": "https://www.youtube.com/watch?v=MWeTMKFKhL4"
@@ -2352,7 +2405,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=MWeTMKFKhL4",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/Di-WzNs5YPk?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2394,7 +2447,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=1knvMsayrAo",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -2416,7 +2470,7 @@
               "team_b": "Bird with Clock",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 72362504,
                   "match_vod": "https://www.youtube.com/watch?v=pcHcvXveHPA"
@@ -2424,7 +2478,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=pcHcvXveHPA",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/iJrd3XxkU08?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2468,7 +2522,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s"
+              "match_vod": "https://www.youtube.com/watch?v=4kX19icFPbg&t=2355s",
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -2490,7 +2545,7 @@
               "team_b": "FPS Lounge",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 1,
                   "match_id": 74191976,
                   "match_vod": "https://www.youtube.com/watch?v=tOXMKyYajno"
@@ -2498,7 +2553,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=tOXMKyYajno",
-              "title": "Challenger Match"
+              "title": "Challenger"
             }
           ],
           "vod_link": "https://youtu.be/mQTNWkVYcxM?list=PLauCNOGoyYoH3u3ZhZ0Rcu7BBfJVkFfEX"
@@ -2547,14 +2602,15 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=xUB_tllNLkc",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "Melee Creeps",
               "team_b": "FPS Lounge",
               "matches": [
                 {
-                  "game": "GAME 1",
+                  "game": "Game 1",
                   "team_a_side": 0,
                   "match_id": 76008292,
                   "match_vod": "https://www.youtube.com/watch?v=kvMpEjfYgOM"
@@ -2562,7 +2618,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=kvMpEjfYgOM",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Abrahams",
@@ -2629,7 +2685,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=swHmy1KCb14",
               "region": "NA",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "FPS Lounge",
@@ -2653,7 +2709,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=8yeWjrtBaKM&pp=0gcJCd8KAYcqIYzv",
               "region": "NA",
-              "title": "Finals Match"
+              "title": "Finals"
             }
           ],
           "vod_link": "https://www.youtube.com/watch?v=iVb3icTtsFw"
@@ -2691,7 +2747,7 @@
                 }
               ],
               "region": "NA",
-              "title": "Challenger Match",
+              "title": "Challenger",
               "match_vod": "https://www.youtube.com/watch?v=fAJHpCaeBOk"
             },
             {
@@ -2710,7 +2766,7 @@
                 }
               ],
               "region": "NA",
-              "title": "Finals Match",
+              "title": "Finals",
               "match_vod": "https://www.youtube.com/watch?v=ttACy3o6_3c"
             },
             {
@@ -2769,7 +2825,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=riv_4Juve5E",
               "region": "NA",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Floormen",
@@ -2787,7 +2843,8 @@
                 }
               ],
               "match_vod": "https://youtu.be/XLzUlJAvuf8",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "LEVIATHAN",
@@ -2841,7 +2898,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=TlJgkE4y71Q",
               "region": "NA",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Floormen",
@@ -2860,7 +2917,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=OHTc83vIia0",
               "region": "NA",
-              "title": "NA - FINALS"
+              "title": "Finals"
             }
           ]
         },
@@ -2916,7 +2973,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=J3tTScuI-lI",
               "region": "NA",
-              "title": "Challenger Match"
+              "title": "Challenger"
             },
             {
               "team_a": "Floormen",
@@ -2934,7 +2991,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=pyHPEYfOuGk",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             }
           ],
           "vod_link": "https://www.youtube.com/watch?v=_FqdOl7yA2s"
@@ -2991,7 +3049,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=jhVqZ55MsFg",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "floormen",
@@ -3005,21 +3063,15 @@
                   "forfeit": true
                 },
                 {
-                  "match_id": 11,
-                  "game": "Game 3",
-                  "team_a_side": 0,
-                  "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
-                  "forfeit": true
-                },
-                {
                   "game": "Game 1",
-                  "team_a_side": 1,
-                  "match_id": 85256685,
-                  "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv"
+                  "team_a_side": 0,
+                  "match_id": -791232009000,
+                  "forfeit": true
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=vIq9GDAKJO4&pp=0gcJCR4LAYcqIYzv",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             }
           ],
           "vod_link": "https://www.youtube.com/watch?v=1UNNg2o-JIs"
@@ -3071,7 +3123,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=sEQNVfHoVDM",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "MELEE CREEPS",
@@ -3089,7 +3141,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=O1K98j9mYw4",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3153,7 +3206,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=C56U-uZZ0Ps",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             },
             {
               "team_a": "FPS LOUNGE",
@@ -3168,7 +3222,7 @@
               ],
               "region": "NA",
               "match_vod": "https://www.youtube.com/watch?v=QzODgYRWSW4",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             }
           ],
           "vod_links": [
@@ -3229,7 +3283,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=FusFoJkIf2s",
-              "region": "EU"
+              "title": "Challenger",
+              "region": "NA"
             },
             {
               "team_a": "melee creeps",
@@ -3251,7 +3306,9 @@
                   "match_id": 89382616
                 }
               ],
-              "match_vod": "https://www.youtube.com/watch?v=qcOflbK21jQ"
+              "match_vod": "https://www.youtube.com/watch?v=qcOflbK21jQ",
+              "title": "Finals",
+              "region": "NA"
             }
           ],
           "vod_links": [
@@ -3307,7 +3364,7 @@
                 }
               ],
               "region": "NA",
-              "title": "CHALLENGER MATCH",
+              "title": "Challenger",
               "match_vod": "https://www.youtube.com/watch?v=fR7LXnMCkzo"
             },
             {
@@ -3326,7 +3383,8 @@
                 }
               ],
               "region": "NA",
-              "match_vod": "https://www.youtube.com/watch?v=lW0yldSyuvM"
+              "match_vod": "https://www.youtube.com/watch?v=lW0yldSyuvM",
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3388,7 +3446,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=0PHLu1wznZc",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "FPS LOUNGE",
@@ -3411,7 +3469,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=G6C_I0SHwII",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3509,7 +3568,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=6poYRxGnMT8",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "MELEE CREEPS",
@@ -3532,7 +3591,8 @@
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=zvLNPwnXDVY",
-              "region": "NA"
+              "region": "NA",
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3622,7 +3682,7 @@
                 }
               ],
               "region": "NA",
-              "title": "FINALS",
+              "title": "Finals",
               "match_vod": "https://www.youtube.com/watch?v=e6-_TuYUHXk"
             }
           ],
@@ -3709,7 +3769,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=-awK24je1oY",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "melee creeps",
@@ -3733,7 +3793,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=mNq5pUF9FmE",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3809,7 +3869,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=CYcGa8G7BkI",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -3833,7 +3893,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=R1XBzcz0caY",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3891,7 +3951,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=Ipya_E8-XtU",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "MELEE CREEPS",
@@ -3910,7 +3970,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=ns00s2gXl5w",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -3968,7 +4028,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=09618VYL9hs",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -3987,7 +4047,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=xPedsJI3x74",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             },
             {
               "team_a": "SILENCE",
@@ -4062,7 +4122,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=AYk7_RfyPL0",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -4086,7 +4146,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=N1SiFHm7XiA",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -4131,7 +4191,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=dMDvnMpH1jA",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "MELEE CREEPS",
@@ -4150,7 +4210,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=6IhFvNJWVXo",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             },
             {
               "team_a": "Abrahams",
@@ -4228,7 +4288,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=OIIeP1R_qs4",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -4248,7 +4308,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=zZfEu7qC4Vg",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -4312,7 +4372,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=XvxxODx2enQ",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -4331,7 +4391,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=JerofozNOjQ",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -4389,7 +4449,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=C0w6u2jd6QQ",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -4408,7 +4468,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=6u_Tv2jaZw4",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -4466,7 +4526,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=mALd-gdHnHQ",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "POPPERS' PUPILS",
@@ -4480,12 +4540,13 @@
                 {
                   "game": "Game 2",
                   "team_a_side": 0,
-                  "match_id": 1073892640
+                  "match_id": -791233410367,
+                  "unavailable": true
                 }
               ],
               "match_vod": "https://www.youtube.com/watch?v=QC_iVZFiJ1I",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [
@@ -4543,7 +4604,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=loT_Nx8HRV4",
               "region": "NA",
-              "title": "CHALLENGER MATCH"
+              "title": "Challenger"
             },
             {
               "team_a": "MELEE CREEPS",
@@ -4562,7 +4623,7 @@
               ],
               "match_vod": "https://www.youtube.com/watch?v=-0UsFtzjE2o",
               "region": "NA",
-              "title": "FINALS"
+              "title": "Finals"
             }
           ],
           "vod_links": [

@@ -20,6 +20,17 @@ BYE = "BYE"
 SLOTS = ("team_a", "team_b")
 FORMATS = ("gauntlet", "single_elim")
 
+# Who bans in each of the four ban slots: A is the team that bans first, B the other.
+# Set per event, so a format change mid-season only affects events from then on.
+BAN_PATTERNS = ("ABBA", "ABAB", "AABB")
+DEFAULT_BAN_PATTERN = "ABBA"
+
+
+def ban_pattern(event: Dict[str, Any]) -> str:
+    """The event's ban order, or the default for events made before it was a setting."""
+    pattern = str(event.get("ban_pattern") or "").upper()
+    return pattern if pattern in BAN_PATTERNS else DEFAULT_BAN_PATTERN
+
 
 def _other(slot: str) -> str:
     return "team_b" if slot == "team_a" else "team_a"
@@ -145,7 +156,7 @@ def generate(fmt: str, teams: Iterable[Any], round_names: Iterable[Any] = (), be
 
 
 def _game_winner(game: Dict[str, Any], results: Dict[int, str]) -> Optional[str]:
-    """Winner slot of one game: a manual winner (forfeits), else the API result."""
+    """Winner slot of one game: the admin's pick, else the API result (games saved before picks)."""
     manual = game.get("winner")
     if manual in SLOTS:
         return manual
@@ -219,14 +230,87 @@ def compute(event: Dict[str, Any], results: Dict[int, str]) -> Dict[str, Any]:
     return out
 
 
+def is_placeholder(game: Dict[str, Any]) -> bool:
+    """Forfeits and N/A games (private or unfetchable matches) aren't fetched from the API."""
+    return bool(game.get("forfeit") or game.get("unavailable"))
+
+
+def stats_id(game: Dict[str, Any]) -> Optional[int]:
+    """The ID a game is stored under in the DB and matches.json.
+
+    A fetched game uses its match ID. Forfeits and N/A games use ``placeholder_id``
+    (negative for new ones), since their real ID, if any, can't be fetched.
+    """
+    key = "placeholder_id" if is_placeholder(game) else "match_id"
+    try:
+        mid = int(game.get(key))
+    except (TypeError, ValueError):
+        return None
+    if key == "match_id" and mid <= 0:
+        return None
+    return mid
+
+
 def match_ids(event: Dict[str, Any]) -> List[int]:
     ids: List[int] = []
     for s in event.get("series") or []:
         for g in s.get("games") or []:
-            try:
-                mid = int(g.get("match_id"))
-            except (TypeError, ValueError):
-                continue
-            if mid > 0:
+            mid = stats_id(g)
+            if mid is not None:
                 ids.append(mid)
     return ids
+
+
+def _shift_rounds(event: Dict[str, Any], by: int) -> None:
+    """Renumber a gauntlet's rounds and series (R{r}M1) by ``by``, keeping links intact."""
+    for r in event.get("rounds") or []:
+        r["round"] += by
+    for s in event.get("series") or []:
+        s["round"] += by
+        s["id"] = f"R{s['round']}M1"
+        link = s.get("winner_to")
+        if link:
+            num = int(link["series"][1:].split("M")[0]) + by
+            link["series"] = f"R{num}M1"
+
+
+def add_first_round(event: Dict[str, Any], name: str, best_of: int, team_a: Optional[str], team_b: Optional[str]) -> Dict[str, Any]:
+    """Add an opening round to a gauntlet (e.g. Qualifiers before the Challenger).
+
+    The new round's winner feeds the old first round's team B slot. If that round
+    hasn't been played yet the slot is cleared so the winner fills it; if it has
+    games, its teams stay as they were played.
+    """
+    if event.get("format") != "gauntlet":
+        raise ValueError("Adding a round is only supported for gauntlet events.")
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("Give the new round a name.")
+    out = copy.deepcopy(event)
+    _shift_rounds(out, 1)
+    old_first = next((s for s in out["series"] if s["round"] == 2), None)
+    out["rounds"].insert(0, {"round": 1, "name": name, "best_of": int(best_of or 1)})
+    new = _series("R1M1", 1, (team_a or "").strip() or None, (team_b or "").strip() or None)
+    if old_first is not None:
+        new["winner_to"] = {"series": old_first["id"], "slot": "team_b"}
+        if not old_first.get("games"):
+            old_first["team_b"] = None
+    out["series"].insert(0, new)
+    return out
+
+
+def remove_first_round(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove a gauntlet's opening round, only while it has no games."""
+    if event.get("format") != "gauntlet":
+        raise ValueError("Removing a round is only supported for gauntlet events.")
+    rounds = event.get("rounds") or []
+    if len(rounds) < 2:
+        raise ValueError("An event needs at least one round.")
+    first = next((s for s in event.get("series") or [] if s.get("round") == 1), None)
+    if first and first.get("games"):
+        raise ValueError("The first round has games. Remove them before removing the round.")
+    out = copy.deepcopy(event)
+    out["rounds"] = [r for r in out["rounds"] if r["round"] != 1]
+    out["series"] = [s for s in out["series"] if s["round"] != 1]
+    _shift_rounds(out, -1)
+    return out

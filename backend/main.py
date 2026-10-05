@@ -516,6 +516,20 @@ CREATE TABLE IF NOT EXISTS player_damage_sources (
 );
 
 CREATE INDEX IF NOT EXISTS idx_dmgsrc_match ON player_damage_sources(match_id);
+
+-- Hero bans per game, made outside the game and entered in the bracket editor.
+-- team is the event side ('team_a' / 'team_b', matching matches.event_team_a/b).
+CREATE TABLE IF NOT EXISTS match_bans (
+  match_id INTEGER NOT NULL,
+  ban_order INTEGER NOT NULL,
+  team TEXT NOT NULL,
+  team_name TEXT,
+  hero_id INTEGER NOT NULL,
+  PRIMARY KEY (match_id, ban_order),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_bans_hero ON match_bans(hero_id);
 """
 
 

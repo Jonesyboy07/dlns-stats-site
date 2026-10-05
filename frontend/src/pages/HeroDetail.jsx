@@ -13,6 +13,7 @@ import HeroTopPlayersPanel from "../components/heroes/HeroTopPlayersPanel";
 import HeroRecordsPanel from "../components/heroes/HeroRecordsPanel";
 import HeroBestDuoPanel from "../components/heroes/HeroBestDuoPanel";
 import HeroHeadToHeadPanel from "../components/heroes/HeroHeadToHeadPanel";
+import HeroBansPanel from "../components/heroes/HeroBansPanel";
 import PlaceholderPanel from "../components/heroes/PlaceholderPanel";
 import {
   HeroAbilityBuildPanel,
@@ -41,8 +42,8 @@ const MIN_GAMES = 10;
  * itself comes from the API (`profile.scope.label`) so it stays true as weeks
  * are added; never hard-code the range here.
  *
- * Ban rate and the Death Profile need data that does not exist yet and render
- * "Adding Soon".
+ * Ban stats come from ban drafts entered in the bracket editor (/heroes/<id>/bans),
+ * over the games that have one. The Death Profile still renders "Adding Soon".
  */
 function HeroDetail() {
   const { heroId } = useParams();
@@ -51,6 +52,22 @@ function HeroDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [bans, setBans] = useState(null);
+  const [bansFailed, setBansFailed] = useState(false);
+
+  // Fetched apart from the profile: it's cached briefly so new bans show up quickly.
+  useEffect(() => {
+    let cancelled = false;
+    setBans(null);
+    setBansFailed(false);
+    fetch(`/db/heroes/${heroId}/bans`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((json) => !cancelled && setBans(json))
+      .catch(() => !cancelled && setBansFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [heroId]);
 
   useEffect(() => {
     let alive = true;
@@ -172,13 +189,22 @@ function HeroDetail() {
       rank: sparse ? "Unranked · needs 10+ games" : rankLabel("by_pick_rate", "pick rate"),
       rankDim: sparse,
     },
-    {
-      label: "Ban rate",
-      value: DASH,
-      sub: "of drafts banned · Adding Soon",
-      rank: "Adding Soon",
-      rankDim: true,
-    },
+    bans?.drafted_games
+      ? {
+          label: "Ban rate",
+          value: formatPercent(bans.ban_rate),
+          delta: null,
+          sub: `banned in ${bans.bans} of ${bans.drafted_games} drafted game${bans.drafted_games === 1 ? "" : "s"}`,
+          rank: `${bans.first_bans} first ban${bans.first_bans === 1 ? "" : "s"}`,
+          rankDim: bans.first_bans === 0,
+        }
+      : {
+          label: "Ban rate",
+          value: DASH,
+          sub: "of drafts banned · no drafts recorded yet",
+          rank: "No drafts yet",
+          rankDim: true,
+        },
     {
       label: "Games played",
       value: games ? String(games) : DASH,
@@ -297,6 +323,8 @@ function HeroDetail() {
 
       <HeroHeadlineTiles tiles={tiles} rates={rates} />
 
+      {sparse && <HeroBansPanel data={bans} failed={bansFailed} />}
+
       {sparse ? (
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
           {[
@@ -319,7 +347,11 @@ function HeroDetail() {
       ) : (
         <div className="flex flex-wrap items-start gap-4">
           <div className="flex min-w-0 flex-[7_1_560px] flex-col gap-4">
-            <HeroMetaTrendPanel weekly={profile?.weekly ?? []} heroName={heroName} />
+            <HeroMetaTrendPanel
+              weekly={(profile?.weekly ?? []).map((row) => ({ ...row, bans: bans?.by_week?.[row.week] ?? 0 }))}
+              heroName={heroName}
+              hasBans={Boolean(bans?.drafted_games)}
+            />
             <HeroRecentGamesPanel recent={profile?.recent ?? []} />
             <HeroCombatPanel combat={combat} league={profile?.league_combat} />
             <HeroItemBuildPanel slots={profile?.items?.slots} />
@@ -333,6 +365,7 @@ function HeroDetail() {
 
           <div className="flex min-w-0 flex-[5_1_360px] flex-col gap-4">
             <HeroLanePanel lane={profile?.lane} laneNames={LANE_META} />
+            <HeroBansPanel data={bans} failed={bansFailed} />
             <HeroSideSplitPanel sides={profile?.sides} />
             <HeroGameLengthPanel lengths={profile?.lengths} />
             <HeroBestDuoPanel heroName={heroName} duos={duos} />

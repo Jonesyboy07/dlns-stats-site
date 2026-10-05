@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import HeroIcon from '../components/HeroIcon.jsx';
 
 const API = '/admin/brackets/api';
 
@@ -18,7 +19,7 @@ const readJson = async (res, fallback) => {
   return data;
 };
 
-const api = async (path, opts = {}, fallback = 'Request failed') => {
+export const api = async (path, opts = {}, fallback = 'Request failed') => {
   const res = await fetch(`${API}${path}`, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -37,13 +38,13 @@ const pollJob = async (jobId, onUpdate) => {
   }
 };
 
-const formatDuration = (s) => {
+export const formatDuration = (s) => {
   const n = Number(s);
   if (!Number.isFinite(n) || n <= 0) return '';
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
 };
 
-const formatStart = (iso) => {
+export const formatStart = (iso) => {
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
@@ -61,8 +62,24 @@ const GAUNTLET_DEFAULT = [
   { name: 'Finals', best_of: 3 },
 ];
 
-function CreateEvent({ onCreated, onCancel }) {
+function BanPatternSelect({ id, value, onChange }) {
+  return (
+    <label className={labelCls}>
+      <span className="text-gray-300">Ban order (A bans first)</span>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
+        {Object.entries(BAN_PATTERNS).map(([key, label]) => (
+          <option key={key} value={key}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function CreateEvent({ onCreated, onCancel, defaultBanPattern }) {
   const [title, setTitle] = useState('Night Shift');
+  const [banPattern, setBanPattern] = useState(defaultBanPattern || DEFAULT_BAN_PATTERN);
   const [week, setWeek] = useState('');
   const [region, setRegion] = useState('EU');
   const [format, setFormat] = useState('gauntlet');
@@ -93,7 +110,7 @@ function CreateEvent({ onCreated, onCancel }) {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    const body = { title, week, region, format, teams };
+    const body = { title, week, region, format, teams, ban_pattern: banPattern };
     if (format === 'gauntlet') {
       body.round_names = rounds.map((r) => r.name);
       body.best_of = rounds.map((r) => Number(r.best_of) || 1);
@@ -135,6 +152,9 @@ function CreateEvent({ onCreated, onCancel }) {
           <span className="text-gray-300">Region</span>
           <input id="ev-region" value={region} onChange={(e) => setRegion(e.target.value)} className={inputCls} placeholder="EU" />
         </label>
+      </div>
+      <div className="max-w-xs">
+        <BanPatternSelect id="ev-ban-pattern" value={banPattern} onChange={setBanPattern} />
       </div>
 
       <div className="space-y-2">
@@ -293,7 +313,7 @@ function SeriesCard({ series, selected, onSelect }) {
   );
 }
 
-function Board({ event, selectedId, onSelect }) {
+export function Board({ event, selectedId, onSelect }) {
   const byRound = useMemo(() => {
     const map = new Map();
     for (const r of event.rounds || []) map.set(r.round, []);
@@ -328,16 +348,138 @@ function Board({ event, selectedId, onSelect }) {
 // Series editor
 // ---------------------------------------------------------------------------
 
-const toForm = (series) => ({
+// ---------------------------------------------------------------------------
+// Ban draft
+// ---------------------------------------------------------------------------
+
+// Bans are made outside the game. Each team bans 2. The event's ban order says who
+// bans in each slot: A is the team that bans first (picked per game), B the other.
+export const BAN_SLOTS = 4;
+export const BAN_PATTERNS = { ABBA: 'A, B, B, A', ABAB: 'A, B, A, B', AABB: 'A, A, B, B' };
+export const DEFAULT_BAN_PATTERN = 'ABBA';
+const otherTeam = (slot) => (slot === 'team_a' ? 'team_b' : 'team_a');
+const patternOf = (pattern) => (BAN_PATTERNS[pattern] ? pattern : DEFAULT_BAN_PATTERN);
+export const banTeam = (first, i, pattern) => (patternOf(pattern)[i] === 'A' ? first : otherTeam(first));
+
+export const toBanForm = (bans, pattern) => {
+  const saved = bans || [];
+  // The first-ban team follows from any saved ban and the slot it sits in.
+  const any = saved[0];
+  const first = any ? (patternOf(pattern)[any.order - 1] === 'A' ? any.team : otherTeam(any.team)) : 'team_a';
+  return {
+    first,
+    heroes: Array.from({ length: BAN_SLOTS }, (_, i) => {
+      const b = saved.find((x) => x.order === i + 1);
+      return b?.hero_id != null ? String(b.hero_id) : '';
+    }),
+  };
+};
+
+export const banPayload = (draft, pattern) =>
+  draft.heroes
+    .map((hero_id, i) => ({ order: i + 1, team: banTeam(draft.first, i, pattern), hero_id }))
+    .filter((b) => b.hero_id)
+    .map((b) => ({ ...b, hero_id: Number(b.hero_id) }));
+
+// {id: name} from /db/heroes, sorted by name for the pickers.
+export function useHeroes() {
+  const [heroes, setHeroes] = useState({});
+  useEffect(() => {
+    fetch('/db/heroes', { headers: { Accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => setHeroes(data && typeof data === 'object' ? data : {}))
+      .catch(() => setHeroes({}));
+  }, []);
+  const sorted = useMemo(
+    () => Object.entries(heroes).sort((a, b) => String(a[1]).localeCompare(String(b[1]))),
+    [heroes],
+  );
+  return { heroes, sorted };
+}
+
+function BanDraft({ gameIndex, draft, pattern, onChange, heroes, sortedHeroes, teamA, teamB }) {
+  const [open, setOpen] = useState(() => draft.heroes.some(Boolean));
+  const filled = draft.heroes.filter(Boolean).length;
+  const taken = new Set(draft.heroes.filter(Boolean));
+  const names = { team_a: teamA || 'Team A', team_b: teamB || 'Team B' };
+  const setHero = (i, hero) => onChange({ ...draft, heroes: draft.heroes.map((h, idx) => (idx === i ? hero : h)) });
+
+  return (
+    <div className="rounded border border-gray-700/60 bg-gray-900/30">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex justify-between px-2 py-1 text-xs text-gray-300"
+        aria-expanded={open}
+      >
+        <span>
+          Bans ({filled}/{BAN_SLOTS}){filled > 0 && ` · ${names[draft.first]} first`}
+        </span>
+        <span className="text-gray-500">{open ? 'Hide' : 'Edit'}</span>
+      </button>
+      {open && (
+        <div className="px-2 pb-2 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={`Game ${gameIndex + 1} first ban`}>
+            <span className="text-xs text-gray-400" title="The ban order is set per event in Edit event">
+              Order {BAN_PATTERNS[patternOf(pattern)]} · First ban:
+            </span>
+            {['team_a', 'team_b'].map((slot) => (
+              <button
+                key={slot}
+                id={`game-${gameIndex}-first-ban-${slot}`}
+                type="button"
+                role="radio"
+                aria-checked={draft.first === slot}
+                onClick={() => onChange({ ...draft, first: slot })}
+                className={`text-xs px-2.5 py-1 rounded border ${
+                  draft.first === slot
+                    ? 'border-sky-400 bg-sky-900/40 text-sky-100'
+                    : 'border-gray-700 bg-gray-900 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                {names[slot]}
+              </button>
+            ))}
+          </div>
+          {draft.heroes.map((hero, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono text-gray-400 w-12">Ban {i + 1}</span>
+              <span className="text-xs text-gray-300 w-32 truncate">{names[banTeam(draft.first, i, pattern)]}</span>
+              <HeroIcon name={heroes[hero]} size="h-6 w-6" />
+              <select
+                id={`game-${gameIndex}-ban-${i}-hero`}
+                value={hero}
+                onChange={(e) => setHero(i, e.target.value)}
+                className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 min-w-[9rem]"
+              >
+                <option value="">No ban</option>
+                {sortedHeroes.map(([id, name]) => (
+                  <option key={id} value={id} disabled={taken.has(id) && id !== hero}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const toForm = (series, pattern) => ({
   team_a: series.team_a || '',
   team_b: series.team_b || '',
   vod: series.vod || '',
   games: (series.games?.length ? series.games : [{}]).map((g) => ({
     match_id: g.match_id != null && g.match_id > 0 ? String(g.match_id) : '',
-    team_a_side: g.team_a_side ?? '',
     forfeit: Boolean(g.forfeit),
-    winner: g.winner || '',
+    unavailable: Boolean(g.unavailable),
+    placeholder_id: g.placeholder_id ?? null,
+    // Older games were saved without a pick; fall back to the result already in stats.
+    winner: g.winner || g.result || '',
     vod: g.vod || '',
+    bans: toBanForm(g.bans, pattern),
     ingested: Boolean(g.ingested),
   })),
   dq: series.outcome?.type === 'dq'
@@ -351,7 +493,7 @@ function CheckLine({ check, teamA, teamB }) {
   const c = check.data;
   const winnerName = c.winner === 'team_a' ? teamA : c.winner === 'team_b' ? teamB : null;
   const sideText =
-    c.team_a_side == null ? `Couldn't tell sides from known players; pick below.` : `${teamA || 'Team A'} on ${c.team_a_side === 0 ? 'Amber' : 'Sapphire'}`;
+    c.team_a_side == null ? `Couldn't guess the winner from known players.` : `${teamA || 'Team A'} on ${c.team_a_side === 0 ? 'Amber' : 'Sapphire'}`;
   const weak = c.known.team_a + c.known.team_b < 4;
   return (
     <div
@@ -363,7 +505,7 @@ function CheckLine({ check, teamA, teamB }) {
       {winnerName && (
         <>
           {' '}
-          · <b>{winnerName} won</b>
+          · Looks like <b>{winnerName} won</b>
         </>
       )}
       {formatDuration(c.duration_s) && ` · ${formatDuration(c.duration_s)}`}
@@ -373,14 +515,15 @@ function CheckLine({ check, teamA, teamB }) {
 }
 
 function SeriesEditor({ event, series, onSaved }) {
-  const [form, setForm] = useState(() => toForm(series));
+  const [form, setForm] = useState(() => toForm(series, event.ban_pattern));
   const [checks, setChecks] = useState({});
+  const { heroes, sorted: sortedHeroes } = useHeroes();
   const [saving, setSaving] = useState(false);
   const [job, setJob] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setForm(toForm(series));
+    setForm(toForm(series, event.ban_pattern));
     setChecks({});
     setJob(null);
     setError('');
@@ -402,6 +545,12 @@ function SeriesEditor({ event, series, onSaved }) {
       try {
         const data = await api('/check', { method: 'POST', body: JSON.stringify({ match_id: matchId, team_a: teamA, team_b: teamB }) }, 'Check failed');
         setChecks((c) => ({ ...c, [i]: { data: data.check } }));
+        if (data.check.winner) {
+          setForm((f) => ({
+            ...f,
+            games: f.games.map((g, idx) => (idx === i && !g.winner ? { ...g, winner: data.check.winner } : g)),
+          }));
+        }
       } catch (err) {
         setChecks((c) => ({ ...c, [i]: { error: err.message } }));
       }
@@ -418,10 +567,12 @@ function SeriesEditor({ event, series, onSaved }) {
         vod: form.vod,
         games: form.games.map((g) => ({
           match_id: g.forfeit ? null : g.match_id,
-          team_a_side: g.team_a_side === '' ? null : Number(g.team_a_side),
           forfeit: g.forfeit,
-          winner: g.forfeit ? g.winner : undefined,
+          unavailable: g.unavailable,
+          placeholder_id: g.placeholder_id,
+          winner: g.winner,
           vod: g.vod,
+          bans: banPayload(g.bans, event.ban_pattern),
         })),
         outcome: form.dq ? { type: 'dq', ...form.dq } : null,
       };
@@ -492,14 +643,25 @@ function SeriesEditor({ event, series, onSaved }) {
                     id={`game-${i}-id`}
                     value={g.match_id}
                     onChange={(e) => setGame(i, { match_id: e.target.value.trim() })}
-                    onBlur={(e) => e.target.value && runCheck(i, e.target.value.trim())}
+                    onBlur={(e) => e.target.value && !g.unavailable && runCheck(i, e.target.value.trim())}
                     disabled={g.forfeit}
                     className={`${inputCls} font-mono flex-1 min-w-[9rem] w-auto`}
-                    placeholder={g.forfeit ? 'Forfeit, no ID' : 'Match ID'}
+                    placeholder={g.forfeit ? 'Forfeit, no ID' : g.unavailable ? 'Match ID if known (optional)' : 'Match ID'}
                     inputMode="numeric"
                   />
+                  <label className="text-xs text-gray-300 flex items-center gap-1" title="Played, but the API can't fetch it (e.g. a private lobby). Counts with your winner pick, without match stats.">
+                    <input
+                      type="checkbox"
+                      checked={g.unavailable}
+                      onChange={(e) => {
+                        setGame(i, { unavailable: e.target.checked, forfeit: false });
+                        if (e.target.checked) setChecks((c) => ({ ...c, [i]: null }));
+                      }}
+                    />
+                    N/A (private)
+                  </label>
                   <label className="text-xs text-gray-300 flex items-center gap-1">
-                    <input type="checkbox" checked={g.forfeit} onChange={(e) => setGame(i, { forfeit: e.target.checked })} />
+                    <input type="checkbox" checked={g.forfeit} onChange={(e) => setGame(i, { forfeit: e.target.checked, unavailable: false })} />
                     Forfeit
                   </label>
                   {form.games.length > 1 && (
@@ -514,31 +676,54 @@ function SeriesEditor({ event, series, onSaved }) {
                 </div>
                 {checks[i]?.loading && <div className="text-xs text-gray-400">Checking…</div>}
                 <CheckLine check={checks[i]?.loading ? null : checks[i]} teamA={teamA} teamB={teamB} />
-                {g.ingested && !checks[i] && <div className="text-xs text-gray-500">In stats. Change the ID to replace it; the old match is removed on save.</div>}
-                {g.forfeit ? (
-                  <select id={`game-${i}-winner`} value={g.winner} onChange={(e) => setGame(i, { winner: e.target.value })} className={`${inputCls} w-auto`}>
-                    <option value="">Who won the forfeit?</option>
-                    <option value="team_a">{teamA || 'Team A'}</option>
-                    <option value="team_b">{teamB || 'Team B'}</option>
-                  </select>
-                ) : (
-                  <select
-                    id={`game-${i}-side`}
-                    value={g.team_a_side}
-                    onChange={(e) => setGame(i, { team_a_side: e.target.value })}
-                    className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300"
-                  >
-                    <option value="">Sides: detect from known players</option>
-                    <option value="0">{teamA || 'Team A'} on Amber</option>
-                    <option value="1">{teamA || 'Team A'} on Sapphire</option>
-                  </select>
+                {g.unavailable && (
+                  <div className="text-xs rounded border-l-2 border-yellow-500 bg-yellow-900/20 px-2 py-1 text-yellow-100">
+                    Not fetched from the API. Saved with your winner pick only, so it counts in the score and standings but has no player stats.
+                  </div>
                 )}
+                {g.ingested && !checks[i] && !g.unavailable && !g.forfeit && (
+                  <div className="text-xs text-gray-500">In stats. Change the ID to replace it; the old match is removed on save.</div>
+                )}
+                <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={`Game ${i + 1} winner`}>
+                  <span className="text-xs text-gray-400">{g.forfeit ? 'Who won the forfeit?' : g.unavailable ? 'Who won? (required for N/A)' : 'Who won?'}</span>
+                  {[
+                    ['team_a', teamA || 'Team A'],
+                    ['team_b', teamB || 'Team B'],
+                  ].map(([slot, name]) => (
+                    <button
+                      key={slot}
+                      id={`game-${i}-winner-${slot}`}
+                      type="button"
+                      role="radio"
+                      aria-checked={g.winner === slot}
+                      onClick={() => setGame(i, { winner: slot })}
+                      className={`text-xs px-2.5 py-1 rounded border ${
+                        g.winner === slot
+                          ? 'border-emerald-400 bg-emerald-900/40 text-emerald-100'
+                          : 'border-gray-700 bg-gray-900 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                <BanDraft
+                  key={`${series.id}-${i}`}
+                  gameIndex={i}
+                  draft={g.bans}
+                  pattern={event.ban_pattern}
+                  onChange={(bans) => setGame(i, { bans })}
+                  heroes={heroes}
+                  sortedHeroes={sortedHeroes}
+                  teamA={teamA}
+                  teamB={teamB}
+                />
               </div>
             </div>
           );
         })}
         {form.games.length < series.best_of && (
-          <button type="button" onClick={() => setForm((f) => ({ ...f, games: [...f.games, { match_id: '', team_a_side: '', forfeit: false, winner: '', vod: '' }] }))} className={btnGhost}>
+          <button type="button" onClick={() => setForm((f) => ({ ...f, games: [...f.games, { match_id: '', forfeit: false, unavailable: false, placeholder_id: null, winner: '', vod: '', bans: toBanForm() }] }))} className={btnGhost}>
             + Add game
           </button>
         )}
@@ -623,6 +808,285 @@ function SeriesEditor({ event, series, onSaved }) {
 }
 
 // ---------------------------------------------------------------------------
+// Edit event
+// ---------------------------------------------------------------------------
+
+const BEST_OF_CHOICES = [1, 3, 5, 7];
+
+const toEventForm = (event) => ({
+  title: event.title || '',
+  ban_pattern: event.ban_pattern || DEFAULT_BAN_PATTERN,
+  week: event.week ?? '',
+  region: event.region || '',
+  rounds: (event.rounds || []).map((r) => ({ round: r.round, name: r.name || '', best_of: r.best_of || 1 })),
+  // Only stored team slots are editable; fed ones come from an earlier round's winner.
+  teams: Object.fromEntries(
+    (event.series || []).map((s) => [s.id, { team_a: s.fed_a ? null : s.team_a || '', team_b: s.fed_b ? null : s.team_b || '' }]),
+  ),
+});
+
+function EventEditor({ event, onChanged, onClose }) {
+  const [form, setForm] = useState(() => toEventForm(event));
+  const [newRound, setNewRound] = useState(() => ({
+    name: 'Qualifiers',
+    best_of: 3,
+    team_a: event.series?.find((s) => s.round === 1)?.team_b || '',
+    team_b: '',
+  }));
+  const [busy, setBusy] = useState(false);
+  const [job, setJob] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setForm(toEventForm(event));
+  }, [event]);
+
+  const roundName = (n) => form.rounds.find((r) => r.round === n)?.name || `Round ${n}`;
+  const firstSeries = event.series?.find((s) => s.round === 1);
+  const firstPlayed = Boolean(firstSeries?.games?.length);
+  const played = (event.series || []).filter((s) => (s.games || []).length);
+  const gameCount = played.reduce((n, s) => n + s.games.length, 0);
+  const series = [...(event.series || [])].sort(
+    (a, b) => a.round - b.round || a.id.localeCompare(b.id, undefined, { numeric: true }),
+  );
+  const setTeam = (id, slot, value) =>
+    setForm((f) => ({ ...f, teams: { ...f.teams, [id]: { ...f.teams[id], [slot]: value } } }));
+  const setRound = (n, patch) =>
+    setForm((f) => ({ ...f, rounds: f.rounds.map((r) => (r.round === n ? { ...r, ...patch } : r)) }));
+
+  const run = async (fn) => {
+    setError('');
+    setBusy(true);
+    try {
+      await fn();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = () =>
+    run(async () => {
+      setJob(null);
+      // Fed slots are null in the form and left out, so they keep advancing automatically.
+      const teams = Object.fromEntries(
+        Object.entries(form.teams).map(([id, t]) => [id, Object.fromEntries(Object.entries(t).filter(([, v]) => v !== null))]),
+      );
+      const data = await api(
+        `/events/${encodeURIComponent(event.id)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            title: form.title,
+            week: form.week,
+            region: form.region,
+            ban_pattern: form.ban_pattern,
+            rounds: form.rounds,
+            teams,
+          }),
+        },
+        'Failed to save event',
+      );
+      if (data.job_id) {
+        const final = await pollJob(data.job_id, setJob);
+        if (final.status === 'error') setError(final.message);
+      } else {
+        setJob({ status: 'done', message: 'Saved. No games to re-import.' });
+      }
+      await onChanged();
+    });
+
+  const addRound = () =>
+    run(async () => {
+      await api(
+        `/events/${encodeURIComponent(event.id)}/rounds`,
+        { method: 'POST', body: JSON.stringify(newRound) },
+        'Failed to add round',
+      );
+      await onChanged();
+    });
+
+  const removeRound = () =>
+    run(async () => {
+      await api(`/events/${encodeURIComponent(event.id)}/rounds/first`, { method: 'DELETE' }, 'Failed to remove round');
+      await onChanged();
+    });
+
+  return (
+    <section className={sectionCls}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Edit event</h2>
+        <button type="button" onClick={onClose} className={btnGhost}>
+          Close
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <label className={labelCls}>
+          <span className="text-gray-300">Title</span>
+          <input id="edit-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className={inputCls} />
+        </label>
+        <label className={labelCls}>
+          <span className="text-gray-300">Week</span>
+          <input
+            id="edit-week"
+            type="number"
+            value={form.week}
+            onChange={(e) => setForm((f) => ({ ...f, week: e.target.value }))}
+            className={inputCls}
+          />
+        </label>
+        <label className={labelCls}>
+          <span className="text-gray-300">Region</span>
+          <input id="edit-region" value={form.region} onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))} className={inputCls} />
+        </label>
+      </div>
+      <div className="max-w-xs space-y-1">
+        <BanPatternSelect id="edit-ban-pattern" value={form.ban_pattern} onChange={(v) => setForm((f) => ({ ...f, ban_pattern: v }))} />
+        <p className="text-xs text-gray-500">Applies to bans saved from now on; saved bans keep their teams.</p>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-xs uppercase tracking-wider text-gray-400">Rounds</h3>
+        {form.rounds.map((r) => (
+          <div key={r.round} className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-mono text-gray-500 w-6">{r.round}</span>
+            <input
+              id={`edit-round-${r.round}-name`}
+              value={r.name}
+              onChange={(e) => setRound(r.round, { name: e.target.value })}
+              className={`${inputCls} w-48`}
+            />
+            <select
+              id={`edit-round-${r.round}-bo`}
+              value={r.best_of}
+              onChange={(e) => setRound(r.round, { best_of: Number(e.target.value) })}
+              className={`${inputCls} w-auto`}
+            >
+              {BEST_OF_CHOICES.map((n) => (
+                <option key={n} value={n}>
+                  Bo{n}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-xs uppercase tracking-wider text-gray-400">Teams</h3>
+        {series.map((s) => (
+          <div key={s.id} className="grid grid-cols-[7rem_1fr_1fr] gap-2 items-center">
+            <span className="text-xs text-gray-400 truncate">
+              {roundName(s.round)} <span className="font-mono text-gray-600">{s.id}</span>
+            </span>
+            {['team_a', 'team_b'].map((slot) =>
+              form.teams[s.id]?.[slot] === null ? (
+                <span key={slot} className="text-xs text-emerald-300 truncate px-1" title="Filled by the winner of the round before">
+                  {s[slot] || 'TBD'} (advanced)
+                </span>
+              ) : (
+                <input
+                  key={slot}
+                  id={`edit-${s.id}-${slot}`}
+                  value={form.teams[s.id]?.[slot] ?? ''}
+                  onChange={(e) => setTeam(s.id, slot, e.target.value)}
+                  className={inputCls}
+                  placeholder="TBD"
+                />
+              ),
+            )}
+          </div>
+        ))}
+      </div>
+
+      {error && <div className="text-sm text-red-300 whitespace-pre-wrap">{error}</div>}
+      {job && (
+        <div
+          className={`text-xs rounded border px-3 py-2 ${
+            job.status === 'error' ? 'border-red-500/50 text-red-200' : 'border-gray-700/60 text-gray-200'
+          }`}
+        >
+          {job.status}: {job.message}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={save} disabled={busy} className={btnPrimary}>
+          {busy ? 'Saving…' : 'Save and re-import'}
+        </button>
+        <span className="text-xs text-gray-500">
+          {played.length
+            ? `Re-imports ${played.length} series (${gameCount} games) so stats and matches.json match these details.`
+            : 'No games yet, so nothing is re-imported.'}
+        </span>
+      </div>
+
+      {event.format === 'gauntlet' && (
+        <div className="rounded-lg border border-gray-700/60 p-3 space-y-3">
+          <h3 className="text-xs uppercase tracking-wider text-gray-400">Add an opening round</h3>
+          <p className="text-xs text-gray-500">
+            Goes before {roundName(1)}. Its winner takes the second slot of {roundName(1)}
+            {firstPlayed ? `, unless ${roundName(1)} is already played: then its teams stay as they are` : ''}.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <input
+              id="new-round-name"
+              value={newRound.name}
+              onChange={(e) => setNewRound((r) => ({ ...r, name: e.target.value }))}
+              className={inputCls}
+              placeholder="Qualifiers"
+            />
+            <select
+              id="new-round-bo"
+              value={newRound.best_of}
+              onChange={(e) => setNewRound((r) => ({ ...r, best_of: Number(e.target.value) }))}
+              className={inputCls}
+            >
+              {BEST_OF_CHOICES.map((n) => (
+                <option key={n} value={n}>
+                  Bo{n}
+                </option>
+              ))}
+            </select>
+            <input
+              id="new-round-team-a"
+              value={newRound.team_a}
+              onChange={(e) => setNewRound((r) => ({ ...r, team_a: e.target.value }))}
+              className={inputCls}
+              placeholder="Team A"
+            />
+            <input
+              id="new-round-team-b"
+              value={newRound.team_b}
+              onChange={(e) => setNewRound((r) => ({ ...r, team_b: e.target.value }))}
+              className={inputCls}
+              placeholder="Team B"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={addRound} disabled={busy} className={btnGhost}>
+              + Add round
+            </button>
+            {form.rounds.length > 1 && (
+              <button
+                type="button"
+                onClick={removeRound}
+                disabled={busy || firstPlayed}
+                title={firstPlayed ? 'The first round has games' : ''}
+                className="text-xs px-3 py-2 rounded border border-red-500/40 text-red-300 hover:bg-red-700/20 disabled:opacity-50"
+              >
+                Remove {roundName(1)}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -632,6 +1096,7 @@ export function BracketAdmin() {
   const [event, setEvent] = useState(null);
   const [selectedId, setSelectedId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
 
   const loadEvents = useCallback(async () => {
@@ -668,6 +1133,7 @@ export function BracketAdmin() {
   useEffect(() => {
     loadEvent(eventId);
     setSelectedId('');
+    setEditing(false);
   }, [eventId, loadEvent]);
 
   const selected = event?.series?.find((s) => s.id === selectedId) || null;
@@ -692,9 +1158,14 @@ export function BracketAdmin() {
           <h1 className="text-2xl font-bold text-white">Brackets</h1>
           <p className="text-sm text-gray-400 mt-1">Create an event from a format, then add match IDs and VODs per series as they finish.</p>
         </div>
-        <a href="/admin/matches" className={btnGhost}>
-          Bulk submit / edit matches
-        </a>
+        <div className="flex gap-2">
+          <a href="/admin/brackets/view" className={btnGhost}>
+            View submitted data
+          </a>
+          <a href="/admin/matches" className={btnGhost}>
+            Bulk submit / edit matches
+          </a>
+        </div>
       </div>
 
       {error && (
@@ -720,6 +1191,11 @@ export function BracketAdmin() {
         <button type="button" onClick={() => setCreating(true)} className={btnGhost}>
           + New event
         </button>
+        {event && !creating && !editing && (
+          <button type="button" onClick={() => { setEditing(true); setSelectedId(''); }} className={btnGhost}>
+            Edit event
+          </button>
+        )}
         {event && !creating && (
           confirmDelete ? (
             <span className="flex items-center gap-2 text-xs text-gray-300">
@@ -741,6 +1217,7 @@ export function BracketAdmin() {
 
       {creating ? (
         <CreateEvent
+          defaultBanPattern={events[0]?.ban_pattern}
           onCancel={events.length ? () => setCreating(false) : null}
           onCreated={async (ev) => {
             setCreating(false);
@@ -758,9 +1235,20 @@ export function BracketAdmin() {
               {event.region ? ` · ${event.region}` : ''}
             </h2>
             <p className="text-xs text-gray-400">Click a series to enter its games.</p>
-            <Board event={event} selectedId={selectedId} onSelect={setSelectedId} />
+            <Board event={event} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); setEditing(false); }} />
           </section>
-          {selected ? (
+          {editing ? (
+            <div className="max-w-3xl">
+              <EventEditor
+                event={event}
+                onClose={() => setEditing(false)}
+                onChanged={async () => {
+                  await loadEvent(event.id);
+                  await loadEvents();
+                }}
+              />
+            </div>
+          ) : selected ? (
             <div className="max-w-3xl"><SeriesEditor event={event} series={selected} onSaved={() => loadEvent(event.id)} /></div>
           ) : (
             <section className={`${sectionCls} text-sm text-gray-400`}>Pick a series above to add match IDs, VODs or a disqualification.</section>

@@ -43,16 +43,7 @@ export default function MatchResultsPanel({ brackets, subline }) {
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {series.games.map((game, index) => (
-                  <Link
-                    key={game.match?.match_id ?? index}
-                    to={`/match/${game.match?.match_id}`}
-                    title={`Game ${index + 1} · ${formatDuration(game.match?.duration_s)}`}
-                    className="flex min-h-[30px] items-center gap-2 rounded-full border border-border-light bg-panel px-2.5 text-[12px] text-muted transition-colors hover:border-accent-border-strong hover:bg-accent-bg hover:text-secondary"
-                  >
-                    <span className="font-bold text-secondary">G{index + 1}</span>
-                    <span>{formatDuration(game.match?.duration_s)}</span>
-                    <span className="text-accent-light">↗</span>
-                  </Link>
+                  <GamePill key={game.match?.match_id ?? index} game={game} index={index} />
                 ))}
               </div>
             </div>
@@ -60,5 +51,40 @@ export default function MatchResultsPanel({ brackets, subline }) {
         </div>
       ))}
     </section>
+  );
+}
+
+const PILL =
+  "flex min-h-[30px] items-center gap-2 rounded-full border border-border-light bg-panel px-2.5 text-[12px] text-muted";
+
+/** One game as a link to its match page, or a plain pill when it is not ingested. */
+function GamePill({ game, index }) {
+  const number = game.gameNo ?? index + 1;
+  const duration = formatDuration(game.match?.duration_s);
+  const ingested = Number.isFinite(game.match?.match_id) && game.match?.duration_s != null;
+  const body = (
+    <>
+      <span className="font-bold text-secondary">G{number}</span>
+      <span>{duration}</span>
+      <span className="text-accent-light">↗</span>
+    </>
+  );
+
+  if (!ingested) {
+    return (
+      <span className={`${PILL} opacity-60`} title={`Game ${number} · not ingested yet`}>
+        <span className="font-bold text-secondary">G{number}</span>
+        <span>—</span>
+      </span>
+    );
+  }
+  return (
+    <Link
+      to={`/match/${game.match.match_id}`}
+      title={`Game ${number} · ${duration}`}
+      className={`${PILL} transition-colors hover:border-accent-border-strong hover:bg-accent-bg hover:text-secondary`}
+    >
+      {body}
+    </Link>
   );
 }

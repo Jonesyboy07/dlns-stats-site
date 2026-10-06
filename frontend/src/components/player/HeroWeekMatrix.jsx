@@ -49,7 +49,7 @@ export default function HeroWeekMatrix({ matches = [] }) {
         </span>
       }
     >
-      <div className="flex flex-col gap-0.5 overflow-x-auto [scrollbar-color:rgb(75_85_99)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent">
+      <div className="flex flex-col gap-0.5 scroll-thin overflow-x-auto">
         {rows.map((row) => (
           <div key={row.id} className="grid items-center gap-0.5" style={template}>
             <span className="truncate pl-0.5 text-[12px] text-secondary" title={`${row.label} · ${row.games} games`}>

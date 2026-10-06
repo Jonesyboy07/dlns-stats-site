@@ -52,7 +52,7 @@ function GamesTable({ series, heroes }) {
   const games = series.games || [];
   if (!games.length) return <p className="text-xs text-gray-500">No games entered yet.</p>;
   return (
-    <div className="overflow-x-auto">
+    <div className="scroll-thin overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs uppercase tracking-wider text-gray-500">
@@ -292,7 +292,7 @@ export function BracketView() {
 
           <details className={sectionCls}>
             <summary className="cursor-pointer text-sm text-gray-300">Raw data (as computed from brackets.json and the DB)</summary>
-            <pre className="text-xs text-gray-300 overflow-x-auto max-h-[32rem]">{JSON.stringify(event, null, 2)}</pre>
+            <pre className="scroll-thin text-xs text-gray-300 overflow-x-auto max-h-[32rem]">{JSON.stringify(event, null, 2)}</pre>
           </details>
         </>
       )}

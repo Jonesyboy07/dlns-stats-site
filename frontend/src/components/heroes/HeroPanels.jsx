@@ -440,7 +440,7 @@ export function HeroAbilityBuildPanel({ abilityBuilds, heroName }) {
           </span>
         </div>
 
-        <div className="min-w-0 overflow-x-auto">
+        <div className="scroll-thin min-w-0 overflow-x-auto">
           <div className="flex min-w-[620px] flex-col gap-1.5">
             <div className="grid items-center gap-1 text-[11px] text-dim" style={{ gridTemplateColumns: "150px repeat(16, minmax(28px, 1fr))" }}>
               <span className="pl-1 uppercase tracking-[.05em]">Step</span>

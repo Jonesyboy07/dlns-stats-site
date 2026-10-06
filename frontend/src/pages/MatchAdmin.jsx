@@ -841,7 +841,7 @@ export function MatchAdmin() {
       </div>
 
       <div className="grid md:grid-cols-12 gap-4">
-        <aside className="md:col-span-4 rounded-xl border border-gray-700/60 bg-gray-800/20 p-3 max-h-[70vh] overflow-auto">
+        <aside className="scroll-thin md:col-span-4 rounded-xl border border-gray-700/60 bg-gray-800/20 p-3 max-h-[70vh] overflow-auto">
           {treeLoading && <div className="text-sm text-gray-300">Loading match tree...</div>}
           {treeError && <div className="text-sm text-red-300">{treeError}</div>}
           {!treeLoading && !treeError && matchTree.length === 0 && (

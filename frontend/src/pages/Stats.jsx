@@ -356,7 +356,7 @@ function Stats() {
             Most popular heroes across {selectedSeriesLabel} matches.
           </div>
           {heroSelection.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="scroll-thin overflow-x-auto">
               <table className="w-full border-separate border-spacing-y-2">
                 <thead>
                   <tr className="text-xs uppercase tracking-widest text-gray-500">

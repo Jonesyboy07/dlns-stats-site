@@ -87,6 +87,9 @@ const normalizeRegion = (value) => {
 /** A round is the grand final when its hand-authored title says "final". */
 export const isFinalRound = (round) => /final/i.test(String(round || ""));
 
+/** Slot marker `brackets.json` uses for a team that has not been decided yet. */
+const BYE = "BYE";
+
 /** Which side won a single match: 'a', 'b', or null when undecided. */
 export function matchWinnerSide(match) {
   const winning = match?.winning_team;
@@ -177,6 +180,15 @@ function finalizeSeries(series) {
 
 const compareText = (left, right) => String(left || "").localeCompare(String(right || ""));
 
+/** NA before EU, then anything else alphabetically. */
+const compareRegions = (left, right) => {  const leftIndex = REGION_ORDER.indexOf(left);
+  const rightIndex = REGION_ORDER.indexOf(right);
+  if (leftIndex === -1 && rightIndex === -1) return compareText(left, right);
+  if (leftIndex === -1) return 1;
+  if (rightIndex === -1) return -1;
+  return leftIndex - rightIndex;
+};
+
 /** Team names two series have in common. */
 const sharedTeams = (left, right) =>
   left.teams.filter((team) => right.teams.includes(team));
@@ -187,6 +199,10 @@ function compareGames(left, right) {
   if (leftTime !== rightTime) return compareText(leftTime, rightTime);
   return (left.match?.match_id || 0) - (right.match?.match_id || 0);
 }
+
+/** A hero's appearances, in the order the games were played. */
+const compareHeroGames = (left, right) =>
+  (left.matchId || 0) - (right.matchId || 0) || (left.gameNo || 0) - (right.gameNo || 0);
 
 /**
  * Build one bracket per region: the semifinal column plus, when the week has
@@ -200,14 +216,7 @@ export function buildRegionBrackets(seriesList) {
     byRegion.get(series.region).push(series);
   }
 
-  const regions = [...byRegion.keys()].sort((left, right) => {
-    const leftIndex = REGION_ORDER.indexOf(left);
-    const rightIndex = REGION_ORDER.indexOf(right);
-    if (leftIndex === -1 && rightIndex === -1) return compareText(left, right);
-    if (leftIndex === -1) return 1;
-    if (rightIndex === -1) return -1;
-    return leftIndex - rightIndex;
-  });
+  const regions = [...byRegion.keys()].sort(compareRegions);
 
   const brackets = regions.map((region) => {
     const regionSeries = byRegion.get(region).sort((left, right) =>
@@ -272,7 +281,143 @@ export function buildRegionBrackets(seriesList) {
     series.roundLabel = (series.round || "").trim() || (series.isFinal ? finalLabel : semiLabel);
   }
 
+  /* Give the derived brackets the same shape as an authored one, so the layout
+     and the header only ever deal with rounds. */
+  for (const bracket of brackets) {
+    bracket.rounds = [
+      { name: semiLabel, bestOf: null, series: bracket.semis },
+      ...(bracket.final ? [{ name: finalLabel, bestOf: null, series: [bracket.final] }] : []),
+    ].filter((round) => round.series.length > 0);
+  }
+
   return brackets;
+}
+
+/**
+ * Build one bracket per region for the week page.
+ *
+ * `authored` is the `brackets` array from `/db/nightshift/<week>`: the week's
+ * events from `data/brackets.json`, already scored and advanced by the bracket
+ * builder. That file is the source of truth for how many rounds an event has and
+ * which series feed which, so with it the page shows the rounds an admin
+ * authored instead of inferring a semifinal/final split from feed titles.
+ *
+ * Without it — a database with no `brackets.json` beside it, or a week the file
+ * does not cover — the bracket is derived from the match rows as before.
+ */
+export function buildBrackets(matches, authored) {
+  const events = (authored || []).filter((event) => (event?.series || []).length > 0);
+  if (events.length === 0) return buildRegionBrackets(buildSeries(matches));
+
+  const byMatchId = new Map();
+  for (const match of matches || []) {
+    const id = Number(match?.match_id);
+    if (Number.isFinite(id)) byMatchId.set(id, match);
+  }
+
+  return events
+    .map((event) => authoredBracket(event, byMatchId))
+    .filter((bracket) => bracket.series.length > 0)
+    .sort((left, right) => compareRegions(left.name, right.name));
+}
+
+/** One region's bracket from one event of `data/brackets.json`. */
+function authoredBracket(event, byMatchId) {
+  const region = normalizeRegion(event?.region) || "Other";
+  const authoredRounds = [...(event?.rounds || [])].sort(
+    (left, right) => (left?.round ?? 0) - (right?.round ?? 0),
+  );
+  const lastRound = authoredRounds.length > 0 ? authoredRounds[authoredRounds.length - 1]?.round : null;
+
+  const rounds = authoredRounds
+    .map((round) => ({
+      name: String(round?.name || "").trim() || `Round ${round?.round ?? ""}`.trim(),
+      bestOf: round?.best_of ?? null,
+      series: (event?.series || [])
+        .filter((entry) => entry?.round === round?.round)
+        .map((entry) =>
+          authoredSeries(entry, region, round, round?.round === lastRound, byMatchId),
+        ),
+    }))
+    .filter((round) => round.series.length > 0);
+
+  const series = rounds.flatMap((round) => round.series);
+  series.forEach((entry, index) => {
+    entry.key = `${region}-${index}`;
+  });
+
+  const teams = [];
+  for (const entry of series) {
+    for (const team of entry.teams) if (!teams.includes(team)) teams.push(team);
+  }
+
+  /* A gauntlet's champion is the winner of its last round's only series, which is
+     the series `regionOutcome` treats as the final. A final still waiting on a
+     feeder has no winner, and stays null. */
+  const last = rounds[rounds.length - 1];
+  const finalSeries = last && last.series.length === 1 ? last.series[0] : null;
+  const champ = finalSeries
+    ? finalSeries.winnerTeam
+    : series.length > 0
+      ? series[series.length - 1].winnerTeam
+      : null;
+
+  return { name: region, rounds, series, final: finalSeries, teams, champ, authored: true };
+}
+
+/**
+ * One series of an authored bracket, joined to the week's ingested match rows so
+ * the games carry durations, players and bans. A bracket game whose match has not
+ * been ingested yet keeps a stub so the card still counts it.
+ */
+function authoredSeries(entry, region, round, isFinal, byMatchId) {
+  const games = (entry?.games || []).map((game, index) => {
+    const matchId = Number(game?.match_id);
+    const match = byMatchId.get(matchId) || { match_id: matchId };
+    return {
+      match,
+      gameNo: game?.game ?? index + 1,
+      winner:
+        game?.winner === "team_a"
+          ? "a"
+          : game?.winner === "team_b"
+            ? "b"
+            : matchWinnerSide(match),
+    };
+  });
+  /* The authored order is authoritative: a game whose match has not been
+     ingested yet has no start time, and would otherwise sort to the front. */
+  games.sort((left, right) => left.gameNo - right.gameNo);
+
+  const teamA = entry?.team_a || null;
+  const teamB = entry?.team_b || null;
+  const winner = entry?.winner === "team_a" ? "a" : entry?.winner === "team_b" ? "b" : null;
+
+  return {
+    key: null,
+    id: entry?.id || null,
+    region,
+    round: round?.name || null,
+    roundLabel: String(round?.name || "").trim() || null,
+    isFinal,
+    bestOf: entry?.best_of ?? round?.best_of ?? null,
+    status: entry?.status || null,
+    vod: entry?.vod || null,
+    winnerTo: entry?.winner_to || null,
+    teamA,
+    teamB,
+    teams: [teamA, teamB].filter((team) => team && team !== BYE),
+    scoreA: Number(entry?.score_a) || 0,
+    scoreB: Number(entry?.score_b) || 0,
+    winner,
+    winnerTeam: entry?.winner_name || (winner === "a" ? teamA : winner === "b" ? teamB : null),
+    startTime: games.reduce((earliest, game) => {
+      const time = game.match?.start_time || null;
+      if (!time) return earliest;
+      return !earliest || time < earliest ? time : earliest;
+    }, null),
+    games,
+  };
 }
 
 /** The most common authored stage title in a group of series, or null. */
@@ -294,23 +439,50 @@ function pickRoundTitle(seriesList) {
 }
 
 /**
- * Column labels for the bracket header, taken from the week's authored stage
- * titles (so "Challenger" / "Finals" rather than invented names).
+ * Column labels for the bracket header, one per round, taken from the authored
+ * stage names (`brackets.json`) so a week reads "Challenger" / "Finals" rather
+ * than invented labels. A round left blank in one region borrows the name the
+ * other region authored.
  */
 export function roundColumns(brackets) {
-  const weekSeries = (brackets || []).flatMap((bracket) => bracket.series);
-  return [
-    weekSeries.find((series) => !series.isFinal)?.roundLabel || "Semifinals",
-    weekSeries.find((series) => series.isFinal)?.roundLabel || "Grand Final",
-  ];
+  const list = brackets || [];
+  const depth = list.reduce((max, bracket) => Math.max(max, (bracket.rounds || []).length), 0);
+  const columns = [];
+  for (let index = 0; index < depth; index += 1) {
+    const named = mostCommon(list.map((bracket) => (bracket.rounds?.[index]?.name || "").trim()));
+    columns.push(
+      named ||
+        (index === depth - 1 ? "Grand Final" : index === 0 ? "Semifinals" : `Round ${index + 1}`),
+    );
+  }
+  return columns;
+}
+
+/** The most repeated non-blank value, or null. */
+function mostCommon(values) {
+  const counts = new Map();
+  for (const value of values) {
+    if (value) counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  let best = null;
+  let bestCount = 0;
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      best = value;
+      bestCount = count;
+    }
+  }
+  return best;
 }
 
 /**
  * Where each bracket card sits, plus the connector lines between rounds.
  *
- * The 3- and 4-team shapes reproduce the design's hand-tuned geometry exactly;
- * anything else (a week with more than two semifinals, or none) falls back to
- * evenly stacked cards with no connectors, so the card never overflows.
+ * Design 13a's hand-tuned geometry is reproduced exactly for the two shapes it
+ * draws — 3-team (semifinal + grand final) and 4-team (two semifinals + grand
+ * final). Anything else, such as an authored gauntlet that runs three rounds,
+ * falls back to a generic layout: one column per round, the first stacked
+ * top-down and each later round centred on the round that feeds it.
  */
 export function bracketLayout(bracket) {
   const CARD_WIDTH = 160;
@@ -319,52 +491,116 @@ export function bracketLayout(bracket) {
   const CARD_HEIGHT = ROW_HEIGHT * 2 + 2;
   const GAP = 24;
 
-  const semiCount = bracket.semis.length;
-  const gfRow = (team) =>
-    bracket.final && bracket.final.teamB === team ? 1 : 0;
-
-  if (bracket.final && semiCount >= 1 && semiCount <= 2) {
-    const two = semiCount === 2;
-    const semiY = two ? [0, 76] : [30];
-    const gfY = two ? 38 : 0;
-    const height = two ? 132 : 86;
-    /* Each connector lands on the grand-final row that the advancing team
-       actually occupies, rather than assuming the design's team order. */
-    const rowY = (row) => (two ? (row === 0 ? 52 : 78) : row === 0 ? 14 : 40);
-    const lines = [];
-    bracket.semis.forEach((series, index) => {
-      const startY = two ? (index === 0 ? 26 : 102) : 57;
-      lines.push(...elbow(CARD_WIDTH, startY, COLUMN_PITCH, rowY(gfRow(series.winnerTeam))));
-    });
-    if (!two) {
-      // The team that sat out the semifinal enters on a plain stub.
-      const byeTeam = gfRow(bracket.semis[0].winnerTeam) === 0 ? bracket.final.teamB : bracket.final.teamA;
-      lines.push({ left: COLUMN_PITCH - 18, top: rowY(gfRow(byeTeam)), width: 18, height: 1 });
-    }
-    const cards = [
-      ...bracket.semis.map((series, index) => ({
-        series,
-        left: 0,
-        top: semiY[index],
-      })),
-      { series: bracket.final, left: COLUMN_PITCH, top: gfY },
-    ];
-    return { width: COLUMN_PITCH + CARD_WIDTH, height, cards, lines };
+  const rounds = (bracket?.rounds || []).filter((round) => (round.series || []).length > 0);
+  if (rounds.length === 0) {
+    return { width: CARD_WIDTH, height: CARD_HEIGHT, cards: [], lines: [] };
   }
 
-  const cards = bracket.series.map((series, index) => ({
-    series,
-    left: index < semiCount ? 0 : COLUMN_PITCH,
-    top: index < semiCount ? index * (CARD_HEIGHT + GAP) : 0,
-  }));
-  const semiHeight =
-    semiCount > 0 ? semiCount * CARD_HEIGHT + (semiCount - 1) * GAP : CARD_HEIGHT;
+  const cards = [];
+  const centres = new Map();
+  const firstRound = rounds[0].series;
+  const lastRound = rounds[rounds.length - 1].series;
+
+  if (rounds.length === 2 && firstRound.length <= 2 && lastRound.length === 1) {
+    const two = firstRound.length === 2;
+    const semiY = two ? [0, 76] : [30];
+    const finalY = two ? 38 : 0;
+    firstRound.forEach((series, index) => {
+      cards.push({ series, left: 0, top: semiY[index] });
+    });
+    cards.push({ series: lastRound[0], left: COLUMN_PITCH, top: finalY });
+    cards.forEach((card) => centres.set(card.series, card.top + CARD_HEIGHT / 2));
+
+    const lines = connectors(rounds, cards, centres, CARD_WIDTH, COLUMN_PITCH);
+    if (!two) {
+      /* The team that sat out the semifinal enters the grand final on a stub, on
+         whichever row the semifinal's winner does not take. */
+      const wonRow = advanceRow(firstRound[0], lastRound[0]);
+      lines.push({
+        left: COLUMN_PITCH - 18,
+        top: finalY + (wonRow === 0 ? 40 : 14),
+        width: 18,
+        height: 1,
+      });
+    }
+    return { width: COLUMN_PITCH + CARD_WIDTH, height: two ? 132 : 86, cards, lines };
+  }
+
+  rounds.forEach((round, roundIndex) => {
+    round.series.forEach((series, index) => {
+      let top;
+      if (roundIndex === 0) {
+        top = index * (CARD_HEIGHT + GAP);
+      } else {
+        const feeders = rounds[roundIndex - 1].series.filter(
+          (feeder) => feeder.winnerTo?.series === series.id,
+        );
+        const pool = feeders.length > 0 ? feeders : rounds[roundIndex - 1].series;
+        const centres_ = pool.map((feeder) => centres.get(feeder)).filter((value) => value !== undefined);
+        top =
+          centres_.length > 0
+            ? centres_.reduce((total, value) => total + value, 0) / centres_.length - CARD_HEIGHT / 2
+            : index * (CARD_HEIGHT + GAP);
+      }
+      cards.push({ series, left: roundIndex * COLUMN_PITCH, top });
+      centres.set(series, top + CARD_HEIGHT / 2);
+    });
+  });
+
+  const stacked = firstRound.length;
   return {
-    width: bracket.final ? COLUMN_PITCH + CARD_WIDTH : CARD_WIDTH,
-    height: Math.max(86, bracket.final ? semiHeight + 34 : semiHeight),
+    width: rounds.length * CARD_WIDTH + (rounds.length - 1) * (COLUMN_PITCH - CARD_WIDTH),
+    height: Math.max(
+      86,
+      CARD_HEIGHT,
+      ...cards.map((card) => card.top + CARD_HEIGHT),
+      stacked > 0 ? stacked * CARD_HEIGHT + (stacked - 1) * GAP : CARD_HEIGHT,
+    ),
     cards,
-    lines: [],
+    lines: connectors(rounds, cards, centres, CARD_WIDTH, COLUMN_PITCH),
   };
+}
+
+/** Right-angled connectors from every card into the round it feeds. */
+function connectors(rounds, cards, centres, cardWidth, pitch) {
+  const topOf = new Map(cards.map((card) => [card.series, card.top]));
+  const lines = [];
+  rounds.forEach((round, roundIndex) => {
+    if (roundIndex === 0) return;
+    const previous = rounds[roundIndex - 1].series;
+    for (const series of round.series) {
+      const targetTop = topOf.get(series);
+      const feeders = previous.filter((feeder) => feeder.winnerTo?.series === series.id);
+      for (const feeder of feeders.length > 0 ? feeders : previous) {
+        lines.push(
+          ...elbow(
+            cardWidth + (roundIndex - 1) * pitch,
+            centres.get(feeder),
+            roundIndex * pitch,
+            targetTop + (advanceRow(feeder, series) === 0 ? 14 : 40),
+          ),
+        );
+      }
+    }
+  });
+  return lines;
+}
+
+/**
+ * Which of a card's two rows the advancing team takes: 0 (team A) or 1 (team B).
+ *
+ * Where the team actually sits wins over the authored `winner_to` hint, because
+ * the hint only ever fills a slot that is still empty — a bracket whose target
+ * teams are both named puts the winner wherever it was authored, regardless of
+ * which slot the link names. The hint is the fallback for a team still to come.
+ */
+function advanceRow(feeder, target) {
+  if (!target || !feeder?.winnerTeam) return 0;
+  if (target.teamA === feeder.winnerTeam) return 0;
+  if (target.teamB === feeder.winnerTeam) return 1;
+  const link = feeder.winnerTo;
+  if (link && link.series === target.id && link.slot) return link.slot === "team_b" ? 1 : 0;
+  return 0;
 }
 
 /** Three rectangles forming a right-angled connector from (x1,y1) to (x2,y2). */
@@ -487,8 +723,8 @@ export function roundName(series) {
 export function scopeGames(scopedSeries) {
   const games = [];
   for (const series of scopedSeries || []) {
-    series.games.forEach((game) => {
-      games.push({ ...game, series });
+    (series.games || []).forEach((game, index) => {
+      games.push({ ...game, gameNo: game.gameNo ?? index + 1, series });
     });
   }
   return games;
@@ -539,29 +775,52 @@ export function buildLeaderboard(scopedGames, statKey) {
 /**
  * Hero picks across the scoped games: one dot per game, green when the picking
  * side won and grey when it lost. Bans are only counted when the data has any.
+ *
+ * Every hero also carries the games it appeared in, which the board shows on
+ * hover so a dot can be traced back to the match behind it.
  */
 export function buildHeroPicks(scopedGames, mode = "picks") {
   const counts = new Map();
   const ensure = (hero) => {
-    if (!counts.has(hero)) counts.set(hero, { hero, won: 0, lost: 0, banned: 0 });
+    if (!counts.has(hero)) counts.set(hero, { hero, won: 0, lost: 0, banned: 0, games: [] });
     return counts.get(hero);
   };
+  const record = (entry, game, match, outcome) => {
+    entry.games.push({
+      matchId: match?.match_id ?? null,
+      durationS: match?.duration_s ?? null,
+      outcome,
+      round: game.series ? roundName(game.series) : null,
+      region: game.series?.region || null,
+      gameNo: game.gameNo ?? null,
+    });
+  };
 
-  for (const { match } of scopedGames || []) {
+  for (const game of scopedGames || []) {
+    const { match } = game;
     const decided = match?.winning_team === 0 || match?.winning_team === 1;
     if (decided) {
       for (const player of match.players || []) {
         const hero = player?.hero_name;
         if (!hero) continue;
         const entry = ensure(hero);
-        if (player.team === match.winning_team) entry.won += 1;
-        else entry.lost += 1;
+        if (player.team === match.winning_team) {
+          entry.won += 1;
+          record(entry, game, match, "won");
+        } else {
+          entry.lost += 1;
+          record(entry, game, match, "lost");
+        }
       }
     }
     // Bans are independent of the result, so they count even without a winner.
     for (const ban of match?.bans || []) {
       const hero = ban?.hero_name;
-      if (hero) ensure(hero).banned += 1;
+      if (hero) {
+        const entry = ensure(hero);
+        entry.banned += 1;
+        record(entry, game, match, "banned");
+      }
     }
   }
 
@@ -577,7 +836,11 @@ export function buildHeroPicks(scopedGames, mode = "picks") {
     return entry.won + entry.lost + entry.banned;
   };
 
-  const rows = entries.map((entry) => ({ ...entry, count: value(entry) }));
+  const rows = entries.map((entry) => ({
+    ...entry,
+    games: [...entry.games].sort(compareHeroGames),
+    count: value(entry),
+  }));
   const highest = Math.max(...rows.map((row) => row.count), 0);
 
   const board = [];

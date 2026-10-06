@@ -17,6 +17,7 @@ from flask import Blueprint, current_app, jsonify, request
 from ..cache import cache
 from dotenv import load_dotenv
 from ..heroes import get_hero_name
+from ..utils import brackets as bk
 from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
@@ -5359,6 +5360,75 @@ def get_team_detail(team_name: str):
         })
 
 
+def _brackets_file_path() -> Path:
+    """`data/brackets.json` sits beside the database, as the bracket blueprint expects."""
+    db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3")).resolve()
+    return db_path.parent / "brackets.json"
+
+
+def _load_brackets_events() -> List[Dict[str, Any]]:
+    try:
+        with _brackets_file_path().open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    events = data.get("events") if isinstance(data, dict) else None
+    return events if isinstance(events, list) else []
+
+
+def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
+    """Authored brackets for one week, computed against the ingested results.
+
+    The structure — rounds, series, advancement — belongs to `data/brackets.json`
+    and the bracket builder that writes it. Scores, winners and the teams fed
+    forward are computed from those games' results by the same helper the admin
+    bracket view uses, so both surfaces always agree.
+
+    Returns an empty list when the file is missing or holds no matching week, so
+    callers can fall back to deriving a bracket from the match rows.
+    """
+    wanted = str(event_title or "").strip().lower()
+    events = [
+        event
+        for event in _load_brackets_events()
+        if str(event.get("title") or "").strip().lower() == wanted
+        and int(event.get("week") or 0) == int(week)
+    ]
+    if not events:
+        return []
+
+    match_ids: List[int] = []
+    for event in events:
+        match_ids.extend(bk.match_ids(event))
+
+    # {match_id: 'team_a' | 'team_b'} — the winning *slot*, which is what the
+    # bracket model advances. Rows without a recorded side stay untold.
+    results: Dict[int, str] = {}
+    if match_ids:
+        placeholders = ",".join("?" * len(match_ids))
+        with get_ro_conn() as conn:
+            cur = conn.execute(
+                f"""
+                SELECT match_id, winning_team, event_team_a_ingame_side
+                FROM matches
+                WHERE match_id IN ({placeholders})
+                """,
+                tuple(match_ids),
+            )
+            for match_id, winning_team, side_a in cur.fetchall():
+                if winning_team is None or side_a is None:
+                    continue
+                results[int(match_id)] = "team_a" if int(winning_team) == int(side_a) else "team_b"
+
+    computed: List[Dict[str, Any]] = []
+    for event in events:
+        payload = bk.compute(event, results)
+        payload["ban_pattern"] = bk.ban_pattern(event)
+        computed.append(payload)
+    computed.sort(key=lambda event: str(event.get("region") or ""))
+    return computed
+
+
 def _nightshift_available_events(conn: sqlite3.Connection) -> List[str]:
     cur = conn.execute(
         """
@@ -5664,6 +5734,7 @@ def nightshift_week(week: int):
             "event_title": event_title,
             "stats": stats,
             "matches": matches,
+            "brackets": _week_brackets(event_title, week),
             "all_weeks": all_weeks,
             "vod_link": vod_link,
             "vod_links": vod_links,

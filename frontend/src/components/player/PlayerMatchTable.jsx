@@ -332,7 +332,7 @@ export default function PlayerMatchTable({
           )}
         </div>
       ) : (
-        <div className={`overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className={`scroll-thin overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
           <div className="min-w-[900px]">
             <div
               className={`${GRID} border-b border-border-light bg-table px-3 py-2 text-[11px] uppercase tracking-[.05em] text-muted`}

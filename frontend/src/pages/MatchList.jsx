@@ -478,7 +478,7 @@ function MatchList() {
             </button>
           </div>
           {showHeroDropdown && heroSuggestions.length > 0 && (
-            <ul className="absolute z-50 w-full mt-1 bg-gray-900 border border-border-light rounded shadow-lg max-h-60 overflow-y-auto">
+            <ul className="scroll-thin absolute z-50 w-full mt-1 bg-gray-900 border border-border-light rounded shadow-lg max-h-60 overflow-y-auto">
               {heroSuggestions.map((h, i) => (
                 <li
                   key={h.id}
@@ -545,7 +545,7 @@ function MatchList() {
             </button>
           </div>
           {showPlayerDropdown && playerSuggestions.length > 0 && (
-            <ul className="absolute z-50 w-full mt-1 bg-gray-900 border border-border-light rounded shadow-lg max-h-60 overflow-y-auto">
+            <ul className="scroll-thin absolute z-50 w-full mt-1 bg-gray-900 border border-border-light rounded shadow-lg max-h-60 overflow-y-auto">
               {playerSuggestions.map((name, i) => (
                 <li
                   key={name}
@@ -569,7 +569,7 @@ function MatchList() {
         {loading ? (
           <LoadingSkeleton variant="table-row" />
         ) : (
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="scroll-thin overflow-x-auto -mx-4 sm:mx-0">
           <table className="w-full min-w-[600px] sm:min-w-0">
             <thead>
               <tr className="border-b border-border-light text-white">

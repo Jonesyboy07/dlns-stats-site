@@ -341,8 +341,7 @@ html.matchlist-theme-dark body {
 }
 
 /* Thin scrollbar for scrollable panels.
-   Mirrors the treatment the hero-usage matrix and roster timeline apply inline
-   (`scrollbar-color: rgb(75 85 99) transparent`, 6px rounded gray-700 thumb). */
+   6px rounded gray-700 thumb that lifts to gray-500 on hover. */
 .scroll-thin {
   scrollbar-width: thin;
   scrollbar-color: rgb(75 85 99) transparent;

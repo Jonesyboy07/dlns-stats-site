@@ -62,6 +62,10 @@ class NightshiftBansRouteTests(unittest.TestCase):
             conn.close()
 
     def test_week_without_a_match_bans_table_returns_no_bans(self):
+        # `db_init` creates the table, so drop it to reach the endpoint's guard
+        # for databases written before bans were tracked.
+        self._write("DROP TABLE match_bans;")
+
         response = self.client.get("/db/nightshift/58?event_title=Night%20Shift")
 
         self.assertEqual(response.status_code, 200)
@@ -70,8 +74,6 @@ class NightshiftBansRouteTests(unittest.TestCase):
     def test_week_returns_bans_ordered_with_resolved_hero_names(self):
         self._write(
             """
-            CREATE TABLE match_bans (match_id INTEGER NOT NULL, ban_order INTEGER NOT NULL,
-                team TEXT NOT NULL, team_name TEXT, hero_id INTEGER NOT NULL);
             INSERT INTO match_bans (match_id, ban_order, team, team_name, hero_id) VALUES
                 (12, 2, 'team_b', 'Pulsar Esports', 7),
                 (12, 1, 'team_a', 'Melee Creeps', 2);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bracketLayout,
+  buildBrackets,
   buildHeroPicks,
   buildLeaderboard,
   buildRegionBrackets,
@@ -338,59 +339,243 @@ describe("round labelling", () => {
         match({ match_id: 2, event_subtitle: null, event_team_a: "Charlie", event_team_b: "Delta" }),
       ]),
     );
-    expect(roundColumns(brackets)).toEqual(["Semifinals", "Grand Final"]);
+    expect(roundColumns(brackets)).toEqual(["Semifinals"]);
     expect(brackets[0].series[0].roundLabel).toBe("Semifinals");
   });
 });
 
 describe("bracketLayout", () => {
   it("centres the grand final between two semifinals", () => {
-    const bracket = {
-      semis: [
-        { key: "NA-0", winnerTeam: "A", teams: ["A", "B"] },
-        { key: "NA-1", winnerTeam: "C", teams: ["C", "D"] },
+    const semis = [
+      { key: "NA-0", winnerTeam: "A", teams: ["A", "B"] },
+      { key: "NA-1", winnerTeam: "C", teams: ["C", "D"] },
+    ];
+    const final = { key: "NA-2", teamA: "A", teamB: "C", teams: ["A", "C"] };
+    const layout = bracketLayout({
+      rounds: [
+        { name: "Challenger", series: semis },
+        { name: "Finals", series: [final] },
       ],
-      final: { key: "NA-2", teamA: "A", teamB: "C", teams: ["A", "C"] },
-    };
-    const layout = bracketLayout(bracket);
+    });
     expect(layout.height).toBe(132);
     expect(layout.cards.map((card) => card.top)).toEqual([0, 76, 38]);
     expect(layout.cards.map((card) => card.left)).toEqual([0, 0, 196]);
   });
 
   it("offsets the single semifinal of a three-team bracket below the final", () => {
-    const bracket = {
-      semis: [{ key: "NA-0", winnerTeam: "B", teams: ["A", "B"] }],
-      final: { key: "NA-1", teamA: "C", teamB: "B", teams: ["C", "B"] },
-    };
-    const layout = bracketLayout(bracket);
+    const semi = { key: "NA-0", winnerTeam: "B", teams: ["A", "B"] };
+    const final = { key: "NA-1", teamA: "C", teamB: "B", teams: ["C", "B"] };
+    const layout = bracketLayout({
+      rounds: [
+        { name: "Challenger", series: [semi] },
+        { name: "Finals", series: [final] },
+      ],
+    });
     expect(layout.height).toBe(86);
     expect(layout.cards.map((card) => card.top)).toEqual([30, 0]);
     // The bye team (C) sits on the final's top row, the semifinal winner (B) below it.
     expect(layout.lines).toContainEqual({ left: 178, top: 14, width: 18, height: 1 });
-    expect(layout.lines[0]).toEqual({ left: 160, top: 57, width: 18, height: 1 });
+    expect(layout.lines[0]).toEqual({ left: 160, top: 56, width: 18, height: 1 });
   });
 
   it("swaps the three-team stubs when the bye team is the bottom row", () => {
-    const bracket = {
-      semis: [{ key: "NA-0", winnerTeam: "B", teams: ["A", "B"] }],
-      final: { key: "NA-1", teamA: "B", teamB: "C", teams: ["B", "C"] },
-    };
-    const layout = bracketLayout(bracket);
+    const semi = { key: "NA-0", winnerTeam: "B", teams: ["A", "B"] };
+    const final = { key: "NA-1", teamA: "B", teamB: "C", teams: ["B", "C"] };
+    const layout = bracketLayout({
+      rounds: [
+        { name: "Challenger", series: [semi] },
+        { name: "Finals", series: [final] },
+      ],
+    });
     expect(layout.lines).toContainEqual({ left: 178, top: 40, width: 18, height: 1 });
-    expect(layout.lines[0]).toEqual({ left: 160, top: 57, width: 18, height: 1 });
+    expect(layout.lines[0]).toEqual({ left: 160, top: 56, width: 18, height: 1 });
     expect(layout.lines[1].top).toBe(14);
   });
 
-  it("stacks cards without connectors when there is no final", () => {
+  it("lands each connector on the row the winner takes, from the authored links", () => {
+    const semi = {
+      key: "NA-0",
+      id: "R1M1",
+      winnerTeam: "B",
+      winnerTo: { series: "R2M1", slot: "team_a" },
+      teams: ["A", "B"],
+    };
+    const final = { key: "NA-1", id: "R2M1", teamA: "B", teamB: "C", teams: ["B", "C"] };
+    const layout = bracketLayout({
+      rounds: [
+        { name: "Challenger", series: [semi] },
+        { name: "Finals", series: [final] },
+      ],
+    });
+    expect(layout.lines[0]).toEqual({ left: 160, top: 56, width: 18, height: 1 });
+    expect(layout.lines[1].top).toBe(14);
+  });
+
+  it("follows where the winner actually sits over the authored link slot", () => {
+    const semi = {
+      key: "NA-0",
+      id: "R1M1",
+      winnerTeam: "A",
+      winnerTo: { series: "R2M1", slot: "team_b" },
+      teams: ["A", "B"],
+    };
+    const final = { key: "NA-1", id: "R2M1", teamA: "A", teamB: "C", teams: ["A", "C"] };
+    const layout = bracketLayout({
+      rounds: [
+        { name: "Challenger", series: [semi] },
+        { name: "Finals", series: [final] },
+      ],
+    });
+    // A won and sits in team_a, so the connector lands on the top row even though
+    // the authored link names team_b.
+    expect(layout.lines).toContainEqual({ left: 178, top: 14, width: 18, height: 1 });
+    expect(layout.lines).toContainEqual({ left: 178, top: 40, width: 18, height: 1 });
+  });
+
+  it("stacks a single round without connectors", () => {
     const semis = [
       { key: "NA-0", winnerTeam: "A", teams: ["A", "B"] },
       { key: "NA-1", winnerTeam: "C", teams: ["C", "D"] },
       { key: "NA-2", winnerTeam: "E", teams: ["E", "F"] },
     ];
-    const layout = bracketLayout({ semis, series: semis, final: null });
+    const layout = bracketLayout({ rounds: [{ name: "Challenger", series: semis }] });
     expect(layout.lines).toHaveLength(0);
     expect(layout.cards.map((card) => card.top)).toEqual([0, 76, 152]);
+    expect(layout.width).toBe(160);
+  });
+
+  it("lays out an authored gauntlet one column per round", () => {
+    const qualifier = {
+      key: "NA-0",
+      id: "R1M1",
+      winnerTeam: "A",
+      winnerTo: { series: "R2M1", slot: "team_b" },
+      teams: ["A", "B"],
+    };
+    const challenger = {
+      key: "NA-1",
+      id: "R2M1",
+      winnerTeam: "C",
+      winnerTo: { series: "R3M1", slot: "team_b" },
+      teams: ["C", "A"],
+    };
+    const final = { key: "NA-2", id: "R3M1", winnerTeam: "C", teams: ["D", "C"] };
+    const layout = bracketLayout({
+      rounds: [
+        { name: "Qualifiers", series: [qualifier] },
+        { name: "Challenger", series: [challenger] },
+        { name: "Finals", series: [final] },
+      ],
+    });
+    expect(layout.cards.map((card) => card.left)).toEqual([0, 196, 392]);
+    expect(layout.cards.map((card) => card.top)).toEqual([0, 0, 0]);
+    expect(layout.width).toBe(552);
+    expect(layout.lines).toHaveLength(6);
+  });
+});
+
+describe("buildBrackets", () => {
+  const authored = {
+    title: "Night Shift",
+    week: 23,
+    region: "NA",
+    format: "gauntlet",
+    rounds: [
+      { round: 1, name: "Challenger", best_of: 1 },
+      { round: 2, name: "Finals", best_of: 3 },
+    ],
+    series: [
+      {
+        id: "R1M1",
+        round: 1,
+        team_a: "No Earnings",
+        team_b: "Bunny with Clock",
+        winner_to: { series: "R2M1", slot: "team_b" },
+        winner: "team_b",
+        winner_name: "Bunny with Clock",
+        score_a: 0,
+        score_b: 1,
+        best_of: 1,
+        status: "done",
+        games: [{ game: 1, match_id: 7, winner: "team_b" }],
+      },
+      {
+        id: "R2M1",
+        round: 2,
+        team_a: "Melee Creeps",
+        team_b: "Bunny with Clock",
+        winner: "team_b",
+        winner_name: "Bunny with Clock",
+        score_a: 0,
+        score_b: 2,
+        best_of: 3,
+        status: "done",
+        games: [
+          { game: 1, match_id: 8, winner: "team_b" },
+          { game: 2, match_id: 9, winner: "team_b" },
+        ],
+      },
+    ],
+  };
+
+  const matches = [
+    match({ match_id: 7, event_team_a: "No Earnings", event_team_b: "Bunny with Clock" }),
+    match({ match_id: 8, event_team_a: "Melee Creeps", event_team_b: "Bunny with Clock" }),
+  ];
+
+  it("uses the authored rounds, scores and advancement", () => {
+    const [na] = buildBrackets(matches, [authored]);
+    expect(na.rounds.map((round) => round.name)).toEqual(["Challenger", "Finals"]);
+    expect(na.series.map((series) => series.key)).toEqual(["NA-0", "NA-1"]);
+    expect(na.final.id).toBe("R2M1");
+    expect(na.champ).toBe("Bunny with Clock");
+    expect(na.series[0].scoreB).toBe(1);
+    expect(na.series[1].games).toHaveLength(2);
+    expect(na.series[1].games[0].match.duration_s).toBe(1800);
+    expect(na.teams).toEqual(["No Earnings", "Bunny with Clock", "Melee Creeps"]);
+  });
+
+  it("keeps a bracket game whose match is not ingested yet", () => {
+    const [na] = buildBrackets(matches, [authored]);
+    expect(na.series[1].games.map((game) => game.match.match_id)).toEqual([8, 9]);
+    expect(na.series[1].games[1].match.duration_s).toBeUndefined();
+  });
+
+  it("drops the BYE slot a gauntlet parks a seed in", () => {
+    const [na] = buildBrackets([], [
+      {
+        ...authored,
+        series: [
+          {
+            ...authored.series[0],
+            id: "R2M1",
+            round: 2,
+            team_a: "BYE",
+            team_b: "Melee Creeps",
+            winner: "team_b",
+            winner_name: "Melee Creeps",
+          },
+        ],
+      },
+    ]);
+    expect(na.series[0].teams).toEqual(["Melee Creeps"]);
+  });
+
+  it("falls back to the match rows when the week has no authored bracket", () => {
+    const brackets = buildBrackets(
+      [
+        match({ match_id: 1, event_subtitle: "Challenger" }),
+        match({
+          match_id: 2,
+          event_subtitle: "Finals",
+          event_team_a: "Melee Creeps",
+          event_team_b: "Pulsar Esports",
+        }),
+      ],
+      [],
+    );
+    expect(brackets[0].authored).toBeUndefined();
+    expect(roundColumns(brackets)).toEqual(["Challenger", "Finals"]);
   });
 });
 
@@ -506,6 +691,44 @@ describe("buildHeroPicks", () => {
       ],
     },
   ]);
+
+  it("records which games a hero appeared in", () => {
+    const scoped = scopeGames([
+      {
+        key: "NA-0",
+        region: "NA",
+        roundLabel: "Challenger",
+        games: [
+          {
+            match: match({
+              match_id: 42,
+              duration_s: 1200,
+              winning_team: 0,
+              players: [player({ account_id: 1, hero_name: "Haze", team: 0 })],
+            }),
+          },
+          {
+            gameNo: 2,
+            match: match({
+              match_id: 43,
+              duration_s: 900,
+              winning_team: 1,
+              players: [player({ account_id: 1, hero_name: "Haze", team: 0 })],
+              bans: [{ hero_name: "Haze" }],
+            }),
+          },
+        ],
+      },
+    ]);
+    const haze = buildHeroPicks(scoped, "picks")
+      .board.flatMap((row) => row.heroes)
+      .find((entry) => entry.hero === "Haze");
+    expect(haze.games).toEqual([
+      { matchId: 42, durationS: 1200, outcome: "won", round: "Challenger", region: "NA", gameNo: 1 },
+      { matchId: 43, durationS: 900, outcome: "lost", round: "Challenger", region: "NA", gameNo: 2 },
+      { matchId: 43, durationS: 900, outcome: "banned", round: "Challenger", region: "NA", gameNo: 2 },
+    ]);
+  });
 
   it("counts a won and a lost pick separately", () => {
     const { board, totalGames, anyBans } = buildHeroPicks(games, "picks");

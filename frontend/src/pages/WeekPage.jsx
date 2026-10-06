@@ -10,9 +10,9 @@ import HeroPicksPanel from "../components/week/HeroPicksPanel";
 import {
   LEADERBOARD_PREVIEW,
   WEEK_STATS,
+  buildBrackets,
   buildHeroPicks,
   buildLeaderboard,
-  buildRegionBrackets,
   buildSeries,
   formatLongDate,
   scopeGames,
@@ -114,11 +114,19 @@ export default function WeekPage() {
     navigate(`/week/${latestWeek}?${eventQuery(eventTitle)}`, { replace: true });
   }, [weekNum, latestWeek, eventTitle, eventQuery, navigate]);
 
+  /* `brackets` is the authored structure from `data/brackets.json` (served with
+     the week) and `seriesList` is the raw match grouping the sidebar and the
+     team chips use. Scoping runs off the bracket series so the panels, the
+     cards and the URL all agree on what a series is. */
   const seriesList = useMemo(() => buildSeries(detail?.matches || []), [detail]);
-  const brackets = useMemo(() => buildRegionBrackets(seriesList), [seriesList]);
+  const brackets = useMemo(
+    () => buildBrackets(detail?.matches || [], detail?.brackets),
+    [detail],
+  );
+  const bracketSeries = useMemo(() => brackets.flatMap((bracket) => bracket.series), [brackets]);
   const selection = useMemo(
-    () => scopeSeries(seriesList, seriesKey, region),
-    [seriesList, seriesKey, region],
+    () => scopeSeries(bracketSeries, seriesKey, region),
+    [bracketSeries, seriesKey, region],
   );
   const games = useMemo(() => scopeGames(selection.series), [selection]);
 
@@ -245,7 +253,7 @@ export default function WeekPage() {
           {loading ? (
             <LoadingSkeleton variant="detail" />
           ) : pageTab === "o" ? (
-            seriesList.length === 0 ? (
+            brackets.length === 0 ? (
               <section className="rounded-xl border border-border-light bg-card px-5 py-16 text-center shadow">
                 <p className="font-valve-oracle text-[18px] text-primary">
                   No matches recorded yet

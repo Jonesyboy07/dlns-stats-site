@@ -325,7 +325,7 @@ export function Board({ event, selectedId, onSelect }) {
   }, [event]);
 
   return (
-    <div className="overflow-x-auto pb-2">
+    <div className="scroll-thin overflow-x-auto pb-2">
       <div className="flex gap-8 items-center min-w-max">
         {(event.rounds || []).map((r) => (
           <div key={r.round} className="space-y-3">

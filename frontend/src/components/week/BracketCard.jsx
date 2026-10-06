@@ -3,10 +3,10 @@ import { bracketLayout, roundColumns, teamInitials } from "../../utils/weekData"
 
 /**
  * BracketCard — one row per region: the region summary on the left and that
- * region's semifinal/grand-final bracket on the right.
+ * region's bracket on the right.
  *
  * Props:
- *   brackets         – per-region brackets from `buildRegionBrackets`
+ *   brackets         – per-region brackets from `buildBrackets`
  *   scopeLabel       – text under "STATS SHOWING"
  *   activeRegion     – 'all' | 'na' | 'eu'
  *   selectedSeries   – the selected series' key, or null
@@ -22,6 +22,15 @@ export default function BracketCard({
   onSelectRegion,
 }) {
   const columns = roundColumns(brackets);
+  /* One grid for the whole card: every region shares the widest bracket, so the
+     round headers sit over the columns they name. */
+  const layouts = (brackets || []).map((bracket) => ({ bracket, layout: bracketLayout(bracket) }));
+  const gridStyle = {
+    gridTemplateColumns: `200px ${layouts.reduce(
+      (widest, entry) => Math.max(widest, entry.layout.width),
+      0,
+    )}px`,
+  };
 
   return (
     <section className="overflow-hidden rounded-xl border border-border-light bg-card shadow">
@@ -43,19 +52,24 @@ export default function BracketCard({
         )}
       </div>
 
-      <div className="grid grid-cols-[200px_356px] gap-x-8 border-t border-border bg-table px-5 py-2">
+      <div
+        className="grid gap-x-8 border-t border-border bg-table px-5 py-2"
+        style={gridStyle}
+      >
         <span className="text-[11px] font-semibold tracking-[.1em] text-dim uppercase">Region</span>
         <div className="flex gap-9">
-          <span className="w-[160px] text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase">
-            {columns[0]}
-          </span>
-          <span className="w-[160px] text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase">
-            {columns[1]}
-          </span>
+          {columns.map((name, index) => (
+            <span
+              key={`${name}-${index}`}
+              className="w-[160px] shrink-0 text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase"
+            >
+              {name}
+            </span>
+          ))}
         </div>
       </div>
 
-      {brackets.map((bracket) => {
+      {layouts.map(({ bracket, layout }) => {
         const regionActive = !selectedSeries && activeRegion === bracket.name.toLowerCase();
         const faded = selectedSeries
           ? bracket.series.some((series) => series.key === selectedSeries)
@@ -66,9 +80,10 @@ export default function BracketCard({
         return (
           <div
             key={bracket.name}
-            className={`grid grid-cols-[200px_356px] items-center gap-8 border-t border-border px-5 py-4 transition-colors ${
+            className={`grid items-center gap-8 border-t border-border px-5 py-4 transition-colors ${
               regionActive ? "bg-accent-bg" : "bg-transparent"
             }`}
+            style={gridStyle}
           >
             <button
               type="button"
@@ -98,7 +113,7 @@ export default function BracketCard({
               style={{ opacity: faded ? (selectedSeries ? 0.4 : 0.35) : 1 }}
             >
               <Bracket
-                bracket={bracket}
+                layout={layout}
                 selectedSeries={selectedSeries}
                 onSelectSeries={onSelectSeries}
               />
@@ -119,9 +134,7 @@ export default function BracketCard({
 const CARD_WIDTH = 160;
 const ROW_HEIGHT = 25;
 
-function Bracket({ bracket, selectedSeries, onSelectSeries }) {
-  const layout = bracketLayout(bracket);
-
+function Bracket({ layout, selectedSeries, onSelectSeries }) {
   return (
     <div className="relative" style={{ width: layout.width, height: layout.height }}>
       {layout.lines.map((line, index) => (
@@ -146,7 +159,9 @@ function Bracket({ bracket, selectedSeries, onSelectSeries }) {
                 onSelectSeries(selected ? null : series.key);
               }
             }}
-            title={`Best of ${series.games.length > 2 ? 3 : 1} · ${series.teamA} ${series.scoreA}–${series.scoreB} ${series.teamB}`}
+            title={`Best of ${series.bestOf || (series.games.length > 2 ? 3 : 1)} · ${
+              series.teamA || "TBD"
+            } ${series.scoreA}–${series.scoreB} ${series.teamB || "TBD"}`}
             className={`absolute cursor-pointer rounded-md border transition-colors hover:border-accent-border-strong ${
               selected ? "border-accent-border-strong bg-accent-bg-strong" : "border-border-light bg-card"
             }`}
@@ -180,7 +195,7 @@ function TeamRow({ name, score, won, first = false }) {
           won ? "font-bold text-primary" : "font-normal text-muted"
         }`}
       >
-        {name}
+        {name || "TBD"}
       </span>
       <span
         className={`grid place-items-center self-stretch bg-input text-[13px] font-bold ${

@@ -149,7 +149,7 @@ export default function QuickSearchWidget() {
         </form>
 
         {showList && (
-          <ul className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-border-light bg-panel shadow-heavy">
+          <ul className="scroll-thin absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-border-light bg-panel shadow-heavy">
             {results.map((result) => (
               <li key={`${result.type}-${result.url}`}>
                 <button

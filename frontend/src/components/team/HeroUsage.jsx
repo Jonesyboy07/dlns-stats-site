@@ -75,7 +75,7 @@ function HeroUsage({ usage, players = [] }) {
           ))}
         </div>
 
-        <div className="min-w-0 flex-1 overflow-x-auto pb-1 [scrollbar-color:rgb(75_85_99)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-600">
+        <div className="flex-1 scroll-thin min-w-0 overflow-x-auto pb-1">
           <div
             className="grid gap-1"
             style={{

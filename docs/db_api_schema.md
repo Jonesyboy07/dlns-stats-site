@@ -280,6 +280,33 @@ Returned fields include all columns from the `players` table and:
 | --- | --- |
 | `persona_name` | string or null |
 
+
+## Route: `/db/matches/<match_id>/deaths`
+
+Returns the recorded death locations for one match, with player metadata for map
+filtering and display.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Query parameters:
+- `team`: optional team filter, `0` or `1`
+- `account_id`: optional player account ID; can be combined with `team`
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `match_id` | integer | Requested match ID |
+| `count` | integer | Number of returned death events |
+| `filters` | object | The normalized `team` and `account_id` filter values, or null |
+| `deaths` | array | Death events ordered by time, then player and death index |
+
+Each death event contains the `player_deaths` fields from `docs/db_schema.md`
+plus `player_slot`, `team`, `hero_id`, and `persona_name`. Position and time
+fields can be null when the source match data did not include them. Invalid
+filter values return `400` with `invalid_team` or `invalid_account_id`.
+
 ## Route: `/db/matches/<match_id>/items`
 
 Returns enriched purchased-item data for each player in a match.

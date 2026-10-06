@@ -1362,6 +1362,62 @@ def item_names():  # type: ignore
     return jsonify(_item_class_names())
 
 
+@bp.get("/matches/<int:match_id>/deaths")
+@cache.cached(timeout=3600, query_string=True)
+def match_deaths(match_id: int):  # type: ignore
+    team_raw = (request.args.get("team") or "").strip()
+    account_raw = (request.args.get("account_id") or "").strip()
+    team = None
+    account_id = None
+
+    if team_raw:
+        try:
+            team = int(team_raw)
+        except ValueError:
+            return jsonify({"error": "invalid_team"}), 400
+        if team not in (0, 1):
+            return jsonify({"error": "invalid_team"}), 400
+
+    if account_raw:
+        try:
+            account_id = int(account_raw)
+        except ValueError:
+            return jsonify({"error": "invalid_account_id"}), 400
+        if account_id <= 0 or account_id > 2**63 - 1:
+            return jsonify({"error": "invalid_account_id"}), 400
+
+    conditions = ["d.match_id = ?"]
+    params: list[int] = [match_id]
+    if team is not None:
+        conditions.append("p.team = ?")
+        params.append(team)
+    if account_id is not None:
+        conditions.append("d.account_id = ?")
+        params.append(account_id)
+
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            "SELECT d.match_id, d.account_id, d.death_index, d.death_time_s, "
+            "d.position_x, d.position_y, d.position_z, d.midpoint_distance_x, "
+            "d.midpoint_distance_y, d.midpoint_distance_z, d.midpoint_distance, "
+            "p.player_slot, p.team, p.hero_id, u.persona_name "
+            "FROM player_deaths d "
+            "LEFT JOIN players p ON p.match_id = d.match_id AND p.account_id = d.account_id "
+            "LEFT JOIN users u ON u.account_id = d.account_id "
+            f"WHERE {' AND '.join(conditions)} "
+            "ORDER BY d.death_time_s IS NULL, d.death_time_s, d.account_id, d.death_index",
+            tuple(params),
+        )
+        deaths = _rows_to_dicts(cur)
+
+    return jsonify({
+        "match_id": match_id,
+        "count": len(deaths),
+        "filters": {"team": team, "account_id": account_id},
+        "deaths": deaths,
+    })
+
+
 @bp.get("/matches/<int:match_id>/timeline")
 @cache.cached(timeout=3600)
 def match_timeline(match_id: int):  # type: ignore

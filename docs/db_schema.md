@@ -1,6 +1,6 @@
 # Database Schema (SQLite)
 
-This project uses a single SQLite database. The schema is created by the `SCHEMA_SQL` block in `main.py`.
+This project uses a single SQLite database. The schema is created by the `SCHEMA_SQL` block in `backend/main.py` and initialized/upgraded when the web app starts.
 
 ## Overview
 

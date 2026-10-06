@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLNS Match Entry Mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Lo-fi wireframe: grey paper, dashed boxes, one accent for "you type here", one for "site fills this" */
+:root{
+  --bg:#f3f4f2; --paper:#ffffff; --ink:#22252a; --muted:#6b7078; --line:#b9bdc3;
+  --you:#2f6fdb; --you-bg:#e7efff; --auto:#2e8a57; --auto-bg:#e3f4ea; --warn:#b5541c; --warn-bg:#fdeee3;
+  --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#17191c; --paper:#20232a; --ink:#e6e8eb; --muted:#9aa0a8; --line:#454a53;
+  --you:#7aa6ff; --you-bg:#1d2a45; --auto:#6fd39b; --auto-bg:#173325; --warn:#f0a070; --warn-bg:#3a2518; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17191c; --paper:#20232a; --ink:#e6e8eb; --muted:#9aa0a8; --line:#454a53;
+  --you:#7aa6ff; --you-bg:#1d2a45; --auto:#6fd39b; --auto-bg:#173325; --warn:#f0a070; --warn-bg:#3a2518; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:24px 64px;display:grid;gap:20px}
+h1{font-size:1.6rem;margin:0;text-wrap:balance}
+h2{font-size:1.15rem;margin:0}
+h3{font-size:.95rem;margin:0}
+p{margin:0;max-width:68ch}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.85rem}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:4px;font-size:.8rem;font-weight:500}
+.chip.you{background:var(--you-bg);color:var(--you)}
+.chip.auto{background:var(--auto-bg);color:var(--auto)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.steps{display:flex;flex-wrap:wrap;gap:8px}
+.steps button{font:inherit;font-size:.9rem;padding:8px 14px;border:1.5px dashed var(--line);background:var(--paper);color:var(--ink);border-radius:6px;cursor:pointer}
+.steps button[aria-selected="true"]{border-style:solid;border-color:var(--ink);font-weight:600}
+.fmtbtn{font:inherit;font-size:.85rem;padding:6px 12px;border:1.5px dashed var(--you);background:var(--paper);color:var(--you);border-radius:6px;cursor:pointer}
+.steps button:focus-visible,.fmtbtn:focus-visible,.fmt button:focus-visible{outline:2px solid var(--you);outline-offset:2px}
+.panel{background:var(--paper);border:1.5px dashed var(--line);border-radius:8px;padding:18px;display:grid;gap:14px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.box{border:1.5px solid var(--line);border-radius:5px;padding:6px 10px;min-height:20px;background:var(--paper);font-size:.9rem}
+.box.you{border-color:var(--you);background:var(--you-bg)}
+.box.auto{border-color:var(--auto);background:var(--auto-bg);color:var(--auto)}
+.box.warn{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.fmt{display:flex;flex-wrap:wrap;gap:8px}
+.fmt button{font:inherit;font-size:.85rem;padding:6px 12px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;cursor:pointer}
+.fmt button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.scroll{overflow-x:auto}
+.bracket{display:flex;gap:28px;align-items:center;min-width:max-content;padding:4px}
+.round{display:grid;gap:12px}
+.round h4{margin:0;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center}
+.series{border:1.5px solid var(--line);border-radius:6px;width:190px;font-size:.85rem;background:var(--paper)}
+.series.sel{border-color:var(--you);box-shadow:0 0 0 2px var(--you-bg)}
+.series .t{display:flex;justify-content:space-between;padding:4px 8px}
+.series .t + .t{border-top:1px solid var(--line)}
+.series .t.win{font-weight:600}
+.series .t.tbd{color:var(--muted);font-style:italic}
+.series .t.auto{color:var(--auto)}
+.series .id{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:2px 8px;border-top:1px dashed var(--line)}
+.more{border:1.5px dashed var(--line);border-radius:6px;width:190px;text-align:center;padding:10px;font-size:.8rem;color:var(--muted)}
+.game{display:grid;grid-template-columns:70px minmax(0,1fr);gap:8px;align-items:start}
+.check{font-size:.8rem;border-left:3px solid var(--auto);padding:4px 10px;background:var(--auto-bg);color:var(--ink);border-radius:0 4px 4px 0}
+.check.bad{border-color:var(--warn);background:var(--warn-bg)}
+table{border-collapse:collapse;font-size:.85rem;width:100%}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+th{font-weight:600;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+td.num{font-family:var(--mono);text-align:right}
+.btn{display:inline-block;padding:7px 14px;border-radius:5px;border:1.5px solid var(--ink);font-size:.85rem;font-weight:600}
+.btn.ghost{border-style:dashed;font-weight:400}
+ol.flow{margin:0;padding-left:20px;display:grid;gap:6px;max-width:68ch}
+.note{font-size:.85rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.diff{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:600px){.diff{grid-template-columns:1fr}}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>DLNS match entry, lo-fi</h1>
+    <p class="muted">A clickable sketch of how adding and fixing matches could work for every tournament format. Example teams and IDs come from <span class="mono">data/matches.json</span>; nothing here is wired up.</p>
+    <div class="legend">
+      <span class="chip you">You type this</span>
+      <span class="chip auto">Site fills this from the API</span>
+      <span class="chip warn">Site flags a problem</span>
+    </div>
+  </header>
+
+  <nav class="steps" role="tablist" aria-label="Steps">
+    <button role="tab" id="tab-1" aria-selected="true" data-step="1">1 · Create event</button>
+    <button role="tab" id="tab-2" aria-selected="false" data-step="2">2 · Enter match IDs</button>
+    <button role="tab" id="tab-3" aria-selected="false" data-step="3">3 · Fix a typo</button>
+    <button role="tab" id="tab-4" aria-selected="false" data-step="4">4 · Weekly shortcut</button>
+  </nav>
+
+  <!-- STEP 1 -->
+  <section class="panel" data-panel="1">
+    <h2>Create event</h2>
+    <p class="muted">Done once, before the night or the tournament starts. The format builds the empty bracket for you.</p>
+    <div class="row">
+      <div class="field" style="flex:2 1 220px"><label for="f-title">Event</label><div id="f-title" class="box you">Night Shift Open 2</div></div>
+      <div class="field" style="flex:1 1 110px"><label for="f-week">Week</label><div id="f-week" class="box auto">58 (last + 1)</div></div>
+      <div class="field" style="flex:1 1 110px"><label for="f-region">Region</label><div id="f-region" class="box you">EU</div></div>
+    </div>
+    <div class="field"><label>Format</label>
+      <div class="fmt" id="fmt-pick">
+        <button aria-pressed="false" data-fmt="gauntlet">Gauntlet</button>
+        <button aria-pressed="true" data-fmt="se">Single elim</button>
+        <button aria-pressed="false" data-fmt="de">Double elim</button>
+        <button aria-pressed="false" data-fmt="rr">Round robin groups</button>
+        <button aria-pressed="false" data-fmt="swiss">Swiss</button>
+      </div>
+    </div>
+    <div class="row" id="fmt-opts"></div>
+    <div class="cols">
+      <div class="field"><label for="f-teams">Teams, in seed order (paste one per line)</label>
+        <div id="f-teams" class="box you mono" style="white-space:pre-line;min-height:140px">Leviathan
+Abrahams
+Buff Enjoyers
+Poppers' Pupils
+Melee Creeps
+Pulsar Esports
+KASTALIA
+Hydra Nation
+…</div>
+      </div>
+      <div class="field"><label>Preview</label>
+        <div class="box auto" id="f-preview" style="min-height:140px"></div>
+      </div>
+    </div>
+    <div class="row"><span class="btn">Create bracket</span><span class="btn ghost">Save as template</span></div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="panel" data-panel="2" hidden>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2>Enter match IDs as series finish</h2>
+      <div class="fmt" id="fmt-view">
+        <button aria-pressed="true" data-fmt="gauntlet">Gauntlet</button>
+        <button aria-pressed="false" data-fmt="se">Single elim (64)</button>
+        <button aria-pressed="false" data-fmt="de">Double elim</button>
+        <button aria-pressed="false" data-fmt="rr">Round robin</button>
+        <button aria-pressed="false" data-fmt="swiss">Swiss</button>
+      </div>
+    </div>
+    <p class="muted" id="view-hint"></p>
+    <div class="cols">
+      <div class="scroll" id="view-board"></div>
+      <div class="panel" style="border-style:solid">
+        <div class="row" style="justify-content:space-between"><h3 id="ed-title">Finals · R2M1</h3><span class="chip auto">Bo3</span></div>
+        <div class="row">
+          <div class="field" style="flex:1 1 120px"><label>Team A</label><div class="box auto" id="ed-a">Leviathan</div></div>
+          <div class="field" style="flex:1 1 120px"><label>Team B</label><div class="box auto" id="ed-b">Buff Enjoyers</div></div>
+        </div>
+        <div class="field"><label>Series VOD</label><div class="box you mono" style="overflow-wrap:anywhere">youtube.com/watch?v=dyx0hiOwAVc</div></div>
+        <div id="games-normal" style="display:grid;gap:14px">
+        <div class="game">
+          <div class="mono">Game 1</div>
+          <div style="display:grid;gap:6px">
+            <div class="box you mono">107356285</div>
+            <div class="check">Leviathan 6/6 known on Amber · Buff Enjoyers 5/6 on Sapphire · <b>Leviathan won</b> · 31:04 · 20:12 UTC</div>
+          </div>
+        </div>
+        <div class="game">
+          <div class="mono">Game 2</div>
+          <div style="display:grid;gap:6px">
+            <div class="box you mono">107363657</div>
+            <div class="check">Sides swapped · <b>Leviathan won</b> · 27:48 · 20:51 UTC</div>
+          </div>
+        </div>
+        <div class="game">
+          <div class="mono">Game 3</div>
+          <div class="box muted">Not needed, series is 2–0</div>
+        </div>
+        </div>
+        <div id="games-dq" style="display:grid;gap:14px" hidden>
+          <div class="game">
+            <div class="mono">Game 1</div>
+            <div style="display:grid;gap:6px">
+              <div class="box you mono">107356285</div>
+              <div class="check"><span class="dq-a">Leviathan</span> 6/6 known on Amber · <span class="dq-b">Buff Enjoyers</span> 5/6 on Sapphire · <b><span class="dq-b">Buff Enjoyers</span> won</b> · 31:04 · 20:12 UTC</div>
+            </div>
+          </div>
+          <div class="panel" style="border-style:solid;border-color:var(--warn);background:var(--warn-bg)">
+            <div class="row" style="justify-content:space-between;align-items:center"><h3 style="color:var(--warn)">Disqualification</h3><span class="chip warn">Overrides game results</span></div>
+            <div class="row">
+              <div class="field" style="flex:1 1 150px"><label>Team disqualified</label><div class="box you"><span class="dq-b">Buff Enjoyers</span></div></div>
+              <div class="field" style="flex:1 1 150px"><label>After game</label><div class="box you">Game 1</div></div>
+            </div>
+            <div class="field"><label>Reason (shown on the site)</label><div class="box you">Ineligible player in Game 1</div></div>
+            <div class="field"><label>Played games</label>
+              <div class="row">
+                <span class="box you">● Keep stats (game shows as played, with a DQ note)</span>
+                <span class="box muted">○ Void (game hidden from stats and records)</span>
+              </div>
+            </div>
+            <div class="field"><label>Series result</label><div class="box auto"><span class="dq-a">Leviathan</span> advances · shown as W–DQ · Game 1 still counts as a <span class="dq-b">Buff Enjoyers</span> win in player stats if kept</div></div>
+          </div>
+          <div class="game">
+            <div class="mono">Game 2–3</div>
+            <div class="box muted">Not played, <span class="dq-b">Buff Enjoyers</span> disqualified</div>
+          </div>
+        </div>
+        <div class="field"><label>Game VOD (optional, defaults to series VOD)</label><div class="box muted">+ add per-game link or timestamp</div></div>
+        <div class="row"><span class="btn">Save series</span><span class="btn ghost">Mark forfeit</span><button class="fmtbtn" id="dq-toggle" type="button" style="border-color:var(--warn);color:var(--warn)">Disqualify a team</button></div>
+        <p class="note">Disqualified after a game? Press <b>Disqualify a team</b>: the played games stay, and you choose who's out and whether their games count.<br>On save: stats fetched from the API, written to the live DB, <span class="mono">matches.json</span> updated, and the winner moves to the next slot. No winner or side fields to fill.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="panel" data-panel="3" hidden>
+    <h2>Fix a typo</h2>
+    <p class="muted">Search any match ID or click a series, change the ID, and see what changes before saving.</p>
+    <div class="row">
+      <div class="field" style="flex:1 1 260px"><label for="s-q">Find match</label><div id="s-q" class="box you mono">1073892640</div></div>
+      <div class="field" style="flex:2 1 300px"><label>Found in</label><div class="box">Night Shift · Week 57 · NA Finals · Poppers' Pupils vs Melee Creeps · Game 2</div></div>
+    </div>
+    <div class="check bad">This ID has 10 digits, every other one has 9. 0 of 12 players are known Night Shift players. Probably a typo.</div>
+    <div class="diff">
+      <div class="panel" style="border-style:solid">
+        <h3>Current</h3>
+        <div class="box warn mono">1073892640</div>
+        <p class="muted" style="font-size:.85rem">Stats rows for this ID: 12 players, 1 match row.</p>
+      </div>
+      <div class="panel" style="border-style:solid">
+        <h3>Replace with</h3>
+        <div class="box you mono">107389264</div>
+        <div class="check">Poppers' Pupils 6/6 · Melee Creeps 6/6 · <b>Poppers' Pupils won</b> · 21:34 UTC</div>
+      </div>
+    </div>
+    <div class="field"><label>Also editable here</label>
+      <div class="row">
+        <span class="box">Team names</span><span class="box">Game label</span><span class="box">Series / game VOD</span><span class="box">Region</span><span class="box">Move to another series</span><span class="box">Forfeit</span>
+      </div>
+    </div>
+    <div class="row"><span class="btn">Replace and refetch</span><span class="btn ghost">Undo last change</span></div>
+    <ol class="flow">
+      <li>Delete the old ID's stats rows in the live DB.</li>
+      <li>Fetch the new ID from the API and insert its stats.</li>
+      <li>Rewrite the entry in <span class="mono">matches.json</span> (with a backup of the previous version).</li>
+      <li>Recompute the series score and redo any bracket advancement it changes.</li>
+    </ol>
+    <p class="note">Today's edit page renames the row and keeps the old stats (<span class="mono">admin.py:1281</span>), so fixing a wrong ID doesn't pull the right match's stats. This flow refetches instead.</p>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="panel" data-panel="4" hidden>
+    <h2>Weekly shortcut for regular Night Shift</h2>
+    <p class="muted">For the usual Challenger → Finals night, skip the bracket screen and paste one line per series.</p>
+    <div class="field"><label for="p-box">Paste box</label>
+      <div id="p-box" class="box you mono" style="white-space:pre-line">EU Challenger  KASTALIA vs LEVIATHAN       107347490
+EU Finals      ABRAHAMS vs LEVIATHAN       107356285 107363657
+NA Challenger  MELEE CREEPS vs PULSAR ESPORTS  107374334
+NA Finals      POPPERS' PUPILS vs MELEE CREEPS 107383018 107389264
+VOD  youtube.com/watch?v=W7CoJiNcbdI</div>
+    </div>
+    <div class="field"><label>Parsed into</label>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>Region</th><th>Round</th><th>Team A</th><th>Team B</th><th>Games</th><th>Winner</th><th>Check</th></tr></thead>
+        <tbody>
+          <tr><td>EU</td><td>Challenger</td><td>KASTALIA</td><td>LEVIATHAN</td><td class="num">1</td><td><span class="chip auto">LEVIATHAN</span></td><td><span class="chip auto">OK</span></td></tr>
+          <tr><td>EU</td><td>Finals</td><td>ABRAHAMS</td><td>LEVIATHAN</td><td class="num">2</td><td><span class="chip auto">ABRAHAMS 2–0</span></td><td><span class="chip auto">OK</span></td></tr>
+          <tr><td>NA</td><td>Challenger</td><td>MELEE CREEPS</td><td>PULSAR ESPORTS</td><td class="num">1</td><td><span class="chip auto">MELEE CREEPS</span></td><td><span class="chip auto">OK</span></td></tr>
+          <tr><td>NA</td><td>Finals</td><td>POPPERS' PUPILS</td><td>MELEE CREEPS</td><td class="num">2</td><td><span class="chip auto">1–1?</span></td><td><span class="chip warn">Game 2: team rosters don't match</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="row"><span class="btn">Submit week 58</span><span class="btn ghost">Open as bracket</span></div>
+    <p class="note">Winners in this table are illustrative, not real results.</p>
+  </section>
+</div>
+
+<script>
+const tabs=[...document.querySelectorAll('.steps button')];
+const panels=[...document.querySelectorAll('[data-panel]')];
+tabs.forEach(t=>t.addEventListener('click',()=>{
+  tabs.forEach(x=>x.setAttribute('aria-selected',x===t));
+  panels.forEach(p=>p.hidden=p.dataset.panel!==t.dataset.step);
+}));
+
+let quals=true;
+const gRounds=()=>quals?['Qualifiers','Challenger','Finals']:['Challenger','Finals'];
+function roundsEditor(){
+  const r=gRounds();
+  return `<div class="field" style="flex:1 1 100%"><label>Rounds (winner of each moves up to the next)</label>
+    <div class="row" style="align-items:center">${r.map((n,i)=>`<span class="box you">${n} · ${n==='Finals'?'Bo3':'Bo1'}</span>${i<r.length-1?'<span class="muted">→</span>':''}`).join('')}
+    <button class="qtoggle fmtbtn" type="button">${quals?'− Remove Qualifiers':'+ Add Qualifiers before Challenger'}</button></div></div>`;
+}
+const OPTS={
+  gauntlet:{dyn:true},
+  se:{opts:[['Teams','64'],['Rounds','6 (auto)'],['Best of','Bo1 · Semis Bo3 · Final Bo5'],['Third place','No']],
+    prev:'63 series across 6 rounds:<br>R1 32 · R2 16 · R3 8 · QF 4 · SF 2 · Final 1.<br>Seeds 1–64 placed 1v64, 32v33, …'},
+  de:{opts:[['Teams','16'],['Best of','Bo1 · Grand final Bo5'],['Grand final reset','Yes']],
+    prev:'30 series: upper 15, lower 14, grand final 1 (+ reset).<br>Upper losers drop to the matching lower round.'},
+  rr:{opts:[['Teams','16'],['Groups','4 of 4'],['Best of','Bo1'],['Advance','Top 2 per group → single elim']],
+    prev:'24 series: 6 pairings per group.<br>Standings table per group, then an 8-team playoff stage is created from the top 2.'},
+  swiss:{opts:[['Teams','16'],['Rounds','5'],['Advance at','3 wins'],['Eliminated at','3 losses']],
+    prev:'Round 1 pairings from seeds. Each next round is paired from standings when you press "Pair next round".'}
+};
+let curFmt='se', curView='gauntlet';
+function setFmt(f){
+  document.querySelectorAll('#fmt-pick button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.fmt===f));
+  curFmt=f;
+  if(f==='gauntlet'){
+    const r=gRounds(), n=r.length;
+    document.getElementById('fmt-opts').innerHTML=`<div class="field" style="flex:1 1 150px"><label>Teams</label><div class="box you">${n+1} (champion + ${n} challengers)</div></div>`+roundsEditor();
+    document.getElementById('f-preview').innerHTML=`${n} series per region.<br>`+(quals?'R1M1 Qualifiers → winner plays R2M1 Challenger → winner plays R3M1 Finals vs the defending champion.<br>Need more? Qualifiers can hold several series that feed Challenger.':'R1M1 Challenger → winner joins R2M1 Finals vs the defending champion.');
+    return;
+  }
+  const o=OPTS[f];
+  document.getElementById('fmt-opts').innerHTML=o.opts.map(([k,v])=>`<div class="field" style="flex:1 1 150px"><label>${k}</label><div class="box you">${v}</div></div>`).join('');
+  document.getElementById('f-preview').innerHTML=o.prev;
+}
+document.querySelectorAll('#fmt-pick button').forEach(b=>b.addEventListener('click',()=>setFmt(b.dataset.fmt)));
+setFmt('se');
+
+const S=(id,a,b,cls='',opt={})=>`<div class="series ${opt.sel?'sel':''}">
+  <div class="t ${opt.wa?'win':''} ${a==='TBD'?'tbd':''} ${opt.autoA?'auto':''}"><span>${a}</span><span class="mono">${opt.sa??''}</span></div>
+  <div class="t ${opt.wb?'win':''} ${b==='TBD'?'tbd':''} ${opt.autoB?'auto':''}"><span>${b}</span><span class="mono">${opt.sb??''}</span></div>
+  <div class="id">${id}${opt.note?' · '+opt.note:''}</div></div>`;
+const R=(name,items)=>`<div class="round"><h4>${name}</h4>${items.join('')}</div>`;
+
+const VIEWS={
+  gauntlet:{get hint(){return 'Click a series to enter its games. Each winner is placed into the next round automatically.'+(quals?' Qualifiers is on; toggle it to compare.':'')},
+    get html(){return (quals
+      ? `<div class="bracket">${R('Qualifiers',[S('R1M1','Abrahams','Hydra Nation','',{wa:1,sa:1,sb:0})])}${R('Challenger',[S('R2M1','Buff Enjoyers','Abrahams','',{wa:1,sa:1,sb:0,autoB:1,note:'B from R1M1'})])}${R('Finals',[S('R3M1','Leviathan','Buff Enjoyers','',{sel:1,wa:1,sa:2,sb:0,autoB:1,note:'B from R2M1'})])}</div>`
+      : `<div class="bracket">${R('Challenger',[S('R1M1','Buff Enjoyers','Abrahams','',{wa:1,sa:1,sb:0})])}${R('Finals',[S('R2M1','Leviathan','Buff Enjoyers','',{sel:1,wa:1,sa:2,sb:0,autoB:1,note:'B from R1M1'})])}</div>`)
+      + `<div class="row" style="margin-top:10px"><button class="qtoggle fmtbtn" type="button">${quals?'− Remove Qualifiers':'+ Add Qualifiers before Challenger'}</button></div>`}},
+  se:{hint:'64 teams, 6 rounds. Only played series need input; unplayed slots stay TBD until their feeder finishes. Round 1 collapses to keep the board readable.',
+    html:`<div class="bracket">
+      ${R('Round 1 · 32',[S('R1M1','Leviathan','Seed 64','',{wa:1,sa:1,sb:0}),S('R1M2','Seed 32','Seed 33','',{wa:1,sa:1,sb:0}),'<div class="more">+ 30 more · 28 done, 2 waiting</div>'])}
+      ${R('Round 2 · 16',[S('R2M1','Leviathan','Seed 32','',{sel:1,autoA:1,autoB:1}),'<div class="more">+ 15 more</div>'])}
+      ${R('Round 3 · 8',[S('R3M1','TBD','TBD'),'<div class="more">+ 7 more</div>'])}
+      ${R('QF',[S('QF1','TBD','TBD'),'<div class="more">+ 3 more</div>'])}
+      ${R('SF',[S('SF1','TBD','TBD'),S('SF2','TBD','TBD')])}
+      ${R('Final',[S('F','TBD','TBD','',{note:'Bo5'})])}
+    </div>`},
+  de:{hint:'Same entry panel. The loser of an upper series drops into the lower bracket automatically.',
+    html:`<div style="display:grid;gap:16px">
+      <div class="bracket">${R('Upper R1',[S('U1M1','Leviathan','Hydra Nation','',{wa:1,sa:1,sb:0}),S('U1M2','Abrahams','KASTALIA','',{wa:1,sa:1,sb:0})])}${R('Upper R2',[S('U2M1','Leviathan','Abrahams','',{sel:1,autoA:1,autoB:1})])}${R('Grand final',[S('GF','TBD','TBD','',{note:'Bo5, reset if lower wins'})])}</div>
+      <div class="bracket">${R('Lower R1',[S('L1M1','Hydra Nation','KASTALIA','',{autoA:1,autoB:1,note:'losers of U1M1, U1M2'})])}${R('Lower final',[S('LF','TBD','TBD','',{note:'loser of U2M1 drops here'})])}</div>
+    </div>`},
+  rr:{hint:'No bracket lines. Click a pairing to enter its games; standings update from results.',
+    html:`<div style="display:grid;gap:12px;min-width:0">
+      <h3>Group A</h3>
+      <table><thead><tr><th>Pairing</th><th>Result</th></tr></thead><tbody>
+        <tr><td>Leviathan vs Hydra Nation</td><td class="num">1–0</td></tr>
+        <tr><td>Abrahams vs KASTALIA</td><td class="num">0–1</td></tr>
+        <tr style="outline:2px solid var(--you)"><td>Leviathan vs Abrahams</td><td class="num">enter</td></tr>
+        <tr><td>Hydra Nation vs KASTALIA</td><td class="num">—</td></tr>
+      </tbody></table>
+      <table><thead><tr><th>Team</th><th>W–L</th><th>Game diff</th></tr></thead><tbody>
+        <tr><td>Leviathan</td><td class="num">1–0</td><td class="num">+1</td></tr>
+        <tr><td>KASTALIA</td><td class="num">1–0</td><td class="num">+1</td></tr>
+        <tr><td>Abrahams</td><td class="num">0–1</td><td class="num">−1</td></tr>
+        <tr><td>Hydra Nation</td><td class="num">0–1</td><td class="num">−1</td></tr>
+      </tbody></table></div>`},
+  swiss:{hint:'Enter round 1, then press "Pair next round". The site pairs teams with the same record and avoids rematches.',
+    html:`<div style="display:grid;gap:12px;min-width:0">
+      <table><thead><tr><th>Round 2 · 1–0 pool</th><th>Result</th></tr></thead><tbody>
+        <tr style="outline:2px solid var(--you)"><td>Leviathan vs Abrahams</td><td class="num">enter</td></tr>
+        <tr><td>Buff Enjoyers vs KASTALIA</td><td class="num">—</td></tr>
+      </tbody></table>
+      <table><thead><tr><th>Round 2 · 0–1 pool</th><th>Result</th></tr></thead><tbody>
+        <tr><td>Hydra Nation vs Melee Creeps</td><td class="num">—</td></tr>
+        <tr><td>Pulsar Esports vs Poppers' Pupils</td><td class="num">—</td></tr>
+      </tbody></table>
+      <div class="row"><span class="btn ghost">Pair next round</span><span class="muted" style="font-size:.85rem">Enabled when every round 2 series has a result</span></div></div>`}
+};
+const ED={gauntlet:['Finals','Leviathan','Buff Enjoyers'],se:['Round 2 · R2M1','Leviathan','Seed 32'],de:['Upper R2 · U2M1','Leviathan','Abrahams'],rr:['Group A · Leviathan vs Abrahams','Leviathan','Abrahams'],swiss:['Swiss R2 · Leviathan vs Abrahams','Leviathan','Abrahams']};
+function setView(f){
+  document.querySelectorAll('#fmt-view button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.fmt===f));
+  document.getElementById('view-board').innerHTML=VIEWS[f].html;
+  document.getElementById('view-hint').textContent=VIEWS[f].hint;
+  curView=f;
+  let [t,a,b]=ED[f];
+  if(f==='gauntlet') t='Finals · '+(quals?'R3M1':'R2M1');
+  document.getElementById('ed-title').textContent=t;
+  document.getElementById('ed-a').textContent=a;
+  document.getElementById('ed-b').textContent=b;
+}
+document.querySelectorAll('#fmt-view button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.fmt)));
+setView('gauntlet');
+let dq=false;
+function applyDq(){
+  document.getElementById('games-normal').hidden=dq;
+  document.getElementById('games-dq').hidden=!dq;
+  document.getElementById('dq-toggle').textContent=dq?'Undo disqualification':'Disqualify a team';
+  document.querySelectorAll('.dq-a').forEach(e=>e.textContent=document.getElementById('ed-a').textContent);
+  document.querySelectorAll('.dq-b').forEach(e=>e.textContent=document.getElementById('ed-b').textContent);
+  const sel=document.querySelector('#view-board .series.sel');
+  if(sel&&dq){const t=sel.querySelectorAll('.t');t[0].classList.add('win');t[1].classList.remove('win');
+    t[0].lastElementChild.textContent='W';t[1].lastElementChild.textContent='DQ';
+    t[1].firstElementChild.style.textDecoration='line-through';}
+}
+document.getElementById('dq-toggle').addEventListener('click',()=>{dq=!dq;setView(curView);});
+const _setView=setView;
+setView=function(f){_setView(f);applyDq();};
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.qtoggle'))return;
+  quals=!quals;
+  if(curFmt==='gauntlet')setFmt('gauntlet');
+  if(curView==='gauntlet')setView('gauntlet');
+});
+</script>
+
+</body>
+</html>

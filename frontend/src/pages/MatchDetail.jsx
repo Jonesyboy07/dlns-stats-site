@@ -189,6 +189,7 @@ function MatchDetail() {
   });
   const [weekMeta, setWeekMeta] = useState(null);
   const [heroes, setHeroes] = useState({});
+  const [bans, setBans] = useState([]);
   const [buildByPlayer, setBuildByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -205,6 +206,7 @@ function MatchDetail() {
     fetchItemNames();
     fetchMatchPlayers();
     fetchAdjacentMatches();
+    fetchBans();
     fetchMatchBuild();
     fetchWeekMeta();
     fetchTimeline();
@@ -291,6 +293,19 @@ function MatchDetail() {
       }
     } catch (err) {
       setFetchErrors((prev) => [...prev, "adjacent matches"]);
+    }
+  };
+
+  // Hero bans entered in the bracket editor; most matches have none.
+  const fetchBans = async () => {
+    try {
+      const response = await fetch(`/db/matches/${matchId}/bans`);
+      if (response.ok) {
+        const data = await response.json();
+        setBans(Array.isArray(data.bans) ? data.bans : []);
+      }
+    } catch {
+      setBans([]);
     }
   };
 
@@ -689,6 +704,8 @@ function MatchDetail() {
         sapphireSouls={sapphireTotalSouls}
         amberKda={amberKda}
         sapphireKda={sapphireKda}
+        amberBans={bans.filter((b) => b.side === 0).map((b) => ({ ...b, name: getHeroName(b.hero_id) }))}
+        sapphireBans={bans.filter((b) => b.side === 1).map((b) => ({ ...b, name: getHeroName(b.hero_id) }))}
       />
 
       {/* Scoreboard */}

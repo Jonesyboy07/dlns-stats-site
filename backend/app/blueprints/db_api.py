@@ -1151,6 +1151,33 @@ def latest_matches_paged():  # type: ignore
         })
 
 
+@bp.get("/matches/<int:match_id>/bans")
+@cache.cached(timeout=30)  # short, so bans saved in the bracket editor show up quickly
+def match_bans(match_id: int):  # type: ignore
+    """Hero bans for one game, in ban order, with the in-game side of the team that banned.
+
+    Bans are stored per event team (team_a / team_b); ``side`` maps that to the match's
+    sides (0 = Amber, 1 = Sapphire) via event_team_a_ingame_side.
+    """
+    with get_ro_conn() as conn:
+        try:
+            rows = conn.execute(
+                "SELECT b.ban_order, b.team, b.team_name, b.hero_id, m.event_team_a_ingame_side "
+                "FROM match_bans b JOIN matches m ON m.match_id = b.match_id "
+                "WHERE b.match_id = ? ORDER BY b.ban_order",
+                (match_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            rows = []  # DB from before match_bans existed
+    bans = []
+    for order, team, team_name, hero_id, team_a_side in rows:
+        side = None
+        if team_a_side in (0, 1):
+            side = int(team_a_side) if team == "team_a" else 1 - int(team_a_side)
+        bans.append({"order": order, "team": team, "team_name": team_name, "hero_id": hero_id, "side": side})
+    return jsonify({"bans": bans})
+
+
 @bp.get("/matches/<int:match_id>/adjacent")
 @cache.cached(timeout=900)
 def match_adjacent(match_id: int):  # type: ignore
@@ -3160,6 +3187,82 @@ def hero_top_players(hero_id: int):
             gp = row["games_played"] or 0
             row["win_rate"] = round(row["wins"] / gp, 4) if gp else 0
         return jsonify({"players": rows})
+
+
+@bp.get("/heroes/<int:hero_id>/bans")
+@cache.cached(timeout=60)  # short, so bans saved in the bracket editor show up quickly
+def hero_bans(hero_id: int):  # type: ignore
+    """Ban stats for one hero, over the games that have a ban draft recorded.
+
+    Rates use "drafted games" (games with at least one ban in match_bans) as the
+    denominator, since older games were played before bans were entered.
+    """
+    empty = {"drafted_games": 0, "bans": 0, "ban_rate": 0.0, "first_bans": 0, "by_order": {}, "by_week": {},
+             "picks": 0, "presence": 0.0, "banner_wins": 0, "banner_win_rate": None,
+             "teams": [], "recent": []}
+    with get_ro_conn() as conn:
+        try:
+            drafted = conn.execute("SELECT COUNT(DISTINCT match_id) FROM match_bans").fetchone()[0] or 0
+        except sqlite3.OperationalError:
+            return jsonify(empty)  # DB from before match_bans existed
+        rows = conn.execute(
+            """
+            SELECT b.match_id, b.ban_order, b.team, b.team_name,
+                   m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.winning_team,
+                   m.event_title, m.event_week, m.start_time
+            FROM match_bans b JOIN matches m ON m.match_id = b.match_id
+            WHERE b.hero_id = ?
+            ORDER BY m.start_time DESC, b.match_id DESC
+            """,
+            (hero_id,),
+        ).fetchall()
+        # Games where the hero was picked, among games that had a ban draft.
+        picks = conn.execute(
+            "SELECT COUNT(DISTINCT p.match_id) FROM players p "
+            "WHERE p.hero_id = ? AND p.match_id IN (SELECT DISTINCT match_id FROM match_bans)",
+            (hero_id,),
+        ).fetchone()[0] or 0
+
+    by_order: Dict[str, int] = {}
+    by_week: Dict[str, int] = {}
+    teams: Dict[str, int] = {}
+    banner_wins = decided = 0
+    recent = []
+    for (mid, order, team, team_name, team_a, team_b, a_side, winning, title, week, start) in rows:
+        by_order[str(order)] = by_order.get(str(order), 0) + 1
+        if week is not None:
+            by_week[str(week)] = by_week.get(str(week), 0) + 1
+        name = team_name or (team_a if team == "team_a" else team_b) or "Unknown"
+        teams[name] = teams.get(name, 0) + 1
+        if a_side in (0, 1) and winning in (0, 1):
+            side = int(a_side) if team == "team_a" else 1 - int(a_side)
+            decided += 1
+            banner_wins += int(int(winning) == side)
+        if len(recent) < 8:
+            recent.append({
+                "match_id": mid,
+                "order": order,
+                "team_name": name,
+                "against": (team_b if team == "team_a" else team_a) or None,
+                "event_title": title,
+                "event_week": week,
+                "start_time": start,
+            })
+    bans = len(rows)
+    return jsonify({
+        "drafted_games": drafted,
+        "bans": bans,
+        "ban_rate": bans / drafted if drafted else 0.0,
+        "first_bans": by_order.get("1", 0),
+        "by_order": by_order,
+        "by_week": by_week,
+        "picks": picks,
+        "presence": (bans + picks) / drafted if drafted else 0.0,
+        "banner_wins": banner_wins,
+        "banner_win_rate": banner_wins / decided if decided else None,
+        "teams": [{"team": t, "bans": n} for t, n in sorted(teams.items(), key=lambda kv: (-kv[1], kv[0]))[:5]],
+        "recent": recent,
+    })
 
 
 @bp.get("/heroes/<int:hero_id>/meta")

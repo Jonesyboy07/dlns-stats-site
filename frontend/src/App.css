@@ -340,6 +340,33 @@ html.matchlist-theme-dark body {
     linear-gradient(180deg, #050507 0%, #09090d 45%, #08080a 100%);
 }
 
+/* Thin scrollbar for scrollable panels.
+   Mirrors the treatment the hero-usage matrix and roster timeline apply inline
+   (`scrollbar-color: rgb(75 85 99) transparent`, 6px rounded gray-700 thumb). */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(75 85 99) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(55 65 81);
+}
+
+.scroll-thin:hover::-webkit-scrollbar-thumb {
+  background: rgb(75 85 99);
+}
+
 /* The only animation the app ships is the loading skeleton's pulse; honour a
    reduced-motion preference by stopping it rather than hiding the loading state. */
 @media (prefers-reduced-motion: reduce) {

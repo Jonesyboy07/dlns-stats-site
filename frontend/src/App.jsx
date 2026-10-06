@@ -24,8 +24,7 @@ const PlayerHeroDetail = lazy(() => import("./pages/PlayerHeroDetail"));
 const Stats = lazy(() => import("./pages/Stats"));
 const TeamsList = lazy(() => import("./pages/TeamsList"));
 const TeamDetail = lazy(() => import("./pages/TeamDetail"));
-const WeekList = lazy(() => import("./pages/WeekList"));
-const WeekDetail = lazy(() => import("./pages/WeekDetail"));
+const WeekPage = lazy(() => import("./pages/WeekPage"));
 const ReactAdmin = lazy(() => import("./pages/ReactAdmin"));
 const SiteBannerAdmin = lazy(() => import("./pages/SiteBannerAdmin"));
 const Community = lazy(() => import("./pages/Community"));
@@ -116,8 +115,8 @@ function App() {
               <Route path="/stats/" element={<Stats />} />
               <Route path="/teams" element={<TeamsList />} />
               <Route path="/team/:teamName" element={<TeamDetail />} />
-              <Route path="/week" element={<WeekList />} />
-              <Route path="/week/:week" element={<WeekDetail />} />
+              <Route path="/week" element={<WeekPage />} />
+              <Route path="/week/:week" element={<WeekPage />} />
               <Route path="/react-admin" element={<ReactAdmin />} />
               <Route path="/react-admin/help-config" element={<SiteBannerAdmin />} />
               <Route path="/react-admin/site-banner" element={<SiteBannerAdmin />} />

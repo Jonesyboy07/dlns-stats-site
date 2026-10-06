@@ -65,10 +65,10 @@ const trendPath = (points) =>
  * The bars carry the volume signal, which is always honest (a count), and render
  * the weeks the hero was not picked as empty — that is what explains the gaps in
  * the line. The line is pooled over the trailing 8 weeks and skipped wherever the
- * window holds fewer than 10 decided games. The ban segment is reserved for the
- * draft feed.
+ * window holds fewer than 10 decided games. The ban segment stacks on top once ban
+ * drafts are recorded (hasBans).
  */
-export function HeroMetaTrendPanel({ weekly = [] }) {
+export function HeroMetaTrendPanel({ weekly = [], hasBans = false }) {
   const rows = weekly ?? [];
   const rolling = rollingWinRate(rows);
   const segments = trendSegments(rolling, rows.length);
@@ -108,11 +108,11 @@ export function HeroMetaTrendPanel({ weekly = [] }) {
             Picks
           </span>
           <span
-            className="flex items-center gap-1.5 text-dim"
-            title="Ban data arrives with the draft feed"
+            className={`flex items-center gap-1.5 ${hasBans ? "" : "text-dim"}`}
+            title={hasBans ? "Bans per week, from recorded ban drafts" : "No ban drafts recorded yet"}
           >
             <span className="h-2.5 w-3 rounded-sm border border-border-light bg-danger/40" />
-            Bans · Adding Soon
+            {hasBans ? "Bans" : "Bans · none yet"}
           </span>
           {delta != null && (
             <span

@@ -80,6 +80,10 @@
     <script type="module" src="{{ url_for('static', filename='react-app/items.js') }}"></script>
   {% elif page == "match_admin" %}
     <script type="module" src="{{ url_for('static', filename='react-app/match_admin.js') }}"></script>
+  {% elif page == "bracket_admin" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/bracket_admin.js') }}"></script>
+  {% elif page == "bracket_view" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/bracket_view.js') }}"></script>
   {% elif page == "site_banner_admin" %}
     <script type="module" src="{{ url_for('static', filename='react-app/site_banner_admin.js') }}"></script>
   {% endif %}

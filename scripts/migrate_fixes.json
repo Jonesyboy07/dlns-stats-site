@@ -1,0 +1,52 @@
+{
+  "_help": [
+    "Hand fixes read by scripts/migrate_brackets.py. They only change how brackets are built;",
+    "matches.json and the database are never written. Teams match ignoring case and order.",
+    "Set \"disabled\": true to keep a fix without using it. Every run lists each fix as applied, disabled or not matched.",
+    "Types:",
+    "  region: move one set to another region           {type, week, teams: [a, b], to}",
+    "  dq:     disqualify a team in one set              {type, week, teams: [a, b], team, after_game, played_games: keep|void, reason}",
+    "  winner: who won one game the DB has no result for {type, match_id, winner}",
+    "  order:  the ladder order, first round first       {type, week, region, sets: [[a, b], [c, d]]}"
+  ],
+  "fixes": [
+    {
+      "type": "dq",
+      "week": 33,
+      "teams": ["Abrahams", "Leviathan"],
+      "team": "Abrahams",
+      "after_game": 1,
+      "played_games": "keep",
+      "reason": "",
+      "why": "Abrahams won the Challenger but were disqualified, so Leviathan played the Finals."
+    },
+    {
+      "type": "region",
+      "week": 43,
+      "teams": ["BIRD WITH CLOCK", "FPS LOUNGE"],
+      "to": "NA",
+      "why": "Labelled EU, but looks like the NA Challenger (FPS Lounge then played Melee Creeps in the NA Finals)."
+    },
+    {
+      "type": "order",
+      "week": 43,
+      "region": "NA",
+      "sets": [["BIRD WITH CLOCK", "FPS LOUNGE"], ["MELEE CREEPS", "FPS LOUNGE"]],
+      "why": "FPS Lounge won both NA sets, so the results fit either order. Melee Creeps were the NA champions, so they waited in the Finals. Needs the region fix above."
+    },
+    {
+      "type": "winner",
+      "match_id": -783717274388,
+      "winner": "GET CANDY",
+      "why": "Week 46 NA Qualifiers game 1: N/A with no result stored. Guess: Get Candy, who played the Challenger.",
+      "disabled": false
+    },
+    {
+      "type": "winner",
+      "match_id": -783717274389,
+      "winner": "GET CANDY",
+      "why": "Week 46 NA Qualifiers game 2: N/A with no result stored. Guess: Get Candy, who played the Challenger.",
+      "disabled": false
+    }
+  ]
+}

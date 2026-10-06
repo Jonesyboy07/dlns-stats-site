@@ -42,6 +42,7 @@ _MATCH_CHILD_TABLES = (
     "player_deaths",
     "player_gold_sources",
     "player_damage_sources",
+    "match_bans",
 )
 
 
@@ -412,13 +413,51 @@ def _upsert_matches_json(
             set_vod_link = (item.get("set_vod_link") or "").strip()
             set_title = (item.get("set_title") or "").strip()
 
-            game_obj = next(
-                (g for g in games if g.get("team_a") == team_a and g.get("team_b") == team_b),
-                None,
-            )
+            # Find the set that already holds this match ID first, so a re-save with
+            # different team casing or order (e.g. from the bracket editor) updates it
+            # instead of adding a second copy of the same match.
+            game_obj = None
+            if match_id is not None:
+                game_obj = next(
+                    (
+                        g for g in games
+                        if any(
+                            m.get("match_id") is not None and int(m.get("match_id", -1)) == match_id
+                            for m in g.get("matches") or []
+                        )
+                    ),
+                    None,
+                )
+            if game_obj is None:
+                game_obj = next(
+                    (g for g in games if g.get("team_a") == team_a and g.get("team_b") == team_b),
+                    None,
+                )
+            if game_obj is None:
+                game_obj = next(
+                    (
+                        g for g in games
+                        if _normalize_name(g.get("team_a")) == _normalize_name(team_a)
+                        and _normalize_name(g.get("team_b")) == _normalize_name(team_b)
+                    ),
+                    None,
+                )
             if game_obj is None:
                 game_obj = {"team_a": team_a, "team_b": team_b, "matches": []}
                 games.append(game_obj)
+            elif (
+                _normalize_name(game_obj.get("team_a")) == _normalize_name(team_b)
+                and _normalize_name(game_obj.get("team_b")) == _normalize_name(team_a)
+                and _normalize_name(team_a) != _normalize_name(team_b)
+            ):
+                # The stored set lists the teams the other way round; keep its order
+                # and flip the side so team_a_side still refers to its team_a.
+                team_a_side = 1 - int(team_a_side)
+                game_obj["team_a"], game_obj["team_b"] = team_b, team_a
+            else:
+                # Same set saved again: take the names as submitted, so a rename or a
+                # casing fix (e.g. from the bracket editor) reaches matches.json.
+                game_obj["team_a"], game_obj["team_b"] = team_a, team_b
 
             if set_vod_link:
                 game_obj["match_vod"] = set_vod_link
@@ -444,12 +483,16 @@ def _upsert_matches_json(
                 existing["team_a_side"] = int(team_a_side)
                 if item.get("forfeit"):
                     existing["forfeit"] = True
+                if item.get("unavailable"):
+                    existing["unavailable"] = True
             else:
                 entry: Dict[str, Any] = {"game": game_label, "team_a_side": int(team_a_side)}
                 if match_id is not None:
                     entry["match_id"] = match_id
                 if item.get("forfeit"):
                     entry["forfeit"] = True
+                if item.get("unavailable"):
+                    entry["unavailable"] = True
                 matches.append(entry)
 
         tmp = matches_path.with_suffix(".json.tmp")
@@ -555,6 +598,8 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                                     "region": set_region,
                                     "set_title": set_title,
                                     "forfeit": is_forfeit,
+                                    # N/A: private or unfetchable match, recorded without API data.
+                                    "unavailable": is_skip and not is_forfeit,
                                 }
                             )
                             continue

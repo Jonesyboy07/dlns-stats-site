@@ -1,6 +1,28 @@
 import { Link } from "react-router-dom";
 import ReplayButton from "./ReplayButton";
 import TeamLogo from "./TeamLogo";
+import HeroIcon from "./HeroIcon";
+
+/** A team's hero bans: small greyed portraits with the ban number, in ban order. */
+function BanStrip({ bans, align = "left" }) {
+  if (!bans?.length) return null;
+  const label = <span className="text-[10px] font-heading font-semibold uppercase tracking-wider text-gray-500">Bans</span>;
+  // Bans read in ban order on both sides; the label sits on the outer edge.
+  return (
+    <div className="flex items-center gap-1.5">
+      {align === "left" && label}
+      {bans.map((b) => (
+        <span key={b.order} className="relative" title={`Ban ${b.order}: ${b.name}`}>
+          <HeroIcon name={b.name} size="h-7 w-7" className="grayscale opacity-70 ring-1 ring-red-500/60" />
+          <span className="absolute -bottom-1 -right-1 text-[9px] leading-none font-bold bg-gray-900 text-red-300 rounded px-0.5">
+            {b.order}
+          </span>
+        </span>
+      ))}
+      {align === "right" && label}
+    </div>
+  );
+}
 
 export default function MatchHeader({
   matchId = "93812686",
@@ -19,6 +41,8 @@ export default function MatchHeader({
   sapphireSouls = 0,
   amberKda = { k: 0, d: 0, a: 0 },
   sapphireKda = { k: 0, d: 0, a: 0 },
+  amberBans = [],
+  sapphireBans = [],
 }) {
   return (
     <div className="w-full bg-panel border border-border rounded-t-lg shadow-lg overflow-hidden">
@@ -123,6 +147,9 @@ export default function MatchHeader({
               <span className="text-orange-400">{amberKda.a}</span>
             </div>
           </div>
+          <div className="ml-auto pr-2">
+            <BanStrip bans={amberBans} align="left" />
+          </div>
         </div>
 
         {/* Center: series games */}
@@ -154,6 +181,9 @@ export default function MatchHeader({
 
         {/* Team B (sapphire / right) */}
         <div className="flex-1 flex items-center justify-end gap-4 min-w-0">
+          <div className="mr-auto pl-2">
+            <BanStrip bans={sapphireBans} align="right" />
+          </div>
           <div className="min-w-0 text-right">
             <div className="flex items-center justify-end gap-2">
               {winner === "sapphire" && <WinBadge />}

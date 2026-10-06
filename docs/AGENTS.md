@@ -1,96 +1,72 @@
-# DLNS Stats Site — Agent Instructions
+# Development guide
 
-DLNS Stats Site is a Flask + React app for Deadlock Night Shift match tracking. See [README.md](README.md) for full project overview.
+This guide summarizes the current repository workflows and conventions for contributors. See the [README](../README.md) for setup and the [project structure](PROJECT_STRUCTURE.md) for the source layout.
 
-## Key Commands
+## Commands
+
+Run commands from the repository root unless noted.
 
 ### Backend
+
 ```bash
-pip install -r requirements.txt
-python debug_web.py          # Dev server (hot-reload, port 5050)
-python wsgi.py               # WSGI entry for production
-start_web.bat / start_web.sh # Production: waitress on port 5050, 12 threads
+python -m pip install -r backend/requirements.txt
+python run.py                 # Local Flask server at 127.0.0.1:5050
+python run_debug.py           # Debug server at 127.0.0.1:5050
+python -m unittest discover -s backend/tests
 ```
 
+For production, `wsgi.py` exposes the Flask app as `wsgi:app`. `scripts/start_web.sh` and `scripts/start_web.bat` build the frontend and run Waitress. See [configuration and operations](CONFIGURATION.md).
+
 ### Frontend
+
 ```bash
 cd frontend
 npm install
-npm run dev          # Vite HMR dev server (port 5173, proxies /db/* → localhost:5050)
-npm run build        # Outputs bundles to public/react-app/
-npm run build:watch  # Watch mode during development
+npm run dev          # Vite development server (port 5173)
+npm run build        # Bundles to ../public/react-app/
+npm run build:watch  # Rebuild on source changes
+npm test             # Run Vitest tests
 ```
 
+The Vite development server proxies backend paths such as `/db`, `/auth`, `/admin`, `/interviews`, `/dlns`, `/public`, and `/static` to port 5050.
+
 ### Data ingestion
+
 ```bash
-python main.py -matchfile matches.json             # Ingest new matches
-python main.py -matchfile matches.json -recheckall true  # Re-ingest all
-python main.py -matchfile matches.json -metasync true    # Re-apply feed metadata (team names, sides, week, VOD) to matches already in the DB. No API calls.
-python main.py -lanebackfill true                 # Populate players.lane from deadlock-api assigned_lane (only visits matches missing lane data)
-python main.py -laneinfer true                    # Populate players.lane_real from match_paths positional inference (corrects lane swaps)
+python backend/main.py -matchfile data/matches.json
+python backend/main.py -matchfile data/matches.json -recheckall true
+python backend/main.py -matchfile data/matches.json -metasync true
+python backend/main.py -db data/dlns.sqlite3 -laneinfer true
 ```
+
+See [data ingestion](INGESTION.md) for the supported input shape, all maintenance options, and wrapper scripts.
 
 ## Architecture
 
-**Hybrid rendering**: Flask serves both Jinja2 templates and React SPAs.
-- **Jinja2** — home, search, profile, static pages. Templates in `templates/`; see `templates/base.html` for the master layout.
-- **React SPA** — matchlist, match detail, players, heroes, items, stats, and admin. Flask serves `templates/react.html` with a `page` variable; React bundles in `public/react-app/` are loaded per-page.
-- **Feature decision**: Use React for interactive pages with filtering/pagination; use Jinja2 for simple renders.
+- **Flask/Jinja:** shared site layout and server-rendered pages use templates in `templates/`.
+- **React:** interactive pages use separate entry points in `frontend/src/entries/`; page components live in `frontend/src/pages/`.
+- **Routes:** Flask blueprints are listed in `backend/app/blueprints/registry.json` and loaded by `backend/app/blueprints/loader.py`.
+- **Database:** SQLite is initialized by the application/ingester. The `/db` API uses read-only connections for query endpoints. Schema details are in [db_schema.md](db_schema.md).
+- **API:** the primary JSON API is in `backend/app/blueprints/db_api.py`; its OpenAPI reference is available at `/api/docs`.
 
-### Backend
+When adding a React page, follow an existing page's pattern: add the entry under `frontend/src/entries/`, include it in `frontend/vite.config.js`, and add or update the matching Flask page route/template as appropriate.
 
-- App factory: `create_app()` in `main_web.py`
-- Blueprints registered from `backend/app/blueprints/registry.json` via `blueprints/loader.py`
-- Primary read API: `blueprints/db_api.py` at prefix `/db`
-- Auth: Discord OAuth2 in `blueprints/auth.py` at `/auth`
-- Caching: `cache.py` wraps Flask-Caching (`SimpleCache` by default); use `@cache.cached(timeout=N)` on GET endpoints
-- Compression: Brotli/gzip via Flask-Compress (enabled automatically)
+## Test locations
 
-### Database
+- Backend: `backend/tests/` (Python `unittest`).
+- Frontend: `frontend/src/**/*.test.js` and `frontend/src/**/*.test.jsx` (Vitest).
 
-- SQLite at `data/dlns.sqlite3` in WAL mode with foreign keys
-- **Always open read-only** using the URI pattern in `blueprints/db_api.py`:
-  ```python
-  uri = f"file:{db_path.as_posix()}?mode=ro&cache=shared"
-  conn = sqlite3.connect(uri, uri=True, timeout=15)
-  ```
-- Schema documented in [docs/db_schema.md](docs/db_schema.md)
-- Key tables: `matches`, `players`, `users`, `user_stats`
-- Indexes: `idx_players_match(match_id)`, `idx_players_account(account_id)`
-
-### Frontend
-
-- **Vite** with multiple entry points (one per feature), not a single SPA
-- Entry files live in `frontend/src/entries/`; pages in `frontend/src/pages/`; shared components in `frontend/src/components/`
-- API client: `frontend/src/api/matchesApi.js` — base URL auto-switches dev/prod via `import.meta.env.DEV`
-- OpenAPI spec: `openapi_spec.json` (v2026.04)
-
-## Conventions
-
-| Area | Convention |
-|------|-----------|
-| React components | PascalCase exports, PascalCase filenames |
-| Blueprint files | `snake_case.py` |
-| Flask routes | lowercase with hyphens/underscores |
-| DB columns | `snake_case` |
-| API response | `jsonify({...})` with column-name keys via `_rows_to_dicts()` |
-| New blueprint | Create in `blueprints/`, register in `main_web.py` `create_app()` |
-| New React page | Add entry in `frontend/src/entries/`, add to `vite.config.js` input, add route in Flask (`blueprints/react_stats.py`) |
-
-## Environment Variables
-
-Required: `SECRET_KEY`, `BASE_URL`, `DB_PATH`, `STEAM_API_KEY`  
-See [README.md](README.md#configure-environment) for the full list of optional vars.
-
-## Important Files
+## Key files
 
 | File | Purpose |
-|------|---------|
-| `main_web.py` | App factory, blueprint registration, config |
-| `blueprints/db_api.py` | All `/db/*` JSON API endpoints |
-| `cache.py` | Shared cache instance |
-| `frontend/vite.config.js` | Bundle entry points and proxy config |
-| `frontend/src/api/matchesApi.js` | Frontend API client |
-| `templates/react.html` | Universal React mount template |
-| `docs/db_schema.md` | Full database schema |
-| `docs/db_api_schema.md` | API schema notes |
+| --- | --- |
+| `run.py` | Local Flask entry point |
+| `run_debug.py` | Debug Flask entry point |
+| `wsgi.py` | WSGI application object |
+| `backend/app/main_web.py` | Flask app factory and configuration |
+| `backend/app/blueprints/registry.json` | Registered blueprint list |
+| `backend/app/blueprints/db_api.py` | Main `/db` JSON API |
+| `frontend/vite.config.js` | Vite entries, build output, dev proxies, and Vitest config |
+| `docs/openapi_spec.json` | Tracked OpenAPI specification |
+| `docs/db_schema.md` | SQLite schema reference |
+| `docs/db_api_schema.md` | `/db` endpoint notes |

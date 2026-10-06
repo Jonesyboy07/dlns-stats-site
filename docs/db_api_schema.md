@@ -1,15 +1,17 @@
 # DB API Schema
 
-This project exposes a read-only JSON API through the `db_api` Flask blueprint.
+The `db_api` Flask blueprint exposes the site's JSON API, primarily under `/db`.
+Most endpoints are read/query endpoints; `/db/help-config` also accepts `POST`
+and `PUT` requests to update help-page configuration.
 
 Base path:
 - `/db`
 
 Notes:
-- All routes below are `GET` routes.
 - Responses are JSON.
-- Most routes are cached server-side for between 20 seconds and 1 day.
+- Most read endpoints are cached server-side; cache durations vary by endpoint.
 - The API reads from the SQLite database at `data/dlns.sqlite3` unless `DB_PATH` overrides it.
+- `/api/docs` serves the interactive API reference; `/api/openapi.json` serves the tracked OpenAPI document.
 
 ## Overview
 

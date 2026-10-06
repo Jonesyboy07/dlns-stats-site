@@ -1,192 +1,113 @@
 # DLNS Stats Site
 
-DLNS Stats Site is a Flask-based web app for Deadlock Night Shift match tracking, player analysis, and community tooling.
+DLNS Stats is a Flask and React application for exploring Deadlock Night Shift matches, players, teams, heroes, and event statistics. Match data is stored in SQLite, with a batch ingester for importing and enriching match records.
 
-It includes:
-- Match ingestion and enrichment pipelines
-- Public web pages for matches, users, and stats
-- Internal and public JSON APIs
-- React-powered sections for match, player, hero, and stats workflows
+## Features
 
-## What This Project Does
+- Server-rendered pages and multi-entry React pages for match, player, hero, team, and stats workflows.
+- JSON endpoints for matches, users, heroes, teams, and statistics.
+- Discord authentication and administrative tools.
+- Replay lookup, persistent replay URL caching, and a periodically refreshed replay index.
+- OpenAPI documentation at `/api/docs` and `/api/openapi.json`.
 
-- Tracks and serves DLNS match and player data from SQLite
-- Resolves hero names and caches external lookups
-- Provides pages for:
-  - Latest matches
-  - Match details
-  - User profiles and match history
-  - Aggregated statistics
-- Exposes API docs through OpenAPI at /api/docs
-- Hosts additional tools:
-  - /dlns
+## Requirements
 
-## Tech Stack
+- Python and pip.
+- Node.js and npm to develop or build the React frontend.
+- A SQLite database. The application creates/upgrades its schema on startup; match data is populated by the ingester.
 
-- Backend: Python + Flask
-- Database: SQLite (default: data/dlns.sqlite3)
-- Frontend: Server-rendered templates + React bundles in static/react-app
-- Caching/Compression: Flask-Caching + Flask-Compress
-
-## Quick Start
-
-### 1) Install dependencies
+## Run locally
 
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -r backend/requirements.txt
+cp .env.example .env             # Windows: copy .env.example .env
 ```
 
-Optional (for rebuilding React bundles):
+Edit `.env` as needed. A Steam API key is needed for match ingestion, not for simply starting the site. See [configuration and operations](docs/CONFIGURATION.md) before enabling external integrations or deploying.
+
+Start the Flask app:
+
+```bash
+python run.py
+```
+
+Open <http://127.0.0.1:5050>. For the Flask debug server, use `python run_debug.py` instead.
+
+### Frontend development
+
+In a second terminal, install the frontend dependencies and start Vite:
 
 ```bash
 cd frontend
 npm install
+npm run dev
 ```
 
-### 2) Configure environment
+Vite serves the frontend on port 5173 and proxies backend requests to the Flask server on port 5050. To produce deployable React bundles instead, run `npm run build`; Vite writes them to `public/react-app/`.
 
-Create a .env file (or set env vars in your host) and configure at minimum:
+## Data ingestion
+
+Match ingestion is a separate command from running the website. Given a match feed in the supported JSON format:
 
 ```bash
-SECRET_KEY=change-me
-BASE_URL=http://localhost:5050
-DB_PATH=./data/dlns.sqlite3
-STEAM_API_KEY=your_steam_api_key
-IMAGE_CDN_BASE=https://cdn.dlns-stats.co.uk/public/images
-VITE_IMAGE_CDN_BASE=https://cdn.dlns-stats.co.uk/public/images
+python backend/main.py -matchfile data/matches.json
 ```
 
-Useful optional vars:
+The ingester tracks checked match IDs in `data/matches_status.json` and skips them by default. To reprocess every match in the feed:
 
 ```bash
-API_LATEST_LIMIT=20
-CACHE_TYPE=SimpleCache
-CACHE_DEFAULT_TIMEOUT=60
-COMPRESS_LEVEL=6
-COMPRESS_BR_LEVEL=5
-FRONTEND_URL=
-IMAGE_CDN_BASE=
-VITE_IMAGE_CDN_BASE=
-TEAM_LOGO_CDN_BASE=
-VITE_TEAM_LOGO_BASE=
-YOUTUBE_URL=
-TWITCH_URL=
-TWITCH_CLIENT_ID=
-TWITCH_CLIENT_SECRET=
-TWITCH_CHANNEL=deadlocknightshift
-KOFI_URL=
-PATREON_URL=
+python backend/main.py -matchfile data/matches.json -recheckall true
 ```
 
-`TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` / `TWITCH_CHANNEL` power the live/offline
-status strip in the site header. Leave the ID and secret blank to skip the check —
-the strip then just links to the channel. Create an app at
-<https://dev.twitch.tv/console/apps> to get a pair.
+For the full option reference, input format, and repository scripts, see [data ingestion](docs/INGESTION.md).
 
-### 3) Ingest data
-
-```bash
-python main.py -matchfile matches.json
-```
-
-By default, the ingester only processes IDs not already marked as checked in `data/matches_status.json`.
-To re-run every ID from the JSON file, use:
-
-```bash
-python main.py -matchfile matches.json -recheckall true
-```
-
-The match ingester uses async workers with `asqlite` for DB writes.
-You can tune worker count (default `4`) with:
-
-```bash
-python main.py -matchfile matches.json -concurrency 6
-```
-
-The match input file is JSON and supports event grouping by week:
-
-```json
-{
-  "title": "Night Shift",
-  "weeks": [
-    { "week": 31, "match_ids": [70457488, 70471960] }
-  ]
-}
-```
-
-### 4) Run the web app
-
-```bash
-python main_web.py
-```
-
-Default local URL:
-
-http://localhost:5050
-
-## Frontend Build (React)
-
-The React app in frontend outputs built files into public/react-app.
-
-```bash
-cd frontend
-npm run build
-```
-
-Use this after changing files in frontend/src.
-
-## Project Layout
+## Project map
 
 ```text
-main.py                 Data ingestion/processing
-main_web.py             Flask app factory and route wiring
-blueprints/             Feature blueprints (db, auth, stats, interviews, etc.)
-templates/              Server-rendered HTML templates
-static/                 Static files and built React bundles
-public/                 Public static files and built React bundles
-frontend/               React source and Vite config
-data/                   SQLite database and runtime data files
-docs/                   Project docs (schema notes, etc.)
+backend/             Flask application, API blueprints, and data ingester
+data/                Tracked source data and runtime database/cache files
+docs/                Project, API, schema, setup, and operations documentation
+frontend/            React source, Vite configuration, and frontend tests
+public/              Public assets and generated React bundles
+scripts/             Build, server-start, data-update, and replay-index scripts
+static/              Legacy/static site assets
+templates/           Flask/Jinja templates
+run.py               Local Flask entry point
+run_debug.py         Flask debug entry point
+wsgi.py              WSGI application entry point
 ```
 
-## Main Routes
+The application factory is `backend/app/main_web.py`; blueprint registration is defined by `backend/app/blueprints/registry.json`. See the [project structure](docs/PROJECT_STRUCTURE.md) and [development guide](docs/AGENTS.md) for more detail.
 
-- / - latest matches
-- /search
-- /matches/<id>
-- /users/<account_id>
-- /stats/
-- /api/docs
-- /api/openapi.json
-- /sitemap.xml
-- /robots.txt
-- /admin/matches - bulk match submit and edit (admin)
-- /admin/brackets/ - bracket builder: create an event from a format, then add match IDs per series (admin). Brackets are stored in `data/brackets.json`; saving a series ingests its games like bulk submit.
+## Routes and API
 
-## API Notes
+The primary JSON API is under `/db`. Site pages include `/`, `/search`, `/matches/<match_id>`, `/users/<account_id>`, `/stats/`, `/help`, and `/community`. Other blueprint routes support authentication, admin functions, interviews, and the DLNS exporter.
 
-Core database APIs are under /db.
+- Interactive API reference: <http://localhost:5050/api/docs>
+- OpenAPI JSON: <http://localhost:5050/api/openapi.json> or [`docs/openapi_spec.json`](docs/openapi_spec.json)
+- Endpoint notes: [`docs/db_api_schema.md`](docs/db_api_schema.md)
+- Database tables: [`docs/db_schema.md`](docs/db_schema.md)
 
-Examples:
-- GET /db/matches/latest
-- GET /db/matches/latest/paged
-- GET /db/matches/<id>/players
-- GET /db/users/<account_id>
-- GET /db/users/<account_id>/stats
+## Tests
 
-## SEO Endpoints
+Run backend tests from the repository root:
 
-- /sitemap.xml is generated dynamically from current site and database content.
-- /robots.txt is generated dynamically and points crawlers to the sitemap.
-- Ensure BASE_URL is set correctly in production so canonical sitemap links are correct.
+```bash
+python -m unittest discover -s backend/tests
+```
 
-## Deployment Notes
+Run frontend tests from `frontend/`:
 
-- Run behind a reverse proxy in production
-- Set BASE_URL to public origin (for sitemap + metadata)
-- Keep SECRET_KEY private
-- Move to managed DB/caching layers if traffic grows
+```bash
+npm test
+```
+
+## Documentation
+
+Start with the [documentation index](docs/README.md). It links to local setup and configuration, data ingestion, development conventions, API details, and the database schema.
 
 ## License
 
-MIT. See LICENSE.
+MIT. See [LICENSE](LICENSE).

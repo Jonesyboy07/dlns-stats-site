@@ -1,15 +1,17 @@
 # DB API Schema
 
-This project exposes a read-only JSON API through the `db_api` Flask blueprint.
+The `db_api` Flask blueprint exposes the site's JSON API, primarily under `/db`.
+Most endpoints are read/query endpoints; `/db/help-config` also accepts `POST`
+and `PUT` requests to update help-page configuration.
 
 Base path:
 - `/db`
 
 Notes:
-- All routes below are `GET` routes.
 - Responses are JSON.
-- Most routes are cached server-side for between 20 seconds and 1 day.
+- Most read endpoints are cached server-side; cache durations vary by endpoint.
 - The API reads from the SQLite database at `data/dlns.sqlite3` unless `DB_PATH` overrides it.
+- `/api/docs` serves the interactive API reference; `/api/openapi.json` serves the tracked OpenAPI document.
 
 ## Overview
 
@@ -279,6 +281,33 @@ Returned fields include all columns from the `players` table and:
 | Extra Field | Type |
 | --- | --- |
 | `persona_name` | string or null |
+
+
+## Route: `/db/matches/<match_id>/deaths`
+
+Returns the recorded death locations for one match, with player metadata for map
+filtering and display.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Query parameters:
+- `team`: optional team filter, `0` or `1`
+- `account_id`: optional player account ID; can be combined with `team`
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `match_id` | integer | Requested match ID |
+| `count` | integer | Number of returned death events |
+| `filters` | object | The normalized `team` and `account_id` filter values, or null |
+| `deaths` | array | Death events ordered by time, then player and death index |
+
+Each death event contains the `player_deaths` fields from `docs/db_schema.md`
+plus `player_slot`, `team`, `hero_id`, and `persona_name`. Position and time
+fields can be null when the source match data did not include them. Invalid
+filter values return `400` with `invalid_team` or `invalid_account_id`.
 
 ## Route: `/db/matches/<match_id>/items`
 

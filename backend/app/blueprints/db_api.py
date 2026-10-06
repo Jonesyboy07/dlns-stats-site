@@ -1383,7 +1383,7 @@ def match_deaths(match_id: int):  # type: ignore
             account_id = int(account_raw)
         except ValueError:
             return jsonify({"error": "invalid_account_id"}), 400
-        if account_id <= 0:
+        if account_id <= 0 or account_id > 2**63 - 1:
             return jsonify({"error": "invalid_account_id"}), 400
 
     conditions = ["d.match_id = ?"]

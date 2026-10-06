@@ -10,10 +10,12 @@ from backend.app.main_web import create_app
 class MatchDeathsRouteTests(unittest.TestCase):
     def setUp(self):
         self._old_db_path = os.environ.get("DB_PATH")
+        self._old_cache_dir = os.environ.get("CACHE_DIR")
         self._old_warmup = os.environ.get("CACHE_WARMUP_ON_STARTUP")
         self.tmpdir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.tmpdir.name) / "dlns.sqlite3"
         os.environ["DB_PATH"] = str(self.db_path)
+        os.environ["CACHE_DIR"] = str(Path(self.tmpdir.name) / "cache")
         os.environ["CACHE_WARMUP_ON_STARTUP"] = "false"
         self.app = create_app()
         self.app.config["TESTING"] = True
@@ -47,6 +49,10 @@ class MatchDeathsRouteTests(unittest.TestCase):
             os.environ.pop("DB_PATH", None)
         else:
             os.environ["DB_PATH"] = self._old_db_path
+        if self._old_cache_dir is None:
+            os.environ.pop("CACHE_DIR", None)
+        else:
+            os.environ["CACHE_DIR"] = self._old_cache_dir
         if self._old_warmup is None:
             os.environ.pop("CACHE_WARMUP_ON_STARTUP", None)
         else:
@@ -86,6 +92,7 @@ class MatchDeathsRouteTests(unittest.TestCase):
             ("team=amber", "invalid_team"),
             ("account_id=abc", "invalid_account_id"),
             ("account_id=0", "invalid_account_id"),
+            ("account_id=9223372036854775808", "invalid_account_id"),
         ):
             with self.subTest(query=query):
                 response = self.client.get(f"/db/matches/123/deaths?{query}")

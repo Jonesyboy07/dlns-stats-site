@@ -73,6 +73,16 @@ Response:
 | `all_weeks` | array of integers | Every week number recorded for the event |
 | `vod_link`, `vod_links`, `series_vods`, `game_vods` | mixed | VOD links from `matches.json` |
 
+`stream_vod` is the whole broadcast, normalised from whichever shape
+`matches.json` recorded it in — early weeks carry a single `vod_link` string,
+later ones a `vod_links` list. It is `null` for the weeks that recorded neither
+(week 38 at the time of writing).
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `url` | string | Link to the full stream |
+| `title` | string | Stream title, empty when the source did not name one |
+
 Each `matches[]` entry includes the event context columns `event_region`
 (`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`) and `match_vod`,
 which the week page uses to build the brackets, leaderboard and picks panels.

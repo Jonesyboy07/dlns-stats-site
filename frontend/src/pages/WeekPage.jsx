@@ -155,6 +155,9 @@ export default function WeekPage() {
      only shown while it is recent, which the endpoint already enforces. */
   const latestUpdate = detail?.latest_update || null;
   const latestHero = detail?.latest_hero || null;
+  /* The whole broadcast's VOD, normalised by the endpoint from whichever shape
+     matches.json recorded it in. */
+  const streamVod = detail?.stream_vod || null;
 
   const patchParams = useCallback(
     (patch) => {
@@ -220,8 +223,25 @@ export default function WeekPage() {
           </p>
         </div>
 
-        {!loading && (latestUpdate || latestHero) && (
+        {!loading && (streamVod || latestUpdate || latestHero) && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {streamVod && (
+              <a
+                href={streamVod.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={streamVod.title || `Watch the whole ${eventTitle} #${weekNum} broadcast`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-border-light bg-panel px-3 py-1.5 text-[12px] font-semibold text-secondary transition-colors hover:bg-hover"
+              >
+                <span aria-hidden="true" className="text-accent-light">
+                  ▶
+                </span>
+                Watch the stream
+                <span aria-hidden="true" className="text-accent-light">
+                  ↗
+                </span>
+              </a>
+            )}
             {latestUpdate && <NewsChip entry={latestUpdate} />}
             {latestHero && <NewsChip entry={latestHero} prefix="New hero" />}
             {latestUpdate?.during_games && (

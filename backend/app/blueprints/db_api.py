@@ -5467,6 +5467,24 @@ def _week_announcements(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
     return news_for_games(games)
 
 
+def _stream_vod(vod_link: Any, vod_links: Any) -> Optional[Dict[str, str]]:
+    """The whole broadcast's VOD, from either shape `matches.json` uses.
+
+    Weeks recorded early carry a single `vod_link` string; later weeks carry a
+    `vod_links` list of `{title, url}`. Both mean the same thing to the page, so
+    they are normalised here rather than making the frontend know about both.
+    """
+    if vod_link:
+        return {"url": str(vod_link), "title": ""}
+    if isinstance(vod_links, list):
+        for entry in vod_links:
+            if isinstance(entry, dict) and entry.get("url"):
+                return {"url": str(entry["url"]), "title": str(entry.get("title") or "")}
+            if isinstance(entry, str) and entry:
+                return {"url": entry, "title": ""}
+    return None
+
+
 def _nightshift_available_events(conn: sqlite3.Connection) -> List[str]:
     cur = conn.execute(
         """
@@ -5777,6 +5795,7 @@ def nightshift_week(week: int):
             "latest_update": announcements["update"],
             "latest_hero": announcements["hero"],
             "all_weeks": all_weeks,
+            "stream_vod": _stream_vod(vod_link, vod_links),
             "vod_link": vod_link,
             "vod_links": vod_links,
             "series_vods": series_vods,

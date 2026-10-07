@@ -1,8 +1,8 @@
-"""Tests for hero bans on the Night Shift week endpoint.
+"""Tests for the Night Shift week endpoint's helpers.
 
-The `match_bans` table is written by the ingester and is absent from databases
-created before bans were tracked, so the endpoint has to degrade to "no bans"
-rather than fail. Both that path and the populated path are covered here.
+The vod helpers normalise the two shapes `matches.json` records the week's
+broadcast in, and `match_bans` may be absent from databases written before bans
+were tracked, so the endpoint has to degrade to "no bans" rather than fail.
 """
 
 import os
@@ -12,7 +12,38 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from backend.app.blueprints.db_api import _stream_vod
 from backend.app.main_web import create_app
+
+
+class StreamVodTests(unittest.TestCase):
+    def test_reads_a_bare_vod_link(self):
+        # Early weeks: a single URL string.
+        self.assertEqual(
+            _stream_vod("https://youtu.be/SVTJahJGYJ0", []),
+            {"url": "https://youtu.be/SVTJahJGYJ0", "title": ""},
+        )
+
+    def test_reads_a_vod_links_entry(self):
+        # Later weeks: a list of {title, url}.
+        self.assertEqual(
+            _stream_vod(None, [{"title": "", "url": "https://www.youtube.com/watch?v=grrTc1ZQIjk"}]),
+            {"url": "https://www.youtube.com/watch?v=grrTc1ZQIjk", "title": ""},
+        )
+
+    def test_prefers_the_bare_link_when_both_are_present(self):
+        chosen = _stream_vod("https://youtu.be/one", [{"url": "https://youtu.be/two"}])
+        self.assertEqual(chosen["url"], "https://youtu.be/one")
+
+    def test_skips_entries_without_a_url(self):
+        chosen = _stream_vod(None, [{"title": "no url"}, {"url": "https://youtu.be/real"}])
+        self.assertEqual(chosen["url"], "https://youtu.be/real")
+
+    def test_is_none_when_the_week_recorded_no_broadcast(self):
+        # Week 38 has neither shape.
+        self.assertIsNone(_stream_vod(None, []))
+        self.assertIsNone(_stream_vod(None, None))
+        self.assertIsNone(_stream_vod("", None))
 
 
 class NightshiftBansRouteTests(unittest.TestCase):

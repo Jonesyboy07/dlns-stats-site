@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { formatDuration, roundName } from "../../utils/weekData";
+import { formatDuration, matchBuild, roundName } from "../../utils/weekData";
 
 /**
  * MatchResultsPanel — every game in scope as a pill linking to its match page.
@@ -62,10 +62,14 @@ function GamePill({ game, index }) {
   const number = game.gameNo ?? index + 1;
   const duration = formatDuration(game.match?.duration_s);
   const ingested = Number.isFinite(game.match?.match_id) && game.match?.duration_s != null;
+  const build = matchBuild(game.match);
+  const hasBuild = build !== null;
+  const title = `Game ${number} · ${duration}${hasBuild ? ` · Deadlock build ${build}` : ""}`;
   const body = (
     <>
       <span className="font-bold text-secondary">G{number}</span>
       <span>{duration}</span>
+      {hasBuild && <span className="text-dim">{build}</span>}
       <span className="text-accent-light">↗</span>
     </>
   );
@@ -79,11 +83,7 @@ function GamePill({ game, index }) {
     );
   }
   return (
-    <Link
-      to={`/match/${game.match.match_id}`}
-      title={`Game ${number} · ${duration}`}
-      className={`${PILL} transition-colors hover:border-accent-border-strong hover:bg-accent-bg hover:text-secondary`}
-    >
+    <Link to={`/match/${game.match.match_id}`} title={title} className={`${PILL} transition-colors hover:border-accent-border-strong hover:bg-accent-bg hover:text-secondary`}>
       {body}
     </Link>
   );

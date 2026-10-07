@@ -17,6 +17,7 @@ import {
   formatLongDate,
   scopeGames,
   scopeSeries,
+  summarizeBuilds,
   summarizeIndexWeek,
 } from "../utils/weekData";
 
@@ -148,6 +149,14 @@ export default function WeekPage() {
   const leaderboard = useMemo(() => buildLeaderboard(games, statKey), [games, statKey]);
   const picks = useMemo(() => buildHeroPicks(games, pbMode), [games, pbMode]);
 
+  /* Which Deadlock build(s) the week was played on, across every game the
+     brackets cover — the authored brackets skip the weeks' synthetic placeholder
+     rows, whose timestamps would otherwise report a phantom mid-week patch. */
+  const builds = useMemo(
+    () => summarizeBuilds(scopeGames(bracketSeries)),
+    [bracketSeries],
+  );
+
   const patchParams = useCallback(
     (patch) => {
       const next = new URLSearchParams(searchParams);
@@ -211,6 +220,28 @@ export default function WeekPage() {
                 } · ${detail.matches?.length ?? 0} games`}
           </p>
         </div>
+
+        {!loading && builds.label && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              title={
+                builds.straddles
+                  ? `These games span Deadlock builds ${builds.min}–${builds.max}, so a patch landed mid-week and the stats below mix two builds.`
+                  : `Every game this week was played on Deadlock build ${builds.min}.`
+              }
+              className={`cursor-help rounded-full border px-3 py-1.5 text-[12px] font-semibold ${
+                builds.straddles
+                  ? "border-accent-border-strong bg-accent-bg-strong text-accent-light"
+                  : "border-border-light bg-panel text-secondary"
+              }`}
+            >
+              {builds.label}
+            </span>
+            {builds.straddles && (
+              <span className="text-[12px] text-muted">patch landed mid-week</span>
+            )}
+          </div>
+        )}
       </header>
 
       <nav className="scroll-thin -mt-1.5 flex gap-7 overflow-x-auto border-b border-border-light">

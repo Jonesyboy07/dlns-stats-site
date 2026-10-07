@@ -74,8 +74,10 @@ Response:
 | `vod_link`, `vod_links`, `series_vods`, `game_vods` | mixed | VOD links from `matches.json` |
 
 Each `matches[]` entry includes the event context columns `event_region`
-(`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`) and `match_vod`,
-which the week page uses to build the brackets, leaderboard and picks panels.
+(`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`), `match_vod` and
+`game_version` (the Deadlock build number the game was played on, `null` until
+backfilled — see `/db/matches/<match_id>/version`), which the week page uses to
+build the brackets, leaderboard and picks panels.
 
 `players[]` entries carry `team`, `hero_id`, `hero_name`, `kills`, `deaths`,
 `assists`, `net_worth`, `player_damage`, `player_healing`, `account_id`,

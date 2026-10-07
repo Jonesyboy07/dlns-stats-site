@@ -731,6 +731,41 @@ export function scopeGames(scopedSeries) {
 }
 
 /**
+ * The Deadlock build number a match was played on, or null when it has not been
+ * resolved. `Number(null)` is 0, so an absent version has to be rejected before
+ * the cast or it reads as build 0.
+ */
+export function matchBuild(match) {
+  const raw = match?.game_version;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const version = Number(raw);
+  return Number.isFinite(version) ? version : null;
+}
+
+/**
+ * The Deadlock build(s) the games in scope were played on.
+ *
+ * A patch can land mid-week, so this is a range rather than one number: when a
+ * scope spans more than one build its stats mix patches, which is worth saying
+ * out loud. `game_version` is null for matches whose version has not been
+ * resolved yet (see `-versionbackfill`), and those are simply left out.
+ */
+export function summarizeBuilds(games) {
+  const builds = [
+    ...new Set((games || []).map((game) => matchBuild(game?.match)).filter((v) => v !== null)),
+  ].sort((left, right) => left - right);
+  const min = builds[0] ?? null;
+  const max = builds[builds.length - 1] ?? null;
+  return {
+    builds,
+    min,
+    max,
+    straddles: builds.length > 1,
+    label: min === null ? null : builds.length === 1 ? `Build ${min}` : `Builds ${min}–${max}`,
+  };
+}
+
+/**
  * Best single-game value per player across the scoped games, highest first.
  * `total` is how many player-games were considered, for "Showing 8 of N".
  */
@@ -789,6 +824,7 @@ export function buildHeroPicks(scopedGames, mode = "picks") {
     entry.games.push({
       matchId: match?.match_id ?? null,
       durationS: match?.duration_s ?? null,
+      build: matchBuild(match),
       outcome,
       round: game.series ? roundName(game.series) : null,
       region: game.series?.region || null,

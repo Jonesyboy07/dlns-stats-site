@@ -304,6 +304,7 @@ export default function WeekPage() {
               <>
                 <BracketCard
                   brackets={brackets}
+                  week={weekNum}
                   scopeLabel={scopeLabel}
                   activeRegion={region}
                   selectedSeries={selection.selected?.key ?? null}

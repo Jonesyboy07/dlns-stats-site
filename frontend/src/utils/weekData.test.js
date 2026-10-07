@@ -378,6 +378,8 @@ describe("bracketLayout", () => {
     // The bye team (C) sits on the final's top row, the semifinal winner (B) below it.
     expect(layout.lines).toContainEqual({ left: 178, top: 14, width: 18, height: 1 });
     expect(layout.lines[0]).toEqual({ left: 160, top: 56, width: 18, height: 1 });
+    // Without a week the berth keeps the design's stub and column pitch.
+    expect(layout.pitch).toBe(196);
   });
 
   it("swaps the three-team stubs when the bye team is the bottom row", () => {
@@ -392,6 +394,57 @@ describe("bracketLayout", () => {
     expect(layout.lines).toContainEqual({ left: 178, top: 40, width: 18, height: 1 });
     expect(layout.lines[0]).toEqual({ left: 160, top: 56, width: 18, height: 1 });
     expect(layout.lines[1].top).toBe(14);
+  });
+
+  it("names the berth that fills the three-team final, given the week", () => {
+    const semi = { key: "NA-0", winnerTeam: "B", teams: ["A", "B"] };
+    const final = { key: "NA-1", teamA: "C", teamB: "B", teams: ["C", "B"] };
+    const layout = bracketLayout(
+      {
+        rounds: [
+          { name: "Challenger", series: [semi] },
+          { name: "Finals", series: [final] },
+        ],
+      },
+      25,
+    );
+    // The caption sits in a wider gutter, right-aligned onto the bye row's stub.
+    expect(layout.width).toBe(448);
+    expect(layout.pitch).toBe(288);
+    expect(layout.cards.map((card) => card.left)).toEqual([0, 288]);
+    expect(layout.lines).toContainEqual({ left: 270, top: 14, width: 18, height: 1 });
+    expect(layout.labels).toEqual([{ left: 262, top: 14, text: "Winner of NS #24" }]);
+  });
+
+  it("leaves the berth unlabelled for the first Night Shift", () => {
+    const semi = { key: "NA-0", winnerTeam: "B", teams: ["A", "B"] };
+    const final = { key: "NA-1", teamA: "C", teamB: "B", teams: ["C", "B"] };
+    const layout = bracketLayout(
+      {
+        rounds: [
+          { name: "Challenger", series: [semi] },
+          { name: "Finals", series: [final] },
+        ],
+      },
+      1,
+    );
+    expect(layout.labels).toEqual([]);
+    expect(layout.width).toBe(356);
+  });
+
+  it("labels the bottom row when the bye team sits there", () => {
+    const semi = { key: "NA-0", winnerTeam: "B", teams: ["A", "B"] };
+    const final = { key: "NA-1", teamA: "B", teamB: "C", teams: ["B", "C"] };
+    const layout = bracketLayout(
+      {
+        rounds: [
+          { name: "Challenger", series: [semi] },
+          { name: "Finals", series: [final] },
+        ],
+      },
+      58,
+    );
+    expect(layout.labels).toEqual([{ left: 262, top: 40, text: "Winner of NS #57" }]);
   });
 
   it("lands each connector on the row the winner takes, from the authored links", () => {

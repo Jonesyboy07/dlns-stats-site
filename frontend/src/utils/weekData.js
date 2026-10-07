@@ -497,17 +497,32 @@ function mostCommon(values) {
  * final). Anything else, such as an authored gauntlet that runs three rounds,
  * falls back to a generic layout: one column per round, the first stacked
  * top-down and each later round centred on the round that feeds it.
+ *
+ * `week` is the Night Shift the bracket belongs to. Given one, the three-team
+ * shape also labels the berth the sitting team entered through, which needs a
+ * wider gutter than the design's open stub. Without it the stub stands alone
+ * and the geometry is the design's own. The `pitch` each layout reports is the
+ * distance between its columns, which the round headers above it follow.
  */
-export function bracketLayout(bracket) {
+export function bracketLayout(bracket, week) {
   const CARD_WIDTH = 160;
   const COLUMN_PITCH = 196;
+  /* Enough gutter for the berth's caption, the stub and the final's edge. */
+  const BERTH_PITCH = 288;
   const ROW_HEIGHT = 25;
   const CARD_HEIGHT = ROW_HEIGHT * 2 + 2;
   const GAP = 24;
 
   const rounds = (bracket?.rounds || []).filter((round) => (round.series || []).length > 0);
   if (rounds.length === 0) {
-    return { width: CARD_WIDTH, height: CARD_HEIGHT, cards: [], lines: [] };
+    return {
+      width: CARD_WIDTH,
+      height: CARD_HEIGHT,
+      cards: [],
+      lines: [],
+      labels: [],
+      pitch: COLUMN_PITCH,
+    };
   }
 
   const cards = [];
@@ -517,27 +532,27 @@ export function bracketLayout(bracket) {
 
   if (rounds.length === 2 && firstRound.length <= 2 && lastRound.length === 1) {
     const two = firstRound.length === 2;
+    const berth = two ? null : berthLabel(week);
+    const pitch = berth ? BERTH_PITCH : COLUMN_PITCH;
     const semiY = two ? [0, 76] : [30];
     const finalY = two ? 38 : 0;
     firstRound.forEach((series, index) => {
       cards.push({ series, left: 0, top: semiY[index] });
     });
-    cards.push({ series: lastRound[0], left: COLUMN_PITCH, top: finalY });
+    cards.push({ series: lastRound[0], left: pitch, top: finalY });
     cards.forEach((card) => centres.set(card.series, card.top + CARD_HEIGHT / 2));
 
-    const lines = connectors(rounds, cards, centres, CARD_WIDTH, COLUMN_PITCH);
+    const lines = connectors(rounds, cards, centres, CARD_WIDTH, pitch);
+    const labels = [];
     if (!two) {
       /* The team that sat out the semifinal enters the grand final on a stub, on
          whichever row the semifinal's winner does not take. */
       const wonRow = advanceRow(firstRound[0], lastRound[0]);
-      lines.push({
-        left: COLUMN_PITCH - 18,
-        top: finalY + (wonRow === 0 ? 40 : 14),
-        width: 18,
-        height: 1,
-      });
+      const top = finalY + (wonRow === 0 ? 40 : 14);
+      lines.push({ left: pitch - 18, top, width: 18, height: 1 });
+      if (berth) labels.push({ left: pitch - 26, top, text: berth });
     }
-    return { width: COLUMN_PITCH + CARD_WIDTH, height: two ? 132 : 86, cards, lines };
+    return { width: pitch + CARD_WIDTH, height: two ? 132 : 86, cards, lines, labels, pitch };
   }
 
   rounds.forEach((round, roundIndex) => {
@@ -571,8 +586,19 @@ export function bracketLayout(bracket) {
       stacked > 0 ? stacked * CARD_HEIGHT + (stacked - 1) * GAP : CARD_HEIGHT,
     ),
     cards,
+    labels: [],
+    pitch: COLUMN_PITCH,
     lines: connectors(rounds, cards, centres, CARD_WIDTH, COLUMN_PITCH),
   };
+}
+
+/**
+ * The berth a team sat the challenger round out for: the previous Night Shift's
+ * champion. Null for the first week, which has no previous Night Shift to name.
+ */
+function berthLabel(week) {
+  const previous = Number(week) - 1;
+  return Number.isInteger(previous) && previous >= 1 ? `Winner of NS #${previous}` : null;
 }
 
 /** Right-angled connectors from every card into the round it feeds. */

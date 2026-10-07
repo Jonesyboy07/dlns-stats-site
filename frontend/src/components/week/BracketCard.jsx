@@ -7,6 +7,7 @@ import { bracketLayout, roundColumns, teamInitials } from "../../utils/weekData"
  *
  * Props:
  *   brackets         – per-region brackets from `buildBrackets`
+ *   week             – the Night Shift number, for the berth captions
  *   scopeLabel       – text under "STATS SHOWING"
  *   activeRegion     – 'all' | 'na' | 'eu'
  *   selectedSeries   – the selected series' key, or null
@@ -15,6 +16,7 @@ import { bracketLayout, roundColumns, teamInitials } from "../../utils/weekData"
  */
 export default function BracketCard({
   brackets,
+  week,
   scopeLabel,
   activeRegion,
   selectedSeries,
@@ -24,12 +26,24 @@ export default function BracketCard({
   const columns = roundColumns(brackets);
   /* One grid for the whole card: every region shares the widest bracket, so the
      round headers sit over the columns they name. */
-  const layouts = (brackets || []).map((bracket) => ({ bracket, layout: bracketLayout(bracket) }));
+  const layouts = (brackets || []).map((bracket) => ({
+    bracket,
+    layout: bracketLayout(bracket, week),
+  }));
   const gridStyle = {
     gridTemplateColumns: `200px ${layouts.reduce(
       (widest, entry) => Math.max(widest, entry.layout.width),
       0,
     )}px`,
+  };
+  /* The headers follow the cards' column pitch, which the three-team shape widens
+     to fit the berth caption. */
+  const headerStyle = {
+    gridTemplateColumns: `repeat(${columns.length}, ${CARD_WIDTH}px)`,
+    columnGap: Math.max(
+      0,
+      layouts.reduce((widest, entry) => Math.max(widest, entry.layout.pitch), 0) - CARD_WIDTH,
+    ),
   };
 
   return (
@@ -57,7 +71,7 @@ export default function BracketCard({
         style={gridStyle}
       >
         <span className="text-[11px] font-semibold tracking-[.1em] text-dim uppercase">Region</span>
-        <div className="flex gap-9">
+        <div className="grid" style={headerStyle}>
           {columns.map((name, index) => (
             <span
               key={`${name}-${index}`}
@@ -143,6 +157,16 @@ function Bracket({ layout, selectedSeries, onSelectSeries }) {
           className="absolute bg-border-lighter"
           style={{ left: line.left, top: line.top, width: line.width, height: line.height }}
         />
+      ))}
+
+      {(layout.labels || []).map((label, index) => (
+        <span
+          key={`${label.text}-${index}`}
+          className="pointer-events-none absolute whitespace-nowrap text-[10px] font-semibold text-dim"
+          style={{ left: label.left, top: label.top, transform: "translate(-100%, -50%)" }}
+        >
+          {label.text}
+        </span>
       ))}
 
       {layout.cards.map(({ series, left, top }) => {

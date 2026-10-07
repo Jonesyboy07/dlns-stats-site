@@ -5,6 +5,7 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import WeekSidebar from "../components/week/WeekSidebar";
 import BracketCard from "../components/week/BracketCard";
 import MobileBracketCard from "../components/week/MobileBracketCard";
+import MobileWeekBar from "../components/week/MobileWeekBar";
 import MobileWeekLinks from "../components/week/MobileWeekLinks";
 import PlayerLeaderboard from "../components/week/PlayerLeaderboard";
 import MatchResultsPanel from "../components/week/MatchResultsPanel";
@@ -387,6 +388,26 @@ export default function WeekPage() {
           )}
         </main>
       </div>
+
+      {/* The mobile frame keeps the week controls in a fixed bar (13b); the
+          desktop sidebar is hidden at that width. */}
+      <MobileWeekBar
+        week={weekNum}
+        date={detail.stats?.first_match_time}
+        weeks={index?.weeks || []}
+        onSelectWeek={openWeek}
+        eventOptions={index?.events || []}
+        eventTitle={eventTitle}
+        onEventChange={(title) => navigate(`/week?${eventQuery(title)}`)}
+        teamFilter={teamFilter}
+        onTeamFilter={setTeamFilter}
+        teamChips={teamChips}
+        onChipClick={(team) =>
+          setTeamFilter((current) =>
+            current.trim().toLowerCase() === team.toLowerCase() ? "" : team,
+          )
+        }
+      />
     </div>
   );
 }

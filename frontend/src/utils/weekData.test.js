@@ -8,6 +8,7 @@ import {
   buildRegionBrackets,
   buildSeries,
   formatDuration,
+  groupIndexWeeks,
   newsLabel,
   regionOutcome,
   roundColumns,
@@ -989,6 +990,35 @@ describe("summarizeIndexWeek", () => {
     expect(summary.champions).toEqual({ NA: "Melee Creeps" });
     expect(summary.teamResults["Pulsar Esports"]).toEqual({ region: "NA", result: "Runner-up" });
     expect(summary.teamResults.Vanguard).toEqual({ region: "NA", result: "Semifinal" });
+  });
+});
+
+describe("groupIndexWeeks", () => {
+  const week = (number, date, teamResults = {}) => ({ week: number, date, teamResults });
+
+  const index = [
+    week(1, "2025-07-14T18:00:00Z", { Alpha: { region: "NA", result: "Champion" } }),
+    week(2, "2025-07-21T18:00:00Z", { Bravo: { region: "EU", result: "Semifinal" } }),
+    week(3, "2025-08-04T18:00:00Z", { Alpha: { region: "EU", result: "Runner-up" } }),
+  ];
+
+  it("groups by month, newest month and newest week first", () => {
+    const { groups, count } = groupIndexWeeks(index, "");
+    expect(count).toBe(3);
+    expect(groups.map((group) => group.label)).toEqual(["Aug 2025", "Jul 2025"]);
+    expect(groups[0].weeks.map((entry) => entry.week)).toEqual([3]);
+    expect(groups[1].weeks.map((entry) => entry.week)).toEqual([2, 1]);
+  });
+
+  it("keeps only the weeks a team played, and counts them", () => {
+    const { groups, count } = groupIndexWeeks(index, "alpha");
+    expect(count).toBe(2);
+    expect(groups.flatMap((group) => group.weeks.map((entry) => entry.week))).toEqual([3, 1]);
+  });
+
+  it("matches a team filter on any part of the name", () => {
+    expect(groupIndexWeeks(index, "  BRAV ").count).toBe(1);
+    expect(groupIndexWeeks(index, "nobody").groups).toEqual([]);
   });
 });
 

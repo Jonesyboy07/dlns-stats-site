@@ -746,6 +746,37 @@ export function summarizeIndexWeek(week) {
 }
 
 /**
+ * The index grouped for a week list: weeks matching a team filter, gathered under
+ * their month, newest month first and newest week first inside each. The 13a
+ * sidebar and the 13b week sheet both read it, so they filter and group alike.
+ */
+export function groupIndexWeeks(weeks, teamFilter) {
+  const filter = String(teamFilter || "").trim().toLowerCase();
+  const matching = (weeks || []).filter((week) => {
+    if (!filter) return true;
+    return Object.keys(week.teamResults || {}).some((team) =>
+      team.toLowerCase().includes(filter),
+    );
+  });
+
+  const byMonth = new Map();
+  for (const week of matching) {
+    const label = monthLabel(week.date);
+    if (!byMonth.has(label)) byMonth.set(label, []);
+    byMonth.get(label).push(week);
+  }
+
+  const groups = [...byMonth.values()]
+    .map((entries) => {
+      const sorted = [...entries].sort((left, right) => right.week - left.week);
+      return { label: monthLabel(sorted[0]?.date), weeks: sorted };
+    })
+    .sort((left, right) => (right.weeks[0]?.week ?? 0) - (left.weeks[0]?.week ?? 0));
+
+  return { groups, count: matching.length };
+}
+
+/**
  * `?region=` / `?series=` selection. A selected series wins over the region,
  * and a region that matches nothing falls back to the whole week.
  */

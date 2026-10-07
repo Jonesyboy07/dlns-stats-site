@@ -63,7 +63,7 @@ KIND_UPDATE = "update"
 KIND_HERO = "hero"
 
 # Bumped when the cached post shape changes, so stale caches refresh themselves.
-_CACHE_VERSION = 2
+_CACHE_VERSION = 3
 
 _UA = {"User-Agent": "dlns-stats-site/1.0 (+night shift week page)"}
 
@@ -189,6 +189,8 @@ class SteamNewsStore:
         self._lock = threading.Lock()
         self._entries: List[Dict[str, Any]] = []
         self._resolved: Dict[str, str] = {}
+        # In memory only: a redirect that failed is not retried all night.
+        self._unresolved: set = set()
         self._synced_at = 0
         self._load()
 
@@ -223,7 +225,7 @@ class SteamNewsStore:
             pass
 
     def sync(self) -> bool:
-        """Refresh the post list from Steam, resolving any store URL we lack."""
+        """Refresh the post list from Steam. Store URLs are resolved on demand."""
         try:
             payload = json.loads(_fetch(NEWS_URL))
         except (urllib.error.URLError, OSError, ValueError):
@@ -238,11 +240,6 @@ class SteamNewsStore:
             published = int(item.get("date") or 0)
             if not title or not gid or not published:
                 continue
-            url = self._resolved.get(gid)
-            if url is None:
-                url = resolve_store_url(str(item.get("url") or ""))
-                if url:
-                    self._resolved[gid] = url
             entries.append(
                 {
                     "gid": gid,
@@ -250,7 +247,9 @@ class SteamNewsStore:
                     "kind": post_kind(title),
                     "ts": published,
                     "published_at": epoch_to_iso(published),
-                    "url": url,
+                    # Where Steam points us, kept so a reader's link can be resolved
+                    # later. See `_shown`.
+                    "link": str(item.get("url") or ""),
                 }
             )
         if not entries:
@@ -266,8 +265,32 @@ class SteamNewsStore:
                 self.sync()
             return list(self._entries)
 
+    def _shown(self, entry: Dict[str, Any]) -> Dict[str, Any]:
+        """One announcement with the page a reader follows it to.
+
+        Working the store URL out costs a request per announcement, so it happens
+        here — for the one or two a week actually shows — rather than for the whole
+        list on every sync, which made a cold cache wait on some forty redirects
+        before the first week page could render. A redirect that fails is
+        remembered so it is not retried on every request, and the URL the news API
+        gave us stands in until Steam can be asked again.
+        """
+        gid = str(entry.get("gid") or "")
+        link = str(entry.get("link") or "")
+        resolved = self._resolved.get(gid)
+        if resolved is None and link and gid not in self._unresolved:
+            resolved = resolve_store_url(link)
+            with self._lock:
+                if resolved:
+                    self._resolved[gid] = resolved
+                    self._save()
+                else:
+                    self._unresolved.add(gid)
+        return {**entry, "url": resolved or link or None}
+
     def news_for_week(self, games: Sequence[Tuple[int, int]]) -> Dict[str, Optional[Dict[str, Any]]]:
-        return news_for_week(self.entries(), games)
+        chosen = news_for_week(self.entries(), games)
+        return {kind: self._shown(entry) if entry else None for kind, entry in chosen.items()}
 
 
 _default_store: Optional[SteamNewsStore] = None

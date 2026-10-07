@@ -5,12 +5,18 @@ halves of the rule can be exercised without a network call: the game update is
 kept however old it is, while a hero reveal is dropped once it goes stale.
 """
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
+from backend import steam_news
 from backend.steam_news import (
     HERO_MAX_AGE_S,
     KIND_HERO,
     KIND_UPDATE,
+    SteamNewsStore,
     news_for_week,
     post_kind,
     resolve_store_url,
@@ -163,6 +169,89 @@ class StoreUrlTests(unittest.TestCase):
     def test_returns_none_when_the_url_is_unusable(self):
         # No network in tests: an unreachable host must degrade to no link.
         self.assertIsNone(resolve_store_url(""))
+
+
+class LazyLinkTests(unittest.TestCase):
+    """The store URL is worked out when a week shows a post, not for the whole list.
+
+    Resolving every announcement up front cost a request each on a cold cache,
+    which the first week page of a deploy had to wait for.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.store = SteamNewsStore(cache_dir=Path(self.tmp.name))
+        payload = {
+            "appnews": {
+                "newsitems": [
+                    {
+                        "feedname": "steam_community_announcements",
+                        "gid": "1",
+                        "title": "Minor Update - 07-01-2026",
+                        "date": BASE,
+                        "url": "https://example.invalid/1",
+                    },
+                    {
+                        "feedname": "steam_community_announcements",
+                        "gid": "2",
+                        "title": "Mind the Birds!",
+                        "date": BASE - 86400,
+                        "url": "https://example.invalid/2",
+                    },
+                    {
+                        # An older update still in the feed: the week shows the
+                        # newest one, so nothing should ask Steam about this.
+                        "feedname": "steam_community_announcements",
+                        "gid": "3",
+                        "title": "Winter Visual Update",
+                        "date": BASE - (100 * 86400),
+                        "url": "https://example.invalid/3",
+                    },
+                ]
+            }
+        }
+        self.fetch = mock.patch.object(steam_news, "_fetch", return_value=json.dumps(payload))
+        self.fetch.start()
+        self.addCleanup(self.fetch.stop)
+        self.resolve = mock.patch.object(
+            steam_news, "resolve_store_url", return_value="https://store.invalid/1"
+        )
+        self.resolver = self.resolve.start()
+        self.addCleanup(self.resolve.stop)
+        self.games = [game(BASE + 600, 31)]
+
+    def resolved_links(self):
+        return sorted(call.args[0] for call in self.resolver.call_args_list)
+
+    def test_syncing_resolves_nothing(self):
+        self.assertTrue(self.store.sync())
+        self.assertEqual(self.resolver.call_count, 0)
+
+    def test_resolves_only_the_posts_a_week_shows(self):
+        self.store.sync()
+        chosen = self.store.news_for_week(self.games)
+        # The week shows its newest update and the hero reveal that is still recent.
+        self.assertEqual(chosen["update"]["url"], "https://store.invalid/1")
+        self.assertEqual(chosen["hero"]["title"], "Mind the Birds!")
+        self.assertEqual(
+            self.resolved_links(),
+            ["https://example.invalid/1", "https://example.invalid/2"],
+        )
+
+    def test_a_resolved_link_is_reused(self):
+        self.store.sync()
+        self.store.news_for_week(self.games)
+        self.store.news_for_week(self.games)
+        self.assertEqual(self.resolver.call_count, 2)
+
+    def test_a_failed_resolution_falls_back_and_is_not_retried(self):
+        self.resolver.return_value = None
+        self.store.sync()
+        chosen = self.store.news_for_week(self.games)
+        self.assertEqual(chosen["update"]["url"], "https://example.invalid/1")
+        self.store.news_for_week(self.games)
+        self.assertEqual(self.resolver.call_count, 2)
 
 
 if __name__ == "__main__":

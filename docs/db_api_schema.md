@@ -95,7 +95,9 @@ hero is more than four weeks old, since a hero who arrived weeks earlier is no
 longer why the night looks the way it does. Both are `null` when nothing of that
 kind predates the week, or when Steam is unreachable. Third-party press pieces on
 the feed are dropped by feed name. The busiest sitting sets the cutoff, since a
-few weeks carry a synthetic placeholder row stamped months later.
+few weeks carry a synthetic placeholder row stamped months later. A feed post
+carries the news API URL until a week actually shows it, so reading a week only
+costs Steam a lookup for the two posts it displays rather than the whole feed.
 
 | Key | Type | Notes |
 | --- | --- | --- |
@@ -104,7 +106,7 @@ few weeks carry a synthetic placeholder row stamped months later.
 | `kind` | string | `update` or `hero` |
 | `ts` | integer | Post time, Unix seconds |
 | `published_at` | string | Post time, ISO 8601 |
-| `url` | string or null | Steam store news URL; null if it could not be resolved |
+| `url` | string or null | Store news URL, or the feed's own URL when the store one cannot be resolved |
 | `during_games` | boolean | True when it landed while the week was being played |
 
 `players[]` entries carry `team`, `hero_id`, `hero_name`, `kills`, `deaths`,

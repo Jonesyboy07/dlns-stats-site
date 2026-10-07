@@ -1,16 +1,17 @@
-"""Deadlock patch notes, so a week can link to the one it was played on.
+"""Deadlock's Steam announcements, so a week can link to the one it followed.
 
-The notes are posted to Steam's news feed for app 1422450. `ISteamNews` returns
-the whole post history in a single keyless request, which is plenty for a season,
-so it is fetched once and cached on disk in `data/_cache/` (git-ignored).
+Every post on the game's Steam news feed is kept, not just the patch notes: a
+hero release or a big update ("City Never Sleeps") is what a night's games came
+after, and that context is the point of the link. Third-party press pieces, which
+the feed also carries, are dropped by feed name.
+
+`ISteamNews` returns the whole history in a single keyless request, so it is
+fetched once and cached on disk in `data/_cache/` (git-ignored).
 
 The URL that endpoint hands back is an internal `externalpost` link, so each
-note's canonical store URL is resolved once — it redirects to the announcement
+post's canonical store URL is resolved once — it redirects to the announcement
 page, whose id is one above the store news id — and remembered, which means only
-newly posted notes cost an extra request.
-
-Only posts that read as patch notes are kept; the feed also carries hero reveals
-and marketing posts, which are not what a week's stats should link to.
+newly published posts cost an extra request.
 """
 from __future__ import annotations
 
@@ -39,7 +40,6 @@ REQUEST_TIMEOUT_S = 45
 # to tell "the patch dropped mid-broadcast" from "the patch dropped overnight".
 SESSION_GAP_S = 2 * 3600
 
-_PATCH_WORDS = ("update", "patch", "hotfix")
 _ANNOUNCEMENTS_FEED = "steam_community_announcements"
 
 _UA = {"User-Agent": "dlns-stats-site/1.0 (+night shift patch notes)"}
@@ -64,10 +64,6 @@ def iso_to_epoch(value: Any) -> Optional[int]:
 
 def epoch_to_iso(ts: int) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).isoformat()
-
-
-def looks_like_patch_note(title: str) -> bool:
-    return any(word in str(title or "").lower() for word in _PATCH_WORDS)
 
 
 def _fetch(url: str) -> str:
@@ -112,38 +108,38 @@ def _sittings(games: Sequence[Tuple[int, int]]) -> List[Tuple[int, int, int]]:
     return [tuple(sitting) for sitting in sittings]  # type: ignore[misc]
 
 
-def note_for_week(
-    notes: Iterable[Dict[str, Any]],
+def news_for_week(
+    entries: Iterable[Dict[str, Any]],
     games: Sequence[Tuple[int, int]],
 ) -> Optional[Dict[str, Any]]:
-    """The patch note a week was played under.
+    """The announcement a week's games came after.
 
-    The newest note posted by the time the week's own broadcast finished, so every
-    week gets one and each shows the note that was actually current for it. Flagged
+    The newest post published by the time the week's own broadcast finished, so
+    every week gets one and each shows what was actually current for it. Flagged
     with `during_games` when it landed while that broadcast was running — the case
-    where part of the night ran on the previous patch.
+    where part of the night played on without it.
 
     The reference is the busiest sitting rather than the week's last game at all,
     because a handful of weeks carry a synthetic placeholder row stamped months
-    away that would otherwise drag the cutoff into a later patch.
+    away that would otherwise drag the cutoff forward.
     """
     sittings = _sittings(games)
     if not sittings:
         return None
     _, finished, _ = max(sittings, key=lambda sitting: (sitting[2], sitting[1]))
-    candidates = [note for note in notes if note.get("ts") is not None and note["ts"] <= finished]
+    candidates = [entry for entry in entries if entry.get("ts") is not None and entry["ts"] <= finished]
     if not candidates:
         return None
-    note = max(candidates, key=lambda entry: entry["ts"])
-    return {**note, "during_games": any(start <= note["ts"] <= end for start, end, _ in sittings)}
+    newest = max(candidates, key=lambda entry: entry["ts"])
+    return {**newest, "during_games": any(start <= newest["ts"] <= end for start, end, _ in sittings)}
 
 
-class PatchNotesStore:
+class SteamNewsStore:
     def __init__(self, cache_dir: Optional[Path] = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else default_cache_dir()
-        self.cache_path = self.cache_dir / "patch_notes.json"
+        self.cache_path = self.cache_dir / "steam_news.json"
         self._lock = threading.Lock()
-        self._notes: List[Dict[str, Any]] = []
+        self._entries: List[Dict[str, Any]] = []
         self._resolved: Dict[str, str] = {}
         self._synced_at = 0
         self._load()
@@ -151,11 +147,11 @@ class PatchNotesStore:
     def _load(self) -> None:
         try:
             data = json.loads(self.cache_path.read_text(encoding="utf-8"))
-            self._notes = [dict(note) for note in data.get("notes", [])]
+            self._entries = [dict(entry) for entry in data.get("entries", [])]
             self._resolved = {str(k): str(v) for k, v in data.get("resolved_urls", {}).items()}
             self._synced_at = int(data.get("synced_at", 0))
         except (OSError, ValueError, TypeError):
-            self._notes, self._resolved, self._synced_at = [], {}, 0
+            self._entries, self._resolved, self._synced_at = [], {}, 0
 
     def _save(self) -> None:
         try:
@@ -165,7 +161,7 @@ class PatchNotesStore:
                 json.dumps(
                     {
                         "synced_at": self._synced_at,
-                        "notes": self._notes,
+                        "entries": self._entries,
                         "resolved_urls": self._resolved,
                     }
                 ),
@@ -176,29 +172,27 @@ class PatchNotesStore:
             pass
 
     def sync(self) -> bool:
-        """Refresh the note list from Steam, resolving any store URL we lack."""
+        """Refresh the post list from Steam, resolving any store URL we lack."""
         try:
             payload = json.loads(_fetch(NEWS_URL))
         except (urllib.error.URLError, OSError, ValueError):
             return False
         items = payload.get("appnews", {}).get("newsitems") or []
-        notes = []
+        entries = []
         for item in items:
             if item.get("feedname") != _ANNOUNCEMENTS_FEED:
                 continue
             title = str(item.get("title") or "").strip()
-            if not title or not looks_like_patch_note(title):
-                continue
             gid = str(item.get("gid") or "")
             published = int(item.get("date") or 0)
-            if not gid or not published:
+            if not title or not gid or not published:
                 continue
             url = self._resolved.get(gid)
             if url is None:
                 url = resolve_store_url(str(item.get("url") or ""))
                 if url:
                     self._resolved[gid] = url
-            notes.append(
+            entries.append(
                 {
                     "gid": gid,
                     "title": title,
@@ -207,40 +201,40 @@ class PatchNotesStore:
                     "url": url,
                 }
             )
-        if not notes:
+        if not entries:
             return False
-        self._notes = notes
+        self._entries = entries
         self._synced_at = int(time.time())
         self._save()
         return True
 
-    def notes(self) -> List[Dict[str, Any]]:
+    def entries(self) -> List[Dict[str, Any]]:
         with self._lock:
-            if not self._notes or time.time() - self._synced_at > RESYNC_INTERVAL_S:
+            if not self._entries or time.time() - self._synced_at > RESYNC_INTERVAL_S:
                 self.sync()
-            return list(self._notes)
+            return list(self._entries)
 
-    def note_for_week(self, games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
-        return note_for_week(self.notes(), games)
+    def news_for_week(self, games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
+        return news_for_week(self.entries(), games)
 
 
-_default_store: Optional[PatchNotesStore] = None
+_default_store: Optional[SteamNewsStore] = None
 _default_lock = threading.Lock()
 
 
-def get_store() -> PatchNotesStore:
+def get_store() -> SteamNewsStore:
     global _default_store
     with _default_lock:
         if _default_store is None:
-            _default_store = PatchNotesStore()
+            _default_store = SteamNewsStore()
         return _default_store
 
 
-def note_for_games(games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
-    """The patch note a week was played under. `games` is [(start, end)]."""
+def latest_news_for_games(games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
+    """The announcement a week's games came after. `games` is [(start, end)]."""
     if not games:
         return None
     try:
-        return get_store().note_for_week(games)
+        return get_store().news_for_week(games)
     except Exception:  # noqa: BLE001 - a missing link must never break the week page
         return None

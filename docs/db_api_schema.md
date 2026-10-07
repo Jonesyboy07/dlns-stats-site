@@ -77,16 +77,18 @@ Each `matches[]` entry includes the event context columns `event_region`
 (`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`) and `match_vod`,
 which the week page uses to build the brackets, leaderboard and picks panels.
 
-`patch_note` is the Deadlock patch note the week was played under — the newest
-one posted by the time the week's own broadcast finished — so the page can link
-out to Steam instead of showing build numbers. The busiest sitting sets the
-cutoff, since a few weeks carry a synthetic placeholder row stamped months later.
-`null` only when no note predates the week, or Steam is unreachable.
+`latest_news` is the Steam announcement the week's games came after — the
+newest post on the game's news feed published by the time the week's own broadcast
+finished. Every post counts, not just the patch notes, so a hero release or a big
+update ("City Never Sleeps") gives the context a night was played in; third-party
+press pieces are dropped by feed name. The busiest sitting sets the cutoff, since
+a few weeks carry a synthetic placeholder row stamped months later. `null` only
+when no post predates the week, or Steam is unreachable.
 
 | Key | Type | Notes |
 | --- | --- | --- |
 | `gid` | string | Steam announcement id |
-| `title` | string | e.g. `Minor Update - 10-05-2026` |
+| `title` | string | e.g. `Minor Update - 10-05-2026`, `City Never Sleeps` |
 | `ts` | integer | Post time, Unix seconds |
 | `published_at` | string | Post time, ISO 8601 |
 | `url` | string or null | Steam store news URL; null if it could not be resolved |

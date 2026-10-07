@@ -7,7 +7,7 @@ import {
   buildRegionBrackets,
   buildSeries,
   formatDuration,
-  patchNoteLabel,
+  newsLabel,
   regionOutcome,
   roundColumns,
   scopeGames,
@@ -813,17 +813,21 @@ describe("buildHeroPicks", () => {
   });
 });
 
-describe("patch notes", () => {
-  const note = (published) => ({ title: "Minor Update", published_at: published });
-
-  it("labels a note with the date it was posted", () => {
-    expect(patchNoteLabel(note("2026-07-01T22:54:00+00:00"))).toBe("Patch notes · Jul 1");
+describe("news label", () => {
+  it("uses the post title as-is, since some carry their own date", () => {
+    expect(newsLabel({ title: "City Never Sleeps", published_at: "2026-09-29T20:00:00Z" }))
+      .toBe("City Never Sleeps");
+    expect(newsLabel({ title: "Minor Update - 10-05-2026", published_at: "2026-10-05T23:05:00Z" }))
+      .toBe("Minor Update - 10-05-2026");
   });
 
-  it("falls back to a plain label without a usable date", () => {
-    expect(patchNoteLabel(note(null))).toBe("Patch notes");
-    expect(patchNoteLabel(null)).toBeNull();
-    expect(patchNoteLabel(undefined)).toBeNull();
+  it("falls back to the posted date when a title is missing", () => {
+    expect(newsLabel({ title: "  ", published_at: "2026-09-29T20:00:00Z" })).toBe("Sep 29");
+  });
+
+  it("is null without a post", () => {
+    expect(newsLabel(null)).toBeNull();
+    expect(newsLabel(undefined)).toBeNull();
   });
 });
 

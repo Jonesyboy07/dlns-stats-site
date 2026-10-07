@@ -15,7 +15,7 @@ import {
   buildLeaderboard,
   buildSeries,
   formatLongDate,
-  patchNoteLabel,
+  newsLabel,
   scopeGames,
   scopeSeries,
   summarizeIndexWeek,
@@ -149,10 +149,10 @@ export default function WeekPage() {
   const leaderboard = useMemo(() => buildLeaderboard(games, statKey), [games, statKey]);
   const picks = useMemo(() => buildHeroPicks(games, pbMode), [games, pbMode]);
 
-  /* The patch note this week was played under, from the endpoint. The week links
-     out to Steam instead of showing build numbers, which mean nothing to a
-     reader. */
-  const patchNote = detail?.patch_note || null;
+  /* The Steam announcement this week's games came after, from the endpoint. The
+     week links out to Steam instead of showing build numbers, which mean nothing
+     to a reader — a hero release or a big update is what a night came after. */
+  const latestNews = detail?.latest_news || null;
 
   const patchParams = useCallback(
     (patch) => {
@@ -218,26 +218,28 @@ export default function WeekPage() {
           </p>
         </div>
 
-        {!loading && patchNote && (
-          <div className="flex flex-wrap items-center gap-2">
+        {!loading && latestNews && (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <a
-              href={patchNote.url}
+              href={latestNews.url}
               target="_blank"
               rel="noopener noreferrer"
               title={
-                patchNote.during_games
-                  ? `“${patchNote.title}” was posted while this week's games were being played, so part of the night ran on the previous patch.`
-                  : `“${patchNote.title}” was the newest Deadlock patch note when this week was played.`
+                `“${latestNews.title}” was posted ${formatLongDate(latestNews.published_at)}` +
+                (latestNews.during_games
+                  ? ", while this week's games were being played — part of the night played on without it."
+                  : ", the newest Deadlock announcement before this week.")
               }
-              className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                patchNote.during_games
+              className={`flex min-w-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                latestNews.during_games
                   ? "border-accent-border-strong bg-accent-bg-strong text-accent-light hover:bg-accent-bg"
                   : "border-border-light bg-panel text-secondary hover:bg-hover"
               }`}
             >
-              {patchNoteLabel(patchNote)} ↗
+              <span className="max-w-[280px] truncate">{newsLabel(latestNews)}</span>
+              <span className="shrink-0 text-accent-light">↗</span>
             </a>
-            {patchNote.during_games && (
+            {latestNews.during_games && (
               <span className="text-[12px] text-muted">released mid-broadcast</span>
             )}
           </div>

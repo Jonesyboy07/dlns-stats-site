@@ -731,13 +731,16 @@ export function scopeGames(scopedSeries) {
 }
 
 /**
- * A week's patch note as the header label, e.g. "Patch notes · Jul 1". The date
- * is when it was posted, which for these is minutes after the patch itself.
+ * The chip text for a week's announcement. The title is used as-is — the feed's
+ * titles are already human-readable ("City Never Sleeps", "Minor Update -
+ * 10-05-2026") and some carry their own date, so prefixing another would repeat
+ * it. The posted date lives in the tooltip.
  */
-export function patchNoteLabel(note) {
-  if (!note) return null;
-  const date = formatShortDate(note.published_at);
-  return date ? `Patch notes · ${date}` : "Patch notes";
+export function newsLabel(entry) {
+  if (!entry) return null;
+  const title = String(entry.title || "").trim();
+  if (title) return title;
+  return formatShortDate(entry.published_at) || null;
 }
 
 /**

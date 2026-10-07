@@ -27,6 +27,11 @@ try:
 except ImportError:  # pragma: no cover - module execution
     from backend.constants import HERO_DETAILS_URL as _ASSETS_HERO_DETAILS_URL
 
+try:
+    from game_version import resolve_game_version
+except ImportError:  # pragma: no cover - module execution
+    from backend.game_version import resolve_game_version
+
 
 # ----------------- Config -----------------
 
@@ -396,6 +401,7 @@ CREATE TABLE IF NOT EXISTS matches (
 	match_vod TEXT,
 	event_region TEXT,
 	start_time TEXT,
+	game_version INTEGER,
   created_at TEXT
 );
 
@@ -595,6 +601,9 @@ def db_init(conn: sqlite3.Connection) -> bool:
 		if "event_subtitle" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_subtitle TEXT")
 			large_table_change = True
+		if "game_version" not in cols:
+			# Derived from start_time, so filled by -versionbackfill rather than a refetch.
+			conn.execute("ALTER TABLE matches ADD COLUMN game_version INTEGER")
 		conn.commit()
 	except Exception:
 		pass
@@ -1006,11 +1015,14 @@ def upsert_match(
 		or mi.get("startTime")
 		or mi.get("match_start_time")
 	)
-	start_iso = parse_time_to_iso(st) or now_iso()
+	parsed_start = parse_time_to_iso(st)
+	start_iso = parsed_start or now_iso()
+	# A missing API start time falls back to now, which says nothing about the version.
+	game_version = resolve_game_version(parsed_start) if parsed_start else None
 	conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, event_subtitle, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, event_subtitle=excluded.event_subtitle, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, event_subtitle, start_time, game_version, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, event_subtitle=excluded.event_subtitle, start_time=excluded.start_time, game_version=COALESCE(excluded.game_version, game_version)",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -1028,6 +1040,7 @@ def upsert_match(
 			event_region or None,
 			event_subtitle or None,
 			start_iso,
+			game_version,
 			now_iso(),  # scraped time
 		),
 	)
@@ -1380,6 +1393,8 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 		if "event_subtitle" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_subtitle TEXT")
 			large_table_change = True
+		if "game_version" not in cols:
+			await conn.execute("ALTER TABLE matches ADD COLUMN game_version INTEGER")
 		await conn.commit()
 	except Exception:
 		pass
@@ -1469,11 +1484,16 @@ async def upsert_match_async(
 		or mi.get("startTime")
 		or mi.get("match_start_time")
 	)
-	start_iso = parse_time_to_iso(st) or now_iso()
+	parsed_start = parse_time_to_iso(st)
+	start_iso = parsed_start or now_iso()
+	# Blocking HTTP only on a cache miss; run off the event loop.
+	game_version = (
+		await asyncio.to_thread(resolve_game_version, parsed_start) if parsed_start else None
+	)
 	await conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, event_subtitle, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, event_subtitle=excluded.event_subtitle, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, event_subtitle, start_time, game_version, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, event_subtitle=excluded.event_subtitle, start_time=excluded.start_time, game_version=COALESCE(excluded.game_version, game_version)",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -1491,6 +1511,7 @@ async def upsert_match_async(
 			event_region or None,
 			event_subtitle or None,
 			start_iso,
+			game_version,
 			now_iso(),
 		),
 	)
@@ -2263,6 +2284,29 @@ def sync_feed_metadata(
 	return {"updated": updated, "unchanged": unchanged, "not_in_db": not_in_db}
 
 
+def backfill_game_versions(conn: sqlite3.Connection, force: bool = False) -> Dict[str, int]:
+	"""Fill matches.game_version from start_time. No match-API calls.
+
+	Rows are processed oldest first so one GitHub request covers many matches.
+	With force=True every match is recomputed, otherwise only those still NULL.
+	"""
+	where = "start_time IS NOT NULL" + ("" if force else " AND game_version IS NULL")
+	rows = conn.execute(
+		f"SELECT match_id, start_time FROM matches WHERE {where} ORDER BY start_time ASC"
+	).fetchall()
+	updated = 0
+	unresolved = 0
+	for mid, start_time in rows:
+		version = resolve_game_version(start_time)
+		if version is None:
+			unresolved += 1
+			continue
+		conn.execute("UPDATE matches SET game_version = ? WHERE match_id = ?", (version, mid))
+		updated += 1
+	conn.commit()
+	return {"updated": updated, "unresolved": unresolved}
+
+
 def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any]]]:
 	"""Read match IDs and context from JSON.
 
@@ -2837,6 +2881,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-goldbackfill", dest="goldbackfill", type=str, default="false", help="If true, backfill player_gold_sources (soul income) for matches missing it and exit")
 	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
 	parser.add_argument("-metasync", dest="metasync", type=str, default="false", help="If true, re-apply the feed's authored metadata (teams, week, side, vod) to matches already in the DB and exit. No API calls.")
+	parser.add_argument("-versionbackfill", dest="versionbackfill", type=str, default="false", help="If true, fill matches.game_version from start_time (GameTracking-Deadlock commits, cached locally) and exit. Use 'force' to recompute every match.")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
 	parser.add_argument("-cache", dest="cache_path", type=str, default=str(DEFAULT_CACHE_PATH), help="Path to user cache JSON {account_id: persona}")
 	parser.add_argument("-status", dest="status_path", type=str, default=str(DEFAULT_STATUS_PATH), help="Path to matches status JSON")
@@ -2943,6 +2988,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 			print("[backfill-dmgsrc] Running damage-source backfill...")
 			backfill_all_player_damage_sources(conn)
 			print("[backfill-dmgsrc] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.versionbackfill) or str(args.versionbackfill).strip().lower() == "force":
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[versionbackfill] Resolving game versions from match start times...")
+			stats = backfill_game_versions(conn, force=str(args.versionbackfill).strip().lower() == "force")
+			print(f"[versionbackfill] Updated {stats['updated']} - unresolved {stats['unresolved']}.")
 			return 0
 		finally:
 			conn.close()

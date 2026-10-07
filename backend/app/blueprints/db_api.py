@@ -20,6 +20,7 @@ from ..heroes import get_hero_name
 from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
+from ...game_version import resolve_game_version
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -1016,7 +1017,7 @@ def latest_matches():  # type: ignore
     limit = int(current_app.config.get("API_LATEST_LIMIT", 50))
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at "
+            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, game_version, created_at "
             "FROM matches ORDER BY created_at DESC LIMIT ?",
             (limit,),
         )
@@ -1112,7 +1113,7 @@ def latest_matches_paged():  # type: ignore
         ccur = conn.execute(f"SELECT {count_expr} {sql_base}{joins}{where}", tuple(params))
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            f"SELECT {select_distinct}m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.event_team_a_ingame_side, m.start_time, m.created_at {sql_base}{joins}{where} "
+            f"SELECT {select_distinct}m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.event_team_a_ingame_side, m.start_time, m.game_version, m.created_at {sql_base}{joins}{where} "
             f"ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
@@ -1178,12 +1179,29 @@ def match_bans(match_id: int):  # type: ignore
     return jsonify({"bans": bans})
 
 
+@bp.get("/matches/<int:match_id>/version")
+@cache.cached(timeout=600)
+def match_game_version(match_id: int):  # type: ignore
+    with get_ro_conn() as conn:
+        row = conn.execute(
+            "SELECT game_version, start_time FROM matches WHERE match_id = ?",
+            (match_id,),
+        ).fetchone()
+    if row is None:
+        return jsonify({"error": "match_not_found"}), 404
+    version, start_time = row
+    # Not yet backfilled: resolve from the local timestamp cache (read-only; the DB is not written).
+    if version is None and start_time:
+        version = resolve_game_version(start_time)
+    return jsonify({"match_id": match_id, "game_version": version, "start_time": start_time})
+
+
 @bp.get("/matches/<int:match_id>/adjacent")
 @cache.cached(timeout=900)
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
-            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, duration_s, match_vod FROM matches WHERE match_id = ?",
+            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, duration_s, match_vod, game_version FROM matches WHERE match_id = ?",
             (match_id,),
         ).fetchone()
         prev_row = conn.execute(
@@ -1209,6 +1227,7 @@ def match_adjacent(match_id: int):  # type: ignore
         "event_team_a_ingame_side": cur_row[7] if cur_row else None,
         "duration_s": cur_row[8] if cur_row else None,
         "match_vod": cur_row[9] if cur_row else None,
+        "game_version": cur_row[10] if cur_row else None,
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })
@@ -1801,7 +1820,7 @@ def user_stats(account_id: int):  # type: ignore
 def user_matches_api(account_id: int):
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.net_worth, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, p.level, p.lane, p.lane_real, m.duration_s, m.winning_team, m.game_mode, m.match_mode, m.start_time, m.created_at, m.event_title, m.event_week, m.event_game, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.match_vod "
+            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.net_worth, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, p.level, p.lane, p.lane_real, m.duration_s, m.winning_team, m.game_mode, m.match_mode, m.start_time, m.game_version, m.created_at, m.event_title, m.event_week, m.event_game, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.match_vod "
             # Order by when the game was PLAYED, not when it was ingested —
             # `created_at` reorders a player's history whenever a week is
             # re-ingested (e.g. the week-49 repair), which broke "last 10 games".
@@ -1873,7 +1892,7 @@ def user_matches_paged_api(account_id: int):
         )
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.net_worth, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, p.level, p.lane, p.lane_real, m.duration_s, m.winning_team, m.start_time, m.created_at, m.event_week, m.event_game, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.match_vod "
+            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.net_worth, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, p.level, p.lane, p.lane_real, m.duration_s, m.winning_team, m.start_time, m.game_version, m.created_at, m.event_week, m.event_game, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.match_vod "
             "FROM players p JOIN matches m ON m.match_id = p.match_id" + where +
             f" ORDER BY {order_by} {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])

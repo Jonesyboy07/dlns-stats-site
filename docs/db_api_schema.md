@@ -190,6 +190,7 @@ Each match contains:
 | `event_game` | string or null |
 | `event_team_a_ingame_side` | integer or null |
 | `start_time` | string or null |
+| `game_version` | integer or null |
 | `created_at` | string or null |
 
 Notes:
@@ -241,6 +242,18 @@ Each embedded player row contains:
 Special case:
 - If `hero` does not match any hero names, the route returns an empty paginated result set.
 
+## Route: `/db/matches/<match_id>/version`
+
+Returns the Deadlock game version (build number) for a match. If the DB value is not yet backfilled it is resolved from `start_time` via the local timestamp cache. Returns `404` with `{"error": "match_not_found"}` for unknown matches.
+
+Response:
+
+| Field | Type |
+| --- | --- |
+| `match_id` | integer |
+| `game_version` | integer or null |
+| `start_time` | string or null |
+
 ## Route: `/db/matches/<match_id>/adjacent`
 
 Returns lightweight context for a match and its neighbors by creation time.
@@ -260,6 +273,7 @@ Response:
 | `event_team_b` | string or null |
 | `event_game` | string or null |
 | `event_team_a_ingame_side` | integer or null |
+| `game_version` | integer or null |
 | `previous_match_id` | integer or null |
 | `next_match_id` | integer or null |
 

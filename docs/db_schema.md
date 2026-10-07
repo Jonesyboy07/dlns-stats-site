@@ -51,9 +51,11 @@ Stores per-match metadata.
 | `event_game` | TEXT | Yes | Game label from match JSON (e.g. Game 1) |
 | `event_team_a_ingame_side` | INTEGER | Yes | Team A in-game side from match JSON, `0` = Amber and `1` = Sapphire |
 | `start_time` | TEXT | Yes | ISO-8601 UTC (derived from API) |
+| `game_version` | INTEGER | Yes | Deadlock build number active at `start_time`, from the leading number of the SteamTracking/GameTracking-Deadlock commit message (e.g. `6759`). NULL until resolved |
 | `created_at` | TEXT | Yes | ISO-8601 UTC (scrape time) |
 
 Notes:
+- `game_version` is resolved by `backend/game_version.py`. It pulls the full GameTracking-Deadlock commit history once (commits-only `git fetch`, under 1 MB, no API rate limit; requires `git` on the host) and stores a timestamp -> version table in `data/_cache/game_versions.json` (git-ignored, as is the clone beside it). It only re-syncs when a timestamp is newer than the last sync, at most every 10 minutes. Existing DBs are filled with `python backend/main.py -versionbackfill true` (`force` recomputes all); `update_db_from_matches` runs it.
 - `start_time` may be derived from multiple API fields and normalized to ISO-8601 UTC.
 - Migrations add `start_time`, `event_title`, `event_week`, `event_team_a`, `event_team_b`, `event_game`, and `event_team_a_ingame_side` if they do not exist.
 

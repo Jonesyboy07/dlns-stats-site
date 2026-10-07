@@ -60,6 +60,10 @@ echo "Refetching all cached users..."
     -userfetch "true"
 
 echo
+echo "Backfilling game versions (matches.game_version)..."
+"$PYTHON_EXE" backend/main.py -db "$DB_PATH" -versionbackfill true
+
+echo
 echo "Inferring real lanes from match_paths (lane_real)..."
 "$PYTHON_EXE" backend/main.py -db "$DB_PATH" -laneinfer true
 

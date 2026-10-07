@@ -144,7 +144,7 @@ function TeamSeriesTab({ team_name, matches = [] }) {
       title="Series"
       subtitle={`${seriesCount} series · newest first · click a row for its games`}
     >
-      <div className="-mx-2 overflow-x-auto">
+      <div className="scroll-thin -mx-2 overflow-x-auto">
         <div className="flex min-w-[460px] flex-col">
           <div
             className={`${GRID} border-b border-border px-4 pb-2.5 text-[12px] uppercase tracking-[.05em] text-muted`}

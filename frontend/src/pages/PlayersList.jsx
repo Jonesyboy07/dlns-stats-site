@@ -193,7 +193,7 @@ function PlayersList() {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border-light bg-card shadow">
+        <div className="scroll-thin overflow-x-auto rounded-xl border border-border-light bg-card shadow">
           <table className="w-full min-w-[760px]">
             <thead>
               <tr className="border-b border-border-light bg-table text-[11px] uppercase tracking-[.05em] text-muted">

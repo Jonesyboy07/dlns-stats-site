@@ -182,7 +182,7 @@ function RosterAccordion({ players = [], maxWeek }) {
   }
 
   return (
-    <div className="-mx-2 overflow-x-auto">
+    <div className="scroll-thin -mx-2 overflow-x-auto">
       <div className="flex min-w-[780px] flex-col">
         <div
           className={`${GRID} border-b border-border px-4 pb-2.5 text-[12px] uppercase tracking-[.05em] text-muted`}

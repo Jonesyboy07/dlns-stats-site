@@ -83,13 +83,13 @@ def team_detail(team_name):
 
 @react_stats_bp.get('/week')
 def week_index():
-    """Serve the React Week Detail index (redirects to latest week)."""
+    """Serve the merged Night Shift week page, which opens the newest week."""
     return render_template('react.html', page='matchlist')
 
 
 @react_stats_bp.get('/week/<int:week>')
 def week_detail(week):
-    """Serve the React Week Detail page."""
+    """Serve the merged Night Shift week page for one week."""
     return render_template('react.html', page='matchlist')
 
 

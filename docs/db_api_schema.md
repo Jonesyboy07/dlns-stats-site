@@ -23,6 +23,95 @@ Main route groups:
 - `search` for typeahead suggestions
 - `heroes` for hero dictionaries and hero-specific aggregates
 - `players` for a global player list
+- `nightshift` for the Night Shift week index and per-week detail
+
+## Route: `/db/nightshift/index`
+
+Returns the week index behind the Night Shift page sidebar: one entry per event
+week, oldest first, each carrying that week's per-region series summaries.
+
+Query parameters:
+- `event_title`: optional event filter, defaults to `Night Shift`
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `event_title` | string | Resolved event title |
+| `available_event_titles` | array of strings | Every event with weeks in the database |
+| `weeks` | array of objects | One entry per week, ascending |
+
+`weeks[]`:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `week` | integer | Event week |
+| `date` | string or null | Earliest `start_time` in the week (ISO-8601) |
+| `regions` | object | Region (`NA`/`EU`) -> `{ series: [...] }` |
+
+`regions[region].series[]` entries carry `round` (the raw stage title, e.g.
+`FINALS`), `team_a`, `team_b`, `score_a`, `score_b` and `start_time`. Series
+whose hand-authored `event_region` is blank are inferred from a team that has a
+known region in the same week, and fall back to an `Other` bucket when no shared
+team exists.
+
+## Route: `/db/nightshift/<week>`
+
+Returns every match in one event week together with summary stats and VOD links.
+
+Query parameters:
+- `event_title`: optional event filter, defaults to `Night Shift`
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `week` | integer | Event week |
+| `event_title` | string | Resolved event title |
+| `stats` | object | `total_matches`, `amber_wins`, `sapphire_wins`, `avg_duration_s`, `first_match_time` |
+| `matches` | array of objects | Matches ordered by start time, each with its `players` |
+| `all_weeks` | array of integers | Every week number recorded for the event |
+| `vod_link`, `vod_links`, `series_vods`, `game_vods` | mixed | VOD links from `matches.json` |
+
+`stream_vod` is the whole broadcast, normalised from whichever shape
+`matches.json` recorded it in — early weeks carry a single `vod_link` string,
+later ones a `vod_links` list. It is `null` for the weeks that recorded neither
+(week 38 at the time of writing).
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `url` | string | Link to the full stream |
+| `title` | string | Stream title, empty when the source did not name one |
+
+Each `matches[]` entry includes the event context columns `event_region`
+(`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`) and `match_vod`,
+which the week page uses to build the brackets, leaderboard and picks panels.
+
+`latest_update` and `latest_hero` are the Steam announcements the week's games
+came after, split by kind because they age differently. `latest_update` is the
+newest patch note or game update, kept however old it is — it is what the night
+was played under. `latest_hero` is the newest hero reveal, and is `null` once that
+hero is more than four weeks old, since a hero who arrived weeks earlier is no
+longer why the night looks the way it does. Both are `null` when nothing of that
+kind predates the week, or when Steam is unreachable. Third-party press pieces on
+the feed are dropped by feed name. The busiest sitting sets the cutoff, since a
+few weeks carry a synthetic placeholder row stamped months later. A feed post
+carries the news API URL until a week actually shows it, so reading a week only
+costs Steam a lookup for the two posts it displays rather than the whole feed.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `gid` | string | Steam announcement id |
+| `title` | string | e.g. `Minor Update - 10-05-2026`, `Mind the Birds!` |
+| `kind` | string | `update` or `hero` |
+| `ts` | integer | Post time, Unix seconds |
+| `published_at` | string | Post time, ISO 8601 |
+| `url` | string or null | Store news URL, or the feed's own URL when the store one cannot be resolved |
+| `during_games` | boolean | True when it landed while the week was being played |
+
+`players[]` entries carry `team`, `hero_id`, `hero_name`, `kills`, `deaths`,
+`assists`, `net_worth`, `player_damage`, `player_healing`, `account_id`,
+`persona_name` and `avatar_url`.
 
 ## Route: `/db/weeks`
 

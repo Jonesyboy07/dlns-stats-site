@@ -83,7 +83,7 @@ The application factory is `backend/app/main_web.py`; blueprint registration is 
 
 ## Routes and API
 
-The primary JSON API is under `/db`. Site pages include `/`, `/search`, `/matches/<match_id>`, `/users/<account_id>`, `/stats/`, `/help`, and `/community`. Other blueprint routes support authentication, admin functions, interviews, and the DLNS exporter.
+The primary JSON API is under `/db`. Site pages include `/`, `/search`, `/matches/<match_id>`, `/users/<account_id>`, `/week` (Night Shift, which opens the latest week), `/week/<n>`, `/stats/`, `/help`, and `/community`. Other blueprint routes support authentication, admin functions, interviews, and the DLNS exporter.
 
 - Interactive API reference: <http://localhost:5050/api/docs>
 - OpenAPI JSON: <http://localhost:5050/api/openapi.json> or [`docs/openapi_spec.json`](docs/openapi_spec.json)

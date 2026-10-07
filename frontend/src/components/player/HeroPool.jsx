@@ -192,7 +192,7 @@ export default function HeroPool({ matches = [], accountId, playerName, limit = 
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="scroll-thin overflow-x-auto">
           <div className="min-w-[760px]">
             <div
               className={`${GRID} border-b border-border-light bg-table px-3 py-2 text-[11px] uppercase tracking-[.05em] text-muted`}

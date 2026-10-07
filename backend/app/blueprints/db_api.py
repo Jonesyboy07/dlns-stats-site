@@ -17,10 +17,12 @@ from flask import Blueprint, current_app, jsonify, request
 from ..cache import cache
 from dotenv import load_dotenv
 from ..heroes import get_hero_name
+from ..utils import brackets as bk
 from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
 from ...game_version import resolve_game_version
+from ...steam_news import iso_to_epoch, news_for_games
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -5378,6 +5380,263 @@ def get_team_detail(team_name: str):
         })
 
 
+def _brackets_file_path() -> Path:
+    """`data/brackets.json` sits beside the database, as the bracket blueprint expects."""
+    db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3")).resolve()
+    return db_path.parent / "brackets.json"
+
+
+def _load_brackets_events() -> List[Dict[str, Any]]:
+    try:
+        with _brackets_file_path().open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    events = data.get("events") if isinstance(data, dict) else None
+    return events if isinstance(events, list) else []
+
+
+def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
+    """Authored brackets for one week, computed against the ingested results.
+
+    The structure — rounds, series, advancement — belongs to `data/brackets.json`
+    and the bracket builder that writes it. Scores, winners and the teams fed
+    forward are computed from those games' results by the same helper the admin
+    bracket view uses, so both surfaces always agree.
+
+    Returns an empty list when the file is missing or holds no matching week, so
+    callers can fall back to deriving a bracket from the match rows.
+    """
+    wanted = str(event_title or "").strip().lower()
+    events = [
+        event
+        for event in _load_brackets_events()
+        if str(event.get("title") or "").strip().lower() == wanted
+        and int(event.get("week") or 0) == int(week)
+    ]
+    if not events:
+        return []
+
+    match_ids: List[int] = []
+    for event in events:
+        match_ids.extend(bk.match_ids(event))
+
+    # {match_id: 'team_a' | 'team_b'} — the winning *slot*, which is what the
+    # bracket model advances. Rows without a recorded side stay untold.
+    results: Dict[int, str] = {}
+    if match_ids:
+        placeholders = ",".join("?" * len(match_ids))
+        with get_ro_conn() as conn:
+            cur = conn.execute(
+                f"""
+                SELECT match_id, winning_team, event_team_a_ingame_side
+                FROM matches
+                WHERE match_id IN ({placeholders})
+                """,
+                tuple(match_ids),
+            )
+            for match_id, winning_team, side_a in cur.fetchall():
+                if winning_team is None or side_a is None:
+                    continue
+                results[int(match_id)] = "team_a" if int(winning_team) == int(side_a) else "team_b"
+
+    computed: List[Dict[str, Any]] = []
+    for event in events:
+        payload = bk.compute(event, results)
+        payload["ban_pattern"] = bk.ban_pattern(event)
+        computed.append(payload)
+    computed.sort(key=lambda event: str(event.get("region") or ""))
+    return computed
+
+
+def _week_announcements(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """The Steam announcements this week's games came after, for the page to link to.
+
+    Split by kind, because they age differently: the game update the night was
+    played under stays relevant however old it is, while a hero reveal only
+    explains the night while it is recent. The week links out to Steam rather than
+    showing build numbers, which mean nothing to a reader. Both are None when
+    nothing of that kind predates the week, or when Steam cannot be reached.
+    """
+    games: List[tuple] = []
+    for match in matches or []:
+        start = iso_to_epoch(match.get("start_time"))
+        if start is None:
+            continue
+        games.append((start, start + int(match.get("duration_s") or 0)))
+    return news_for_games(games)
+
+
+def _stream_vod(vod_link: Any, vod_links: Any) -> Optional[Dict[str, str]]:
+    """The whole broadcast's VOD, from either shape `matches.json` uses.
+
+    Weeks recorded early carry a single `vod_link` string; later weeks carry a
+    `vod_links` list of `{title, url}`. Both mean the same thing to the page, so
+    they are normalised here rather than making the frontend know about both.
+    """
+    if vod_link:
+        return {"url": str(vod_link), "title": ""}
+    if isinstance(vod_links, list):
+        for entry in vod_links:
+            if isinstance(entry, dict) and entry.get("url"):
+                return {"url": str(entry["url"]), "title": str(entry.get("title") or "")}
+            if isinstance(entry, str) and entry:
+                return {"url": entry, "title": ""}
+    return None
+
+
+def _nightshift_available_events(conn: sqlite3.Connection) -> List[str]:
+    cur = conn.execute(
+        """
+        SELECT DISTINCT event_title
+        FROM matches
+        WHERE event_title IS NOT NULL AND TRIM(event_title) != '' AND event_week IS NOT NULL
+        ORDER BY LOWER(event_title) ASC
+        """
+    )
+    return [row[0] for row in cur.fetchall()]
+
+
+def _match_winner_side(row: Dict[str, Any]) -> Optional[str]:
+    """Return 'a'/'b' for the side that won a single match row, else None.
+
+    `winning_team` is the in-game side (0 = Amber, 1 = Sapphire) and
+    `event_team_a_ingame_side` maps the series' team A onto a side. Rows written
+    before that column existed fall back to team A = Amber.
+    """
+    winning = row.get("winning_team")
+    if winning not in (0, 1):
+        return None
+    side_a = row.get("event_team_a_ingame_side")
+    if side_a not in (0, 1):
+        side_a = 0
+    return "a" if winning == side_a else "b"
+
+
+def _normalize_region(value: Optional[str]) -> Optional[str]:
+    """Normalize the hand-authored `event_region` to an uppercase label."""
+    region = (value or "").strip().upper()
+    return region or None
+
+
+def _build_nightshift_index(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse match rows into one index entry per event week, oldest first.
+
+    Each week carries the same per-region series summaries the week page builds
+    from its own matches, so the sidebar (region champions and a filtered team's
+    result) and the bracket card derive from a single shape. `event_region` is
+    hand-authored and is occasionally blank, so a missing region is inferred
+    from a team that already has a known one in the same week.
+    """
+    weeks: Dict[int, Dict[str, Any]] = {}
+    series_by_key: Dict[Tuple[int, str, str, str, str], Dict[str, Any]] = {}
+
+    for row in rows:
+        week = row.get("event_week")
+        if week is None:
+            continue
+        entry = weeks.setdefault(week, {"week": week, "date": None, "regions": {}})
+        start_time = row.get("start_time")
+        if start_time and (entry["date"] is None or start_time < entry["date"]):
+            entry["date"] = start_time
+
+        team_a = row.get("event_team_a") or ""
+        team_b = row.get("event_team_b") or ""
+        if not team_a or not team_b:
+            continue
+        region = _normalize_region(row.get("event_region"))
+        round_title = (row.get("event_subtitle") or "").strip()
+        key = (week, region or "", round_title, team_a, team_b)
+        series = series_by_key.get(key)
+        if series is None:
+            series = series_by_key[key] = {
+                "region": region,
+                "round": round_title or None,
+                "team_a": team_a,
+                "team_b": team_b,
+                "score_a": 0,
+                "score_b": 0,
+                "start_time": start_time,
+                "teams": (team_a, team_b),
+            }
+        elif start_time and (series["start_time"] is None or start_time < series["start_time"]):
+            series["start_time"] = start_time
+        winner = _match_winner_side(row)
+        if winner == "a":
+            series["score_a"] += 1
+        elif winner == "b":
+            series["score_b"] += 1
+
+    # Fill in blank regions from any other series in the same week that shares a team.
+    teams_by_week: Dict[int, Dict[str, str]] = {}
+    for (week, _, _, _, _), series in series_by_key.items():
+        if not series["region"]:
+            continue
+        for team in series["teams"]:
+            teams_by_week.setdefault(week, {})[team] = series["region"]
+    for (week, _, _, _, _), series in series_by_key.items():
+        if series["region"]:
+            continue
+        known = teams_by_week.get(week, {})
+        inferred = known.get(series["team_a"]) or known.get(series["team_b"])
+        if inferred:
+            series["region"] = inferred
+
+    for (week, _, _, _, _), series in series_by_key.items():
+        region = series["region"] or "Other"
+        week_entry = weeks.get(week)
+        if week_entry is None:
+            continue
+        bucket = week_entry["regions"].setdefault(region, {"series": []})
+        bucket["series"].append(
+            {
+                "round": series["round"],
+                "team_a": series["team_a"],
+                "team_b": series["team_b"],
+                "score_a": series["score_a"],
+                "score_b": series["score_b"],
+                "start_time": series["start_time"],
+            }
+        )
+
+    for week_entry in weeks.values():
+        for bucket in week_entry["regions"].values():
+            bucket["series"].sort(key=lambda s: (s["start_time"] or "", s["team_a"], s["team_b"]))
+    return [weeks[key] for key in sorted(weeks)]
+
+
+@bp.get("/nightshift/index")
+@cache.cached(timeout=1800, query_string=True)
+def nightshift_index():
+    """Week index for the Night Shift page: one entry per week, oldest first."""
+    event_title = (request.args.get("event_title") or "").strip() or "Night Shift"
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT
+                m.event_week, m.event_region, m.event_subtitle,
+                m.event_team_a, m.event_team_b,
+                m.winning_team, m.event_team_a_ingame_side,
+                m.start_time, m.match_id
+            FROM matches m
+            WHERE LOWER(m.event_title) = LOWER(?) AND m.event_week IS NOT NULL
+              AND m.event_team_a IS NOT NULL AND m.event_team_b IS NOT NULL
+            ORDER BY m.event_week ASC, COALESCE(m.start_time, '') ASC, m.match_id ASC
+            """,
+            (event_title,),
+        )
+        rows = _rows_to_dicts(cur)
+        available_event_titles = _nightshift_available_events(conn)
+
+    return jsonify(
+        {
+            "event_title": event_title,
+            "available_event_titles": available_event_titles,
+            "weeks": _build_nightshift_index(rows),
+        }
+    )
+
+
 @bp.get("/nightshift/<int:week>")
 @cache.cached(timeout=1800, query_string=True)
 def nightshift_week(week: int):
@@ -5411,7 +5670,7 @@ def nightshift_week(week: int):
                 m.match_id, m.duration_s, m.winning_team,
                 m.event_title, m.event_week, m.event_game,
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
-                m.start_time, m.event_subtitle
+                m.start_time, m.event_subtitle, m.event_region, m.match_vod
             FROM matches m
             WHERE LOWER(m.event_title) = LOWER(?) AND m.event_week = ?
             ORDER BY m.start_time ASC, m.match_id ASC
@@ -5446,6 +5705,29 @@ def nightshift_week(week: int):
                 players_by_match[mid].append(row)
             for m in matches:
                 m["players"] = players_by_match.get(m["match_id"], [])
+
+            # Per-match hero bans. `match_bans` is written by the ingester and is
+            # absent from databases created before bans were tracked, so a missing
+            # table must degrade to "no bans" instead of failing the whole week.
+            try:
+                bcur = conn.execute(
+                    f"""
+                    SELECT b.match_id, b.ban_order, b.team, b.hero_id
+                    FROM match_bans b
+                    WHERE b.match_id IN ({placeholders})
+                    ORDER BY b.match_id, b.ban_order
+                    """,
+                    tuple(match_ids),
+                )
+                bans_by_match: dict = {}
+                for row in _rows_to_dicts(bcur):
+                    if row.get("hero_id"):
+                        row["hero_name"] = get_hero_name(row["hero_id"])
+                    bans_by_match.setdefault(row["match_id"], []).append(row)
+            except sqlite3.OperationalError:
+                bans_by_match = {}
+            for m in matches:
+                m["bans"] = bans_by_match.get(m["match_id"], [])
 
         # Neighbouring weeks so the page can offer prev/next navigation
         neighbours = conn.execute(
@@ -5503,12 +5785,17 @@ def nightshift_week(week: int):
         except Exception:
             pass
 
+        announcements = _week_announcements(matches)
         return jsonify({
             "week": week,
             "event_title": event_title,
             "stats": stats,
             "matches": matches,
+            "brackets": _week_brackets(event_title, week),
+            "latest_update": announcements["update"],
+            "latest_hero": announcements["hero"],
             "all_weeks": all_weeks,
+            "stream_vod": _stream_vod(vod_link, vod_links),
             "vod_link": vod_link,
             "vod_links": vod_links,
             "series_vods": series_vods,

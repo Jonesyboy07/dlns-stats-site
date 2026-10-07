@@ -25,10 +25,6 @@ const PITCH = CELL_W + X_GAP;
 /** Fixed tooltip width, used to keep it from spilling outside the track. */
 const TOOLTIP_WIDTH = 208;
 
-/** Matches the thin scrollbar treatment used by the hero usage matrix. */
-const SCROLLBAR =
-  "[scrollbar-color:rgb(75_85_99)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-600";
-
 const ROW_GAP = { gap: Y_GAP };
 
 const colWidth = {
@@ -64,7 +60,7 @@ function WeekTooltip({ week, lineup, left }) {
           No players — the team did not play this week.
         </p>
       ) : (
-        <ul className="mt-1 max-h-56 space-y-0.5 overflow-y-auto">
+        <ul className="scroll-thin mt-1 max-h-56 space-y-0.5 overflow-y-auto">
           {lineup.map((row) => (
             <li
               key={row.player.account_id}
@@ -193,7 +189,7 @@ function RosterTimeline({ players = [], weeks = [], maxWeek }) {
         <div
           ref={scrollerRef}
           onScroll={() => setHovered(null)}
-          className={`overflow-x-auto pb-1 ${SCROLLBAR}`}
+          className="scroll-thin overflow-x-auto pb-1"
         >
           <div
             className="flex cursor-help flex-col"

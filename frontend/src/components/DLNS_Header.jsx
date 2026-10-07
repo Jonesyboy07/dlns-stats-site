@@ -73,11 +73,15 @@ function DLNS_Header({ className = "" }) {
     { path: "/players", label: "Players" },
     { path: "/teams", label: "Teams" },
     { path: "/heroes", label: "Heroes" },
+    { path: "/week", label: "Night Shift" },
     { path: "/stats", label: "Stats" },
     { path: "/community", label: "Community" },
   ];
 
-  const isActive = (path) => location.pathname === path;
+  /* `/week/:n` is the same nav destination as `/week`, so the Night Shift item
+     has to match on the prefix rather than the exact path. */
+  const isActive = (path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <header className={`sticky top-0 z-30 w-full border-b border-border bg-base-glass text-primary shadow-panel backdrop-blur-[10px] ${className}`}>

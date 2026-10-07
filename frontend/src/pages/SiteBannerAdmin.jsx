@@ -990,7 +990,7 @@ export default function SiteBannerAdmin() {
         ) : null}
 
         <form onSubmit={saveConfig} className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_420px]">
-          <aside className="rounded-[1.8rem] border border-white/10 bg-slate-950/80 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.28)] xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:overflow-auto">
+          <aside className="scroll-thin rounded-[1.8rem] border border-white/10 bg-slate-950/80 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.28)] xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:overflow-auto">
             <div className="rounded-2xl border border-white/8 bg-white/5 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-gray-500">Jump to</div>
               <div className="mt-3 grid gap-2">
@@ -1193,7 +1193,7 @@ export default function SiteBannerAdmin() {
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-4">
                     <div className="text-sm font-semibold text-white">Saved JSON</div>
-                    <pre className="mt-3 max-h-[420px] overflow-auto rounded-2xl bg-black/40 p-4 text-xs leading-6 text-slate-200">
+                    <pre className="scroll-thin mt-3 max-h-[420px] overflow-auto rounded-2xl bg-black/40 p-4 text-xs leading-6 text-slate-200">
                       {JSON.stringify(payload, null, 2)}
                     </pre>
                   </div>
@@ -1211,7 +1211,7 @@ export default function SiteBannerAdmin() {
             ) : null}
           </main>
 
-          <aside className="xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:overflow-auto">
+          <aside className="scroll-thin xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:overflow-auto">
             <HelpBannerPreview config={payload} />
           </aside>
         </form>

@@ -711,7 +711,7 @@ function MatchDetail() {
       {/* Scoreboard */}
       <div className="mb-6 w-full max-w-[1300px] mx-auto">
         {/* Mirrored scoreboard (desktop only) */}
-        <div className="hidden lg:block text-gray-300 shadow border border-gray-700/60 overflow-x-auto">
+        <div className="scroll-thin hidden lg:block text-gray-300 shadow border border-gray-700/60 overflow-x-auto">
           <table className="w-full table-fixed border-separate border-spacing-0">
             <colgroup>
               <col style={{ width: "6.5%" }} />

@@ -1,13 +1,20 @@
-"""Tests for choosing the Steam announcement a Night Shift week should link to.
+"""Tests for choosing the Steam announcements a Night Shift week should link to.
 
-`news_for_week` is pure over a post list and the week's game windows, so the
-selection rule — newest post by the week's final game, flagged when it landed
-mid-broadcast — can be exercised without a network call.
+`news_for_week` is pure over a post list and the week's game windows, so both
+halves of the rule can be exercised without a network call: the game update is
+kept however old it is, while a hero reveal is dropped once it goes stale.
 """
 
 import unittest
 
-from backend.steam_news import news_for_week, resolve_store_url
+from backend.steam_news import (
+    HERO_MAX_AGE_S,
+    KIND_HERO,
+    KIND_UPDATE,
+    news_for_week,
+    post_kind,
+    resolve_store_url,
+)
 
 
 def game(start, minutes):
@@ -19,42 +26,66 @@ def game(start, minutes):
 BASE = 1782938520
 
 
-def post(ts, title="Minor Update"):
-    return {"ts": ts, "title": title, "url": "https://example.invalid"}
+def post(ts, title="Minor Update - 07-01-2026"):
+    return {"ts": ts, "title": title, "kind": post_kind(title), "url": "https://example.invalid"}
+
+
+def update(ts, title="Minor Update - 07-01-2026"):
+    return post(ts, title)
+
+
+def hero(ts, title="The Curse Beckons for Silver"):
+    return post(ts, title)
 
 
 class NewsForWeekTests(unittest.TestCase):
-    def test_picks_the_newest_post_before_the_week(self):
-        # Week 48's shape: played 2026-07-14, newest post is the 09th.
+    def test_picks_the_newest_update_before_the_week(self):
+        # Week 48's shape: played 2026-07-14, newest update is the 09th.
         games = [game(BASE, 31), game(BASE + 518400, 33)]
-        newer, older = post(BASE - 432000, "07-09"), post(BASE - 1728000, "06-04")
-        chosen = news_for_week([newer, older], games)
-        self.assertEqual(chosen["title"], "07-09")
-        self.assertFalse(chosen["during_games"])
-
-    def test_picks_a_hero_release_over_an_older_patch_note(self):
-        # City Never Sleeps is not a patch note, but it is what week 58 came after.
-        games = [game(BASE, 30)]
         chosen = news_for_week(
-            [post(BASE - 86400, "City Never Sleeps"), post(BASE - 1209600, "Minor Update - 09-16-2026")],
+            [update(BASE - 432000, "Minor Update - 07-09-2026"), update(BASE - 1728000, "Minor Update - 06-04-2026")],
             games,
         )
-        self.assertEqual(chosen["title"], "City Never Sleeps")
+        self.assertEqual(chosen["update"]["title"], "Minor Update - 07-09-2026")
+        self.assertFalse(chosen["update"]["during_games"])
 
-    def test_flags_a_post_that_landed_during_a_game(self):
+    def test_a_hero_reveal_does_not_displace_the_update(self):
+        games = [game(BASE, 30)]
+        chosen = news_for_week(
+            [hero(BASE - 86400, "Mind the Birds!"), update(BASE - 1209600, "Minor Update - 07-09-2026")],
+            games,
+        )
+        self.assertEqual(chosen["update"]["title"], "Minor Update - 07-09-2026")
+        self.assertEqual(chosen["hero"]["title"], "Mind the Birds!")
+
+    def test_drops_a_hero_reveal_older_than_four_weeks(self):
+        games = [game(BASE, 30)]
+        self.assertIsNone(news_for_week([hero(BASE - HERO_MAX_AGE_S - 1)], games)["hero"])
+
+    def test_keeps_a_hero_reveal_at_the_four_week_edge(self):
+        games = [game(BASE, 30)]  # the sitting finishes 30 minutes later
+        chosen = news_for_week([hero(BASE + 1800 - HERO_MAX_AGE_S)], games)
+        self.assertIsNotNone(chosen["hero"])
+
+    def test_an_old_update_is_kept_however_stale_it_is(self):
+        # Weeks 9-15 sit months after the last update; that is still the context.
+        games = [game(BASE, 30)]
+        chosen = news_for_week([update(BASE - 200 * 86400, "Shop Rework Update")], games)
+        self.assertEqual(chosen["update"]["title"], "Shop Rework Update")
+
+    def test_flags_an_update_that_landed_during_a_game(self):
         games = [game(BASE, 25), game(BASE + 3540, 30), game(BASE + 6960, 33)]
         posted = BASE + 7920  # inside the third game
-        chosen = news_for_week([post(posted)], games)
-        self.assertEqual(chosen["ts"], posted)
-        self.assertTrue(chosen["during_games"])
+        chosen = news_for_week([update(posted)], games)
+        self.assertEqual(chosen["update"]["ts"], posted)
+        self.assertTrue(chosen["update"]["during_games"])
 
-    def test_flags_a_post_that_landed_between_two_games_of_one_sitting(self):
+    def test_flags_an_update_that_landed_between_two_games_of_one_sitting(self):
         games = [game(BASE, 25), game(BASE + 3540, 30), game(BASE + 10500, 38)]
-        posted = BASE + 4800  # in the 14-minute gap after the second game
-        chosen = news_for_week([post(posted)], games)
-        self.assertTrue(chosen["during_games"])
+        chosen = news_for_week([update(BASE + 4800)], games)
+        self.assertTrue(chosen["update"]["during_games"])
 
-    def test_does_not_flag_a_post_published_between_two_different_nights(self):
+    def test_does_not_flag_an_update_published_between_two_different_nights(self):
         # Week 49's shape: a short night, then a longer one the next day, with the
         # patch posted in the long gap between them.
         games = [
@@ -65,28 +96,66 @@ class NewsForWeekTests(unittest.TestCase):
             game(BASE + 101580, 32),
         ]
         posted = BASE + 7640  # 40 minutes after the first night's games ended
-        chosen = news_for_week([post(posted)], games)
-        self.assertEqual(chosen["ts"], posted)
-        self.assertFalse(chosen["during_games"])
+        chosen = news_for_week([update(posted)], games)
+        self.assertEqual(chosen["update"]["ts"], posted)
+        self.assertFalse(chosen["update"]["during_games"])
 
-    def test_ignores_a_post_published_after_the_week(self):
+    def test_ignores_an_update_published_after_the_week(self):
         games = [game(BASE, 30)]
-        self.assertIsNone(news_for_week([post(BASE + 86400, "later")], games))
+        chosen = news_for_week([update(BASE + 86400, "Minor Update - 07-02-2026")], games)
+        self.assertIsNone(chosen["update"])
+        self.assertIsNone(chosen["hero"])
 
     def test_ignores_a_stray_game_months_after_the_week(self):
         # Weeks 22 and 40 carry a synthetic placeholder row stamped months later;
         # the busiest sitting is the real broadcast, so it must not set the cutoff.
         real = [game(BASE + i * 3600, 30) for i in range(5)]
         stray = game(BASE + 90 * 86400, 1)
-        chosen = news_for_week([post(BASE + 80 * 86400, "too late")], real + [stray])
-        self.assertIsNone(chosen)
+        chosen = news_for_week([update(BASE + 80 * 86400)], real + [stray])
+        self.assertIsNone(chosen["update"])
 
-    def test_is_none_without_games_or_posts(self):
-        self.assertIsNone(news_for_week([post(BASE)], []))
-        self.assertIsNone(news_for_week([], [game(BASE, 30)]))
+    def test_both_are_none_without_games_or_posts(self):
+        self.assertEqual(news_for_week([update(BASE)], []), {"update": None, "hero": None})
+        self.assertEqual(news_for_week([], [game(BASE, 30)]), {"update": None, "hero": None})
 
     def test_ignores_a_post_without_a_timestamp(self):
-        self.assertIsNone(news_for_week([{"title": "Broken"}], [game(BASE, 30)]))
+        chosen = news_for_week([{"title": "Broken", "kind": KIND_UPDATE}], [game(BASE, 30)])
+        self.assertIsNone(chosen["update"])
+
+    def test_an_unclassified_post_counts_as_an_update(self):
+        # Entries cached before posts carried a kind must not vanish.
+        games = [game(BASE, 30)]
+        chosen = news_for_week([{"ts": BASE - 60, "title": "Untyped"}], games)
+        self.assertEqual(chosen["update"]["title"], "Untyped")
+
+
+class PostKindTests(unittest.TestCase):
+    def test_patch_notes_and_reworks_are_updates(self):
+        for title in (
+            "Minor Update - 10-05-2026",
+            "Gameplay Update - 03-06-2026",
+            "Map Rework Update",
+            "Shop Rework Update",
+            "Winter Visual Update",
+            "Hotfix 12",
+        ):
+            self.assertEqual(post_kind(title), KIND_UPDATE, title)
+
+    def test_a_season_launch_without_an_update_word_is_an_update(self):
+        # Curated, because "City Never Sleeps" is a major update whose title says
+        # nothing of the sort.
+        self.assertEqual(post_kind("City Never Sleeps"), KIND_UPDATE)
+
+    def test_hero_reveals_are_heroes(self):
+        for title in (
+            "Mind the Birds!",
+            "The Curse Beckons for Silver",
+            "Old Gods, New Blood",
+            "Introducing The Dazzling Celeste",
+            "Rem Enters The City That Never Sleeps",
+            "Listen up, Crumbums! Your King is here.",
+        ):
+            self.assertEqual(post_kind(title), KIND_HERO, title)
 
 
 class StoreUrlTests(unittest.TestCase):

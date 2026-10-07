@@ -22,7 +22,7 @@ from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
 from ...game_version import resolve_game_version
-from ...steam_news import iso_to_epoch, latest_news_for_games
+from ...steam_news import iso_to_epoch, news_for_games
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -5449,14 +5449,14 @@ def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
     return computed
 
 
-def _week_latest_news(matches: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """The Steam announcement this week's games came after, for the page to link to.
+def _week_announcements(matches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """The Steam announcements this week's games came after, for the page to link to.
 
-    Every post counts, not just the patch notes: a hero release or a big update is
-    what a night's games came after, and that is the context the link provides. The
-    week links out to Steam rather than showing build numbers, which mean nothing
-    to a reader. None only when no post predates the week at all, or when Steam
-    cannot be reached.
+    Split by kind, because they age differently: the game update the night was
+    played under stays relevant however old it is, while a hero reveal only
+    explains the night while it is recent. The week links out to Steam rather than
+    showing build numbers, which mean nothing to a reader. Both are None when
+    nothing of that kind predates the week, or when Steam cannot be reached.
     """
     games: List[tuple] = []
     for match in matches or []:
@@ -5464,7 +5464,7 @@ def _week_latest_news(matches: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
         if start is None:
             continue
         games.append((start, start + int(match.get("duration_s") or 0)))
-    return latest_news_for_games(games)
+    return news_for_games(games)
 
 
 def _nightshift_available_events(conn: sqlite3.Connection) -> List[str]:
@@ -5767,13 +5767,15 @@ def nightshift_week(week: int):
         except Exception:
             pass
 
+        announcements = _week_announcements(matches)
         return jsonify({
             "week": week,
             "event_title": event_title,
             "stats": stats,
             "matches": matches,
             "brackets": _week_brackets(event_title, week),
-            "latest_news": _week_latest_news(matches),
+            "latest_update": announcements["update"],
+            "latest_hero": announcements["hero"],
             "all_weeks": all_weeks,
             "vod_link": vod_link,
             "vod_links": vod_links,

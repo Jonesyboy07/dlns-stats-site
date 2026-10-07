@@ -149,10 +149,12 @@ export default function WeekPage() {
   const leaderboard = useMemo(() => buildLeaderboard(games, statKey), [games, statKey]);
   const picks = useMemo(() => buildHeroPicks(games, pbMode), [games, pbMode]);
 
-  /* The Steam announcement this week's games came after, from the endpoint. The
+  /* The Steam announcements this week's games came after, from the endpoint. The
      week links out to Steam instead of showing build numbers, which mean nothing
-     to a reader — a hero release or a big update is what a night came after. */
-  const latestNews = detail?.latest_news || null;
+     to a reader. A game update stays relevant however old it is; a hero reveal is
+     only shown while it is recent, which the endpoint already enforces. */
+  const latestUpdate = detail?.latest_update || null;
+  const latestHero = detail?.latest_hero || null;
 
   const patchParams = useCallback(
     (patch) => {
@@ -218,28 +220,11 @@ export default function WeekPage() {
           </p>
         </div>
 
-        {!loading && latestNews && (
+        {!loading && (latestUpdate || latestHero) && (
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <a
-              href={latestNews.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={
-                `“${latestNews.title}” was posted ${formatLongDate(latestNews.published_at)}` +
-                (latestNews.during_games
-                  ? ", while this week's games were being played — part of the night played on without it."
-                  : ", the newest Deadlock announcement before this week.")
-              }
-              className={`flex min-w-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                latestNews.during_games
-                  ? "border-accent-border-strong bg-accent-bg-strong text-accent-light hover:bg-accent-bg"
-                  : "border-border-light bg-panel text-secondary hover:bg-hover"
-              }`}
-            >
-              <span className="max-w-[280px] truncate">{newsLabel(latestNews)}</span>
-              <span className="shrink-0 text-accent-light">↗</span>
-            </a>
-            {latestNews.during_games && (
+            {latestUpdate && <NewsChip entry={latestUpdate} />}
+            {latestHero && <NewsChip entry={latestHero} prefix="New hero" />}
+            {latestUpdate?.during_games && (
               <span className="text-[12px] text-muted">released mid-broadcast</span>
             )}
           </div>
@@ -347,5 +332,37 @@ export default function WeekPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+/**
+ * One Steam announcement as a chip: the game update a week was played under, or a
+ * hero who had recently arrived. Amber when it landed while games were being
+ * played, since that is when it explains a shift in the night's stats.
+ */
+function NewsChip({ entry, prefix }) {
+  const posted = formatLongDate(entry.published_at);
+  const subject = prefix ? "the newest hero before this week" : "the newest Deadlock update before this week";
+  return (
+    <a
+      href={entry.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={
+        `“${entry.title}” was posted ${posted}, ` +
+        (entry.during_games
+          ? "while this week's games were being played — part of the night played on without it."
+          : `${subject}.`)
+      }
+      className={`flex min-w-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+        entry.during_games
+          ? "border-accent-border-strong bg-accent-bg-strong text-accent-light hover:bg-accent-bg"
+          : "border-border-light bg-panel text-secondary hover:bg-hover"
+      }`}
+    >
+      {prefix && <span className="shrink-0 font-normal text-dim">{prefix} ·</span>}
+      <span className="max-w-[280px] truncate">{newsLabel(entry)}</span>
+      <span className="shrink-0 text-accent-light">↗</span>
+    </a>
   );
 }

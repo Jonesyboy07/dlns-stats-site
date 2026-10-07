@@ -40,13 +40,33 @@ REQUEST_TIMEOUT_S = 45
 # to tell "the patch dropped mid-broadcast" from "the patch dropped overnight".
 SESSION_GAP_S = 2 * 3600
 
+# A hero that arrived weeks before a Night Shift is no longer why the night looks
+# the way it does, so hero posts stop being offered once they are this old. Patch
+# notes and game updates stay relevant however long ago they landed.
+HERO_MAX_AGE_S = 28 * 86400
+
 _ANNOUNCEMENTS_FEED = "steam_community_announcements"
 
-_UA = {"User-Agent": "dlns-stats-site/1.0 (+night shift patch notes)"}
+# Titles that read as a game update. Every patch note and rework Valve has posted
+# matches one of these, which is what makes it a safe default; hero reveals are
+# titled evocatively ("Mind the Birds!") and fall through to the other kind.
+_UPDATE_WORDS = ("update", "patch", "hotfix", "rework")
+
+# Season launches that carry none of those words. An explicit list because
+# guessing from prose misfires, and adding one is a one-line change.
+_MAJOR_UPDATE_TITLES = {"city never sleeps"}
+
+KIND_UPDATE = "update"
+KIND_HERO = "hero"
+
+# Bumped when the cached post shape changes, so stale caches refresh themselves.
+_CACHE_VERSION = 2
+
+_UA = {"User-Agent": "dlns-stats-site/1.0 (+night shift week page)"}
 
 
 def default_cache_dir() -> Path:
-    override = os.getenv("PATCH_NOTES_CACHE_DIR")
+    override = os.getenv("STEAM_NEWS_CACHE_DIR")
     return Path(override) if override else Path.cwd() / "data" / "_cache"
 
 
@@ -69,6 +89,14 @@ def epoch_to_iso(ts: int) -> str:
 def _fetch(url: str) -> str:
     with urllib.request.urlopen(urllib.request.Request(url, headers=_UA), timeout=REQUEST_TIMEOUT_S) as handle:
         return handle.read().decode("utf-8", "replace")
+
+
+def post_kind(title: str) -> str:
+    """Whether a post is a game update or a hero reveal, from its title."""
+    text = str(title or "").strip().lower()
+    if text in _MAJOR_UPDATE_TITLES or any(word in text for word in _UPDATE_WORDS):
+        return KIND_UPDATE
+    return KIND_HERO
 
 
 def resolve_store_url(external_url: str) -> Optional[str]:
@@ -111,27 +139,44 @@ def _sittings(games: Sequence[Tuple[int, int]]) -> List[Tuple[int, int, int]]:
 def news_for_week(
     entries: Iterable[Dict[str, Any]],
     games: Sequence[Tuple[int, int]],
-) -> Optional[Dict[str, Any]]:
-    """The announcement a week's games came after.
+) -> Dict[str, Optional[Dict[str, Any]]]:
+    """The announcements a week's games came after, one per kind.
 
-    The newest post published by the time the week's own broadcast finished, so
-    every week gets one and each shows what was actually current for it. Flagged
-    with `during_games` when it landed while that broadcast was running — the case
-    where part of the night played on without it.
+    `update` is the newest patch note or game update, kept whatever its age: it is
+    what the night was played under. `hero` is the newest hero reveal, dropped once
+    it is older than `HERO_MAX_AGE_S` because a hero who arrived weeks earlier is
+    no longer why the night looks the way it does. Either is `None` when nothing of
+    that kind predates the week.
+
+    Both are flagged `during_games` when they landed while the broadcast was
+    running — the case where part of the night played on without them.
 
     The reference is the busiest sitting rather than the week's last game at all,
     because a handful of weeks carry a synthetic placeholder row stamped months
     away that would otherwise drag the cutoff forward.
     """
+    empty: Dict[str, Optional[Dict[str, Any]]] = {"update": None, "hero": None}
     sittings = _sittings(games)
     if not sittings:
-        return None
+        return empty
     _, finished, _ = max(sittings, key=lambda sitting: (sitting[2], sitting[1]))
-    candidates = [entry for entry in entries if entry.get("ts") is not None and entry["ts"] <= finished]
-    if not candidates:
-        return None
-    newest = max(candidates, key=lambda entry: entry["ts"])
-    return {**newest, "during_games": any(start <= newest["ts"] <= end for start, end, _ in sittings)}
+    before = [
+        entry
+        for entry in entries
+        if entry.get("ts") is not None and entry["ts"] <= finished
+    ]
+
+    def newest(kind: str) -> Optional[Dict[str, Any]]:
+        matching = [entry for entry in before if entry.get("kind", KIND_UPDATE) == kind]
+        if not matching:
+            return None
+        entry = max(matching, key=lambda candidate: candidate["ts"])
+        return {**entry, "during_games": any(start <= entry["ts"] <= end for start, end, _ in sittings)}
+
+    hero = newest(KIND_HERO)
+    if hero and finished - hero["ts"] > HERO_MAX_AGE_S:
+        hero = None
+    return {"update": newest(KIND_UPDATE), "hero": hero}
 
 
 class SteamNewsStore:
@@ -147,6 +192,8 @@ class SteamNewsStore:
     def _load(self) -> None:
         try:
             data = json.loads(self.cache_path.read_text(encoding="utf-8"))
+            if int(data.get("version", 0)) != _CACHE_VERSION:
+                raise ValueError("stale cache shape")
             self._entries = [dict(entry) for entry in data.get("entries", [])]
             self._resolved = {str(k): str(v) for k, v in data.get("resolved_urls", {}).items()}
             self._synced_at = int(data.get("synced_at", 0))
@@ -160,6 +207,7 @@ class SteamNewsStore:
             tmp.write_text(
                 json.dumps(
                     {
+                        "version": _CACHE_VERSION,
                         "synced_at": self._synced_at,
                         "entries": self._entries,
                         "resolved_urls": self._resolved,
@@ -196,6 +244,7 @@ class SteamNewsStore:
                 {
                     "gid": gid,
                     "title": title,
+                    "kind": post_kind(title),
                     "ts": published,
                     "published_at": epoch_to_iso(published),
                     "url": url,
@@ -214,7 +263,7 @@ class SteamNewsStore:
                 self.sync()
             return list(self._entries)
 
-    def news_for_week(self, games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
+    def news_for_week(self, games: Sequence[Tuple[int, int]]) -> Dict[str, Optional[Dict[str, Any]]]:
         return news_for_week(self.entries(), games)
 
 
@@ -230,11 +279,11 @@ def get_store() -> SteamNewsStore:
         return _default_store
 
 
-def latest_news_for_games(games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
-    """The announcement a week's games came after. `games` is [(start, end)]."""
+def news_for_games(games: Sequence[Tuple[int, int]]) -> Dict[str, Optional[Dict[str, Any]]]:
+    """The announcements a week's games came after. `games` is [(start, end)]."""
     if not games:
-        return None
+        return {"update": None, "hero": None}
     try:
         return get_store().news_for_week(games)
     except Exception:  # noqa: BLE001 - a missing link must never break the week page
-        return None
+        return {"update": None, "hero": None}

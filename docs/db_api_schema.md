@@ -77,18 +77,21 @@ Each `matches[]` entry includes the event context columns `event_region`
 (`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`) and `match_vod`,
 which the week page uses to build the brackets, leaderboard and picks panels.
 
-`latest_news` is the Steam announcement the week's games came after — the
-newest post on the game's news feed published by the time the week's own broadcast
-finished. Every post counts, not just the patch notes, so a hero release or a big
-update ("City Never Sleeps") gives the context a night was played in; third-party
-press pieces are dropped by feed name. The busiest sitting sets the cutoff, since
-a few weeks carry a synthetic placeholder row stamped months later. `null` only
-when no post predates the week, or Steam is unreachable.
+`latest_update` and `latest_hero` are the Steam announcements the week's games
+came after, split by kind because they age differently. `latest_update` is the
+newest patch note or game update, kept however old it is — it is what the night
+was played under. `latest_hero` is the newest hero reveal, and is `null` once that
+hero is more than four weeks old, since a hero who arrived weeks earlier is no
+longer why the night looks the way it does. Both are `null` when nothing of that
+kind predates the week, or when Steam is unreachable. Third-party press pieces on
+the feed are dropped by feed name. The busiest sitting sets the cutoff, since a
+few weeks carry a synthetic placeholder row stamped months later.
 
 | Key | Type | Notes |
 | --- | --- | --- |
 | `gid` | string | Steam announcement id |
-| `title` | string | e.g. `Minor Update - 10-05-2026`, `City Never Sleeps` |
+| `title` | string | e.g. `Minor Update - 10-05-2026`, `Mind the Birds!` |
+| `kind` | string | `update` or `hero` |
 | `ts` | integer | Post time, Unix seconds |
 | `published_at` | string | Post time, ISO 8601 |
 | `url` | string or null | Steam store news URL; null if it could not be resolved |

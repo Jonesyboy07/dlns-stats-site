@@ -29,14 +29,16 @@ const OUTCOME_DOTS = {
 export default function HeroPicksPanel({ mode, onModeChange, board, anyBans, subline }) {
   return (
     <section className="flex flex-col rounded-xl border border-border-light bg-card shadow">
-      <header className="flex items-center gap-4 border-b border-border px-5 py-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="font-valve-oracle text-[20px] text-primary">Hero Picks &amp; Bans</h2>
-          <span className="text-[13px] text-muted">{subline}</span>
+      <header className="flex flex-col gap-3 border-b border-border px-4 py-3.5 md:flex-row md:items-center md:gap-4 md:px-5 md:py-4">
+        <div className="flex min-w-0 flex-col gap-[3px] md:gap-1">
+          <h2 className="font-valve-oracle text-[18px] text-primary md:text-[20px]">
+            Hero Picks &amp; Bans
+          </h2>
+          <span className="text-[12px] text-muted md:text-[13px]">{subline}</span>
         </div>
 
         {anyBans && (
-          <div className="ml-auto flex shrink-0 gap-1 rounded-full bg-input p-[3px]">
+          <div className="grid grid-cols-3 gap-1 rounded-full bg-input p-[3px] md:ml-auto md:flex md:shrink-0">
             {MODES.map((entry) => {
               const active = entry.key === mode;
               return (
@@ -44,7 +46,7 @@ export default function HeroPicksPanel({ mode, onModeChange, board, anyBans, sub
                   key={entry.key}
                   type="button"
                   onClick={() => onModeChange(entry.key)}
-                  className={`rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                  className={`flex min-h-9 items-center justify-center rounded-full px-2 text-[12px] font-semibold transition-colors md:min-h-0 md:px-3.5 md:py-1.5 ${
                     active ? "bg-accent-bg-strong text-accent-light" : "text-muted hover:text-secondary"
                   }`}
                 >
@@ -56,25 +58,25 @@ export default function HeroPicksPanel({ mode, onModeChange, board, anyBans, sub
         )}
       </header>
 
-      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2 border-b border-border px-5 py-2.5 text-[12px] text-muted">
-        <Legend colour="var(--color-success)" label="Picked, won" />
-        <Legend colour="var(--color-muted)" label="Picked, lost" />
-        {anyBans && <Legend colour="var(--color-danger-text)" label="Banned" />}
-        <span className="ml-auto text-dim">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-2.5 text-[11px] text-muted md:gap-x-[18px] md:px-5 md:text-[12px]">
+        <Legend colour="var(--color-success)" label="Picked, won" short="Won" />
+        <Legend colour="var(--color-muted)" label="Picked, lost" short="Lost" />
+        {anyBans && <Legend colour="var(--color-danger-text)" label="Banned" short="Banned" />}
+        <span className="ml-auto hidden text-dim md:inline">
           One dot per game. Hover or click a hero to see its games.
         </span>
       </div>
 
-      <div className="flex flex-col gap-1 px-4 py-3">
+      <div className="flex flex-col md:gap-1 md:px-4 md:py-3">
         {board.length === 0 && (
           <p className="px-1 py-6 text-[13px] text-muted">No picks recorded for this scope.</p>
         )}
         {board.map((row) => (
           <div
             key={row.count}
-            className="grid grid-cols-[44px_minmax(0,1fr)] rounded-md border border-border bg-table"
+            className="grid grid-cols-[40px_minmax(0,1fr)] border-t border-border bg-table md:grid-cols-[44px_minmax(0,1fr)] md:rounded-md md:border md:border-border"
           >
-            <span className="grid place-items-center border-r border-border font-valve-pulp text-[26px] font-bold text-primary">
+            <span className="grid place-items-center border-r border-border font-valve-pulp text-[22px] font-bold text-primary md:text-[26px]">
               {row.count}
             </span>
             <div className="flex flex-wrap gap-1.5 p-1.5">
@@ -89,11 +91,12 @@ export default function HeroPicksPanel({ mode, onModeChange, board, anyBans, sub
   );
 }
 
-function Legend({ colour, label }) {
+function Legend({ colour, label, short }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="h-2 w-2 rounded-full" style={{ background: colour }} />
-      {label}
+      <span className="h-[7px] w-[7px] rounded-full md:h-2 md:w-2" style={{ background: colour }} />
+      <span className="md:hidden">{short}</span>
+      <span className="hidden md:inline">{label}</span>
     </span>
   );
 }
@@ -156,7 +159,7 @@ function HeroTile({ entry, anyBans }) {
         style={{ opacity: entry.count ? 1 : 0.45 }}
       >
         {failed ? (
-          <span className="grid h-12 w-9 place-items-center text-[10px] font-bold text-dim">
+          <span className="grid h-[42px] w-[32px] place-items-center text-[10px] font-bold text-dim md:h-12 md:w-9">
             {heroInitials(entry.hero)}
           </span>
         ) : (
@@ -164,18 +167,18 @@ function HeroTile({ entry, anyBans }) {
             src={heroArtUrl(entry.hero)}
             alt={entry.hero}
             onError={() => setFailed(true)}
-            className="block h-12 w-9 object-cover object-top"
+            className="block h-[42px] w-[32px] object-cover object-top md:h-12 md:w-9"
           />
         )}
         <div
-          className="grid content-center gap-[2px] px-[5px]"
-          style={{ gridTemplateColumns: "repeat(2, 7px)", gridAutoRows: "7px", minWidth: 16 }}
+          className="grid content-center gap-[2px] px-[5px] [--dot:6px] md:[--dot:7px]"
+          style={{ gridTemplateColumns: "repeat(2, var(--dot))", gridAutoRows: "var(--dot)", minWidth: 16 }}
         >
           {dots.map((colour, index) => (
             <span
               key={index}
-              className="rounded-full"
-              style={{ width: 7, height: 7, background: colour }}
+              className="h-[var(--dot)] w-[var(--dot)] rounded-full"
+              style={{ background: colour }}
             />
           ))}
         </div>

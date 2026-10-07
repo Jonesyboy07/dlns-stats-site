@@ -15,9 +15,9 @@ export default function MatchResultsPanel({ brackets, subline }) {
 
   return (
     <section className="flex flex-col overflow-hidden rounded-xl border border-border-light bg-card shadow">
-      <header className="flex flex-col gap-1 px-5 py-4">
-        <h2 className="font-valve-oracle text-[20px] text-primary">Match Results</h2>
-        <span className="text-[13px] text-muted">{subline}</span>
+      <header className="flex flex-col gap-[3px] px-4 py-3.5 md:gap-1 md:px-5 md:py-4">
+        <h2 className="font-valve-oracle text-[18px] text-primary md:text-[20px]">Match Results</h2>
+        <span className="text-[12px] text-muted md:text-[13px]">{subline}</span>
       </header>
 
       {visible.length === 0 && (
@@ -27,7 +27,7 @@ export default function MatchResultsPanel({ brackets, subline }) {
       {visible.map((bracket) => (
         <div
           key={bracket.name}
-          className="flex flex-col gap-3 border-t border-border px-5 pt-4 pb-5"
+          className="flex flex-col gap-3.5 border-t border-border px-4 pt-3.5 pb-4 md:gap-3 md:px-5 md:pt-4 md:pb-5"
         >
           <span className="font-valve-pulp text-[22px] leading-none tracking-[.04em] text-primary">
             {bracket.name}
@@ -38,10 +38,10 @@ export default function MatchResultsPanel({ brackets, subline }) {
               <span className="font-semibold text-[11px] tracking-[.06em] text-dim uppercase">
                 {roundName(series)}
               </span>
-              <span className="truncate text-[13px] text-secondary">
+              <span className="truncate text-[14px] text-secondary md:text-[13px]">
                 {series.teamA} <span className="text-dim">vs</span> {series.teamB}
               </span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2 md:gap-1.5">
                 {series.games.map((game, index) => (
                   <GamePill key={game.match?.match_id ?? index} game={game} index={index} />
                 ))}
@@ -55,7 +55,7 @@ export default function MatchResultsPanel({ brackets, subline }) {
 }
 
 const PILL =
-  "flex min-h-[30px] items-center gap-2 rounded-full border border-border-light bg-panel px-2.5 text-[12px] text-muted";
+  "flex min-h-11 items-center gap-2 rounded-full border border-border-light bg-panel px-3.5 text-[13px] text-muted md:min-h-[30px] md:px-2.5 md:text-[12px]";
 
 /** One game as a link to its match page, or a plain pill when it is not ingested. */
 function GamePill({ game, index }) {
@@ -80,7 +80,7 @@ function GamePill({ game, index }) {
     );
   }
   return (
-    <Link to={`/match/${game.match.match_id}`} title={title} className={`${PILL} transition-colors hover:border-accent-border-strong hover:bg-accent-bg hover:text-secondary`}>
+    <Link to={`/match/${game.match.match_id}`} title={title} className={`${PILL} transition-colors hover:border-accent-border-strong hover:bg-accent-bg hover:text-secondary active:border-accent-border-strong active:bg-accent-bg active:text-secondary`}>
       {body}
     </Link>
   );

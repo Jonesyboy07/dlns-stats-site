@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BRACKET_SIZES,
   bracketLayout,
   buildBrackets,
   buildHeroPicks,
@@ -414,6 +415,29 @@ describe("bracketLayout", () => {
     expect(layout.cards.map((card) => card.left)).toEqual([0, 288]);
     expect(layout.lines).toContainEqual({ left: 270, top: 14, width: 18, height: 1 });
     expect(layout.labels).toEqual([{ left: 262, top: 14, text: "Winner of NS #24" }]);
+    expect(layout.berth).toEqual({ top: 14, text: "Winner of NS #24" });
+  });
+
+  it("draws the mobile measurements, reporting the berth instead of writing it", () => {
+    const semi = { key: "NA-0", winnerTeam: "B", teams: ["A", "B"] };
+    const final = { key: "NA-1", teamA: "C", teamB: "B", teams: ["C", "B"] };
+    const layout = bracketLayout(
+      {
+        rounds: [
+          { name: "Challenger", series: [semi] },
+          { name: "Finals", series: [final] },
+        ],
+      },
+      25,
+      BRACKET_SIZES.mobile,
+    );
+    expect(layout.pitch).toBe(172);
+    expect(layout.width).toBe(312);
+    expect(layout.cards.map((card) => card.left)).toEqual([0, 172]);
+    expect(layout.lines).toContainEqual({ left: 156, top: 14, width: 16, height: 1 });
+    // 13b's gutter cannot hold the caption, so the caller names the berth instead.
+    expect(layout.labels).toEqual([]);
+    expect(layout.berth).toEqual({ top: 14, text: "Winner of NS #24" });
   });
 
   it("leaves the berth unlabelled for the first Night Shift", () => {

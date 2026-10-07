@@ -490,6 +490,17 @@ function mostCommon(values) {
 }
 
 /**
+ * The card and column measurements a bracket is drawn at: 13a's desktop numbers,
+ * and the 13b mobile frame's narrower pair. `berthPitch` is the wider gutter the
+ * three-team shape takes when the berth caption is written into it; null where the
+ * frame has no room and the caller names the berth elsewhere.
+ */
+export const BRACKET_SIZES = {
+  desktop: { card: 160, pitch: 196, berthPitch: 288, stub: 18 },
+  mobile: { card: 140, pitch: 172, berthPitch: null, stub: 16 },
+};
+
+/**
  * Where each bracket card sits, plus the connector lines between rounds.
  *
  * Design 13a's hand-tuned geometry is reproduced exactly for the two shapes it
@@ -499,16 +510,15 @@ function mostCommon(values) {
  * top-down and each later round centred on the round that feeds it.
  *
  * `week` is the Night Shift the bracket belongs to. Given one, the three-team
- * shape also labels the berth the sitting team entered through, which needs a
- * wider gutter than the design's open stub. Without it the stub stands alone
- * and the geometry is the design's own. The `pitch` each layout reports is the
- * distance between its columns, which the round headers above it follow.
+ * shape also reports the berth the sitting team entered through, and — where the
+ * size leaves room for it — writes that caption into the gutter beside the row.
+ * The `pitch` each layout reports is the distance between its columns, which the
+ * round headers above it follow; `berth` is `{top, text}` or null.
  */
-export function bracketLayout(bracket, week) {
-  const CARD_WIDTH = 160;
-  const COLUMN_PITCH = 196;
-  /* Enough gutter for the berth's caption, the stub and the final's edge. */
-  const BERTH_PITCH = 288;
+export function bracketLayout(bracket, week, size = BRACKET_SIZES.desktop) {
+  const CARD_WIDTH = size.card;
+  const COLUMN_PITCH = size.pitch;
+  const STUB = size.stub;
   const ROW_HEIGHT = 25;
   const CARD_HEIGHT = ROW_HEIGHT * 2 + 2;
   const GAP = 24;
@@ -521,6 +531,7 @@ export function bracketLayout(bracket, week) {
       cards: [],
       lines: [],
       labels: [],
+      berth: null,
       pitch: COLUMN_PITCH,
     };
   }
@@ -532,8 +543,8 @@ export function bracketLayout(bracket, week) {
 
   if (rounds.length === 2 && firstRound.length <= 2 && lastRound.length === 1) {
     const two = firstRound.length === 2;
-    const berth = two ? null : berthLabel(week);
-    const pitch = berth ? BERTH_PITCH : COLUMN_PITCH;
+    const caption = two ? null : berthLabel(week);
+    const pitch = caption && size.berthPitch ? size.berthPitch : COLUMN_PITCH;
     const semiY = two ? [0, 76] : [30];
     const finalY = two ? 38 : 0;
     firstRound.forEach((series, index) => {
@@ -544,15 +555,27 @@ export function bracketLayout(bracket, week) {
 
     const lines = connectors(rounds, cards, centres, CARD_WIDTH, pitch);
     const labels = [];
+    let berth = null;
     if (!two) {
       /* The team that sat out the semifinal enters the grand final on a stub, on
          whichever row the semifinal's winner does not take. */
       const wonRow = advanceRow(firstRound[0], lastRound[0]);
       const top = finalY + (wonRow === 0 ? 40 : 14);
-      lines.push({ left: pitch - 18, top, width: 18, height: 1 });
-      if (berth) labels.push({ left: pitch - 26, top, text: berth });
+      lines.push({ left: pitch - STUB, top, width: STUB, height: 1 });
+      if (caption) {
+        berth = { top, text: caption };
+        if (size.berthPitch) labels.push({ left: pitch - STUB - 8, top, text: caption });
+      }
     }
-    return { width: pitch + CARD_WIDTH, height: two ? 132 : 86, cards, lines, labels, pitch };
+    return {
+      width: pitch + CARD_WIDTH,
+      height: two ? 132 : 86,
+      cards,
+      lines,
+      labels,
+      berth,
+      pitch,
+    };
   }
 
   rounds.forEach((round, roundIndex) => {
@@ -587,6 +610,7 @@ export function bracketLayout(bracket, week) {
     ),
     cards,
     labels: [],
+    berth: null,
     pitch: COLUMN_PITCH,
     lines: connectors(rounds, cards, centres, CARD_WIDTH, COLUMN_PITCH),
   };

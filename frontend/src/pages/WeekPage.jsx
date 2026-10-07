@@ -4,6 +4,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import WeekSidebar from "../components/week/WeekSidebar";
 import BracketCard from "../components/week/BracketCard";
+import MobileBracketCard from "../components/week/MobileBracketCard";
 import MobileWeekLinks from "../components/week/MobileWeekLinks";
 import PlayerLeaderboard from "../components/week/PlayerLeaderboard";
 import MatchResultsPanel from "../components/week/MatchResultsPanel";
@@ -237,6 +238,17 @@ export default function WeekPage() {
     : `Week #${weekNum} · ${selection.scopeLabel}`;
   const url = `${window.location.pathname}${window.location.search}`;
 
+  /* Both bracket cards take the same selection state; the page picks one by width. */
+  const bracketProps = {
+    brackets,
+    week: weekNum,
+    scopeLabel,
+    activeRegion: region,
+    selectedSeries: selection.selected?.key ?? null,
+    onSelectSeries: (key) => patchParams({ series: key }),
+    onSelectRegion: (next) => patchParams({ region: next, series: null }),
+  };
+
   return (
     <div className="relative flex w-full max-w-[1200px] flex-col gap-[18px] px-4 pt-5 pb-[104px] md:gap-6 md:px-6 md:py-6 lg:px-10">
       {/* The mobile frame measures its own background — 360px of the same art, no
@@ -328,15 +340,12 @@ export default function WeekPage() {
               </section>
             ) : (
               <>
-                <BracketCard
-                  brackets={brackets}
-                  week={weekNum}
-                  scopeLabel={scopeLabel}
-                  activeRegion={region}
-                  selectedSeries={selection.selected?.key ?? null}
-                  onSelectSeries={(key) => patchParams({ series: key })}
-                  onSelectRegion={(next) => patchParams({ region: next, series: null })}
-                />
+                <div className="hidden md:block">
+                  <BracketCard {...bracketProps} />
+                </div>
+                <div className="md:hidden">
+                  <MobileBracketCard {...bracketProps} />
+                </div>
                 <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                   <PlayerLeaderboard
                     statKey={statKey}

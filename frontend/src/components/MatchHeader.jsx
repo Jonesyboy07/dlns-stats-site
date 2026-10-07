@@ -45,7 +45,7 @@ export default function MatchHeader({
   sapphireBans = [],
 }) {
   return (
-    <div className="w-full bg-panel border border-border rounded-t-lg shadow-lg overflow-hidden">
+    <div className="w-full bg-panel border border-border rounded-t-xl shadow-lg overflow-hidden">
       {/* ===== Desktop header ===== */}
       <div className="hidden lg:block">
       {/* Top meta row */}

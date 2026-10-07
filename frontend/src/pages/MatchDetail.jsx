@@ -66,6 +66,18 @@ const PLAYER_METRICS = [
   { key: "player_healing", label: "Healing" },
 ];
 
+// Section titles in the Graphs tab (design-system heading style).
+const GRAPH_SECTION_LABEL =
+  "font-valve-oracle font-semibold text-[14px] uppercase tracking-[0.08em] text-muted";
+
+// Souls Difference draws on a canvas, so it cannot use the CSS classes App.css
+// exposes — these mirror --color-team-amber / --color-team-sapphire.
+const CHART_AMBER = "oklch(0.8016 0.1705 73.27)";
+const CHART_SAPPHIRE = "oklch(0.5542 0.246471 261.4449)";
+const withAlpha = (color, alpha) => color.replace(")", ` / ${alpha})`);
+const CHART_AMBER_FILL = withAlpha(CHART_AMBER, 0.35);
+const CHART_SAPPHIRE_FILL = withAlpha(CHART_SAPPHIRE, 0.35);
+
 // Soul-source labels live in utils/soulSources.js so the player profile's Souls
 // Profile panel and this tooltip share one map.
 
@@ -139,7 +151,7 @@ const damageSourceLabel = (src, heroId, itemNames) => {
   return cleanFallback(src);
 };
 
-function HeroIcon({ src, name, className = "w-8 h-8" }) {
+function HeroIcon({ src, name, className = "w-8 h-8", rounded = "rounded-md" }) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef(null);
   // Last-resort net for an image that fires neither load nor error. The timeout
@@ -159,7 +171,7 @@ function HeroIcon({ src, name, className = "w-8 h-8" }) {
   if (failed) {
     return (
       <div
-        className={`${className} rounded-md bg-gray-700/80 flex items-center justify-center text-[10px] font-bold text-gray-200 uppercase select-none`}
+        className={`${className} ${rounded} bg-gray-700/80 flex items-center justify-center text-[10px] font-bold text-gray-200 uppercase select-none`}
         title={name}
       >
         {String(name || "?").replace("Hero ", "").slice(0, 2)}
@@ -171,7 +183,7 @@ function HeroIcon({ src, name, className = "w-8 h-8" }) {
       ref={imgRef}
       src={src}
       alt={name}
-      className={`${className} rounded-md object-cover`}
+      className={`${className} ${rounded} object-cover`}
       title={name}
       onError={() => setFailed(true)}
       onLoad={() => setFailed(false)}
@@ -200,6 +212,9 @@ function MatchDetail() {
   const [fetchErrors, setFetchErrors] = useState([]);
   const [seriesGames, setSeriesGames] = useState(null);
   const [seriesTitle, setSeriesTitle] = useState("");
+  // Build tab: focused player (default view) vs. "See all" side-by-side view.
+  const [buildSeeAll, setBuildSeeAll] = useState(false);
+  const [buildFocusId, setBuildFocusId] = useState(null);
 
   useEffect(() => {
     fetchHeroes();
@@ -406,13 +421,7 @@ function MatchDetail() {
   }
 
   if (error) {
-    return (
-      <div className="w-full p-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          Error: {error}
-        </div>
-      </div>
-    );
+    return <ErrorMessage message={error} />;
   }
 
   // Separate players by team
@@ -595,14 +604,14 @@ function MatchDetail() {
   );
 
   const statCell = (player, columnKey, align, side) => {
-    const base = side === "amber" ? "text-amber-100/90" : "text-blue-100/90";
+    const base = "text-secondary";
     const max = globalMax[columnKey] || 0;
     const value = player?.[columnKey] || 0;
     const isTop = value > 0 && value === max;
     const color = isTop ? "text-accent-light" : base;
     return (
       <td
-        className={`py-2 px-2 text-[14px] ${align} ${color} ${isTop ? "font-bold" : ""}`}
+        className={`py-2 px-2 text-[14px] font-semibold ${align} ${color} ${isTop ? "font-bold" : ""}`}
         title={(player?.[columnKey] || 0).toLocaleString()}
       >
         {formatK(player?.[columnKey])}
@@ -638,21 +647,28 @@ function MatchDetail() {
     );
     const hero = player.hero_id ? (
       <Link to={`/hero/${player.hero_id}`} title={getHeroName(player.hero_id)} className="shrink-0">
-        <HeroIcon src={getHeroIcon(player.hero_id)} name={getHeroName(player.hero_id)} />
+        <HeroIcon
+          src={getHeroIcon(player.hero_id)}
+          name={getHeroName(player.hero_id)}
+          className={`w-[38px] h-[38px] border ${
+            side === "amber" ? "border-team-amber/45" : "border-team-sapphire/60"
+          }`}
+          rounded="rounded-lg"
+        />
       </Link>
     ) : null;
     const kda = (
-      <span className="text-[11px] px-1 text-gray-400">
-        <span className="text-green-400">{player.kills || 0}</span>
-        <span className="text-gray-500"> / </span>
-        <span className="text-red-400">{player.deaths || 0}</span>
-        <span className="text-gray-500"> / </span>
-        <span className="text-orange-400">{player.assists || 0}</span>
+      <span className="text-[12px] px-1 text-dim">
+        <span className="text-success">{player.kills || 0}</span>
+        <span className="text-dim"> / </span>
+        <span className="text-danger-text">{player.deaths || 0}</span>
+        <span className="text-dim"> / </span>
+        <span className="text-warning">{player.assists || 0}</span>
       </span>
     );
     if (side === "amber") {
       return (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
           <div className="flex flex-col items-end shrink-0">
             {nameLink}
             {kda}
@@ -662,7 +678,7 @@ function MatchDetail() {
       );
     }
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {hero}
         <div className="flex flex-col items-start shrink-0">
           {nameLink}
@@ -680,8 +696,8 @@ function MatchDetail() {
   return (
     <div className="w-full p-8">
       {fetchErrors.length > 0 && (
-        <div className="mb-4 max-w-3xl mx-auto rounded-lg border border-amber-500/40 bg-amber-900/20 p-4 text-center">
-          <p className="text-amber-400 text-sm font-medium">
+        <div className="mb-4 max-w-3xl mx-auto rounded-lg border border-warning-border bg-warning-bg p-4 text-center">
+          <p className="text-warning text-sm font-medium">
             Some data failed to load: {fetchErrors.join(", ")}
           </p>
         </div>
@@ -711,8 +727,8 @@ function MatchDetail() {
       {/* Scoreboard */}
       <div className="mb-6 w-full max-w-[1300px] mx-auto">
         {/* Mirrored scoreboard (desktop only) */}
-        <div className="scroll-thin hidden lg:block text-gray-300 shadow border border-gray-700/60 overflow-x-auto">
-          <table className="w-full table-fixed border-separate border-spacing-0">
+        <div className="scroll-thin hidden lg:block text-secondary bg-card border border-border-light rounded-b-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[1180px] table-fixed border-separate border-spacing-0">
             <colgroup>
               <col style={{ width: "6.5%" }} />
               <col style={{ width: "6.5%" }} />
@@ -727,46 +743,46 @@ function MatchDetail() {
               <col style={{ width: "6.5%" }} />
             </colgroup>
             <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-700/60 divide-x divide-gray-700/40 bg-gray-800/40">
-                <th className="py-2 px-2 text-center">Heal</th>
-                <th className="py-2 px-2 text-center">Obj</th>
-                <th className="py-2 px-2 text-center">Souls</th>
-                <th className="py-2 px-2 text-center">DMG</th>
-                <th className="py-2 pl-2 pr-3 text-right">Player</th>
-                <th className="py-2 px-3 text-center">Lane</th>
-                <th className="py-2 pl-3 pr-2 text-left">Player</th>
-                <th className="py-2 px-2 text-center">DMG</th>
-                <th className="py-2 px-2 text-center">Souls</th>
-                <th className="py-2 px-2 text-center">Obj</th>
-                <th className="py-2 px-2 text-center">Heal</th>
+              <tr className="font-valve-oracle font-semibold text-[12px] uppercase tracking-[0.08em] text-muted border-b border-border-light divide-x divide-border bg-table">
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-amber">Heal</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-amber">Obj</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-amber">Souls</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-amber">DMG</th>
+                <th className="py-3 px-4 text-right border-t-2 border-t-team-amber">Player</th>
+                <th className="py-3 px-3 text-center border-t-2 border-t-border-light">Lane</th>
+                <th className="py-3 px-4 text-left border-t-2 border-t-team-sapphire">Player</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-sapphire">DMG</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-sapphire">Souls</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-sapphire">Obj</th>
+                <th className="py-3 px-2 text-center border-t-2 border-t-team-sapphire">Heal</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700/40">
+            <tbody className="divide-y divide-border">
               {scoreboardRows.map((row, idx) => {
                 const meta = row.laneId ? LANE_META[row.laneId] : null;
                 const zebra = idx % 2 === 0;
                 return (
-                  <tr key={idx} className={`divide-x divide-gray-700/40 ${zebra ? "bg-gray-700/40" : "bg-gray-900/40"}`}>
+                  <tr key={idx} className={`divide-x divide-border transition-colors hover:bg-accent-bg ${zebra ? "bg-card" : "bg-table"}`}>
                     {/* Left half */}
                     {statCell(row.left, "player_healing", "text-center", "amber")}
                     {statCell(row.left, "obj_damage", "text-center", "amber")}
                     {statCell(row.left, "net_worth", "text-center", "amber")}
                     {statCell(row.left, "player_damage", "text-center", "amber")}
-                    <td className="py-2 pl-2 pr-3 text-right">{renderPlayerCell(row.left, "amber")}</td>
+                    <td className="py-2 px-4 text-right">{renderPlayerCell(row.left, "amber")}</td>
 
                     {/* Center lane */}
-                    <td className="py-2 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td className="py-2 px-3 text-center bg-white/[0.025]">
+                      <div className="flex items-center justify-center gap-2">
                         <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          className="w-2 h-2 rounded-full shrink-0"
                           style={{ background: meta?.color || "#4b5563" }}
                         />
-                        <span className="text-md font-semibold text-gray-300">{meta?.name || "—"}</span>
+                        <span className="text-[13px] font-semibold text-secondary">{meta?.name || "—"}</span>
                       </div>
                     </td>
 
                     {/* Right half (mirrored) */}
-                    <td className="py-2 pl-3 pr-2 text-left">{renderPlayerCell(row.right, "sapphire")}</td>
+                    <td className="py-2 px-4 text-left">{renderPlayerCell(row.right, "sapphire")}</td>
                     {statCell(row.right, "player_damage", "text-center", "sapphire")}
                     {statCell(row.right, "net_worth", "text-center", "sapphire")}
                     {statCell(row.right, "obj_damage", "text-center", "sapphire")}
@@ -796,24 +812,24 @@ function MatchDetail() {
           ].map(({ teamPlayers, teamName, isAmber, totalSouls }) => (
             <div
               key={isAmber ? "amber" : "sapphire"}
-              className="bg-gray-900/60 rounded-lg border border-gray-700/60 overflow-hidden"
+              className="bg-card rounded-xl border border-border-light overflow-hidden"
             >
               {/* Team header */}
               <div
-                className={`px-4 py-2.5 flex items-center justify-between border-b border-gray-700/60 ${
-                  isAmber ? "bg-amber-500/10" : "bg-blue-500/10"
+                className={`px-4 py-2.5 flex items-center justify-between border-b border-border ${
+                  isAmber ? "bg-team-amber/10" : "bg-team-sapphire/10"
                 }`}
               >
                 <span
                   className={`text-sm font-bold uppercase tracking-wide truncate ${
-                    isAmber ? "text-amber-300" : "text-blue-300"
+                    isAmber ? "text-team-amber" : "text-blue-300"
                   }`}
                 >
                   {teamName}
                 </span>
                 <span
                   className={`text-sm font-bold shrink-0 ${
-                    isAmber ? "text-amber-300" : "text-blue-300"
+                    isAmber ? "text-team-amber" : "text-blue-300"
                   }`}
                 >
                   {totalSouls.toLocaleString()}
@@ -832,16 +848,16 @@ function MatchDetail() {
                   <col style={{ width: "19%" }} />
                 </colgroup>
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wider text-gray-400 border-b border-gray-700/40">
-                    <th className="font-medium text-left py-1.5 pl-3">Player</th>
-                    <th className="font-medium text-right py-1.5">K/D/A</th>
-                    <th className="font-medium text-right py-1.5">Souls</th>
-                    <th className="font-medium text-right py-1.5 pr-3">DMG</th>
+                  <tr className="font-valve-oracle font-semibold text-[11px] uppercase tracking-[0.08em] text-muted border-b border-border-light bg-table">
+                    <th className="py-1.5 pl-3 text-left">Player</th>
+                    <th className="py-1.5 text-right">K/D/A</th>
+                    <th className="py-1.5 text-right">Souls</th>
+                    <th className="py-1.5 pr-3 text-right">DMG</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700/40">
+                <tbody className="divide-y divide-border">
                   {teamPlayers.map((player) => (
-                    <tr key={player.account_id} className="hover:bg-gray-800/40">
+                    <tr key={player.account_id} className="transition-colors hover:bg-accent-bg">
                       {/* Player */}
                       <td className="py-2 pl-3">
                         <Link
@@ -864,18 +880,18 @@ function MatchDetail() {
                       </td>
                       {/* K/D/A */}
                       <td className="py-2 text-right whitespace-nowrap">
-                        <span className="text-green-400 font-medium">{player.kills || 0}</span>
-                        <span className="text-gray-500">/</span>
-                        <span className="text-red-400 font-medium">{player.deaths || 0}</span>
-                        <span className="text-gray-500">/</span>
-                        <span className="text-orange-400 font-medium">{player.assists || 0}</span>
+                        <span className="text-success font-medium">{player.kills || 0}</span>
+                        <span className="text-dim">/</span>
+                        <span className="text-danger-text font-medium">{player.deaths || 0}</span>
+                        <span className="text-dim">/</span>
+                        <span className="text-warning font-medium">{player.assists || 0}</span>
                       </td>
                       {/* Souls */}
-                      <td className="py-2 text-right text-gray-200 font-medium whitespace-nowrap">
+                      <td className="py-2 text-right text-secondary font-medium whitespace-nowrap">
                         {formatK(player.net_worth).toUpperCase()}
                       </td>
                       {/* DMG */}
-                      <td className="py-2 pr-3 text-right text-gray-200 font-medium whitespace-nowrap">
+                      <td className="py-2 pr-3 text-right text-secondary font-medium whitespace-nowrap">
                         {formatK(player.player_damage).toUpperCase()}
                       </td>
                     </tr>
@@ -888,96 +904,119 @@ function MatchDetail() {
       </div>
 
       {/* Tabs below scoreboard */}
-      <div className="flex gap-1 mb-4 border-b border-gray-700">
+      <div className="flex items-center gap-1 mb-4 border-b border-border-light">
         {["graphs", "build"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 text-sm font-semibold capitalize rounded-t transition-colors ${
+            className={`px-[18px] py-2.5 -mb-px font-valve-oracle text-sm font-semibold capitalize transition-colors ${
               activeTab === tab
-                ? "bg-gray-800 text-white border-b-2 border-blue-400"
-                : "text-gray-400 hover:text-gray-200"
+                ? "text-primary border-b-2 border-accent"
+                : "text-dim hover:text-secondary border-b-2 border-transparent"
             }`}
           >
             {tab}
           </button>
         ))}
+        {activeTab === "build" && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={buildSeeAll}
+            onClick={() => setBuildSeeAll((v) => !v)}
+            className="ml-auto flex items-center gap-2.5 px-1 py-1.5 select-none"
+          >
+            <span className="text-[13px] font-semibold text-secondary">See all</span>
+            <span
+              className={`relative w-[38px] h-5 rounded-full border border-border-light transition-colors duration-200 ${
+                buildSeeAll ? "bg-accent" : "bg-hover"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-primary transition-transform duration-200 ease-[cubic-bezier(.4,0,.2,1)] ${
+                  buildSeeAll ? "translate-x-[18px]" : ""
+                }`}
+              />
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Graphs tab */}
       {activeTab === "graphs" && players.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-4 mb-6">
+        <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6 flex flex-col gap-8">
           {/* ---- Souls Comparison ---- */}
-          <div className="mb-8">
-            <h3 className="text-gray-300 font-bold text-lg tracking-wide uppercase mb-4">
-              Souls Comparison
-            </h3>
+          <div className="flex flex-col gap-3">
+            <h3 className={GRAPH_SECTION_LABEL}>Souls Comparison</h3>
 
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-amber-300 text-3xl font-bold tabular-nums">
-                {amberTotalSouls.toLocaleString()}
-              </span>
-              <span className="text-blue-300 text-3xl font-bold tabular-nums">
-                {sapphireTotalSouls.toLocaleString()}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-amber-300/70 text-xs w-24 text-right truncate shrink-0">
-                {amberTeamName || "Amber"}
-              </span>
-              <div className="flex-1 flex rounded overflow-hidden h-4 bg-gray-700/50">
-                <div
-                  className="bg-amber-400/80 transition-all duration-500"
-                  style={{ width: `${amberPct}%` }}
-                />
-                <div
-                  className="bg-blue-500/80 transition-all duration-500"
-                  style={{ width: `${100 - amberPct}%` }}
-                />
-              </div>
-              <span className="text-blue-300/70 text-xs w-24 truncate shrink-0">
-                {sapphireTeamName || "Sapphire"}
-              </span>
-            </div>
-
-            <div className="text-center">
-              {amberTotalSouls !== sapphireTotalSouls ? (
-                <span className="text-sm">
-                  <span
-                    className={`font-bold uppercase tracking-wide ${
-                      amberTotalSouls > sapphireTotalSouls ? "text-amber-300" : "text-blue-300"
-                    }`}
-                  >
-                    {(amberTotalSouls > sapphireTotalSouls ? amberTeamName : sapphireTeamName) ||
-                      (amberTotalSouls > sapphireTotalSouls ? "Amber" : "Sapphire")}
-                  </span>
-                  <span className="text-gray-400"> lead </span>
-                  <span className="text-gray-100 font-bold tabular-nums">
-                    +{Math.abs(amberTotalSouls - sapphireTotalSouls).toLocaleString()}
-                  </span>
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4 items-end">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="font-valve-pulp text-[36px] leading-none text-team-amber tabular-nums">
+                  {amberTotalSouls.toLocaleString()}
                 </span>
-              ) : (
-                <span className="text-gray-400 text-sm">Even</span>
-              )}
+                <span className="text-[12px] font-semibold text-muted truncate">
+                  {amberTeamName || "Amber"}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-2 pb-1 min-w-0">
+                <div className="flex h-3 rounded-full overflow-hidden bg-table">
+                  <span
+                    className="bg-team-amber transition-all duration-500"
+                    style={{ width: `${amberPct}%` }}
+                  />
+                  <span className="w-0.5 shrink-0 bg-card" />
+                  <span className="flex-1 bg-team-sapphire transition-all duration-500" />
+                </div>
+
+                <div className="text-center text-[13px] text-muted">
+                  {amberTotalSouls !== sapphireTotalSouls ? (
+                    <>
+                      <span
+                        className={`font-bold ${
+                          amberTotalSouls > sapphireTotalSouls ? "text-team-amber" : "text-blue-300"
+                        }`}
+                      >
+                        {(amberTotalSouls > sapphireTotalSouls ? amberTeamName : sapphireTeamName) ||
+                          (amberTotalSouls > sapphireTotalSouls ? "Amber" : "Sapphire")}
+                      </span>
+                      <span> lead by </span>
+                      <span className="font-bold text-primary tabular-nums">
+                        {Math.abs(amberTotalSouls - sapphireTotalSouls).toLocaleString()}
+                      </span>
+                    </>
+                  ) : (
+                    <span>Even</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-0.5 items-end min-w-0">
+                <span className="font-valve-pulp text-[36px] leading-none text-blue-300 tabular-nums">
+                  {sapphireTotalSouls.toLocaleString()}
+                </span>
+                <span className="text-[12px] font-semibold text-muted truncate">
+                  {sapphireTeamName || "Sapphire"}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* ---- By Player (metric leaderboard) ---- */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h4 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+          <div className="flex flex-col gap-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className={GRAPH_SECTION_LABEL}>
                 {PLAYER_METRICS.find((m) => m.key === activeSoulsMetric)?.label || "Souls"} by Player
               </h4>
-              <div className="flex gap-1 flex-wrap justify-end">
+              <div className="flex gap-1.5 flex-wrap justify-end">
                 {PLAYER_METRICS.map((m) => (
                   <button
                     key={m.key}
                     onClick={() => setActiveSoulsMetric(m.key)}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border transition-colors ${
+                    className={`inline-flex items-center justify-center min-h-[30px] px-3 py-1.5 rounded-xl border text-[13px] transition-colors ${
                       activeSoulsMetric === m.key
-                        ? "bg-blue-500/20 text-blue-300 border-blue-400/40"
-                        : "text-gray-400 border-gray-600/40 hover:text-gray-200 hover:border-gray-500/60"
+                        ? "bg-accent border-accent text-[#170a26] font-bold"
+                        : "bg-badge-bg border-border-light text-secondary font-medium hover:bg-hover"
                     }`}
                   >
                     {m.label}
@@ -985,7 +1024,7 @@ function MatchDetail() {
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               {allPlayersSorted.map((player) => {
                 const isAmber = player.team === 0;
                 const value = player?.[activeSoulsMetric] || 0;
@@ -1013,36 +1052,35 @@ function MatchDetail() {
                   .slice(0, 10);
                 const showTooltip = showSoulsTooltip || showDamageTooltip;
                 return (
-                  <div key={player.account_id} className="relative flex items-center gap-2 group">
+                  <div
+                    key={player.account_id}
+                    className="relative grid grid-cols-[150px_minmax(0,1fr)_60px] items-center gap-3 group"
+                  >
                     <Link
                       to={`/player/${player.account_id}`}
+                      className="flex items-center gap-2 min-w-0"
                       title={player.persona_name || heroName}
-                      className="shrink-0"
                     >
                       <HeroIcon
                         src={getHeroIcon(player.hero_id)}
                         name={heroName}
-                        className="w-7 h-7"
+                        className="w-6 h-6 shrink-0"
                       />
+                      <span className="truncate text-[13px] font-semibold text-secondary hover:underline-text">
+                        {player.persona_name || "Anonymous"}
+                      </span>
                     </Link>
-                    <Link
-                      to={`/player/${player.account_id}`}
-                      className="w-24 truncate text-xs text-gray-200 hover:underline shrink-0"
-                      title={player.persona_name || "Anonymous"}
-                    >
-                      {player.persona_name || "Anonymous"}
-                    </Link>
-                    <div className="flex-1 h-5 bg-gray-700/40 overflow-hidden">
+                    <div className="h-3.5 bg-table rounded overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${
-                          isAmber ? "bg-amber-400/80" : "bg-blue-500/80"
+                        className={`h-full rounded transition-all duration-300 ease-[cubic-bezier(.4,0,.2,1)] ${
+                          isAmber ? "bg-team-amber" : "bg-team-sapphire"
                         }`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                     <span
-                      className={`w-16 text-right text-sm font-semibold tabular-nums shrink-0 ${
-                        isAmber ? "text-amber-200" : "text-blue-200"
+                      className={`text-right text-[13px] font-bold tabular-nums ${
+                        isAmber ? "text-team-amber" : "text-blue-300"
                       }`}
                       title={value.toLocaleString()}
                     >
@@ -1051,14 +1089,14 @@ function MatchDetail() {
 
                     {/* Breakdown on hover: Souls sources (Souls tab) or Damage sources (Damage tab) */}
                     {showTooltip && (
-                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 hidden group-hover:block w-64 rounded-lg border border-gray-600 bg-gray-900/95 p-3 shadow-2xl">
+                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 hidden group-hover:block w-64 rounded-lg border border-border-lighter bg-panel/95 p-3 shadow-2xl">
                       {showSoulsTooltip ? (
                         <>
-                          <div className="text-xs font-bold text-gray-100 mb-1.5">
+                          <div className="text-xs font-bold text-primary mb-1.5">
                             {player.persona_name || "Anonymous"} — Soul Sources
                           </div>
                           {soulSources.length === 0 ? (
-                            <p className="text-[11px] text-gray-500">No soul source data yet.</p>
+                            <p className="text-[11px] text-dim">No soul source data yet.</p>
                           ) : (
                             <>
                               <div className="space-y-1">
@@ -1067,16 +1105,16 @@ function MatchDetail() {
                                     key={it.label}
                                     className="flex items-center justify-between gap-3 text-[11px]"
                                   >
-                                    <span className="text-gray-300 truncate">{it.label}</span>
-                                    <span className="font-semibold tabular-nums text-gray-100 shrink-0">
+                                    <span className="text-secondary truncate">{it.label}</span>
+                                    <span className="font-semibold tabular-nums text-primary shrink-0">
                                       {it.total.toLocaleString()}
                                     </span>
                                   </div>
                                 ))}
                               </div>
-                              <div className="flex items-center justify-between gap-3 text-[11px] border-t border-gray-700 pt-1.5 mt-1.5">
-                                <span className="text-gray-400 font-semibold">Total Souls</span>
-                                <span className="font-bold tabular-nums text-gray-100">
+                              <div className="flex items-center justify-between gap-3 text-[11px] border-t border-border pt-1.5 mt-1.5">
+                                <span className="text-muted font-semibold">Total Souls</span>
+                                <span className="font-bold tabular-nums text-primary">
                                   {(player.net_worth || 0).toLocaleString()}
                                 </span>
                               </div>
@@ -1085,11 +1123,11 @@ function MatchDetail() {
                         </>
                       ) : (
                         <>
-                          <div className="text-xs font-bold text-gray-100 mb-1.5">
+                          <div className="text-xs font-bold text-primary mb-1.5">
                             {player.persona_name || "Anonymous"} — Damage Sources
                           </div>
                           {damageSources.length === 0 ? (
-                            <p className="text-[11px] text-gray-500">No damage source data yet.</p>
+                            <p className="text-[11px] text-dim">No damage source data yet.</p>
                           ) : (
                             <>
                               <div className="space-y-1">
@@ -1098,16 +1136,16 @@ function MatchDetail() {
                                     key={it.label}
                                     className="flex items-center justify-between gap-3 text-[11px]"
                                   >
-                                    <span className="text-gray-300 truncate">{it.label}</span>
-                                    <span className="font-semibold tabular-nums text-gray-100 shrink-0">
+                                    <span className="text-secondary truncate">{it.label}</span>
+                                    <span className="font-semibold tabular-nums text-primary shrink-0">
                                       {it.damage.toLocaleString()}
                                     </span>
                                   </div>
                                 ))}
                               </div>
-                              <div className="flex items-center justify-between gap-3 text-[11px] border-t border-gray-700 pt-1.5 mt-1.5">
-                                <span className="text-gray-400 font-semibold">Total Damage</span>
-                                <span className="font-bold tabular-nums text-gray-100">
+                              <div className="flex items-center justify-between gap-3 text-[11px] border-t border-border pt-1.5 mt-1.5">
+                                <span className="text-muted font-semibold">Total Damage</span>
+                                <span className="font-bold tabular-nums text-primary">
                                   {(player.player_damage || 0).toLocaleString()}
                                 </span>
                               </div>
@@ -1121,10 +1159,14 @@ function MatchDetail() {
                 );
               })}
             </div>
-            <div className="flex justify-between text-[10px] text-gray-600 mt-2 px-35">
-              {metricAxisTicks.map((tick, i) => (
-                <span key={i}>{tick}</span>
-              ))}
+            <div className="grid grid-cols-[150px_minmax(0,1fr)_60px] gap-3 mt-2">
+              <span />
+              <div className="flex justify-between text-[10px] text-dim">
+                {metricAxisTicks.map((tick, i) => (
+                  <span key={i}>{tick}</span>
+                ))}
+              </div>
+              <span />
             </div>
           </div>
 
@@ -1174,12 +1216,10 @@ function MatchDetail() {
                 label: "Souls difference",
                 data: diff,
                 order: 2,
-                borderColor: "rgba(245,158,11,0.9)",
+                borderColor: CHART_AMBER,
                 segment: {
                   borderColor: (ctx) =>
-                    ctx.p0.parsed.y >= 0
-                      ? "rgba(245,158,11,0.95)"
-                      : "rgba(59,130,246,0.95)",
+                    ctx.p0.parsed.y >= 0 ? CHART_AMBER : CHART_SAPPHIRE,
                 },
                 borderWidth: 2,
                 hoverBorderWidth: 2,
@@ -1191,8 +1231,8 @@ function MatchDetail() {
                 // Amber-ahead fill (above the zero line). Keep the same look on
                 // hover so the fill doesn't vanish while the tooltip is active.
                 data: diff.map((v) => Math.max(0, v)),
-                backgroundColor: "rgba(245,158,11,0.22)",
-                hoverBackgroundColor: "rgba(245,158,11,0.22)",
+                backgroundColor: CHART_AMBER_FILL,
+                hoverBackgroundColor: CHART_AMBER_FILL,
                 borderWidth: 0,
                 hoverBorderWidth: 0,
                 pointRadius: 0,
@@ -1202,8 +1242,8 @@ function MatchDetail() {
                 // Sapphire-ahead fill (below the zero line). Keep the same look on
                 // hover so the fill doesn't vanish while the tooltip is active.
                 data: diff.map((v) => Math.min(0, v)),
-                backgroundColor: "rgba(59,130,246,0.22)",
-                hoverBackgroundColor: "rgba(59,130,246,0.22)",
+                backgroundColor: CHART_SAPPHIRE_FILL,
+                hoverBackgroundColor: CHART_SAPPHIRE_FILL,
                 borderWidth: 0,
                 hoverBorderWidth: 0,
                 pointRadius: 0,
@@ -1219,14 +1259,12 @@ function MatchDetail() {
                 : sapphireTeamName || "Sapphire";
 
             return (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-gray-400 text-sm font-semibold uppercase tracking-wider">
-                    Souls Difference
-                  </h4>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-baseline justify-between gap-4">
+                  <h4 className={GRAPH_SECTION_LABEL}>Souls Difference</h4>
                   <span
-                    className={`text-lg font-bold tabular-nums ${
-                      finalDiff >= 0 ? "text-amber-300" : "text-blue-300"
+                    className={`font-valve-pulp text-[24px] tabular-nums ${
+                      finalDiff >= 0 ? "text-team-amber" : "text-blue-300"
                     }`}
                   >
                     {finalDiff >= 0 ? "+" : ""}
@@ -1234,11 +1272,12 @@ function MatchDetail() {
                   </span>
                 </div>
 
-                {caption && (
-                  <p className="text-xs text-gray-500 text-center mb-3">{caption}.</p>
-                )}
+                {caption && <p className="text-[13px] text-dim">{caption}.</p>}
 
-                <div style={{ height: "220px", position: "relative" }}>
+                <div
+                  className="rounded-lg bg-table"
+                  style={{ height: "220px", position: "relative" }}
+                >
                   <Line
                     data={{ labels, datasets: diffDatasets }}
                     plugins={[verticalHoverLine]}
@@ -1259,15 +1298,11 @@ function MatchDetail() {
                           intersect: false,
                           backgroundColor: (ctx) => {
                             const idx = ctx.tooltip?.dataPoints?.[0]?.dataIndex ?? 0;
-                            return leaderOf(idx)
-                              ? "rgba(245,158,11,0.95)"
-                              : "rgba(59,130,246,0.95)";
+                            return withAlpha(leaderOf(idx) ? CHART_AMBER : CHART_SAPPHIRE, 0.95);
                           },
                           borderColor: (ctx) => {
                             const idx = ctx.tooltip?.dataPoints?.[0]?.dataIndex ?? 0;
-                            return leaderOf(idx)
-                              ? "rgba(245,158,11,1)"
-                              : "rgba(59,130,246,1)";
+                            return leaderOf(idx) ? CHART_AMBER : CHART_SAPPHIRE;
                           },
                           callbacks: {
                             title: (items) => (items.length ? labels[items[0].dataIndex] : ""),
@@ -1280,8 +1315,12 @@ function MatchDetail() {
                       },
                       scales: {
                         x: {
-                          grid: { color: "rgba(255,255,255,0.05)" },
-                          ticks: { color: "#9ca3af", font: { size: 11 }, maxTicksLimit: 5 },
+                          grid: { color: "rgba(255,255,255,0.06)" },
+                          ticks: {
+                            color: "rgba(255,255,255,0.45)",
+                            font: { size: 11 },
+                            maxTicksLimit: 5,
+                          },
                         },
                         y: {
                           suggestedMin: -yMaxAbs,
@@ -1289,11 +1328,11 @@ function MatchDetail() {
                           grid: {
                             color: (ctx) =>
                               ctx.tick.value === 0
-                                ? "rgba(255,255,255,0.35)"
-                                : "rgba(255,255,255,0.05)",
+                                ? "rgba(255,255,255,0.2)"
+                                : "rgba(255,255,255,0.06)",
                           },
                           ticks: {
-                            color: "#9ca3af",
+                            color: "rgba(255,255,255,0.45)",
                             callback: (v) =>
                               Math.abs(v) >= 1000
                                 ? (Math.abs(v) / 1000).toFixed(0) + "k"
@@ -1305,16 +1344,16 @@ function MatchDetail() {
                   />
                 </div>
 
-                <div className="flex items-center justify-center gap-5 mt-3 text-xs text-gray-400">
+                <div className="flex items-center justify-center gap-5">
                   <span className="flex items-center gap-1.5">
-                    <span className="text-amber-400">▲</span>
-                    <span className="font-semibold uppercase tracking-wide">
+                    <span className="w-2.5 h-2.5 rounded-[2px] bg-team-amber" />
+                    <span className="text-[12px] font-semibold uppercase tracking-wide text-team-amber">
                       {amberTeamName || "Amber"} Ahead
                     </span>
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="text-blue-400">▼</span>
-                    <span className="font-semibold uppercase tracking-wide">
+                    <span className="w-2.5 h-2.5 rounded-[2px] bg-team-sapphire" />
+                    <span className="text-[12px] font-semibold uppercase tracking-wide text-blue-300">
                       {sapphireTeamName || "Sapphire"} Ahead
                     </span>
                   </span>
@@ -1322,166 +1361,323 @@ function MatchDetail() {
               </div>
             );
           })() : (
-            <p className="text-gray-500 text-sm mt-6 text-center">
+            <p className="text-dim text-sm text-center">
               Timeline data not available for this match — only recorded for matches ingested after this feature was added.
             </p>
           )}
         </div>
       )}
 
-      {/* Build tab */}
-      {activeTab === "build" && (
-        <div className="mb-6 space-y-6">
-          {[{ players: amberPlayers, teamName: amberTeamName, teamColor: "amber" }, { players: sapphirePlayers, teamName: sapphireTeamName, teamColor: "sapphire" }].map(({ players: teamPlayers, teamName, teamColor }) => (
-            <div key={teamColor} className="bg-gray-800 rounded-lg p-4">
-              <h3 className={`font-bold text-xl mb-4 uppercase ${teamColor === "amber" ? "text-amber-300" : "text-blue-300"}`}>
-                {teamName || (teamColor === "amber" ? "Amber" : "Sapphire")}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teamPlayers.map((player) => {
-                  const playerBuildRaw = buildByPlayer[String(player.account_id)];
-                  // Handle both old cached format (array) and new format ({items, abilities})
-                  const buildItems = Array.isArray(playerBuildRaw) ? playerBuildRaw : (playerBuildRaw?.items || []);
-                  const buildAbilities = Array.isArray(playerBuildRaw) ? [] : (playerBuildRaw?.abilities || []);
-                  return (
-                    <div key={player.account_id} className="bg-gray-700/50 rounded-lg p-3">
-                      {/* Player header */}
-                      <div className="flex items-center gap-2 mb-3">
-                        {player.hero_id && (
+      {/* Build tab — focused player by default; "See all" shows both teams side by side */}
+      {activeTab === "build" && (() => {
+        const getBuild = (player) => {
+          const raw = buildByPlayer[String(player.account_id)];
+          return {
+            items: Array.isArray(raw) ? raw : (raw?.items || []),
+            abilities: Array.isArray(raw) ? [] : (raw?.abilities || []),
+          };
+        };
+        const buildTeams = [
+          { side: "amber", name: amberTeamName || "Amber", players: amberPlayers },
+          { side: "sapphire", name: sapphireTeamName || "Sapphire", players: sapphirePlayers },
+        ];
+        const teamText = (side) => (side === "amber" ? "text-team-amber" : "text-blue-300");
+        const teamRing = (side) => (side === "amber" ? "ring-team-amber/60" : "ring-team-sapphire/70");
+        const SLOTS = 16;
+        const ITEM_SLOTS = 12;
+
+        const renderKda = (p, size = "text-xs") => (
+          <span className={`${size} font-semibold`}>
+            <span className="text-success">{p.kills || 0}</span>
+            <span className="text-dim"> / </span>
+            <span className="text-danger-text">{p.deaths || 0}</span>
+            <span className="text-dim"> / </span>
+            <span className="text-warning">{p.assists || 0}</span>
+          </span>
+        );
+
+        const renderAbilityGrid = (abilities, compact) => {
+          if (!abilities.length) {
+            return <p className="text-dim text-xs">No ability data available.</p>;
+          }
+          // Flatten all upgrades, sort by time → each point spent gets a column (0–15).
+          const events = abilities
+            .flatMap((ability, ai) => ability.upgrades.map((upg) => ({ ai, upg })))
+            .sort((a, b) => (a.upg.game_time_s ?? 0) - (b.upg.game_time_s ?? 0));
+          const slotMap = Object.fromEntries(abilities.map((_, ai) => [ai, {}]));
+          events.forEach(({ ai, upg }, slot) => {
+            slotMap[ai][slot] = upg;
+          });
+          const iconCol = compact ? 20 : 34;
+          const cellH = compact ? "h-5" : "h-[30px]";
+          const cols = { gridTemplateColumns: `${iconCol}px repeat(${SLOTS}, minmax(0, 1fr))` };
+          return (
+            <div className="flex flex-col">
+              {!compact && (
+                <div className="grid gap-1 pb-1 text-[10px] font-semibold text-dim" style={cols}>
+                  <span />
+                  {Array.from({ length: SLOTS }, (_, i) => (
+                    <span key={i} className="text-center">{i + 1}</span>
+                  ))}
+                </div>
+              )}
+              {abilities.map((ability, ai) => (
+                <div
+                  key={ai}
+                  className={`grid items-center ${compact ? "gap-px py-px" : "gap-1 py-[3px]"} border-t border-border first:border-t-0`}
+                  style={cols}
+                >
+                  <img
+                    src={staticImagePathToCdn(ability.image)}
+                    alt={ability.name}
+                    title={ability.name}
+                    className={`${compact ? "w-5 h-5" : "w-[30px] h-[30px]"} object-contain rounded bg-hover border border-border-light`}
+                    onError={(e) => { e.target.style.visibility = "hidden"; }}
+                  />
+                  {Array.from({ length: SLOTS }, (_, slot) => {
+                    const upg = slotMap[ai][slot];
+                    if (!upg) return <div key={slot} className={cellH} />;
+                    const label = `${ability.name} – ${upg.tier === 0 ? "Unlocked" : `Tier ${upg.tier}`}${
+                      upg.game_time_s != null ? ` at ${formatGameTime(upg.game_time_s)}` : ""
+                    }`;
+                    return (
+                      <div key={slot} className={`flex items-center justify-center ${cellH}`} title={label}>
+                        {upg.tier === 0 ? (
                           <img
-                            src={getHeroIcon(player.hero_id)}
-                            alt={getHeroName(player.hero_id)}
-                            className="w-8 h-8 rounded-md object-cover" 
-                            onError={(e) => { e.target.style.display = "none"; }}
+                            src={cdnImage("abilities/AP_Upgrades/ghost_reward_ap_png.png")}
+                            alt="unlock"
+                            className={compact ? "w-3.5 h-3.5 object-contain" : "w-4 h-4 object-contain"}
                           />
+                        ) : (
+                          <span
+                            className={`flex items-center justify-center gap-0.5 rounded bg-accent-bg-strong border border-accent-border leading-none font-bold text-accent-light ${
+                              compact ? "px-[3px] py-0.5 text-[10px]" : "px-1.5 py-1 text-[12px]"
+                            }`}
+                          >
+                            {!compact && (
+                              <img
+                                src={cdnImage("abilities/AP_Upgrades/ap_icon_psd.png")}
+                                alt=""
+                                className="w-3.5 h-3.5 object-contain"
+                              />
+                            )}
+                            {upg.tier === 1 ? "1" : upg.tier === 2 ? "2" : "5"}
+                          </span>
                         )}
-                        <div>
-                          <div className="text-gray-200 font-semibold text-sm">
-                            {player.persona_name || "Anonymous"}
-                          </div>
-                          <div className="text-gray-400 text-xs">{getHeroName(player.hero_id)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          );
+        };
+
+        // Final inventory: 12 slots in a 6×2 grid; empty slots render dashed.
+        const renderItemSlots = (items, compact) => {
+          const box = compact ? "w-[30px] h-[30px] rounded-[5px]" : "w-16 h-16 rounded-lg";
+          return (
+            <div className={`grid grid-cols-6 w-fit ${compact ? "gap-1" : "gap-2.5"}`}>
+              {Array.from({ length: ITEM_SLOTS }, (_, i) => {
+                const item = items[i];
+                if (!item) {
+                  return <div key={i} className={`${box} border border-dashed border-border-light`} />;
+                }
+                const src = getLocalItemImage(item);
+                const title = item.game_time_s != null ? `${item.name} – ${formatGameTime(item.game_time_s)}` : item.name;
+                return (
+                  <div key={i} className={`${box} bg-panel border border-border-light overflow-hidden`} title={title}>
+                    {src ? (
+                      <img
+                        src={src}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          if (item.image && e.target.src !== item.image) e.target.src = item.image;
+                          else e.target.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <span className="flex w-full h-full items-center justify-center text-[9px] text-dim text-center leading-tight p-0.5">
+                        {item.name?.slice(0, 4)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        };
+
+        const allBuildPlayers = [...amberPlayers, ...sapphirePlayers];
+        const focus =
+          allBuildPlayers.find((p) => String(p.account_id) === String(buildFocusId)) || allBuildPlayers[0];
+        const sectionLabel = "font-valve-oracle font-semibold text-[13px] uppercase tracking-[0.08em] text-muted";
+        const statLabel = "text-[11px] font-semibold uppercase tracking-[0.08em] text-dim";
+
+        if (!buildSeeAll && focus) {
+          const fb = getBuild(focus);
+          const fSide = focus.team === 0 ? "amber" : "sapphire";
+          const fLane = laneMetaOf(focus);
+          return (
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-[250px_minmax(0,1fr)] bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] overflow-hidden">
+              {/* Roster */}
+              <div className="flex flex-col gap-4 py-4 px-2.5 bg-table border-b md:border-b-0 md:border-r border-border-light">
+                {buildTeams.map((team) => (
+                  <div key={team.side} className="flex flex-col gap-0.5">
+                    <span className={`px-2.5 pb-1.5 font-valve-oracle font-semibold text-xs uppercase tracking-[0.08em] truncate ${teamText(team.side)}`}>
+                      {team.name}
+                    </span>
+                    {team.players.map((p) => {
+                      const active = p.account_id === focus.account_id;
+                      return (
+                        <button
+                          key={p.account_id}
+                          type="button"
+                          onClick={() => setBuildFocusId(p.account_id)}
+                          className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border text-left transition-colors ${
+                            active ? "bg-accent-bg-strong border-accent-border-strong" : "border-transparent hover:bg-hover"
+                          }`}
+                        >
+                          <HeroIcon
+                            src={getHeroIcon(p.hero_id)}
+                            name={getHeroName(p.hero_id)}
+                            className={`w-7 h-7 shrink-0 ring-1 ${teamRing(team.side)}`}
+                          />
+                          <span className="flex flex-col min-w-0">
+                            <span className="text-[13px] font-semibold text-primary truncate">{p.persona_name || "Anonymous"}</span>
+                            <span className="text-[11px] text-muted truncate">{getHeroName(p.hero_id)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Focused build */}
+              <div className="flex flex-col min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-5 px-6 py-5 border-b border-border">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <HeroIcon
+                      src={getHeroIcon(focus.hero_id)}
+                      name={getHeroName(focus.hero_id)}
+                      className="w-14 h-14 shrink-0 border border-border-lighter"
+                      rounded="rounded-[10px]"
+                    />
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      {focus.account_id ? (
+                        <Link to={`/player/${focus.account_id}`} className="font-valve-pulp text-[28px] leading-none text-primary truncate hover:underline-text">
+                          {focus.persona_name || "Anonymous"}
+                        </Link>
+                      ) : (
+                        <span className="font-valve-pulp text-[28px] leading-none text-primary truncate">{focus.persona_name || "Anonymous"}</span>
+                      )}
+                      <span className="text-[13px] text-muted">
+                        <span className={`font-semibold ${teamText(fSide)}`}>
+                          {fSide === "amber" ? amberTeamName || "Amber" : sapphireTeamName || "Sapphire"}
+                        </span>
+                        {" · "}
+                        {getHeroName(focus.hero_id)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-7">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className={statLabel}>KDA</span>
+                      {renderKda(focus, "text-base")}
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className={statLabel}>Souls</span>
+                      <span className="text-base font-bold text-primary">{formatK(focus.net_worth)}</span>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className={statLabel}>Damage</span>
+                      <span className="text-base font-bold text-primary">{formatK(focus.player_damage)}</span>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className={statLabel}>Lane</span>
+                      <span className="flex items-center gap-1.5 text-base font-bold text-primary">
+                        <span className="w-2 h-2 rounded-full" style={{ background: fLane?.color || "#4b5563" }} />
+                        {fLane?.name || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2.5 px-6 py-5 border-b border-border">
+                  <span className={sectionLabel}>Ability Point Order</span>
+                  {renderAbilityGrid(fb.abilities, false)}
+                </div>
+                <div className="flex flex-col gap-3 px-6 py-5">
+                  <span className={sectionLabel}>Final Items</span>
+                  {fb.items.length === 0 ? (
+                    <p className="text-dim text-xs">No item data available.</p>
+                  ) : (
+                    renderItemSlots(fb.items, false)
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="mb-6 grid grid-cols-1 xl:grid-cols-2 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] overflow-hidden">
+            {buildTeams.map((team, ti) => (
+              <div
+                key={team.side}
+                className={`flex flex-col min-w-0 ${ti === 1 ? "border-t-2 xl:border-t-0 xl:border-l-2 border-border-lighter" : ""}`}
+              >
+                <div
+                  className={`flex items-center px-5 py-3.5 bg-panel border-b border-border border-t-2 ${
+                    team.side === "amber" ? "border-t-team-amber" : "border-t-team-sapphire"
+                  }`}
+                >
+                  <span className={`font-valve-pulp text-[22px] truncate ${teamText(team.side)}`}>{team.name}</span>
+                </div>
+                {team.players.map((p, i) => {
+                  const b = getBuild(p);
+                  return (
+                    <div
+                      key={p.account_id}
+                      className={`grid grid-cols-[132px_minmax(0,1fr)] transition-colors hover:bg-accent-bg ${i ? "border-t border-border" : ""}`}
+                    >
+                      <div className="flex items-start gap-2 p-3">
+                        <HeroIcon
+                          src={getHeroIcon(p.hero_id)}
+                          name={getHeroName(p.hero_id)}
+                          className="w-[30px] h-[30px] shrink-0 border border-border-light"
+                        />
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          {p.account_id ? (
+                            <Link to={`/player/${p.account_id}`} className="font-valve-pulp text-sm text-primary break-words hover:underline-text">
+                              {p.persona_name || "Anonymous"}
+                            </Link>
+                          ) : (
+                            <span className="font-valve-pulp text-sm text-primary break-words">{p.persona_name || "Anonymous"}</span>
+                          )}
+                          <span className="text-xs text-muted truncate">{getHeroName(p.hero_id)}</span>
+                          {renderKda(p)}
                         </div>
                       </div>
-
-                      {/* Ability Point Order */}
-                      {buildAbilities.length > 0 && (() => {
-                        // Flatten all upgrades, tag with ability index, sort by time → assign slot 0–15
-                        const allEvents = buildAbilities
-                          .flatMap((ability, ai) =>
-                            ability.upgrades.map(upg => ({ ai, ability, upg }))
-                          )
-                          .sort((a, b) => (a.upg.game_time_s ?? 0) - (b.upg.game_time_s ?? 0));
-                        // slotMap[ai][slotIndex] = upg
-                        const slotMap = Object.fromEntries(buildAbilities.map((_, ai) => [ai, {}]));
-                        allEvents.forEach(({ ai, upg }, slot) => {
-                          slotMap[ai][slot] = upg;
-                        });
-                        const SLOTS = 16;
-                        return (
-                          <div className="mb-3">
-                            <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Ability Point Order</p>
-                            <div className="space-y-0.5">
-                              {buildAbilities.map((ability, ai) => (
-                                <div key={ai} className="flex items-center gap-0.5 bg-gray-800/40">
-                                  <img
-                                    src={staticImagePathToCdn(ability.image)}
-                                    alt={ability.name}
-                                    title={ability.name}
-                                    className="w-6 h-6 object-contain rounded shrink-0 bg-white/20"
-                                    onError={(e) => { e.target.style.display = "none"; }}
-                                  />
-                                  <div className="grid gap-0.5 flex-1" style={{ gridTemplateColumns: `repeat(${SLOTS}, minmax(0, 1fr))` }}>
-                                    {Array.from({ length: SLOTS }, (_, slot) => {
-                                      const upg = slotMap[ai][slot];
-                                      if (!upg) {
-                                        return <div key={slot} className="h-6" />;
-                                      }
-                                      return (
-                                        <div
-                                          key={slot}
-                                          className="flex p-0.5 items-center justify-center h-6"
-                                          title={`${ability.name} – ${upg.tier === 0 ? "Unlocked" : `Tier ${upg.tier}`}${upg.game_time_s != null ? ` at ${formatGameTime(upg.game_time_s)}` : ""}`}
-                                        >
-                                          {upg.tier === 0 ? (
-                                            <img
-                                              src={cdnImage("abilities/AP_Upgrades/ghost_reward_ap_png.png")}
-                                              alt="unlock"
-                                              className="w-4 h-4 object-contain"
-                                            />
-                                          ) : (
-                                            <div className="flex items-center justify-center gap-1 bg-gray-900/60 rounded py-0.5 px-2">
-                                              <img
-                                                src={cdnImage("abilities/AP_Upgrades/ap_icon_psd.png")}
-                                                alt=""
-                                                className="w-4 h-4 object-contain opacity-80"
-                                              />
-                                              <span className="text-[12px] font-bold text-white leading-none opacity-80">
-                                                {upg.tier === 1 ? "1" : upg.tier === 2 ? "2" : "5"}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Items */}
-                      {buildItems.length === 0 ? (
-                        <p className="text-gray-500 text-xs">No item data available.</p>
-                      ) : (
-                        <>
-                          <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Items</p>
-                          <div className="flex flex-wrap gap-2">
-                            {buildItems.map((item, i) => {
-                              const src = getLocalItemImage(item);
-                              return (
-                                <div key={i} className="flex flex-col items-center gap-0.5">
-                                  {src ? (
-                                    <img
-                                      src={src}
-                                      alt={item.name}
-                                      title={item.name}
-                                      width={36}
-                                      height={36}
-                                      loading="lazy"
-                                      decoding="async"
-                                      className="w-9 h-9 rounded object-contain bg-slate-700/50"
-                                      onError={(e) => {
-                                        if (item.image && e.target.src !== item.image) {
-                                          e.target.src = item.image;
-                                        } else {
-                                          e.target.style.display = "none";
-                                        }
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-9 h-9 rounded bg-slate-700/50 flex items-center justify-center text-xs text-gray-500 text-center leading-tight p-0.5" title={item.name}>
-                                      {item.name?.slice(0, 4)}
-                                    </div>
-                                  )}
-                                  {item.game_time_s != null && (
-                                    <span className="text-gray-400 text-xs leading-none">{formatGameTime(item.game_time_s)}</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
+                      <div className="flex flex-col gap-2.5 py-3 px-3.5 border-l border-border min-w-0">
+                        {renderAbilityGrid(b.abilities, true)}
+                        {b.items.length === 0 ? (
+                          <p className="text-dim text-xs">No item data available.</p>
+                        ) : (
+                          renderItemSlots(b.items, true)
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

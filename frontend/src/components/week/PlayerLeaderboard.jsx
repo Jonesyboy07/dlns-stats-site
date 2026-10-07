@@ -60,7 +60,7 @@ export default function PlayerLeaderboard({
       {rows.map((row) => (
         <div
           key={row.accountId}
-          className="grid min-h-[52px] grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-border bg-table px-4 text-[14px] transition-colors hover:bg-accent-bg md:min-h-0 md:grid-cols-[40px_minmax(0,1.4fr)_90px_minmax(0,1fr)] md:gap-0 md:px-5 md:py-2.5"
+          className="relative grid min-h-[52px] grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-border bg-table px-4 text-[14px] transition-colors hover:bg-accent-bg md:min-h-0 md:grid-cols-[40px_minmax(0,1.4fr)_90px_minmax(0,1fr)] md:gap-0 md:px-5 md:py-2.5"
         >
           <span
             className={`font-valve-pulp text-[14px] font-bold md:text-[15px] ${
@@ -78,7 +78,7 @@ export default function PlayerLeaderboard({
             <span className="flex min-w-0 flex-col">
               <Link
                 to={`/player/${row.accountId}`}
-                className="truncate font-semibold text-primary hover:text-accent-light"
+                className="truncate font-semibold text-primary hover:text-accent-light after:absolute after:inset-0 after:content-[''] md:after:hidden"
               >
                 {row.name}
               </Link>

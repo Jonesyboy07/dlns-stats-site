@@ -54,6 +54,10 @@ REM status is checked), so this pass is what actually carries a feed fix over.
 %PYTHON_EXE% backend\main.py -matchfile "%MATCHFILE%" -db "%DB_PATH%" -metasync true
 
 echo.
+echo Backfilling game versions (matches.game_version)...
+%PYTHON_EXE% backend\main.py -db "%DB_PATH%" -versionbackfill true
+
+echo.
 echo Inferring real lanes from match_paths (lane_real)...
 %PYTHON_EXE% backend\main.py -db "%DB_PATH%" -laneinfer true
 

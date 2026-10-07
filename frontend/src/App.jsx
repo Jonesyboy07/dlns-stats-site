@@ -27,6 +27,7 @@ const TeamDetail = lazy(() => import("./pages/TeamDetail"));
 const WeekPage = lazy(() => import("./pages/WeekPage"));
 const ReactAdmin = lazy(() => import("./pages/ReactAdmin"));
 const SiteBannerAdmin = lazy(() => import("./pages/SiteBannerAdmin"));
+const SystemAdmin = lazy(() => import("./pages/SystemAdmin"));
 const Community = lazy(() => import("./pages/Community"));
 const Help = lazy(() => import("./pages/Help"));
 const Search = lazy(() => import("./pages/Search"));
@@ -120,6 +121,7 @@ function App() {
               <Route path="/react-admin" element={<ReactAdmin />} />
               <Route path="/react-admin/help-config" element={<SiteBannerAdmin />} />
               <Route path="/react-admin/site-banner" element={<SiteBannerAdmin />} />
+              <Route path="/admin/system" element={<SystemAdmin />} />
               <Route path="/community" element={<Community />} />
               <Route path="/help" element={<Help />} />
               <Route path="/search" element={<Search />} />

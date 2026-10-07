@@ -129,6 +129,38 @@ def require_owner(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def is_owner_or_co_owner(user_id=None):
+    """Check if user is DISCORD_OWNER_ID or DISCORD_CO_OWNER_ID"""
+    if user_id is None:
+        user = get_current_user()
+        if not user:
+            return False
+        user_id = user['id']
+
+    allowed = {get_owner_id().strip(), os.getenv('DISCORD_CO_OWNER_ID', '').strip()}
+    allowed.discard('')
+    return str(user_id) in allowed
+
+
+def require_owners(f):
+    """Decorator restricting a route to DISCORD_OWNER_ID / DISCORD_CO_OWNER_ID"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_logged_in():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+            return redirect(url_for('auth.login'))
+
+        if not is_owner_or_co_owner():
+            if _is_api_request():
+                return jsonify({'ok': False, 'error': 'Owner privileges required'}), 403
+            flash('Owner privileges required.', 'error')
+            return redirect(url_for('index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def require_admin(f):
     """Decorator to require admin privileges"""
     @wraps(f)

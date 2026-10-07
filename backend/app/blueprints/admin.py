@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import sqlite3
@@ -1633,12 +1634,24 @@ def system_info():
         'platform': platform.platform(),
         'threads': threading.active_count(),
         'db_size_bytes': db_size,
-        'restart_mode': os.getenv('ADMIN_RESTART_MODE', 'respawn'),
+        'restart_mode': _restart_service_name() or os.getenv('ADMIN_RESTART_MODE', 'respawn'),
     })
 
 
+def _restart_service_name() -> str:
+    name = os.getenv('RESTART_SERVICE_NAME', '').strip()
+    return name if re.fullmatch(r'[A-Za-z0-9@._:-]+', name) else ''
+
+
 def _restart_process() -> None:
-    """Relaunch the server (or just exit when a supervisor restarts it)."""
+    """Restart via the configured systemd service, else relaunch/exit."""
+    service = _restart_service_name()
+    if service:
+        cmd = ['systemctl', 'restart', service]
+        if os.getenv('RESTART_USE_SUDO', '').lower() in ('1', 'true', 'yes'):
+            cmd = ['sudo', '-n', *cmd]
+        subprocess.Popen(cmd, start_new_session=True)
+        return
     if os.getenv('ADMIN_RESTART_MODE', 'respawn') != 'exit':
         cmd = list(getattr(sys, 'orig_argv', None) or [sys.executable, *sys.argv])
         # Wait for the old process to release the port before relaunching.

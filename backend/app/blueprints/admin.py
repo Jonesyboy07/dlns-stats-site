@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import platform
+import subprocess
+import sys
 import sqlite3
 import threading
 import time
@@ -10,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import Blueprint, render_template, current_app, jsonify, request
 from ..cache import cache
-from ..utils.auth import require_admin, get_current_user, get_all_privileged_users, is_admin, require_submit_perms
+from ..utils.auth import require_admin, get_current_user, get_all_privileged_users, is_admin, require_submit_perms, require_owners, is_owner_or_co_owner
 from ...main import (
     SkipMatchSilent,
     STEAM_API_KEY,
@@ -1599,3 +1603,63 @@ def admin_api_access():
             'user': user,
         }
     )
+
+
+_PROCESS_STARTED = time.time()
+
+
+@admin_bp.route('/system')
+@require_owners
+def system_page():
+    return render_template('react.html', page='system_admin')
+
+
+@admin_bp.route('/api/system')
+@require_owners
+def system_info():
+    db_path = Path(current_app.config.get('DB_PATH', './data/dlns.sqlite3'))
+    try:
+        db_size = db_path.stat().st_size
+    except OSError:
+        db_size = None
+    now = time.time()
+    return jsonify({
+        'ok': True,
+        'started_at': _PROCESS_STARTED,
+        'now': now,
+        'uptime_s': now - _PROCESS_STARTED,
+        'pid': os.getpid(),
+        'python': platform.python_version(),
+        'platform': platform.platform(),
+        'threads': threading.active_count(),
+        'db_size_bytes': db_size,
+        'restart_mode': os.getenv('ADMIN_RESTART_MODE', 'respawn'),
+    })
+
+
+def _restart_process() -> None:
+    """Relaunch the server (or just exit when a supervisor restarts it)."""
+    if os.getenv('ADMIN_RESTART_MODE', 'respawn') != 'exit':
+        cmd = list(getattr(sys, 'orig_argv', None) or [sys.executable, *sys.argv])
+        # Wait for the old process to release the port before relaunching.
+        launcher = (
+            'import json,subprocess,sys,time;'
+            'time.sleep(3);'
+            'subprocess.Popen(json.loads(sys.argv[1]), cwd=sys.argv[2])'
+        )
+        flags = subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+        subprocess.Popen(
+            [sys.executable, '-c', launcher, json.dumps(cmd), os.getcwd()],
+            creationflags=flags,
+            start_new_session=(os.name != 'nt'),
+        )
+    os._exit(0)
+
+
+@admin_bp.route('/api/system/restart', methods=['POST'])
+@require_owners
+def system_restart():
+    user = get_current_user() or {}
+    current_app.logger.warning('Server restart requested by %s (%s)', user.get('username'), user.get('id'))
+    threading.Timer(1.0, _restart_process).start()
+    return jsonify({'ok': True, 'message': 'Restarting'})

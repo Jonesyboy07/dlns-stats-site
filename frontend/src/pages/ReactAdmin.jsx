@@ -26,6 +26,11 @@ const adminCards = [
     description: 'Edit the modular help page content and the shared help banner.',
     href: '/react-admin/help-config',
   },
+  {
+    title: 'System Status',
+    description: 'Uptime, last restart and a restart button. Owner and co-owner only.',
+    href: '/admin/system',
+  },
 ];
 
 export default function ReactAdmin() {

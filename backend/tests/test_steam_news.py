@@ -142,15 +142,15 @@ class PostKindTests(unittest.TestCase):
             self.assertEqual(post_kind(title), KIND_UPDATE, title)
 
     def test_a_season_launch_without_an_update_word_is_an_update(self):
-        # Curated, because "City Never Sleeps" is a major update whose title says
-        # nothing of the sort.
+        # Curated, because these are major updates whose titles say nothing of
+        # the sort — the hero reveals that follow them are not the update.
         self.assertEqual(post_kind("City Never Sleeps"), KIND_UPDATE)
+        self.assertEqual(post_kind("Old Gods, New Blood"), KIND_UPDATE)
 
     def test_hero_reveals_are_heroes(self):
         for title in (
             "Mind the Birds!",
             "The Curse Beckons for Silver",
-            "Old Gods, New Blood",
             "Introducing The Dazzling Celeste",
             "Rem Enters The City That Never Sleeps",
             "Listen up, Crumbums! Your King is here.",

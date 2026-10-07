@@ -52,9 +52,11 @@ _ANNOUNCEMENTS_FEED = "steam_community_announcements"
 # titled evocatively ("Mind the Birds!") and fall through to the other kind.
 _UPDATE_WORDS = ("update", "patch", "hotfix", "rework")
 
-# Season launches that carry none of those words. An explicit list because
-# guessing from prose misfires, and adding one is a one-line change.
-_MAJOR_UPDATE_TITLES = {"city never sleeps"}
+# Season launches and major updates whose titles carry none of those words. An
+# explicit list because guessing from prose misfires, and adding one is a
+# one-line change. "Old Gods, New Blood" is the season that changed the maps; the
+# hero reveals that followed it for weeks are what the games were played after.
+_MAJOR_UPDATE_TITLES = {"city never sleeps", "old gods, new blood"}
 
 KIND_UPDATE = "update"
 KIND_HERO = "hero"

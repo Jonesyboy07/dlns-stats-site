@@ -15,9 +15,10 @@ import {
   buildLeaderboard,
   buildSeries,
   formatLongDate,
+  patchNoteLabel,
+  primaryPatchNote,
   scopeGames,
   scopeSeries,
-  summarizeBuilds,
   summarizeIndexWeek,
 } from "../utils/weekData";
 
@@ -149,13 +150,11 @@ export default function WeekPage() {
   const leaderboard = useMemo(() => buildLeaderboard(games, statKey), [games, statKey]);
   const picks = useMemo(() => buildHeroPicks(games, pbMode), [games, pbMode]);
 
-  /* Which Deadlock build(s) the week was played on, across every game the
-     brackets cover — the authored brackets skip the weeks' synthetic placeholder
-     rows, whose timestamps would otherwise report a phantom mid-week patch. */
-  const builds = useMemo(
-    () => summarizeBuilds(scopeGames(bracketSeries)),
-    [bracketSeries],
-  );
+  /* Patch notes posted while this week's games were being played, from the
+     endpoint. The week links out to Steam instead of showing build numbers,
+     which mean nothing to a reader. */
+  const patchNotes = useMemo(() => detail?.patch_notes || [], [detail]);
+  const patchNote = useMemo(() => primaryPatchNote(patchNotes), [patchNotes]);
 
   const patchParams = useCallback(
     (patch) => {
@@ -221,24 +220,27 @@ export default function WeekPage() {
           </p>
         </div>
 
-        {!loading && builds.label && (
+        {!loading && patchNote && (
           <div className="flex flex-wrap items-center gap-2">
-            <span
+            <a
+              href={patchNote.url}
+              target="_blank"
+              rel="noopener noreferrer"
               title={
-                builds.straddles
-                  ? `These games span Deadlock builds ${builds.min}–${builds.max}, so a patch landed mid-week and the stats below mix two builds.`
-                  : `Every game this week was played on Deadlock build ${builds.min}.`
+                patchNote.during_games
+                  ? `“${patchNote.title}” was posted while this week's games were being played, so part of the night ran on the previous patch.`
+                  : `“${patchNote.title}” was posted during this week.`
               }
-              className={`cursor-help rounded-full border px-3 py-1.5 text-[12px] font-semibold ${
-                builds.straddles
-                  ? "border-accent-border-strong bg-accent-bg-strong text-accent-light"
-                  : "border-border-light bg-panel text-secondary"
+              className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                patchNote.during_games
+                  ? "border-accent-border-strong bg-accent-bg-strong text-accent-light hover:bg-accent-bg"
+                  : "border-border-light bg-panel text-secondary hover:bg-hover"
               }`}
             >
-              {builds.label}
-            </span>
-            {builds.straddles && (
-              <span className="text-[12px] text-muted">patch landed mid-week</span>
+              {patchNoteLabel(patchNote)} ↗
+            </a>
+            {patchNote.during_games && (
+              <span className="text-[12px] text-muted">released mid-broadcast</span>
             )}
           </div>
         )}

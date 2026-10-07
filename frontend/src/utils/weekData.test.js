@@ -7,12 +7,12 @@ import {
   buildRegionBrackets,
   buildSeries,
   formatDuration,
-  matchBuild,
+  patchNoteLabel,
+  primaryPatchNote,
   regionOutcome,
   roundColumns,
   scopeGames,
   scopeSeries,
-  summarizeBuilds,
   summarizeIndexWeek,
   teamInitials,
   weekChampions,
@@ -28,7 +28,6 @@ const match = (overrides = {}) => ({
   event_region: "NA",
   event_subtitle: "FINALS",
   start_time: "2026-09-30T18:00:00Z",
-  game_version: 6624,
   players: [],
   ...overrides,
 });
@@ -727,9 +726,9 @@ describe("buildHeroPicks", () => {
       .board.flatMap((row) => row.heroes)
       .find((entry) => entry.hero === "Haze");
     expect(haze.games).toEqual([
-      { matchId: 42, durationS: 1200, build: 6624, outcome: "won", round: "Challenger", region: "NA", gameNo: 1 },
-      { matchId: 43, durationS: 900, build: 6624, outcome: "lost", round: "Challenger", region: "NA", gameNo: 2 },
-      { matchId: 43, durationS: 900, build: 6624, outcome: "banned", round: "Challenger", region: "NA", gameNo: 2 },
+      { matchId: 42, durationS: 1200, outcome: "won", round: "Challenger", region: "NA", gameNo: 1 },
+      { matchId: 43, durationS: 900, outcome: "lost", round: "Challenger", region: "NA", gameNo: 2 },
+      { matchId: 43, durationS: 900, outcome: "banned", round: "Challenger", region: "NA", gameNo: 2 },
     ]);
   });
 
@@ -815,52 +814,34 @@ describe("buildHeroPicks", () => {
   });
 });
 
-describe("summarizeBuilds", () => {
-  const gamesWith = (versions) =>
-    scopeGames([
-      {
-        key: "NA-0",
-        games: versions.map((version, index) => ({
-          gameNo: index + 1,
-          match: match({ match_id: 100 + index, game_version: version }),
-        })),
-      },
-    ]);
-
-  it("labels a week played on one build", () => {
-    const builds = summarizeBuilds(gamesWith([6624, 6624]));
-    expect(builds).toMatchObject({ min: 6624, max: 6624, straddles: false, label: "Build 6624" });
-    expect(builds.builds).toEqual([6624]);
+describe("patch notes", () => {
+  const note = (published, during) => ({
+    title: "Minor Update",
+    published_at: published,
+    during_games: during,
   });
 
-  it("reports a range when a patch landed mid-week", () => {
-    const builds = summarizeBuilds(gamesWith([6624, 6618, 6624]));
-    expect(builds).toMatchObject({ min: 6618, max: 6624, straddles: true, label: "Builds 6618–6624" });
-    expect(builds.builds).toEqual([6618, 6624]);
+  it("labels a note with the date it was posted", () => {
+    expect(patchNoteLabel(note("2026-07-01T22:54:00+00:00", true))).toBe("Patch notes · Jul 1");
   });
 
-  it("has no label when no version is resolved yet", () => {
-    const builds = summarizeBuilds(gamesWith([null, undefined]));
-    expect(builds).toMatchObject({ builds: [], min: null, max: null, straddles: false, label: null });
+  it("falls back to a plain label without a usable date", () => {
+    expect(patchNoteLabel(note(null, false))).toBe("Patch notes");
+    expect(patchNoteLabel(null)).toBeNull();
   });
 
-  it("does not read a missing version as build 0", () => {
-    // Number(null) is 0, so an unguarded cast would report a phantom build.
-    expect(matchBuild({ game_version: null })).toBeNull();
-    expect(matchBuild({ game_version: undefined })).toBeNull();
-    expect(matchBuild({})).toBeNull();
-    expect(matchBuild(null)).toBeNull();
-    expect(matchBuild({ game_version: "6618" })).toBe(6618);
+  it("prefers the note that landed while games were being played", () => {
+    const overnight = note("2026-07-01T02:00:00+00:00", false);
+    const midBroadcast = note("2026-07-01T22:54:00+00:00", true);
+    expect(primaryPatchNote([overnight, midBroadcast])).toBe(midBroadcast);
   });
 
-  it("ignores the games that have no version", () => {
-    const builds = summarizeBuilds(gamesWith([null, 6701]));
-    expect(builds).toMatchObject({ min: 6701, max: 6701, straddles: false, label: "Build 6701" });
-  });
-
-  it("is empty for a week with no games", () => {
-    expect(summarizeBuilds([]).label).toBeNull();
-    expect(summarizeBuilds(undefined).label).toBeNull();
+  it("falls back to the latest note when none landed mid-broadcast", () => {
+    const first = note("2026-07-01T02:00:00+00:00", false);
+    const second = note("2026-07-02T02:00:00+00:00", false);
+    expect(primaryPatchNote([first, second])).toBe(second);
+    expect(primaryPatchNote([])).toBeNull();
+    expect(primaryPatchNote(undefined)).toBeNull();
   });
 });
 

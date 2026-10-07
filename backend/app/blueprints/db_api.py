@@ -22,6 +22,7 @@ from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
 from ...game_version import resolve_game_version
+from ...patch_notes import iso_to_epoch, notes_in_week
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -5448,6 +5449,23 @@ def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
     return computed
 
 
+def _week_patch_notes(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Patch notes posted while this week's games were being played.
+
+    The week page links out to Steam rather than showing build numbers: a build
+    means nothing to a reader, but "a patch landed mid-broadcast" explains why a
+    night's stats might shift under it. Empty when no note was posted during play,
+    or when Steam cannot be reached.
+    """
+    games: List[tuple] = []
+    for match in matches or []:
+        start = iso_to_epoch(match.get("start_time"))
+        if start is None:
+            continue
+        games.append((start, start + int(match.get("duration_s") or 0)))
+    return notes_in_week(games)
+
+
 def _nightshift_available_events(conn: sqlite3.Connection) -> List[str]:
     cur = conn.execute(
         """
@@ -5633,8 +5651,7 @@ def nightshift_week(week: int):
                 m.match_id, m.duration_s, m.winning_team,
                 m.event_title, m.event_week, m.event_game,
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
-                m.start_time, m.event_subtitle, m.event_region, m.match_vod,
-                m.game_version
+                m.start_time, m.event_subtitle, m.event_region, m.match_vod
             FROM matches m
             WHERE LOWER(m.event_title) = LOWER(?) AND m.event_week = ?
             ORDER BY m.start_time ASC, m.match_id ASC
@@ -5755,6 +5772,7 @@ def nightshift_week(week: int):
             "stats": stats,
             "matches": matches,
             "brackets": _week_brackets(event_title, week),
+            "patch_notes": _week_patch_notes(matches),
             "all_weeks": all_weeks,
             "vod_link": vod_link,
             "vod_links": vod_links,

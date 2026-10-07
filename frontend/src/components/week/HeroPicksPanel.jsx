@@ -211,7 +211,6 @@ function HeroTile({ entry, anyBans }) {
                   </span>
                   <span className="text-muted tabular-nums">
                     G{game.gameNo ?? index + 1} · {formatDuration(game.durationS)}
-                    {game.build ? <span className="text-dim"> · {game.build}</span> : null}
                   </span>
                 </li>
               ))}

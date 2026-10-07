@@ -74,10 +74,21 @@ Response:
 | `vod_link`, `vod_links`, `series_vods`, `game_vods` | mixed | VOD links from `matches.json` |
 
 Each `matches[]` entry includes the event context columns `event_region`
-(`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`), `match_vod` and
-`game_version` (the Deadlock build number the game was played on, `null` until
-backfilled — see `/db/matches/<match_id>/version`), which the week page uses to
-build the brackets, leaderboard and picks panels.
+(`NA`/`EU`), `event_subtitle` (the stage title, e.g. `FINALS`) and `match_vod`,
+which the week page uses to build the brackets, leaderboard and picks panels.
+
+`patch_notes` holds the Deadlock patch notes posted while the week's games were
+being played, so the page can link out to Steam instead of showing build numbers.
+A note in the long gap between two nights is included with `during_games` false:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `gid` | string | Steam announcement id |
+| `title` | string | e.g. `Minor Update - 10-05-2026` |
+| `ts` | integer | Post time, Unix seconds |
+| `published_at` | string | Post time, ISO 8601 |
+| `url` | string or null | Steam store news URL; null if it could not be resolved |
+| `during_games` | boolean | True when posted during a sitting (or its intermission) |
 
 `players[]` entries carry `team`, `hero_id`, `hero_name`, `kills`, `deaths`,
 `assists`, `net_worth`, `player_damage`, `player_healing`, `account_id`,

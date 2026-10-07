@@ -1,9 +1,8 @@
-"""Tests for the Night Shift week endpoint's per-match payload.
+"""Tests for hero bans on the Night Shift week endpoint.
 
 The `match_bans` table is written by the ingester and is absent from databases
 created before bans were tracked, so the endpoint has to degrade to "no bans"
-rather than fail. Both that path and the populated path are covered here, along
-with the plain match columns the week page renders.
+rather than fail. Both that path and the populated path are covered here.
 """
 
 import os
@@ -38,9 +37,9 @@ class NightshiftBansRouteTests(unittest.TestCase):
             INSERT INTO users (account_id, persona_name) VALUES (101, 'Kaizen');
             INSERT INTO matches (match_id, duration_s, winning_team, event_title, event_week,
                 event_team_a, event_team_b, event_game, event_team_a_ingame_side, event_region,
-                event_subtitle, game_version) VALUES
-                (11, 1800, 0, 'Night Shift', 58, 'Melee Creeps', 'Pulsar Esports', 'Game 1', 0, 'NA', 'FINALS', 6624),
-                (12, 1700, 0, 'Night Shift', 59, 'Melee Creeps', 'Pulsar Esports', 'Game 1', 0, 'NA', 'FINALS', 6618);
+                event_subtitle) VALUES
+                (11, 1800, 0, 'Night Shift', 58, 'Melee Creeps', 'Pulsar Esports', 'Game 1', 0, 'NA', 'FINALS'),
+                (12, 1700, 0, 'Night Shift', 59, 'Melee Creeps', 'Pulsar Esports', 'Game 1', 0, 'NA', 'FINALS');
             INSERT INTO players (match_id, account_id, player_slot, team, hero_id)
                 VALUES (11, 101, 1, 0, 13);
             """
@@ -71,14 +70,6 @@ class NightshiftBansRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["matches"][0]["bans"], [])
-
-    def test_week_returns_the_game_version_of_each_match(self):
-        # The week page reports which build each game was played on, so the column
-        # has to survive the endpoint's explicit SELECT.
-        response = self.client.get("/db/nightshift/58?event_title=Night%20Shift")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["matches"][0]["game_version"], 6624)
 
     def test_week_returns_bans_ordered_with_resolved_hero_names(self):
         self._write(

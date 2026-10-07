@@ -54,9 +54,10 @@ _UPDATE_WORDS = ("update", "patch", "hotfix", "rework")
 
 # Season launches and major updates whose titles carry none of those words. An
 # explicit list because guessing from prose misfires, and adding one is a
-# one-line change. "Old Gods, New Blood" is the season that changed the maps; the
-# hero reveals that followed it for weeks are what the games were played after.
-_MAJOR_UPDATE_TITLES = {"city never sleeps", "old gods, new blood"}
+# one-line change. "Old Gods, New Blood" is the season that changed the maps, and
+# "Six New Heroes" opened the earlier rollout; the hero reveals that followed each
+# for weeks are what they introduced, not the update itself.
+_MAJOR_UPDATE_TITLES = {"city never sleeps", "old gods, new blood", "six new heroes"}
 
 KIND_UPDATE = "update"
 KIND_HERO = "hero"

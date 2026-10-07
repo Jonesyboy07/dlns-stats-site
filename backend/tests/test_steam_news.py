@@ -146,6 +146,7 @@ class PostKindTests(unittest.TestCase):
         # the sort — the hero reveals that follow them are not the update.
         self.assertEqual(post_kind("City Never Sleeps"), KIND_UPDATE)
         self.assertEqual(post_kind("Old Gods, New Blood"), KIND_UPDATE)
+        self.assertEqual(post_kind("Six New Heroes"), KIND_UPDATE)
 
     def test_hero_reveals_are_heroes(self):
         for title in (

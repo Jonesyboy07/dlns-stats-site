@@ -90,13 +90,27 @@ export const isFinalRound = (round) => /final/i.test(String(round || ""));
 /** Slot marker `brackets.json` uses for a team that has not been decided yet. */
 const BYE = "BYE";
 
+/**
+ * Which in-game side the event's team A played on. Missing sides read as Amber,
+ * matching the ingester, which leaves the column null when it could not decide.
+ */
+const resolveSideA = (match) => {
+  const sideA = match?.event_team_a_ingame_side;
+  return sideA === 0 || sideA === 1 ? sideA : 0;
+};
+
 /** Which side won a single match: 'a', 'b', or null when undecided. */
 export function matchWinnerSide(match) {
   const winning = match?.winning_team;
   if (winning !== 0 && winning !== 1) return null;
-  const sideA = match?.event_team_a_ingame_side;
-  const resolvedSideA = sideA === 0 || sideA === 1 ? sideA : 0;
-  return winning === resolvedSideA ? "a" : "b";
+  return winning === resolveSideA(match) ? "a" : "b";
+}
+
+/** The event team a given in-game side belonged to, e.g. "Melee Creeps". */
+export function teamForSide(match, side) {
+  if (side !== 0 && side !== 1) return null;
+  const isTeamA = side === resolveSideA(match);
+  return (isTeamA ? match?.event_team_a : match?.event_team_b) || null;
 }
 
 /** Two-letter initials for a team name: "Melee Creeps" -> "MC". */
@@ -764,6 +778,7 @@ export function buildLeaderboard(scopedGames, statKey) {
           accountId: player.account_id,
           name: player.persona_name || `Player ${player.account_id}`,
           hero: player.hero_name || "",
+          team: teamForSide(match, player.team),
           value,
           matchId: match.match_id,
           durationS: match.duration_s,

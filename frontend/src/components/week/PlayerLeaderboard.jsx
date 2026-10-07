@@ -76,21 +76,26 @@ export default function PlayerLeaderboard({
               >
                 {row.name}
               </Link>
-              <span className="truncate text-[12px] text-dim">{row.hero}</span>
+              <span className="truncate text-[12px] text-dim" title={row.team || undefined}>
+                {row.team || "—"}
+              </span>
             </span>
           </span>
           <span className="text-right font-valve-oracle text-[17px] font-bold text-primary tabular-nums">
             {row.value.toLocaleString()}
           </span>
-          <span className="flex items-center gap-2 pl-6 text-[12px] text-muted">
+          <span className="flex min-w-0 items-center gap-2 pl-6 text-[12px] leading-tight text-muted">
             <span
               className="h-1.5 w-1.5 shrink-0 rounded-full"
               style={{
                 background: row.side === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)",
               }}
             />
-            <span className="truncate">
-              Game #{row.matchId} · {formatDuration(row.durationS)}
+            {/* Two lines rather than one: a 9-digit match id plus a duration does
+                not fit this column, and truncating the id hid which game it was. */}
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate">Game #{row.matchId}</span>
+              <span className="truncate text-dim">{formatDuration(row.durationS)}</span>
             </span>
           </span>
         </div>

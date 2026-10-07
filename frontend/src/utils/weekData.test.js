@@ -13,6 +13,7 @@ import {
   scopeGames,
   scopeSeries,
   summarizeIndexWeek,
+  teamForSide,
   teamInitials,
   weekChampions,
 } from "./weekData";
@@ -631,6 +632,28 @@ describe("scopeSeries", () => {
   });
 });
 
+describe("teamForSide", () => {
+  const sided = { event_team_a: "Melee Creeps", event_team_b: "Pulsar Esports", event_team_a_ingame_side: 1 };
+
+  it("reads the team through team A's in-game side", () => {
+    // Team A was on Sapphire (1), so side 1 is team A and side 0 is team B.
+    expect(teamForSide(sided, 1)).toBe("Melee Creeps");
+    expect(teamForSide(sided, 0)).toBe("Pulsar Esports");
+  });
+
+  it("falls back to team A on Amber when no side was recorded", () => {
+    const unsided = { event_team_a: "Melee Creeps", event_team_b: "Pulsar Esports", event_team_a_ingame_side: null };
+    expect(teamForSide(unsided, 0)).toBe("Melee Creeps");
+    expect(teamForSide(unsided, 1)).toBe("Pulsar Esports");
+  });
+
+  it("is null without a side or without event teams", () => {
+    expect(teamForSide(sided, null)).toBeNull();
+    expect(teamForSide({ event_team_a_ingame_side: 0 }, 0)).toBeNull();
+    expect(teamForSide({ event_team_a: "A", event_team_b: "B" }, 1)).toBe("B");
+  });
+});
+
 describe("buildLeaderboard", () => {
   const games = scopeGames([
     {
@@ -666,6 +689,33 @@ describe("buildLeaderboard", () => {
     expect(rows[0].rank).toBe(1);
     expect(rows[1].value).toBe(22);
     expect(rows[1].matchId).toBe(200);
+  });
+
+  it("carries the event team the player played for", () => {
+    // The fixture's match has team A on Amber (side 0), so side 1 is team B.
+    const sided = scopeGames([
+      {
+        key: "NA-0",
+        games: [
+          {
+            match: match({
+              match_id: 300,
+              event_team_a: "Melee Creeps",
+              event_team_b: "Pulsar Esports",
+              event_team_a_ingame_side: 0,
+              players: [
+                player({ account_id: 1, kills: 9, team: 0 }),
+                player({ account_id: 2, persona_name: "Rook", kills: 8, team: 1 }),
+              ],
+            }),
+          },
+        ],
+      },
+    ]);
+    const { rows } = buildLeaderboard(sided, "k");
+    const byName = Object.fromEntries(rows.map((row) => [row.name, row]));
+    expect(byName.Kaizen.team).toBe("Melee Creeps");
+    expect(byName.Rook.team).toBe("Pulsar Esports");
   });
 
   it("switches the measured stat", () => {

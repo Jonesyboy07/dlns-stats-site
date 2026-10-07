@@ -385,9 +385,13 @@ function authoredBracket(event, byMatchId) {
  * been ingested yet keeps a stub so the card still counts it.
  */
 function authoredSeries(entry, region, round, isFinal, byMatchId) {
+  /* `Number(null)` is 0, so a game the bracket lists before its match is ingested
+     has to keep a null id: nothing may look it up as match 0, and the results
+     panel keys its pills by that id. */
   const games = (entry?.games || []).map((game, index) => {
-    const matchId = Number(game?.match_id);
-    const match = byMatchId.get(matchId) || { match_id: matchId };
+    const authored = Number(game?.match_id);
+    const matchId = Number.isFinite(authored) && authored > 0 ? authored : null;
+    const match = (matchId != null && byMatchId.get(matchId)) || { match_id: matchId };
     return {
       match,
       gameNo: game?.game ?? index + 1,

@@ -167,14 +167,17 @@ export default function WeekPage() {
      games were played under, and any hero who had just arrived. The desktop row
      captions them (14a) while the mobile pair runs them over two lines (16a), so
      the facts themselves are resolved once, here. */
+  /* Each item is only offered when it has somewhere to go: an announcement whose
+     Steam URL never resolved would otherwise render an anchor with no href, which
+     looks like a link and does nothing. */
   const weekFacts = {
-    stream: streamVod
+    stream: streamVod?.url
       ? {
           href: streamVod.url,
           title: streamVod.title || `Watch the whole ${eventTitle} #${weekNum} broadcast`,
         }
       : null,
-    patch: latestUpdate
+    patch: latestUpdate?.url
       ? {
           href: latestUpdate.url,
           title: announcementTitle(latestUpdate, "update"),
@@ -182,7 +185,7 @@ export default function WeekPage() {
           note: latestUpdate.during_games ? "released mid-broadcast" : null,
         }
       : null,
-    hero: latestHero
+    hero: latestHero?.url
       ? {
           href: latestHero.url,
           title: announcementTitle(latestHero, "hero"),

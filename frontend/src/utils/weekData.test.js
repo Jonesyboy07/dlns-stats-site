@@ -621,6 +621,30 @@ describe("buildBrackets", () => {
     expect(na.series[1].games[1].match.duration_s).toBeUndefined();
   });
 
+  it("gives a not-yet-listed game no match id, so its pill cannot share a key", () => {
+    const [na] = buildBrackets([], [
+      {
+        ...authored,
+        series: [
+          authored.series[0],
+          {
+            ...authored.series[1],
+            games: [
+              { game: 1, match_id: null, winner: null },
+              { game: 2, match_id: null, winner: null },
+            ],
+          },
+        ],
+      },
+    ]);
+    /* `Number(null)` is 0, so these stubs used to read as match 0: both pills in
+       the results panel were then keyed by the same id. */
+    expect(na.series[1].games.map((game) => game.match.match_id)).toEqual([null, null]);
+    // Which is what lets the panel fall back to the pill's position instead.
+    const keys = na.series[1].games.map((game, index) => game.match.match_id ?? index);
+    expect(new Set(keys).size).toBe(2);
+  });
+
   it("drops the BYE slot a gauntlet parks a seed in", () => {
     const [na] = buildBrackets([], [
       {

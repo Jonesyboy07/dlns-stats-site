@@ -91,23 +91,27 @@ export default function MobileBracketCard({
               className="flex flex-col gap-2 transition-opacity duration-200"
               style={{ opacity: faded ? (selectedSeries ? 0.4 : 0.35) : 1 }}
             >
-              <div className="flex gap-8">
-                {columns.map((name, index) => (
-                  <span
-                    key={`${name}-${index}`}
-                    className="w-[140px] shrink-0 text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
+              {/* A three-round gauntlet is wider than the frame, so the labels and
+                  the board scroll together rather than being clipped. */}
+              <div className="scroll-thin overflow-x-auto">
+                <div className="flex gap-8">
+                  {columns.map((name, index) => (
+                    <span
+                      key={`${name}-${index}`}
+                      className="w-[140px] shrink-0 text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
 
-              <BracketBoard
-                layout={layout}
-                cardWidth={CARD_WIDTH}
-                selectedSeries={selectedSeries}
-                onSelectSeries={onSelectSeries}
-              />
+                <BracketBoard
+                  layout={layout}
+                  cardWidth={CARD_WIDTH}
+                  selectedSeries={selectedSeries}
+                  onSelectSeries={onSelectSeries}
+                />
+              </div>
 
               {layout.berth && (
                 <span className="text-[11px] text-dim">Final berth · {layout.berth.text}</span>

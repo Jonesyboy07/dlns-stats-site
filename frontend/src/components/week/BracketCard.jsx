@@ -69,76 +69,83 @@ export default function BracketCard({
         )}
       </div>
 
-      <div
-        className="grid gap-x-8 border-t border-border bg-table px-5 py-2"
-        style={gridStyle}
-      >
-        <span className="text-[11px] font-semibold tracking-[.1em] text-dim uppercase">Region</span>
-        <div className="grid" style={headerStyle}>
-          {columns.map((name, index) => (
-            <span
-              key={`${name}-${index}`}
-              className="w-[160px] shrink-0 text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase"
-            >
-              {name}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {layouts.map(({ bracket, layout }) => {
-        const regionActive = !selectedSeries && activeRegion === bracket.name.toLowerCase();
-        const faded = selectedSeries
-          ? bracket.series.some((series) => series.key === selectedSeries)
-            ? false
-            : true
-          : activeRegion !== "all" && activeRegion !== bracket.name.toLowerCase();
-
-        return (
-          <div
-            key={bracket.name}
-            className={`grid items-center gap-8 border-t border-border px-5 py-4 transition-colors ${
-              regionActive ? "bg-accent-bg" : "bg-transparent"
-            }`}
-            style={gridStyle}
-          >
-            <button
-              type="button"
-              onClick={() =>
-                onSelectRegion(regionActive ? "all" : bracket.name.toLowerCase())
-              }
-              className="flex flex-col items-start gap-1 text-left"
-            >
+      {/* The bracket is drawn at the design's fixed measurements, so on a narrower
+          desktop the card scrolls sideways as one unit rather than clipping the
+          final round inside a column that cannot move. */}
+      <div className="scroll-thin overflow-x-auto">
+        <div
+          className="grid w-max min-w-full gap-x-8 border-t border-border bg-table px-5 py-2"
+          style={gridStyle}
+        >
+          <span className="text-[11px] font-semibold tracking-[.1em] text-dim uppercase">
+            Region
+          </span>
+          <div className="grid" style={headerStyle}>
+            {columns.map((name, index) => (
               <span
-                className={`font-valve-pulp text-[26px] tracking-[.04em] ${
-                  regionActive ? "text-accent-light" : "text-primary"
-                }`}
+                key={`${name}-${index}`}
+                className="w-[160px] shrink-0 text-center text-[11px] font-semibold tracking-[.1em] text-dim uppercase"
               >
-                {bracket.name}
+                {name}
               </span>
-              <span className="text-[12px] text-muted">
-                Won by{" "}
-                <span className="font-semibold text-primary">{bracket.champ || "—"}</span>
-              </span>
-              <span className="text-[12px] font-semibold text-accent-light">
-                {regionActive ? "Show both" : `Only ${bracket.name}`} →
-              </span>
-            </button>
-
-            <div
-              className="scroll-thin overflow-x-auto transition-opacity duration-200"
-              style={{ opacity: faded ? (selectedSeries ? 0.4 : 0.35) : 1 }}
-            >
-              <BracketBoard
-                layout={layout}
-                cardWidth={CARD_WIDTH}
-                selectedSeries={selectedSeries}
-                onSelectSeries={onSelectSeries}
-              />
-            </div>
+            ))}
           </div>
-        );
-      })}
+        </div>
+
+        {layouts.map(({ bracket, layout }) => {
+          const regionActive = !selectedSeries && activeRegion === bracket.name.toLowerCase();
+          const faded = selectedSeries
+            ? bracket.series.some((series) => series.key === selectedSeries)
+              ? false
+              : true
+            : activeRegion !== "all" && activeRegion !== bracket.name.toLowerCase();
+
+          return (
+            <div
+              key={bracket.name}
+              className={`grid w-max min-w-full items-center gap-8 border-t border-border px-5 py-4 transition-colors ${
+                regionActive ? "bg-accent-bg" : "bg-transparent"
+              }`}
+              style={gridStyle}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  onSelectRegion(regionActive ? "all" : bracket.name.toLowerCase())
+                }
+                className="flex flex-col items-start gap-1 text-left"
+              >
+                <span
+                  className={`font-valve-pulp text-[26px] tracking-[.04em] ${
+                    regionActive ? "text-accent-light" : "text-primary"
+                  }`}
+                >
+                  {bracket.name}
+                </span>
+                <span className="text-[12px] text-muted">
+                  Won by{" "}
+                  <span className="font-semibold text-primary">{bracket.champ || "—"}</span>
+                </span>
+                <span className="text-[12px] font-semibold text-accent-light">
+                  {regionActive ? "Show both" : `Only ${bracket.name}`} →
+                </span>
+              </button>
+
+              <div
+                className="transition-opacity duration-200"
+                style={{ opacity: faded ? (selectedSeries ? 0.4 : 0.35) : 1 }}
+              >
+                <BracketBoard
+                  layout={layout}
+                  cardWidth={CARD_WIDTH}
+                  selectedSeries={selectedSeries}
+                  onSelectSeries={onSelectSeries}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="border-t border-border px-5 py-2.5">
         <span className="text-[12px] text-dim">

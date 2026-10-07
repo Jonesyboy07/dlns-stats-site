@@ -731,23 +731,13 @@ export function scopeGames(scopedSeries) {
 }
 
 /**
- * A week's notes as the header label, e.g. "Patch notes · Jul 1". The date comes
- * from when it was posted, which for these is minutes after the patch itself.
+ * A week's patch note as the header label, e.g. "Patch notes · Jul 1". The date
+ * is when it was posted, which for these is minutes after the patch itself.
  */
 export function patchNoteLabel(note) {
   if (!note) return null;
   const date = formatShortDate(note.published_at);
   return date ? `Patch notes · ${date}` : "Patch notes";
-}
-
-/**
- * The note worth linking for a week: one posted while games were being played,
- * else the latest one in the week's window.
- */
-export function primaryPatchNote(notes) {
-  const list = notes || [];
-  if (list.length === 0) return null;
-  return list.find((note) => note.during_games) || list[list.length - 1];
 }
 
 /**

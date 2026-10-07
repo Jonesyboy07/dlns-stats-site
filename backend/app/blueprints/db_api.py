@@ -22,7 +22,7 @@ from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
 from ...game_version import resolve_game_version
-from ...patch_notes import iso_to_epoch, notes_in_week
+from ...patch_notes import iso_to_epoch, note_for_games
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
@@ -5449,13 +5449,14 @@ def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
     return computed
 
 
-def _week_patch_notes(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Patch notes posted while this week's games were being played.
+def _week_patch_note(matches: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The patch note this week was played under, for the page to link out to.
 
-    The week page links out to Steam rather than showing build numbers: a build
-    means nothing to a reader, but "a patch landed mid-broadcast" explains why a
-    night's stats might shift under it. Empty when no note was posted during play,
-    or when Steam cannot be reached.
+    The week page links to Steam rather than showing build numbers: a build means
+    nothing to a reader, but the patch note is what actually says what changed,
+    and one that landed mid-broadcast explains why a night's stats might shift
+    under it. None only when no note predates the week at all, or when Steam
+    cannot be reached.
     """
     games: List[tuple] = []
     for match in matches or []:
@@ -5463,7 +5464,7 @@ def _week_patch_notes(matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if start is None:
             continue
         games.append((start, start + int(match.get("duration_s") or 0)))
-    return notes_in_week(games)
+    return note_for_games(games)
 
 
 def _nightshift_available_events(conn: sqlite3.Connection) -> List[str]:
@@ -5772,7 +5773,7 @@ def nightshift_week(week: int):
             "stats": stats,
             "matches": matches,
             "brackets": _week_brackets(event_title, week),
-            "patch_notes": _week_patch_notes(matches),
+            "patch_note": _week_patch_note(matches),
             "all_weeks": all_weeks,
             "vod_link": vod_link,
             "vod_links": vod_links,

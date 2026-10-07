@@ -92,48 +92,50 @@ def resolve_store_url(external_url: str) -> Optional[str]:
     return f"{STORE_URL}{int(match.group(1)) - 1}"
 
 
-def _sessions(games: Sequence[Tuple[int, int]]) -> List[Tuple[int, int]]:
-    """Group a week's games into sittings, splitting on gaps over SESSION_GAP_S."""
+def _sittings(games: Sequence[Tuple[int, int]]) -> List[Tuple[int, int, int]]:
+    """Group a week's games into sittings, splitting on gaps over SESSION_GAP_S.
+
+    Returns `(start, end, game_count)` per sitting, in order. Used both to tell a
+    patch that landed mid-broadcast from one that landed overnight, and to find
+    the week's own broadcast.
+    """
     ordered = sorted(games)
     if not ordered:
         return []
-    sessions = [[ordered[0][0], ordered[0][1]]]
+    sittings = [[ordered[0][0], ordered[0][1], 1]]
     for start, end in ordered[1:]:
-        if start - sessions[-1][1] > SESSION_GAP_S:
-            sessions.append([start, end])
+        if start - sittings[-1][1] > SESSION_GAP_S:
+            sittings.append([start, end, 1])
         else:
-            sessions[-1][1] = max(sessions[-1][1], end)
-    return [tuple(session) for session in sessions]  # type: ignore[misc]
+            sittings[-1][1] = max(sittings[-1][1], end)
+            sittings[-1][2] += 1
+    return [tuple(sitting) for sitting in sittings]  # type: ignore[misc]
 
 
-def notes_in_window(
+def note_for_week(
     notes: Iterable[Dict[str, Any]],
     games: Sequence[Tuple[int, int]],
-) -> List[Dict[str, Any]]:
-    """Patch notes posted during a week, each flagged with `during_games`.
+) -> Optional[Dict[str, Any]]:
+    """The patch note a week was played under.
 
-    The window is the week's first game start to its last game end, so a note
-    posted in the long gap between two nights is included but not flagged: the
-    night did not carry on under the new patch. A note inside a sitting, or in the
-    short gap between two games of one, is flagged because it did.
+    The newest note posted by the time the week's own broadcast finished, so every
+    week gets one and each shows the note that was actually current for it. Flagged
+    with `during_games` when it landed while that broadcast was running — the case
+    where part of the night ran on the previous patch.
+
+    The reference is the busiest sitting rather than the week's last game at all,
+    because a handful of weeks carry a synthetic placeholder row stamped months
+    away that would otherwise drag the cutoff into a later patch.
     """
-    sessions = _sessions(games)
-    if not sessions:
-        return []
-    lo = min(session[0] for session in sessions)
-    hi = max(session[1] for session in sessions)
-    found = []
-    for note in notes:
-        ts = note.get("ts")
-        if ts is None or not (lo <= ts <= hi):
-            continue
-        found.append(
-            {
-                **note,
-                "during_games": any(start <= ts <= end for start, end in sessions),
-            }
-        )
-    return sorted(found, key=lambda note: note["ts"])
+    sittings = _sittings(games)
+    if not sittings:
+        return None
+    _, finished, _ = max(sittings, key=lambda sitting: (sitting[2], sitting[1]))
+    candidates = [note for note in notes if note.get("ts") is not None and note["ts"] <= finished]
+    if not candidates:
+        return None
+    note = max(candidates, key=lambda entry: entry["ts"])
+    return {**note, "during_games": any(start <= note["ts"] <= end for start, end, _ in sittings)}
 
 
 class PatchNotesStore:
@@ -218,8 +220,8 @@ class PatchNotesStore:
                 self.sync()
             return list(self._notes)
 
-    def notes_in_window(self, games: Sequence[Tuple[int, int]]) -> List[Dict[str, Any]]:
-        return notes_in_window(self.notes(), games)
+    def note_for_week(self, games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
+        return note_for_week(self.notes(), games)
 
 
 _default_store: Optional[PatchNotesStore] = None
@@ -234,11 +236,11 @@ def get_store() -> PatchNotesStore:
         return _default_store
 
 
-def notes_in_week(games: Sequence[Tuple[int, int]]) -> List[Dict[str, Any]]:
-    """Patch notes posted during a week's play windows. `games` is [(start, end)]."""
+def note_for_games(games: Sequence[Tuple[int, int]]) -> Optional[Dict[str, Any]]:
+    """The patch note a week was played under. `games` is [(start, end)]."""
     if not games:
-        return []
+        return None
     try:
-        return get_store().notes_in_window(games)
+        return get_store().note_for_week(games)
     except Exception:  # noqa: BLE001 - a missing link must never break the week page
-        return []
+        return None

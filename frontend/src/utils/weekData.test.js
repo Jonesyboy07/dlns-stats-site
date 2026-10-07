@@ -8,7 +8,6 @@ import {
   buildSeries,
   formatDuration,
   patchNoteLabel,
-  primaryPatchNote,
   regionOutcome,
   roundColumns,
   scopeGames,
@@ -815,33 +814,16 @@ describe("buildHeroPicks", () => {
 });
 
 describe("patch notes", () => {
-  const note = (published, during) => ({
-    title: "Minor Update",
-    published_at: published,
-    during_games: during,
-  });
+  const note = (published) => ({ title: "Minor Update", published_at: published });
 
   it("labels a note with the date it was posted", () => {
-    expect(patchNoteLabel(note("2026-07-01T22:54:00+00:00", true))).toBe("Patch notes · Jul 1");
+    expect(patchNoteLabel(note("2026-07-01T22:54:00+00:00"))).toBe("Patch notes · Jul 1");
   });
 
   it("falls back to a plain label without a usable date", () => {
-    expect(patchNoteLabel(note(null, false))).toBe("Patch notes");
+    expect(patchNoteLabel(note(null))).toBe("Patch notes");
     expect(patchNoteLabel(null)).toBeNull();
-  });
-
-  it("prefers the note that landed while games were being played", () => {
-    const overnight = note("2026-07-01T02:00:00+00:00", false);
-    const midBroadcast = note("2026-07-01T22:54:00+00:00", true);
-    expect(primaryPatchNote([overnight, midBroadcast])).toBe(midBroadcast);
-  });
-
-  it("falls back to the latest note when none landed mid-broadcast", () => {
-    const first = note("2026-07-01T02:00:00+00:00", false);
-    const second = note("2026-07-02T02:00:00+00:00", false);
-    expect(primaryPatchNote([first, second])).toBe(second);
-    expect(primaryPatchNote([])).toBeNull();
-    expect(primaryPatchNote(undefined)).toBeNull();
+    expect(patchNoteLabel(undefined)).toBeNull();
   });
 });
 

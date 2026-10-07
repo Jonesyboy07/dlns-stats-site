@@ -16,7 +16,6 @@ import {
   buildSeries,
   formatLongDate,
   patchNoteLabel,
-  primaryPatchNote,
   scopeGames,
   scopeSeries,
   summarizeIndexWeek,
@@ -150,11 +149,10 @@ export default function WeekPage() {
   const leaderboard = useMemo(() => buildLeaderboard(games, statKey), [games, statKey]);
   const picks = useMemo(() => buildHeroPicks(games, pbMode), [games, pbMode]);
 
-  /* Patch notes posted while this week's games were being played, from the
-     endpoint. The week links out to Steam instead of showing build numbers,
-     which mean nothing to a reader. */
-  const patchNotes = useMemo(() => detail?.patch_notes || [], [detail]);
-  const patchNote = useMemo(() => primaryPatchNote(patchNotes), [patchNotes]);
+  /* The patch note this week was played under, from the endpoint. The week links
+     out to Steam instead of showing build numbers, which mean nothing to a
+     reader. */
+  const patchNote = detail?.patch_note || null;
 
   const patchParams = useCallback(
     (patch) => {
@@ -229,7 +227,7 @@ export default function WeekPage() {
               title={
                 patchNote.during_games
                   ? `“${patchNote.title}” was posted while this week's games were being played, so part of the night ran on the previous patch.`
-                  : `“${patchNote.title}” was posted during this week.`
+                  : `“${patchNote.title}” was the newest Deadlock patch note when this week was played.`
               }
               className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
                 patchNote.during_games

@@ -159,6 +159,35 @@ export default function WeekPage() {
      matches.json recorded it in. */
   const streamVod = detail?.stream_vod || null;
 
+  /* The 14a header row: what a week links out to besides its bracket — the
+     broadcast, the update its games were played under, and any hero who had just
+     arrived. Each is optional, and the whole row goes when none of them exist. */
+  const weekLinks = [
+    streamVod && {
+      key: "stream",
+      caption: "Stream",
+      value: "Watch the VOD",
+      lead: "▶",
+      href: streamVod.url,
+      title: streamVod.title || `Watch the whole ${eventTitle} #${weekNum} broadcast`,
+    },
+    latestUpdate && {
+      key: "patch",
+      caption: "Patch",
+      value: newsLabel(latestUpdate),
+      href: latestUpdate.url,
+      title: announcementTitle(latestUpdate, "update"),
+      note: latestUpdate.during_games ? "released mid-broadcast" : null,
+    },
+    latestHero && {
+      key: "hero",
+      caption: "New hero",
+      value: newsLabel(latestHero),
+      href: latestHero.url,
+      title: announcementTitle(latestHero, "hero"),
+    },
+  ].filter(Boolean);
+
   const patchParams = useCallback(
     (patch) => {
       const next = new URLSearchParams(searchParams);
@@ -209,44 +238,23 @@ export default function WeekPage() {
 
   return (
     <div className="flex w-full max-w-[1200px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-2.5">
-          <h1 className="font-valve-pulp text-[36px] leading-[0.95] tracking-[.02em] text-primary sm:text-[44px]">
-            {eventTitle} <span className="text-accent-light">#{weekNum}</span>
-          </h1>
-          <p className="text-[14px] text-secondary">
-            {loading
-              ? "Loading…"
-              : `${formatLongDate(detail.stats?.first_match_time)} · ${brackets.length} region${
-                  brackets.length === 1 ? "" : "s"
-                } · ${detail.matches?.length ?? 0} games`}
-          </p>
-        </div>
+      <header className="flex flex-col gap-2.5">
+        <h1 className="font-valve-pulp text-[36px] leading-[0.95] tracking-[.02em] text-primary sm:text-[44px]">
+          {eventTitle} <span className="text-accent-light">#{weekNum}</span>
+        </h1>
+        <p className="text-[14px] text-secondary">
+          {loading
+            ? "Loading…"
+            : `${formatLongDate(detail.stats?.first_match_time)} · ${brackets.length} region${
+                brackets.length === 1 ? "" : "s"
+              } · ${detail.matches?.length ?? 0} games`}
+        </p>
 
-        {!loading && (streamVod || latestUpdate || latestHero) && (
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {streamVod && (
-              <a
-                href={streamVod.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={streamVod.title || `Watch the whole ${eventTitle} #${weekNum} broadcast`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-border-light bg-panel px-3 py-1.5 text-[12px] font-semibold text-secondary transition-colors hover:bg-hover"
-              >
-                <span aria-hidden="true" className="text-accent-light">
-                  ▶
-                </span>
-                Watch the stream
-                <span aria-hidden="true" className="text-accent-light">
-                  ↗
-                </span>
-              </a>
-            )}
-            {latestUpdate && <NewsChip entry={latestUpdate} />}
-            {latestHero && <NewsChip entry={latestHero} prefix="New hero" />}
-            {latestUpdate?.during_games && (
-              <span className="text-[12px] text-muted">released mid-broadcast</span>
-            )}
+        {!loading && weekLinks.length > 0 && (
+          <div className="mt-3.5 flex flex-wrap">
+            {weekLinks.map((link, index) => (
+              <WeekLink key={link.key} {...link} first={index === 0} />
+            ))}
           </div>
         )}
       </header>
@@ -357,33 +365,59 @@ export default function WeekPage() {
 }
 
 /**
- * One Steam announcement as a chip: the game update a week was played under, or a
- * hero who had recently arrived. Amber when it landed while games were being
- * played, since that is when it explains a shift in the night's stats.
+ * The tooltip behind a week link: what the announcement was, when it was posted,
+ * and — the case worth flagging — whether the night was already underway when it
+ * landed, since part of that week's games were then played on the older build.
  */
-function NewsChip({ entry, prefix }) {
-  const posted = formatLongDate(entry.published_at);
-  const subject = prefix ? "the newest hero before this week" : "the newest Deadlock update before this week";
+function announcementTitle(entry, kind) {
+  const subject =
+    kind === "hero"
+      ? "the newest hero before this week"
+      : "the newest Deadlock update before this week";
+  return (
+    `“${entry.title}” was posted ${formatLongDate(entry.published_at)}, ` +
+    (entry.during_games
+      ? "while this week's games were being played — part of the night played on without it."
+      : `${subject}.`)
+  );
+}
+
+/**
+ * One fact about the week in the 14a header row: a caption over a link out, with a
+ * hairline between it and its neighbour. Every link is optional, so the caller
+ * passes `first` to drop the divider from whichever one ends up leading the row.
+ */
+function WeekLink({ caption, value, href, title, lead, note, first }) {
   return (
     <a
-      href={entry.url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
-      title={
-        `“${entry.title}” was posted ${posted}, ` +
-        (entry.during_games
-          ? "while this week's games were being played — part of the night played on without it."
-          : `${subject}.`)
-      }
-      className={`flex min-w-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-        entry.during_games
-          ? "border-accent-border-strong bg-accent-bg-strong text-accent-light hover:bg-accent-bg"
-          : "border-border-light bg-panel text-secondary hover:bg-hover"
+      title={title}
+      className={`flex flex-col gap-[5px] pr-6 text-primary transition-colors hover:text-accent-light ${
+        first ? "pl-0" : "border-l border-border-light pl-6"
       }`}
     >
-      {prefix && <span className="shrink-0 font-normal text-dim">{prefix} ·</span>}
-      <span className="max-w-[280px] truncate">{newsLabel(entry)}</span>
-      <span className="shrink-0 text-accent-light">↗</span>
+      <span className="text-[11px] font-semibold tracking-[.12em] text-dim uppercase">
+        {caption}
+      </span>
+      <span className="flex items-center gap-2 font-valve-oracle text-[15px] font-semibold">
+        {lead ? (
+          <span aria-hidden="true" className="shrink-0 text-accent-light">
+            {lead}
+          </span>
+        ) : null}
+        <span className="max-w-[320px] truncate">{value}</span>
+        <span aria-hidden="true" className="shrink-0 text-accent-light">
+          ↗
+        </span>
+        {note ? (
+          <>
+            <span aria-hidden="true" className="h-[3px] w-[3px] shrink-0 rounded-full bg-dim" />
+            <span className="shrink-0 text-[12px] font-normal text-accent-light">{note}</span>
+          </>
+        ) : null}
+      </span>
     </a>
   );
 }

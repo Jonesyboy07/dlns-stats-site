@@ -24,7 +24,7 @@
       {
         "name": "Concussive Combustion",
         "image": "static\\images\\abilities\\infernus\\inferno_bomb_psd.png",
-        "invert": true
+        "invert": false
       }
     ]
   },
@@ -81,7 +81,7 @@
       },
       {
         "name": "Assasinate",
-        "image": "static\\images\\abilities\\vindicta\\vindicta_assasinate_psd.png",
+        "image": "static\\images\\abilities\\vindicta\\hornet_assasinate_psd.png",
         "invert": true
       }
     ]
@@ -96,7 +96,7 @@
       {
         "name": "Essence Bomb",
         "image": "static\\images\\abilities\\lady_geist\\blood_bomb_psd.png",
-        "invert": true
+        "invert": false
       },
       {
         "name": "Life Drain",
@@ -241,7 +241,7 @@
       {
         "name": "Kinetic Pulse",
         "image": "static\\images\\abilities\\dynamo\\sumo_stomp_psd.png",
-        "invert": true
+        "invert": false
       },
       {
         "name": "Quantum Entanglement",
@@ -357,7 +357,7 @@
       {
         "name": "Exploding Uppercut",
         "image": "static\\images\\abilities\\bebop\\bebop_uppercut_psd.png",
-        "invert": true
+        "invert": false
       },
       {
         "name": "Sticky Bomb",
@@ -372,7 +372,7 @@
       {
         "name": "Hyper Beam",
         "image": "static\\images\\abilities\\bebop\\bebop_hyper_beam_psd.png",
-        "invert": true
+        "invert": false
       }
     ]
   },
@@ -444,7 +444,7 @@
       {
         "name": "Scorn",
         "image": "static\\images\\abilities\\mo_and_krill\\grappler_regen_psd.png",
-        "invert": true
+        "invert": false
       },
       {
         "name": "Burrow",
@@ -618,7 +618,7 @@
       {
         "name": "Splatter",
         "image": "static\\images\\abilities\\viscous\\viscous_goo_ball_psd.png",
-        "invert": true
+        "invert": false
       },
       {
         "name": "The Cube",
@@ -1097,6 +1097,64 @@
       {
         "name": "Shining Wonder",
         "image": "static\\images\\abilities\\celeste\\unicorn_orb_psd.png",
+        "invert": true
+      }
+    ]
+  },
+  "84": {
+    "tagline": [
+      "SCRAPPY",
+      "REGAL",
+      "TENACIOUS"
+    ],
+        "abilities": [
+      {
+        "name": "Scrap Grenade",
+        "image": "static\\images\\abilities\\rat_king\\ratking_grenade_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Rat Swarm",
+        "image": "static\\images\\abilities\\rat_king\\ratking_swarm_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Royal Pestments",
+        "image": "static\\images\\abilities\\rat_king\\ratking_shield_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Rule, Ratannia!",
+        "image": "static\\images\\abilities\\rat_king\\ratking_flag_psd.png",
+        "invert": true
+      }
+    ]
+  },
+  "88": {
+    "tagline": [
+      "CACKLING",
+      "BEADY",
+      "HEXING"
+    ],
+        "abilities": [
+      {
+        "name": "Threadsap",
+        "image": "static\\images\\abilities\\celeste\\threadsap_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Granny Long Legs",
+        "image": "static\\images\\abilities\\celeste\\strafing_run_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Baba's Brew",
+        "image": "static\\images\\abilities\\celeste\\teapot_brew_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Feed the Birds",
+        "image": "static\\images\\abilities\\celeste\\pigeon_launcher_psd.png",
         "invert": true
       }
     ]

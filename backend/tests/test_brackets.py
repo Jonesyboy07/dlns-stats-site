@@ -7,8 +7,8 @@ a ``{match_id: winning slot}`` map into scores, winners and advancement.
 import unittest
 
 from backend.app.utils.brackets import (
-    BYE, add_first_round, compute, generate, generate_gauntlet, generate_single_elim, match_ids,
-    remove_first_round, stats_id,
+    BAN_PATTERNS, BYE, add_first_round, ban_pattern, compute, generate, generate_gauntlet,
+    generate_single_elim, match_ids, remove_first_round, series_ban_pattern, stats_id,
 )
 
 
@@ -17,6 +17,23 @@ def _game(match_id, winner=None):
     if winner:
         g["winner"] = winner
     return g
+
+
+class BanPatternTests(unittest.TestCase):
+    def test_round_based_pattern_is_supported(self):
+        self.assertIn("ROUND", BAN_PATTERNS)
+        self.assertEqual(ban_pattern({"ban_pattern": "ROUND"}), "ROUND")
+
+    def test_series_pattern_overrides_event_pattern(self):
+        event = {"ban_pattern": "ABBA"}
+        self.assertEqual(series_ban_pattern(event, {"ban_pattern": "ROUND"}), "ROUND")
+        self.assertEqual(series_ban_pattern(event, {}), "ABBA")
+
+    def test_invalid_series_pattern_falls_back_to_event_pattern(self):
+        self.assertEqual(
+            series_ban_pattern({"ban_pattern": "AABB"}, {"ban_pattern": "invalid"}),
+            "AABB",
+        )
 
 
 class GauntletTests(unittest.TestCase):

@@ -59,7 +59,9 @@
     "79": {"name": "Rem", "released": true},
     "80": {"name": "Silver", "released": true},
     "81": {"name": "Celeste", "released": true},
-    "82": {"name": "Opera", "released": false}
+    "82": {"name": "Opera", "released": false},
+    "84": {"name": "Rat King", "released": true},
+    "88": {"name": "Baba", "released": true}
   },
-  "updated_at": "2026-02-22T19:30:17.378117+00:00"
+  "updated_at": "2026-10-08T20:38:52+00:00"
 }

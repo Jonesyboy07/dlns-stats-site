@@ -636,11 +636,22 @@ def save_series(event_id: str, series_id: str):
         if not series:
             return jsonify({'ok': False, 'error': 'Series not found.'}), 404
 
+        pattern = None
+        if 'ban_pattern' in payload:
+            pattern = str(payload.get('ban_pattern') or '').upper()
+            if pattern and pattern not in bk.BAN_PATTERNS:
+                return jsonify({'ok': False, 'error': f"Ban order must be one of {', '.join(bk.BAN_PATTERNS)}."}), 400
+
         old_ids = {bk.stats_id(g) for g in series.get('games') or []} - {None}
         for slot in bk.SLOTS:
             if slot in payload:
                 series[slot] = (payload.get(slot) or '').strip() or None
         series['vod'] = (payload.get('vod') or '').strip()
+        if pattern is not None:
+            if pattern:
+                series['ban_pattern'] = pattern
+            else:
+                series.pop('ban_pattern', None)
         # Forfeits and N/A games without a placeholder yet get a fresh negative ID, kept
         # in the bracket so later saves update the same placeholder instead of adding one.
         used = set(bk.match_ids(event))

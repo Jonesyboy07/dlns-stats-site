@@ -29,26 +29,36 @@ const teamName = (series, slot) => series[slot] || (slot === 'team_a' ? 'Team A'
 const isVoided = (outcome, gameNo) =>
   outcome?.type === 'dq' && (outcome.played_games === 'void' || gameNo > Number(outcome.after_game || 0));
 
-function BanLine({ bans, series, heroes }) {
+function BanLine({ bans, series, heroes, roundBased }) {
+  const groups = roundBased
+    ? [
+        { label: 'Round 1', bans: bans.filter((b) => b.order <= 2) },
+        { label: 'Round 2', bans: bans.filter((b) => b.order > 2) },
+      ].filter((group) => group.bans.length)
+    : [{ label: 'Bans', bans }];
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-300">
-      <span className="text-gray-500 uppercase tracking-wider">Bans</span>
-      {bans.map((b) => {
-        const name = heroes[b.hero_id] || `Hero ${b.hero_id}`;
-        return (
-          <span key={b.order} className="flex items-center gap-1" title={`Ban ${b.order}: ${teamName(series, b.team)} banned ${name}`}>
-            <span className="font-mono text-gray-500">{b.order}.</span>
-            <HeroIcon name={heroes[b.hero_id]} size="h-5 w-5" />
-            <span>{name}</span>
-            <span className={b.team === 'team_a' ? 'text-sky-300' : 'text-rose-300'}>({teamName(series, b.team)})</span>
-          </span>
-        );
-      })}
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-300">
+      {groups.map((group) => (
+        <div key={group.label} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-gray-500 uppercase tracking-wider">{group.label}</span>
+          {group.bans.map((b) => {
+            const name = heroes[b.hero_id] || `Hero ${b.hero_id}`;
+            return (
+              <span key={b.order} className="flex items-center gap-1" title={`Ban ${b.order}: ${teamName(series, b.team)} banned ${name}`}>
+                <span className="font-mono text-gray-500">{b.order}.</span>
+                <HeroIcon name={heroes[b.hero_id]} size="h-5 w-5" />
+                <span>{name}</span>
+                <span className={b.team === 'team_a' ? 'text-sky-300' : 'text-rose-300'}>({teamName(series, b.team)})</span>
+              </span>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
 
-function GamesTable({ series, heroes }) {
+function GamesTable({ series, heroes, roundBased }) {
   const games = series.games || [];
   if (!games.length) return <p className="text-xs text-gray-500">No games entered yet.</p>;
   return (
@@ -121,7 +131,7 @@ function GamesTable({ series, heroes }) {
                 <tr className={voided ? 'opacity-50' : ''}>
                   <td />
                   <td colSpan={6} className="pb-1.5">
-                    <BanLine bans={g.bans} series={series} heroes={heroes} />
+                    <BanLine bans={g.bans} series={series} heroes={heroes} roundBased={roundBased} />
                   </td>
                 </tr>
               )}
@@ -134,7 +144,7 @@ function GamesTable({ series, heroes }) {
   );
 }
 
-function SeriesDetail({ series, roundName, heroes }) {
+function SeriesDetail({ series, roundName, heroes, roundBased }) {
   const dq = series.outcome?.type === 'dq' ? series.outcome : null;
   const scoreless = series.status === 'pending' || series.status === 'bye';
   return (
@@ -174,7 +184,7 @@ function SeriesDetail({ series, roundName, heroes }) {
         </div>
       )}
 
-      <GamesTable series={series} heroes={heroes} />
+      <GamesTable series={series} heroes={heroes} roundBased={roundBased} />
     </section>
   );
 }
@@ -286,7 +296,13 @@ export function BracketView() {
 
           <div className="space-y-4">
             {seriesByRound.map((s) => (
-              <SeriesDetail key={s.id} series={s} heroes={heroes} roundName={roundNames[s.round] || `Round ${s.round}`} />
+              <SeriesDetail
+                key={s.id}
+                series={s}
+                heroes={heroes}
+                roundBased={(s.ban_pattern || event.ban_pattern) === 'ROUND'}
+                roundName={roundNames[s.round] || `Round ${s.round}`}
+              />
             ))}
           </div>
 

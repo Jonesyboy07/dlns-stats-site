@@ -9,6 +9,7 @@ describe('ban order', () => {
     expect(order('team_b', 'ABBA')).toEqual(['team_b', 'team_a', 'team_a', 'team_b']);
     expect(order('team_a', 'ABAB')).toEqual(['team_a', 'team_b', 'team_a', 'team_b']);
     expect(order('team_a', 'AABB')).toEqual(['team_a', 'team_a', 'team_b', 'team_b']);
+    expect(order('team_b', 'ROUND')).toEqual(['team_a', 'team_b', 'team_a', 'team_b']);
   });
 
   it('falls back to A, B, B, A for events without a pattern', () => {
@@ -23,9 +24,43 @@ describe('ban order', () => {
     ]);
   });
 
+  it('sends round-based bans without requiring a first-ban team', () => {
+    const draft = { first: 'team_b', heroes: ['13', '6', '1', '2'] };
+    expect(banPayload(draft, 'ROUND')).toEqual([
+      { order: 1, team: 'team_a', hero_id: 13 },
+      { order: 2, team: 'team_b', hero_id: 6 },
+      { order: 3, team: 'team_a', hero_id: 1 },
+      { order: 4, team: 'team_b', hero_id: 2 },
+    ]);
+  });
+
+  it('preserves existing ban teams when loading a round-based draft', () => {
+    const form = toBanForm([
+      { order: 1, team: 'team_b', hero_id: 13 },
+      { order: 2, team: 'team_a', hero_id: 6 },
+    ], 'ROUND');
+    expect(form).toEqual({
+      first: 'team_a',
+      heroes: ['13', '6', '', ''],
+      teams: ['team_b', 'team_a', '', ''],
+    });
+    expect(banPayload(form, 'ROUND')).toEqual([
+      { order: 1, team: 'team_b', hero_id: 13 },
+      { order: 2, team: 'team_a', hero_id: 6 },
+    ]);
+  });
+
   it('reads the first-ban team back from saved bans using the pattern', () => {
     // ABBA: slot 3 is B, so a team_a ban there means team_b banned first.
-    expect(toBanForm([{ order: 3, team: 'team_a', hero_id: 1 }], 'ABBA')).toEqual({ first: 'team_b', heroes: ['', '', '1', ''] });
-    expect(toBanForm(undefined, 'ABBA')).toEqual({ first: 'team_a', heroes: ['', '', '', ''] });
+    expect(toBanForm([{ order: 3, team: 'team_a', hero_id: 1 }], 'ABBA')).toEqual({
+      first: 'team_b',
+      heroes: ['', '', '1', ''],
+      teams: ['', '', 'team_a', ''],
+    });
+    expect(toBanForm(undefined, 'ABBA')).toEqual({
+      first: 'team_a',
+      heroes: ['', '', '', ''],
+      teams: ['', '', '', ''],
+    });
   });
 });

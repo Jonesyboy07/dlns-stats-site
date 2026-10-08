@@ -21,8 +21,9 @@ SLOTS = ("team_a", "team_b")
 FORMATS = ("gauntlet", "single_elim")
 
 # Who bans in each of the four ban slots: A is the team that bans first, B the other.
+# ROUND assigns one ban per team in each of two rounds, without a first-ban choice.
 # Set per event, so a format change mid-season only affects events from then on.
-BAN_PATTERNS = ("ABBA", "ABAB", "AABB")
+BAN_PATTERNS = ("ABBA", "ABAB", "AABB", "ROUND")
 DEFAULT_BAN_PATTERN = "ABBA"
 
 
@@ -30,6 +31,12 @@ def ban_pattern(event: Dict[str, Any]) -> str:
     """The event's ban order, or the default for events made before it was a setting."""
     pattern = str(event.get("ban_pattern") or "").upper()
     return pattern if pattern in BAN_PATTERNS else DEFAULT_BAN_PATTERN
+
+
+def series_ban_pattern(event: Dict[str, Any], series: Dict[str, Any]) -> str:
+    """The series override, falling back to the event's ban order."""
+    pattern = str(series.get("ban_pattern") or "").upper()
+    return pattern if pattern in BAN_PATTERNS else ban_pattern(event)
 
 
 def _other(slot: str) -> str:

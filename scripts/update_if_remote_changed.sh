@@ -44,11 +44,11 @@ fi
 
 MATCHES_CHANGED="false"
 
-if git diff --name-only "$LOCAL_COMMIT" "$REMOTE_COMMIT" | grep -qx "data/matches.json"; then
+if git diff --name-only "$LOCAL_COMMIT" "$REMOTE_COMMIT" | grep -qx "data/brackets.json"; then
   MATCHES_CHANGED="true"
-  log "Detected change in data/matches.json."
+  log "Detected change in data/brackets.json."
 else
-  log "No change detected in data/matches.json."
+  log "No change detected in data/brackets.json."
 fi
 
 log "Stopping app service before update..."
@@ -64,11 +64,11 @@ python3 -m pip install \
   -r "$APP_DIR/backend/requirements.txt"
 
 if [ "$MATCHES_CHANGED" = "true" ]; then
-  log "Running DB update because data/matches.json changed..."
+  log "Running DB update because data/brackets.json changed..."
   chmod +x "$APP_DIR/scripts/update_db_from_matches.sh"
   "$APP_DIR/scripts/update_db_from_matches.sh"
 else
-  log "Skipping DB update because data/matches.json did not change."
+  log "Skipping DB update because data/brackets.json did not change."
   log "Refetching all cached users..."
   python3 "$APP_DIR/backend/main.py" \
     -db "$APP_DIR/data/dlns.sqlite3" \

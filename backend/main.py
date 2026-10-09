@@ -2229,7 +2229,7 @@ def sync_feed_metadata(
 	"""Re-apply the feed's authored metadata to matches that are ALREADY in the DB.
 
 	Why this exists: the ingest loop skips any match already marked `checked` in
-	matches_status.json, so correcting an EXISTING match in data/matches.json (a
+	matches_status.json, so correcting an EXISTING match in data/brackets.json (a
 	team-name typo, a flipped `team_a_side`, a moved week) never reaches the
 	database -- only new matches are ingested. This pass applies just those
 	hand-authored columns and makes NO API calls, so it is cheap, idempotent and
@@ -2348,6 +2348,22 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 	payload = load_json(path, default=None)
 	if not isinstance(payload, dict):
 		raise ValueError(f"Match IDs JSON must be an object: {path}")
+
+	# data/brackets.json: {"events": [{"rounds": [...], "series": [{"games": [...]}]}]}.
+	# Reshape it into the title -> week -> set -> games layout handled below.
+	events_payload = payload.get("events")
+	if (
+		isinstance(events_payload, list)
+		and events_payload
+		and all(isinstance(e, dict) and isinstance(e.get("series"), list) and "rounds" in e for e in events_payload)
+	):
+		import importlib.util
+		spec = importlib.util.spec_from_file_location(
+			"_dlns_bracket_model", Path(__file__).resolve().parent / "app" / "utils" / "brackets.py"
+		)
+		module = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(module)
+		payload = module.to_schedule(events_payload)
 
 	ids: List[int] = []
 	context_by_id: Dict[int, Dict[str, Any]] = {}

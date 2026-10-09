@@ -2,7 +2,7 @@
 
 Bracket structure lives in ``data/brackets.json`` (next to the database). Saving
 a series ingests its games through the same job MatchAdmin uses, so stats pages
-and ``matches.json`` stay the source of truth for game data; scores and
+and the DB hold the game data; scores and
 advancement are computed from those results on every read.
 """
 
@@ -195,36 +195,6 @@ def _remove_match(conn: sqlite3.Connection, match_id: int) -> List[int]:
     return [int(r[0]) for r in rows if r[0] is not None]
 
 
-def _remove_from_matches_json(matches_path: Path, match_ids: Set[int],
-                              keep: Optional[Tuple[str, Any]] = None) -> None:
-    """Remove these IDs from matches.json, except inside the ``keep`` (series title, week)."""
-    with admin_mod._matches_json_lock:
-        data = admin_mod._load_matches_json(matches_path)
-        def hit(m: Dict[str, Any]) -> bool:
-            return isinstance(m.get('match_id'), int) and m['match_id'] in match_ids
-
-        for series in data.get('series') or []:
-            emptied = []
-            for week in series.get('weeks') or []:
-                if keep is not None and (series.get('title'), week.get('week')) == keep:
-                    continue
-                kept = []
-                for game in week.get('games') or []:
-                    if 'matches' in game:
-                        before = len(game['matches'])
-                        game['matches'] = [m for m in game['matches'] if not hit(m)]
-                        if before and not game['matches']:
-                            continue  # the set only held removed IDs
-                    elif hit(game):
-                        continue
-                    kept.append(game)
-                if week.get('games') and not kept:
-                    emptied.append(id(week))  # every set here was removed: drop the week too
-                week['games'] = kept
-            series['weeks'] = [w for w in series.get('weeks') or [] if id(w) not in emptied]
-        admin_mod._write_matches_json(matches_path, data)
-
-
 def _write_bans(db_path: Path, series: Dict[str, Any], games: List[Tuple[int, List[Dict[str, Any]]]]) -> int:
     """Replace the match_bans rows of each (stats ID, bans) pair; return games skipped.
 
@@ -296,11 +266,10 @@ def _series_set(event: Dict[str, Any], series: Dict[str, Any]) -> Tuple[Optional
 
 def _run_ingest_job(job_id: str, event: Dict[str, Any], series_list: List[Dict[str, Any]], removed: Set[int],
                     app_obj: Any, relocate: bool = False) -> None:
-    """Drop replaced IDs, ingest the series' games via MatchAdmin's job, then write bans.
+    """Drop replaced IDs, ingest the series' games via the bulk-submit job, then write bans.
 
     ``series_list`` holds series with their teams already resolved. With ``relocate``
-    (the event's title or week changed), copies of these games left under any other
-    title/week in matches.json are removed once the new ones are in.
+    (the event's title or week changed), the games' stats rows are re-labelled with it.
     """
     try:
         with app_obj.app_context():
@@ -319,7 +288,6 @@ def _run_ingest_job(job_id: str, event: Dict[str, Any], series_list: List[Dict[s
                     conn.commit()
                 finally:
                     conn.close()
-                _remove_from_matches_json(db_path.parent / 'matches.json', removed)
 
             sets, bans_by_series = [], []
             for series in series_list:
@@ -335,6 +303,7 @@ def _run_ingest_job(job_id: str, event: Dict[str, Any], series_list: List[Dict[s
                 'title': event.get('title') or 'Night Shift',
                 'week': event.get('week'),
                 'vod_links': [],
+                'bracket_saved': True,
                 'sets': sets,
             }
         admin_mod._run_bulk_submit_job(job_id, payload, app_obj)
@@ -345,10 +314,7 @@ def _run_ingest_job(job_id: str, event: Dict[str, Any], series_list: List[Dict[s
             return  # games failed: leave bans and old copies untouched
         note = ''
         if relocate:
-            ids = {mid for _, rows in bans_by_series for mid, _ in rows}
-            _remove_from_matches_json(db_path.parent / 'matches.json', ids,
-                                      keep=(payload['title'], payload['week']))
-            note += ' Moved to the new title/week in matches.json.'
+            note += ' Moved to the new title/week.'
         # Bans hang off the match rows, so they go in only after the games did.
         banned = skipped = 0
         for series, ban_rows in bans_by_series:
@@ -475,7 +441,7 @@ def get_event(event_id: str):
 @brackets_bp.route('/api/events/<event_id>', methods=['DELETE'])
 @require_admin
 def delete_event(event_id: str):
-    """Removes the bracket only. Ingested games stay in stats and matches.json."""
+    """Removes the bracket only. Ingested games stay in stats."""
     with _brackets_lock:
         data = _load()
         before = len(data['events'])
@@ -686,7 +652,7 @@ def save_series(event_id: str, series_id: str):
 def edit_event(event_id: str):
     """Edit an event's details, round names/best-ofs and seeded teams, then re-ingest it.
 
-    Every series with games is re-ingested so the DB and matches.json pick up new team
+    Every series with games is re-ingested so the DB picks up new team
     names, round titles, region, title and week. Teams fed from an earlier round
     aren't stored, so they can't be set here.
     """
@@ -784,3 +750,263 @@ def remove_round(event_id: str):
         data['events'] = [updated if e.get('id') == event_id else e for e in data['events']]
         _save(data)
     return jsonify({'ok': True, 'event': _computed(updated)})
+
+
+# --- Match submission support (MatchAdmin writes to brackets.json through these) ---
+
+def _norm(value: Any) -> str:
+    return str(value or '').strip().lower()
+
+
+def _flip(slot: Optional[str]) -> Optional[str]:
+    return {'team_a': 'team_b', 'team_b': 'team_a'}.get(slot or '', slot)
+
+
+def _remove_game(data: Dict[str, Any], ids: Set[int]) -> Optional[Dict[str, Any]]:
+    """Take games whose stats ID or match ID is in ``ids`` out of every series; return the first removed."""
+    removed = None
+    for event in data['events']:
+        for series in event.get('series') or []:
+            games = series.get('games') or []
+            kept = []
+            for g in games:
+                keys = {bk.stats_id(g)}
+                try:
+                    keys.add(int(g.get('match_id')))
+                except (TypeError, ValueError):
+                    pass
+                if keys & ids:
+                    removed = removed or g
+                else:
+                    kept.append(g)
+            if len(kept) != len(games):
+                for i, g in enumerate(kept, start=1):
+                    g['game'] = i
+                series['games'] = kept
+    return removed
+
+
+def _find_series(event: Dict[str, Any], team_a: str, team_b: str) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """The series for these teams (using teams fed from earlier rounds); True if stored the other way round."""
+    resolved = {s['id']: s for s in bk.compute(event, {}).get('series') or []}
+    for series in event.get('series') or []:
+        r = resolved.get(series['id']) or series
+        if _norm(r.get('team_a')) == _norm(team_a) and _norm(r.get('team_b')) == _norm(team_b):
+            return series, False
+    for series in event.get('series') or []:
+        r = resolved.get(series['id']) or series
+        if _norm(r.get('team_a')) == _norm(team_b) and _norm(r.get('team_b')) == _norm(team_a):
+            return series, True
+    return None, False
+
+
+def place_game(data: Dict[str, Any], *, title: str, week: Optional[int], region: str, set_title: str,
+               team_a: str, team_b: str, vod: str, game: Dict[str, Any],
+               old_id: Optional[int] = None) -> Dict[str, Any]:
+    """Put one game into the matching event/series of ``data``, creating either if needed.
+
+    ``game`` is a bracket game dict whose ``winner`` is relative to ``team_a``/``team_b``.
+    An existing game with ``old_id`` (or the same IDs) is moved, keeping its bans.
+    """
+    ids = {i for i in (old_id, bk.stats_id(game), game.get('match_id')) if isinstance(i, int)}
+    previous = _remove_game(data, ids)
+    if previous:
+        for key in ('bans', 'vod'):
+            if previous.get(key) and key not in game:
+                game[key] = previous[key]
+
+    event = next((e for e in data['events']
+                  if _norm(e.get('title')) == _norm(title) and e.get('week') == week
+                  and (not region or _norm(e.get('region')) == _norm(region))), None)
+    if event is None:
+        base_id = _slug('-'.join(str(p) for p in (title, f'w{week}' if week is not None else '', region) if p))
+        event_id, n = base_id, 2
+        while _find_event(data, event_id):
+            event_id, n = f'{base_id}-{n}', n + 1
+        latest = max(enumerate(data['events']), key=lambda ie: (ie[1].get('created_at') or 0, ie[0]), default=(0, None))[1]
+        event = {
+            'id': event_id, 'title': title, 'week': week, 'region': region,
+            'ban_pattern': bk.ban_pattern(latest) if latest else bk.DEFAULT_BAN_PATTERN,
+            'created_at': int(time.time()),
+            'format': 'single_elim',
+            'rounds': [{'round': 1, 'name': set_title or 'Matches', 'best_of': 3}],
+            'series': [],
+        }
+        data['events'].append(event)
+
+    series, reversed_ = _find_series(event, team_a, team_b)
+    if series is None:
+        rounds = event.get('rounds') or [{'round': 1, 'name': 'Matches', 'best_of': 3}]
+        rnd = next((r for r in rounds if set_title and _norm(r.get('name')) == _norm(set_title)), rounds[-1])
+        used = {s.get('id') for s in event.get('series') or []}
+        k = 1
+        while f"R{rnd['round']}M{k}" in used:
+            k += 1
+        series = {'id': f"R{rnd['round']}M{k}", 'round': rnd['round'], 'team_a': team_a, 'team_b': team_b,
+                  'winner_to': None, 'loser_to': None, 'vod': '', 'games': [], 'outcome': None}
+        event.setdefault('series', []).append(series)
+        reversed_ = False
+    if reversed_:
+        game['winner'] = _flip(game.get('winner'))
+    if vod:
+        series['vod'] = vod
+    game['game'] = len(series.get('games') or []) + 1
+    series.setdefault('games', []).append(game)
+    _mark_edited(event)
+    return {'event_id': event['id'], 'series_id': series['id']}
+
+
+def make_game(match_id: Optional[int], winner: Optional[str], *, forfeit: bool = False,
+              unavailable: bool = False, placeholder_id: Optional[int] = None, vod: str = '') -> Dict[str, Any]:
+    game: Dict[str, Any] = {'game': 0, 'match_id': None if forfeit else match_id}
+    if forfeit:
+        game['forfeit'] = True
+    elif unavailable:
+        game['unavailable'] = True
+    if forfeit or unavailable:
+        game['placeholder_id'] = placeholder_id if placeholder_id is not None else match_id
+    if winner in bk.SLOTS:
+        game['winner'] = winner
+    if vod:
+        game['vod'] = vod
+    return game
+
+
+def record_items(title: str, week: Optional[int], vod_links: List[Dict[str, str]], items: List[Dict[str, Any]]) -> None:
+    """Record bulk-submitted games in brackets.json (called by the bulk-submit job)."""
+    with _brackets_lock:
+        data = _load()
+        touched = set()
+        for item in items:
+            game = make_game(
+                item.get('raw_match_id'), item.get('winner_slot'),
+                forfeit=bool(item.get('forfeit')), unavailable=bool(item.get('unavailable')),
+                placeholder_id=item['match_id'] if item.get('forfeit') or item.get('unavailable') else None,
+            )
+            if not (item.get('forfeit') or item.get('unavailable')):
+                game['match_id'] = item['match_id']
+            where = place_game(
+                data, title=title, week=week, region=item.get('region') or '',
+                set_title=item.get('set_title') or '', team_a=item['team_a'], team_b=item['team_b'],
+                vod=item.get('set_vod_link') or '', game=game,
+            )
+            touched.add(where['event_id'])
+        if vod_links:
+            for e in data['events']:
+                if e['id'] in touched:
+                    e['vod_links'] = vod_links
+        _save(data)
+
+
+def build_tree() -> Dict[str, Any]:
+    """brackets.json as MatchAdmin's title -> week -> set -> game tree, with each game's winner."""
+    with _brackets_lock:
+        data = _load()
+    ids = [i for e in data['events'] for i in bk.match_ids(e)]
+    sides: Dict[int, Any] = {}
+    if ids:
+        conn = db_connect(_db_path())
+        try:
+            db_init(conn)
+            marks = ','.join('?' * len(ids))
+            for mid, side in conn.execute(
+                f'SELECT match_id, event_team_a_ingame_side FROM matches WHERE match_id IN ({marks})', tuple(ids)
+            ):
+                sides[int(mid)] = side
+        finally:
+            conn.close()
+
+    titles: Dict[str, Dict[str, Any]] = {}
+    for event in data['events']:
+        title = (event.get('title') or '').strip()
+        week_no = event.get('week')
+        round_names = {r.get('round'): r.get('name') or '' for r in event.get('rounds') or []}
+        computed = bk.compute(event, {})
+        title_node = titles.setdefault(title, {'title': title, 'weeks': []})
+        week_node = next((w for w in title_node['weeks'] if w['week'] == week_no), None)
+        if week_node is None:
+            week_node = {'week': week_no, 'vod_link': '', 'games': []}
+            title_node['weeks'].append(week_node)
+        for s in computed.get('series') or []:
+            if not s.get('games') or not s.get('team_a') or not s.get('team_b'):
+                continue
+            nodes = []
+            for idx, g in enumerate(s['games'], start=1):
+                mid = bk.stats_id(g)
+                if mid is None:
+                    continue
+                side = sides.get(mid)
+                nodes.append({
+                    'match_id': mid,
+                    'game': f'Game {idx}',
+                    'team_a_side': int(side) if side is not None else 0,
+                    'winner_team': g.get('winner') if g.get('winner') in bk.SLOTS else None,
+                    'forfeit': bool(g.get('forfeit')),
+                    'unavailable': bool(g.get('unavailable')),
+                    'context': {
+                        'series_title': title,
+                        'week': week_no,
+                        'vod_link': s.get('vod') or '',
+                        'match_vod': g.get('vod') or '',
+                        'region': event.get('region') or '',
+                        'team_a': s['team_a'],
+                        'team_b': s['team_b'],
+                        'game_label': f'Game {idx}',
+                        'set_title': round_names.get(s.get('round')) or '',
+                    },
+                })
+            if nodes:
+                week_node['games'].append({
+                    'team_a': s['team_a'], 'team_b': s['team_b'],
+                    'match_count': len(nodes), 'matches': nodes,
+                })
+    out = []
+    for node in titles.values():
+        node['weeks'] = [w for w in node['weeks'] if w['games']]
+        for w in node['weeks']:
+            w['game_count'] = len(w['games'])
+            w['vod_link'] = next((g['matches'][0]['context']['vod_link'] for g in w['games']
+                                  if g['matches'][0]['context']['vod_link']), '')
+        node['week_count'] = len(node['weeks'])
+        if node['weeks']:
+            out.append(node)
+    return {'series': out}
+
+
+def place_edit(original_id: int, *, title: str, week: Optional[int], region: str, set_title: str,
+               team_a: str, team_b: str, vod: str, match_vod: str, match_id: int, winner: Optional[str],
+               forfeit: bool) -> None:
+    """Apply a MatchAdmin edit of one game to brackets.json (moving it if its event/teams changed)."""
+    with _brackets_lock:
+        data = _load()
+        existing = None
+        for e in data['events']:
+            for s in e.get('series') or []:
+                for g in s.get('games') or []:
+                    if original_id in (bk.stats_id(g), g.get('match_id')):
+                        existing = g
+        if existing is None:
+            raise ValueError(f'Match {original_id} was not found in brackets.json')
+        game = dict(existing)
+        game.pop('forfeit', None)
+        if forfeit:
+            game['forfeit'] = True
+            game['match_id'] = None
+            game['placeholder_id'] = match_id
+            game.pop('unavailable', None)
+        elif bk.is_placeholder(existing):
+            if game.get('match_id') == game.get('placeholder_id'):
+                game['match_id'] = match_id
+            game['placeholder_id'] = match_id
+        else:
+            game['match_id'] = match_id
+        if winner in bk.SLOTS:
+            game['winner'] = winner
+        if match_vod:
+            game['vod'] = match_vod
+        else:
+            game.pop('vod', None)
+        # A winner stored for the old team order must be re-read against the new names.
+        place_game(data, title=title, week=week, region=region, set_title=set_title,
+                   team_a=team_a, team_b=team_b, vod=vod, game=game, old_id=original_id)
+        _save(data)

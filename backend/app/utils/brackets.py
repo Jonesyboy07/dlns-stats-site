@@ -321,3 +321,59 @@ def remove_first_round(event: Dict[str, Any]) -> Dict[str, Any]:
     out["series"] = [s for s in out["series"] if s["round"] != 1]
     _shift_rounds(out, -1)
     return out
+
+
+def to_schedule(events: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    """Reshape bracket events into the ``{"series": [{title, weeks: [...]}]}`` layout
+    that the stats pages read (title -> week -> set -> games).
+
+    ``data/brackets.json`` is the only place games are recorded; this is a read-only
+    view of it. Only series with both teams known and at least one game appear, and
+    every game keeps its stats ID (placeholder for forfeits / N/A games).
+    """
+    by_title: Dict[str, Dict[str, Any]] = {}
+    for event in events or []:
+        if not isinstance(event, dict):
+            continue
+        computed = compute(event, {})
+        title = str(event.get("title") or "").strip()
+        if not title:
+            continue
+        rounds = {r.get("round"): r.get("name") or "" for r in event.get("rounds") or []}
+        week_no = event.get("week")
+        series_obj = by_title.setdefault(title, {"title": title, "weeks": []})
+        week_obj = next((w for w in series_obj["weeks"] if w.get("week") == week_no), None)
+        if week_obj is None:
+            week_obj = {"week": week_no, "games": []}
+            series_obj["weeks"].append(week_obj)
+        if event.get("vod_links") and not week_obj.get("vod_links"):
+            week_obj["vod_links"] = event["vod_links"]
+        for s in computed.get("series") or []:
+            games = s.get("games") or []
+            if not games or not s.get("team_a") or not s.get("team_b"):
+                continue
+            matches = []
+            for idx, g in enumerate(games, start=1):
+                mid = stats_id(g)
+                if mid is None:
+                    continue
+                entry: Dict[str, Any] = {
+                    "game": f"Game {idx}",
+                    "match_id": mid,
+                    "match_vod": g.get("vod") or "",
+                }
+                if g.get("forfeit"):
+                    entry["forfeit"] = True
+                matches.append(entry)
+            if not matches:
+                continue
+            vod = s.get("vod") or ""
+            week_obj["games"].append({
+                "team_a": s["team_a"],
+                "team_b": s["team_b"],
+                "matches": matches,
+                "region": event.get("region") or "",
+                "match_vod": vod,
+                "title": rounds.get(s.get("round")) or "",
+            })
+    return {"series": list(by_title.values())}

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import Blueprint, render_template, current_app, jsonify, request
 from ..cache import cache
-from ..utils.auth import require_admin, get_current_user, get_all_privileged_users, is_admin, require_submit_perms, require_owners, is_owner_or_co_owner
+from ..utils.auth import has_submit_perms, require_admin, get_current_user, get_all_privileged_users, is_admin, require_submit_perms, require_owners, is_owner_or_co_owner
 from ...main import (
     SkipMatchSilent,
     STEAM_API_KEY,
@@ -802,7 +802,7 @@ def view_logs():
 
 
 @admin_bp.route('/matches')
-@require_admin
+@require_submit_perms
 def admin_matches_page():
     return render_template('react.html', page='match_admin')
 
@@ -886,7 +886,7 @@ def admin_bulk_submit():
 
 
 @admin_bp.route('/match/preview', methods=['POST'])
-@require_admin
+@require_submit_perms
 def admin_match_preview():
     payload = request.get_json(silent=True) or {}
     raw_match_id = payload.get('match_id')
@@ -939,7 +939,7 @@ def admin_match_preview():
 
 
 @admin_bp.route('/match/job/<job_id>')
-@require_admin
+@require_submit_perms
 def admin_match_job(job_id: str):
     with _jobs_lock:
         job = _jobs.get(job_id)
@@ -1192,7 +1192,7 @@ def admin_backfill_items():
 
 
 @admin_bp.route('/match/tree')
-@require_admin
+@require_submit_perms
 def admin_match_tree():
     matches_path = _matches_json_path()
     with _matches_json_lock:
@@ -1234,7 +1234,7 @@ def admin_match_tree():
 
 
 @admin_bp.route('/match/edit', methods=['PATCH'])
-@require_admin
+@require_submit_perms
 def admin_match_edit():
     payload = request.get_json(silent=True) or {}
 
@@ -1411,7 +1411,7 @@ def admin_match_edit():
 
 
 @admin_bp.route('/match/add', methods=['POST'])
-@require_admin
+@require_submit_perms
 def admin_match_add():
     payload = request.get_json(silent=True) or {}
 
@@ -1601,6 +1601,7 @@ def admin_api_access():
             'ok': True,
             'logged_in': True,
             'is_admin': bool(is_admin(user.get('id'))),
+            'can_submit': bool(has_submit_perms(user.get('id'))),
             'user': user,
         }
     )

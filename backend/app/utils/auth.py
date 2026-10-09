@@ -60,10 +60,11 @@ def get_admin_ids():
 
 def get_match_submitter_ids():
     """Get Discord IDs allowed to submit matches from environment"""
-    submitter_ids = os.getenv('MATCH_SUBMITTERS', '')
-    if submitter_ids:
-        return [submitter_id.strip() for submitter_id in submitter_ids.split(',') if submitter_id.strip()]
-    return []
+    ids = []
+    for key in ('MATCH_SUBMITTER', 'MATCH_SUBMITTERS'):
+        raw = os.getenv(key, '')
+        ids.extend(i.strip() for i in raw.split(',') if i.strip())
+    return ids
 
 def is_owner(user_id=None):
     """Check if user is the owner"""
@@ -92,14 +93,14 @@ def is_admin(user_id=None):
     return str(user_id) in [str(admin_id) for admin_id in admin_ids]
 
 def has_submit_perms(user_id=None):
-    """Check if user can submit matches (owner/admin or in MATCH_SUBMITTERS)"""
+    """Check if user can submit matches (owner, co-owner, admin or in MATCH_SUBMITTER)"""
     if user_id is None:
         user = get_current_user()
         if not user:
             return False
         user_id = user['id']
 
-    if is_admin(user_id):
+    if is_owner_or_co_owner(user_id) or is_admin(user_id):
         return True
 
     submitter_ids = get_match_submitter_ids()

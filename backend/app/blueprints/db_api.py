@@ -570,17 +570,11 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
 @bp.get("/matches/tree")
 @cache.cached(timeout=1800)
 def matches_tree():
-    """Return the full matches.json payload without reshaping."""
-    matches_file = _matches_json_path()
+    """Return the title -> week -> set -> game tree, built from brackets.json."""
     try:
-        # Accept UTF-8 files with or without BOM.
-        with open(matches_file, encoding="utf-8-sig") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        return jsonify({"error": "matches.json not found"}), 404
+        return jsonify(_schedule_data())
     except Exception as e:
-        return jsonify({"error": f"Failed to load matches.json: {e}"}), 500
-    return jsonify(data)
+        return jsonify({"error": f"Failed to load schedule: {e}"}), 500
 
 
 @bp.get("/weeks")
@@ -588,11 +582,8 @@ def matches_tree():
 def weeks_map():  # type: ignore
     event_title_filter = (request.args.get("event_title") or "").strip()
     event_title_filter_lc = event_title_filter.lower()
-    matches_file = _matches_json_path()
     try:
-        # Accept UTF-8 files with or without BOM.
-        with open(matches_file, encoding="utf-8-sig") as f:
-            data = json.load(f)
+        data = _schedule_data()
     except Exception:
         return jsonify({"weeks": {}, "title": ""})
     result: Dict[str, Any] = {}
@@ -4030,21 +4021,18 @@ def series_detail(match_id: int):
         for m in matches:
             m["players"] = players_by_match.get(m["match_id"], [])
 
-    # Look up series-level title from matches.json (e.g. "EU QUALIFIER", "CHALLENGER MATCH")
+    # Look up series-level title from brackets.json (e.g. "EU QUALIFIER", "CHALLENGER MATCH")
     series_title = ""
     try:
-        mf = _matches_json_path()
-        if mf.exists():
-            with open(mf, encoding="utf-8-sig") as f:
-                mdata = json.load(f)
-            for s in mdata.get("series") or []:
-                for week in s.get("weeks") or []:
-                    if week.get("week") == event_week:
-                        for game in week.get("games") or []:
-                            if (game.get("team_a") or "").strip().lower() == (event_team_a or "").strip().lower() \
-                               and (game.get("team_b") or "").strip().lower() == (event_team_b or "").strip().lower():
-                                series_title = (game.get("title") or "").strip()
-                                break
+        mdata = _schedule_data()
+        for s in mdata.get("series") or []:
+            for week in s.get("weeks") or []:
+                if week.get("week") == event_week:
+                    for game in week.get("games") or []:
+                        if (game.get("team_a") or "").strip().lower() == (event_team_a or "").strip().lower() \
+                           and (game.get("team_b") or "").strip().lower() == (event_team_b or "").strip().lower():
+                            series_title = (game.get("title") or "").strip()
+                            break
     except Exception:
         pass
 
@@ -5396,6 +5384,55 @@ def _load_brackets_events() -> List[Dict[str, Any]]:
     return events if isinstance(events, list) else []
 
 
+def _schedule_data() -> Dict[str, Any]:
+    """Title -> week -> set -> game layout used by the stats pages.
+
+    Built from `data/brackets.json`. Legacy `matches.json` entries are kept for
+    games the brackets do not cover, so older weeks still resolve.
+    """
+    data = bk.to_schedule(_load_brackets_events())
+    seen: set = set()
+    for series in data["series"]:
+        for week in series["weeks"]:
+            for game in week["games"]:
+                for m in game["matches"]:
+                    seen.add(m["match_id"])
+    try:
+        with open(_matches_json_path(), encoding="utf-8-sig") as handle:
+            legacy = json.load(handle)
+    except Exception:
+        return data
+    for series in (legacy.get("series") or []) if isinstance(legacy, dict) else []:
+        if not isinstance(series, dict):
+            continue
+        weeks = []
+        for week in series.get("weeks") or []:
+            games = []
+            for game in week.get("games") or []:
+                matches = [m for m in game.get("matches") or []
+                           if not (isinstance(m, dict) and m.get("match_id") in seen)]
+                if matches:
+                    games.append(dict(game, matches=matches))
+            if games:
+                weeks.append(dict(week, games=games))
+        if not weeks:
+            continue
+        target = next((s for s in data["series"] if s["title"] == (series.get("title") or "").strip()), None)
+        if target is None:
+            data["series"].append({"title": (series.get("title") or "").strip(), "weeks": weeks})
+            continue
+        for week in weeks:
+            tw = next((w for w in target["weeks"] if w.get("week") == week.get("week")), None)
+            if tw is None:
+                target["weeks"].append(week)
+            else:
+                tw["games"].extend(week["games"])
+                for k in ("vod_link", "vod_links"):
+                    if week.get(k) and not tw.get(k):
+                        tw[k] = week[k]
+    return data
+
+
 def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
     """Authored brackets for one week, computed against the ingested results.
 
@@ -5740,15 +5777,13 @@ def nightshift_week(week: int):
         ).fetchall()
         all_weeks = [r[0] for r in neighbours]
 
-        # Pull vod_link (week-level), per-series match_vod, and per-game match_vod from matches.json
+        # Pull vod_link (week-level), per-series match_vod, and per-game match_vod from brackets.json
         vod_link: str | None = None
         vod_links: list = []
         series_vods: dict = {}  # key: "team_a__team_b" -> vod url
         game_vods: dict = {}    # key: str(match_id) -> vod url
         try:
-            matches_file = _matches_json_path()
-            with open(matches_file, encoding="utf-8-sig") as f:
-                mdata = json.load(f)
+            mdata = _schedule_data()
             week_entries: list = []
             root_series = mdata.get("series")
             if isinstance(root_series, list):

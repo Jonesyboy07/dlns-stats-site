@@ -1153,6 +1153,49 @@ def system_page():
     return render_template('react.html', page='system_admin')
 
 
+_GIT_CACHE: Dict[str, Any] = {'at': 0.0, 'data': None}
+_GIT_CACHE_TTL_S = 60
+
+
+def _git(*args: str) -> str:
+    repo_root = Path(__file__).resolve().parents[3]
+    out = subprocess.run(
+        ['git', *args], cwd=str(repo_root), capture_output=True, text=True, timeout=10, check=True
+    )
+    return out.stdout.strip()
+
+
+def _git_info() -> Dict[str, Any]:
+    """Local HEAD and latest GitHub commit (same git remote the update script uses)."""
+    now = time.time()
+    if _GIT_CACHE['data'] is not None and now - _GIT_CACHE['at'] < _GIT_CACHE_TTL_S:
+        return _GIT_CACHE['data']
+    branch = os.getenv('UPDATE_BRANCH', 'main').strip() or 'main'
+    info: Dict[str, Any] = {'branch': branch, 'local': None, 'remote': None, 'up_to_date': None}
+    try:
+        sha, date, subject = _git('log', '-1', '--format=%H%x1f%cI%x1f%s').split('\x1f', 2)
+        info['local'] = {'sha': sha, 'date': date, 'subject': subject}
+    except Exception:
+        pass
+    try:
+        line = _git('ls-remote', 'origin', f'refs/heads/{branch}')
+        remote_sha = line.split()[0] if line else None
+        if remote_sha:
+            remote: Dict[str, Any] = {'sha': remote_sha}
+            try:
+                date, subject = _git('log', '-1', '--format=%cI%x1f%s', remote_sha).split('\x1f', 1)
+                remote.update(date=date, subject=subject)
+            except Exception:
+                pass
+            info['remote'] = remote
+            if info['local']:
+                info['up_to_date'] = info['local']['sha'] == remote_sha
+    except Exception:
+        pass
+    _GIT_CACHE.update(at=now, data=info)
+    return info
+
+
 @admin_bp.route('/api/system')
 @require_owners
 def system_info():
@@ -1173,6 +1216,7 @@ def system_info():
         'threads': threading.active_count(),
         'db_size_bytes': db_size,
         'restart_mode': _restart_service_name() or os.getenv('ADMIN_RESTART_MODE', 'respawn'),
+        'git': _git_info(),
     })
 
 

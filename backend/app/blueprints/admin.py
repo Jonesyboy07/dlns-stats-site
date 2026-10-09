@@ -1165,6 +1165,15 @@ def _git(*args: str) -> str:
     return out.stdout.strip()
 
 
+def _github_base_url() -> str:
+    try:
+        url = _git('config', '--get', 'remote.origin.url')
+    except Exception:
+        return ''
+    m = re.match(r'^(?:https?://(?:[^@/]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+/[\w.-]+?)(?:\.git)?/?$', url)
+    return f'https://github.com/{m.group(1)}' if m else ''
+
+
 def _git_info() -> Dict[str, Any]:
     """Local HEAD and latest GitHub commit (same git remote the update script uses)."""
     now = time.time()
@@ -1192,6 +1201,11 @@ def _git_info() -> Dict[str, Any]:
                 info['up_to_date'] = info['local']['sha'] == remote_sha
     except Exception:
         pass
+    base = _github_base_url()
+    if base:
+        for key in ('local', 'remote'):
+            if info[key]:
+                info[key]['url'] = f"{base}/commit/{info[key]['sha']}"
     _GIT_CACHE.update(at=now, data=info)
     return info
 

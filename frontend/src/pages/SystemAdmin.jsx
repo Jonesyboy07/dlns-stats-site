@@ -30,7 +30,13 @@ function formatBytes(bytes) {
 
 function formatCommit(c) {
   if (!c?.sha) return 'Unknown';
-  return `${c.sha.slice(0, 7)}${c.subject ? ` - ${c.subject}` : ''}`;
+  const text = `${c.sha.slice(0, 7)}${c.subject ? ` - ${c.subject}` : ''}`;
+  if (!c.url) return text;
+  return (
+    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+      {text}
+    </a>
+  );
 }
 
 function Stat({ label, value }) {

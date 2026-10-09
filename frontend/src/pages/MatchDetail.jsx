@@ -7,6 +7,9 @@ import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
 import { heroIconUrl } from "../components/HeroIcon";
 import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
+import { buildTimelineRows, clock } from "../utils/matchTimeline";
+import { mapVersionForMatch } from "../utils/matchMap";
+import MatchMap from "../components/MatchMap";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -209,6 +212,7 @@ function MatchDetail() {
   const [activeSoulsMetric, setActiveSoulsMetric] = useState("net_worth");
   const [itemNames, setItemNames] = useState({});
   const [timeline, setTimeline] = useState(null);
+  const [matchEvents, setMatchEvents] = useState(null);
   const [fetchErrors, setFetchErrors] = useState([]);
   const [seriesGames, setSeriesGames] = useState(null);
   const [seriesTitle, setSeriesTitle] = useState("");
@@ -225,6 +229,7 @@ function MatchDetail() {
     fetchMatchBuild();
     fetchWeekMeta();
     fetchTimeline();
+    fetchMatchEvents();
     fetchSeriesGames();
   }, [matchId]);
 
@@ -256,6 +261,18 @@ function MatchDetail() {
       }
     } catch (err) {
       setFetchErrors((prev) => [...prev, "timeline"]);
+    }
+  };
+
+  // What happened, in order: objectives, mid boss and kills.
+  const fetchMatchEvents = async () => {
+    try {
+      const response = await fetch(`/db/matches/${matchId}/events`);
+      if (response.ok) {
+        setMatchEvents(await response.json());
+      }
+    } catch (err) {
+      setFetchErrors((prev) => [...prev, "match events"]);
     }
   };
 
@@ -524,14 +541,27 @@ function MatchDetail() {
   const amberTeamName = teamASide === 0 ? (eventTeamA || eventTeamB) : (eventTeamB || eventTeamA);
   const sapphireTeamName = teamASide === 0 ? (eventTeamB || eventTeamA) : (eventTeamA || eventTeamB);
 
+  // Timeline rows drive both the map markers and the list under it.
+  const timelineRows = buildTimelineRows(
+    matchEvents?.events || [],
+    players,
+    (team) => (team === 0 ? amberTeamName : sapphireTeamName) || "Unknown",
+  );
+  // Which minimap layout this match was played on (null when the start time is unknown).
+  const mapVersion = mapVersionForMatch(adjacentMatches);
+  // Lane objectives carry their lane colour; everything else sits on a side.
+  const timelineMarkerColor = (row) =>
+    row.laneColor || (row.team === 0 ? CHART_AMBER : row.team === 1 ? CHART_SAPPHIRE : "#94a3b8");
+
   // --- Laning / scoreboard helpers ---
   // `assigned_lane` values are reported by the game (current 3-duo-lane map):
   // DLNS league's 3-lane map — game lane ids and their callouts:
-  // 1 = York (Yellow), 4 = Greenwich (Green), 6 = Broadway (Blue).
+  // 1 = York (Yellow), 4 = Broadway (Blue), 6 = Greenwich (Green) — lane ids and
+  // their colours as the game reports them.
   const LANE_META = {
     1: { name: "York", color: "#facc15" },
-    4: { name: "Greenwich", color: "#4ade80" },
-    6: { name: "Broadway", color: "#22d3ee" },
+    4: { name: "Broadway", color: "#22d3ee" },
+    6: { name: "Greenwich", color: "#4ade80" },
   };
   const LANE_ORDER = [1, 4, 6];
 
@@ -905,7 +935,7 @@ function MatchDetail() {
 
       {/* Tabs below scoreboard */}
       <div className="flex items-center gap-1 mb-4 border-b border-border-light">
-        {["graphs", "build"].map((tab) => (
+        {["graphs", "build", "timeline"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -941,6 +971,57 @@ function MatchDetail() {
           </button>
         )}
       </div>
+
+      {/* Timeline tab: where it happened, then a plain list of what happened. */}
+      {activeTab === "timeline" && (
+        <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6">
+          <h3 className={GRAPH_SECTION_LABEL}>Timeline</h3>
+          {matchEvents == null ? (
+            <p className="mt-3 text-sm text-dim">Loading…</p>
+          ) : timelineRows.length === 0 ? (
+            <p className="mt-3 text-sm text-dim">No timeline recorded for this match yet.</p>
+          ) : (
+            <>
+              <MatchMap rows={timelineRows} version={mapVersion} className="mt-4" />
+              <ol className="mt-5 flex flex-col">
+                {timelineRows.map((row) => (
+                  <li
+                    key={row.key}
+                    className="flex items-center gap-3 py-1.5 border-b border-border-light/40 last:border-b-0"
+                  >
+                    <span className="w-12 shrink-0 text-right font-valve-oracle text-[13px] tabular-nums text-dim">
+                      {clock(row.time_s)}
+                    </span>
+                    <span
+                      className="w-2 h-2 shrink-0 rounded-sm"
+                      style={{ backgroundColor: timelineMarkerColor(row) }}
+                      aria-hidden="true"
+                    />
+                    {row.heroId != null && (
+                      <HeroIcon
+                        src={getHeroIcon(row.heroId)}
+                        name={getHeroName(row.heroId)}
+                        className="w-5 h-5"
+                      />
+                    )}
+                    <span className="text-sm text-secondary">{row.text}</span>
+                    {row.killerHeroId != null && (
+                      <span className="text-[11px] whitespace-nowrap text-dim">
+                        {getHeroName(row.killerHeroId)}
+                      </span>
+                    )}
+                    {row.damage ? (
+                      <span className="ml-auto text-xs tabular-nums whitespace-nowrap text-dim">
+                        {formatK(row.damage)} damage
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Graphs tab */}
       {activeTab === "graphs" && players.length > 0 && (

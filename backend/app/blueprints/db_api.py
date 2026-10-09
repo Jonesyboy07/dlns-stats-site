@@ -22,13 +22,14 @@ from ..utils.auth import require_admin
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
 from ...game_version import resolve_game_version
+from ...main import objective_lane, objective_name
 from ...steam_news import iso_to_epoch, news_for_games
 
 load_dotenv()
 bp = Blueprint("dlns_db_api", __name__, url_prefix="/db")
 _replay_file_cache_lock = threading.Lock()
 
-# DLNS's 3-lane map, in scoreboard order: York, Greenwich, Broadway. Mirrors
+# DLNS's 3-lane map, in scoreboard order: York, Broadway, Greenwich. Mirrors
 # LANE_ORDER in MatchDetail.jsx so hero lineups read identically in both places.
 LANE_ORDER = (1, 4, 6)
 
@@ -1463,6 +1464,104 @@ def match_deaths(match_id: int):  # type: ignore
         "count": len(deaths),
         "filters": {"team": team, "account_id": account_id},
         "deaths": deaths,
+    })
+
+
+@bp.get("/matches/<int:match_id>/events")
+@cache.cached(timeout=3600)
+def match_events(match_id: int):  # type: ignore
+    """Ordered match timeline: objective destructions, mid boss kills and deaths.
+
+    Runes, neutral camps and sinner buffs are not here: the metadata API does not
+    carry their timestamps, so they would need a demo-file query.
+    """
+    with get_ro_conn() as conn:
+        objectives = conn.execute(
+            "SELECT team, objective_id, destroyed_time_s, first_damage_time_s, "
+            "player_damage, creep_damage, player_spirit_damage "
+            "FROM match_objectives WHERE match_id = ? AND destroyed_time_s > 0 "
+            "ORDER BY destroyed_time_s",
+            (match_id,),
+        ).fetchall()
+        bosses = conn.execute(
+            "SELECT boss_index, team_killed, team_claimed, destroyed_time_s "
+            "FROM match_mid_boss WHERE match_id = ? ORDER BY boss_index",
+            (match_id,),
+        ).fetchall()
+        deaths = conn.execute(
+            "SELECT d.account_id, d.death_index, d.death_time_s, "
+            "d.killer_player_slot, d.time_to_kill_s, d.death_duration_s, "
+            "d.position_x, d.position_y, d.position_z, "
+            "p.player_slot, p.team, p.hero_id, u.persona_name "
+            "FROM player_deaths d "
+            "LEFT JOIN players p ON p.match_id = d.match_id AND p.account_id = d.account_id "
+            "LEFT JOIN users u ON u.account_id = d.account_id "
+            "WHERE d.match_id = ? "
+            "ORDER BY d.death_time_s IS NULL, d.death_time_s, d.account_id, d.death_index",
+            (match_id,),
+        ).fetchall()
+        row = conn.execute(
+            "SELECT duration_s FROM matches WHERE match_id = ?", (match_id,)
+        ).fetchone()
+
+    events: List[Dict[str, Any]] = []
+    for (team, objective_id, destroyed_time_s, first_damage_time_s,
+            player_damage, creep_damage, spirit_damage) in objectives:
+        events.append({
+            "type": "objective",
+            "time_s": destroyed_time_s,
+            "team": team,
+            "objective_id": objective_id,
+            "objective": objective_name(objective_id),
+            "lane": objective_lane(objective_id),
+            "first_damage_time_s": first_damage_time_s,
+            "player_damage": player_damage,
+            "creep_damage": creep_damage,
+            "player_spirit_damage": spirit_damage,
+        })
+    for boss_index, team_killed, team_claimed, destroyed_time_s in bosses:
+        events.append({
+            "type": "mid_boss",
+            "time_s": destroyed_time_s,
+            "team": team_claimed,
+            "boss_index": boss_index,
+            "team_killed": team_killed,
+            "team_claimed": team_claimed,
+        })
+    for (account_id, death_index, death_time_s, killer_slot, time_to_kill,
+         death_duration_s, x, y, z, player_slot, team, hero_id, persona_name) in deaths:
+        events.append({
+            "type": "death",
+            "time_s": death_time_s,
+            "team": team,
+            "account_id": account_id,
+            "death_index": death_index,
+            "persona_name": persona_name,
+            "player_slot": player_slot,
+            "hero_id": hero_id,
+            "killer_player_slot": killer_slot,
+            "time_to_kill_s": time_to_kill,
+            "death_duration_s": death_duration_s,
+            "position": None if x is None and y is None and z is None else {"x": x, "y": y, "z": z},
+        })
+
+    # Stable order: by time, then a fixed type order so simultaneous events read
+    # the same way every request.
+    type_order = {"objective": 0, "mid_boss": 1, "death": 2}
+    events.sort(key=lambda e: (e["time_s"] is None, e["time_s"] or 0, type_order.get(e["type"], 9)))
+
+    return jsonify({
+        "match_id": match_id,
+        "duration_s": row[0] if row else None,
+        # False when the timeline rows have not been ingested for this match yet.
+        "available": bool(objectives),
+        "count": len(events),
+        "counts": {
+            "objectives": len(objectives),
+            "mid_boss": len(bosses),
+            "deaths": len(deaths),
+        },
+        "events": events,
     })
 
 
@@ -5079,7 +5178,7 @@ def get_team_detail(team_name: str):
         matches = [m for m in _rows_to_dicts(cur2) if m["match_id"] in playable_ids]
 
         # Per-game hero lineups for the Series tab, in the order the scoreboard
-        # reads: lane by lane (York, Greenwich, Broadway), then in-game slot.
+        # reads: lane by lane (York, Broadway, Greenwich), then in-game slot.
         # heroes_a / heroes_b are aligned with event_team_a / event_team_b so the
         # caller never has to work out which side is which.
         lineups: Dict[int, Dict[int, List[Any]]] = {}

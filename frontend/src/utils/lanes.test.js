@@ -16,9 +16,9 @@ describe("laneMeta / playerLane", () => {
   it("maps the 1/4/6 encoding to the lane names", () => {
     expect(LANE_ORDER).toEqual([1, 4, 6]);
     expect(laneMeta(1).name).toBe("York");
-    expect(laneMeta(4).name).toBe("Greenwich");
-    expect(laneMeta(6).name).toBe("Broadway");
-    expect(laneMeta("6").name).toBe("Broadway");
+    expect(laneMeta(4).name).toBe("Broadway");
+    expect(laneMeta(6).name).toBe("Greenwich");
+    expect(laneMeta("6").name).toBe("Greenwich");
   });
 
   it("has no colour for an unknown lane", () => {
@@ -49,7 +49,7 @@ describe("laneBreakdown", () => {
 
   it("counts games and share per lane in reading order", () => {
     expect(total).toBe(5);
-    expect(lanes.map((lane) => lane.name)).toEqual(["York", "Greenwich", "Broadway", "Unknown"]);
+    expect(lanes.map((lane) => lane.name)).toEqual(["York", "Broadway", "Greenwich", "Unknown"]);
     expect(byName.York.games).toBe(2);
     expect(byName.Greenwich.games).toBe(1);
     expect(byName.Broadway.games).toBe(1);
@@ -59,7 +59,7 @@ describe("laneBreakdown", () => {
 
   it("computes the win rate from decided games only", () => {
     expect(byName.York.winRate).toBe(1);
-    expect(byName.Greenwich.winRate).toBe(0);
+    expect(byName.Broadway.winRate).toBe(0);  // the lane 4 game is a loss
     // The unrecorded game has no result, so it cannot produce a rate.
     expect(byName.Unknown.winRate).toBeNull();
   });
@@ -100,10 +100,10 @@ describe("laneBreakdown", () => {
 });
 
 describe("lane constants", () => {
-  it("uses the site's existing lane colours", () => {
-    expect(LANE_META[1].color).toBe("#facc15");
-    expect(LANE_META[4].color).toBe("#4ade80");
-    expect(LANE_META[6].color).toBe("#22d3ee");
+  it("keeps the game's colour for each lane", () => {
+    expect(LANE_META[1].color).toBe("#facc15");  // yellow
+    expect(LANE_META[4].color).toBe("#22d3ee");  // blue
+    expect(LANE_META[6].color).toBe("#4ade80");  // green
   });
 
   it("has outcome codes that match the rest of the app", () => {

@@ -412,6 +412,34 @@ plus `player_slot`, `team`, `hero_id`, and `persona_name`. Position and time
 fields can be null when the source match data did not include them. Invalid
 filter values return `400` with `invalid_team` or `invalid_account_id`.
 
+## Route: `/db/matches/<match_id>/events`
+
+Returns the match timeline as one time-ordered list, merging objective destructions,
+mid boss kills and deaths. Runes, neutral camps and sinner buffs are not included: the
+metadata API does not carry their timestamps.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `match_id` | integer | Requested match ID |
+| `duration_s` | integer or null | Match duration in seconds |
+| `available` | boolean | `false` when the timeline rows have not been ingested for this match |
+| `count` | integer | Number of returned events |
+| `counts` | object | Event totals split by `objectives`, `mid_boss` and `deaths` |
+| `events` | array | Events ordered by `time_s`, then objective, mid boss, death |
+
+Each event has `type` (`objective` / `mid_boss` / `death`) and `time_s`. Objectives add
+`team`, `objective_id`, a display `objective` name, `lane` (the 1/4/6 lane id the site uses
+elsewhere, or null for Titan, the shield generators and the Core), `first_damage_time_s` and
+the damage split. Mid boss events add `boss_index`, `team_killed` and `team_claimed`. Deaths
+add `account_id`, `death_index`, `persona_name`, `player_slot`, `hero_id`,
+`killer_player_slot`, `time_to_kill_s`, `death_duration_s` and `position`. Survived
+objectives (`destroyed_time_s` of `0`) are stored but excluded from `events`.
+
 ## Route: `/db/matches/<match_id>/items`
 
 Returns enriched purchased-item data for each player in a match.

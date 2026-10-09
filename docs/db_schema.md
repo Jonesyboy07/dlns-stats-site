@@ -15,6 +15,8 @@ Relationships:
 - `players.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `players.account_id` -> `users.account_id` (ON DELETE SET NULL)
 - `player_deaths.match_id` -> `matches.match_id` (ON DELETE CASCADE)
+- `match_objectives.match_id` -> `matches.match_id` (ON DELETE CASCADE)
+- `match_mid_boss.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `user_stats.account_id` -> `users.account_id` (ON DELETE CASCADE)
 
 ## Pragmas
@@ -69,7 +71,7 @@ Stores per-player stats for each match.
 | `account_id` | INTEGER | Yes | FK -> `users.account_id` |
 | `player_slot` | INTEGER | Yes | 1-12 in API data |
 | `team` | INTEGER | Yes | 0 or 1 derived from slot |
-| `lane` | INTEGER | Yes | Game-reported lane assignment (`assigned_lane`). DLNS 3-lane callouts: 1=York (Yellow), 4=Greenwich (Green), 6=Broadway (Blue). NULL when unavailable (frontend shows "—"). |
+| `lane` | INTEGER | Yes | Game-reported lane assignment (`assigned_lane`). Lane ids: 1=York (Yellow), 4=Broadway (Blue), 6=Greenwich (Green). NULL when unavailable (frontend shows "—"). |
 | `lane_real` | INTEGER | Yes | Inferred real lane from `match_paths` positional clustering during laning (see `-laneinfer`). Same 1/4/6 encoding. NULL when inference unavailable (fall back to `lane`). Corrects in-game lane swaps at game start. |
 | `hero_id` | INTEGER | Yes | Hero identifier |
 | `level` | INTEGER | Yes | Player level |
@@ -97,17 +99,21 @@ Indexes:
 
 ## Table: `player_deaths`
 
-Stores one row for each player death in a match. Deaths are detected from increases in
-the player stats snapshots. Positions are sampled at the death-time snapshot. Each
-per-axis midpoint distance uses the map origin as its zero point; `midpoint_distance`
-is the Euclidean 3D distance and is NULL unless all three coordinates are available.
+Stores one row for each player death in a match. When the match payload includes
+`death_details`, that list is the source: it carries the exact death time, death position
+and killer, and its length matches the per-player death count shown elsewhere. Payloads
+without it fall back to increases in the player stats snapshots, which only date a death
+to the snapshot that reported it (positions are sampled at that snapshot) and can
+over-count the final death. Each per-axis midpoint distance uses the map origin as its
+zero point; `midpoint_distance` is the Euclidean 3D distance and is NULL unless all three
+coordinates are available.
 
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
 | `match_id` | INTEGER | No | FK -> `matches.match_id` |
 | `account_id` | INTEGER | No | Player account ID |
 | `death_index` | INTEGER | No | One-based death number for this player in this match |
-| `death_time_s` | INTEGER | Yes | Timestamp of the first stats snapshot that reports the death |
+| `death_time_s` | INTEGER | Yes | Exact death time from `death_details`, or the first stats snapshot that reports the death on the fallback path |
 | `position_x` | REAL | Yes | Death-time map X coordinate |
 | `position_y` | REAL | Yes | Death-time map Y coordinate |
 | `position_z` | REAL | Yes | Death-time map Z coordinate |
@@ -115,6 +121,9 @@ is the Euclidean 3D distance and is NULL unless all three coordinates are availa
 | `midpoint_distance_y` | REAL | Yes | Signed Y distance from the map midpoint |
 | `midpoint_distance_z` | REAL | Yes | Signed Z distance from the map midpoint |
 | `midpoint_distance` | REAL | Yes | Unsigned 3D Euclidean distance from the map midpoint |
+| `killer_player_slot` | INTEGER | Yes | In-game slot (1-12) of the killer, from `death_details`; NULL on the snapshot fallback |
+| `time_to_kill_s` | REAL | Yes | Time-to-kill in seconds, as reported for the death |
+| `death_duration_s` | INTEGER | Yes | Death duration in seconds, as reported for the death |
 
 Primary Key:
 - (`match_id`, `account_id`, `death_index`)
@@ -162,6 +171,60 @@ Primary Key:
 
 Indexes:
 - `idx_dmgsrc_match` ON `player_damage_sources(match_id)`
+
+## Table: `match_objectives`
+
+One row per team objective the match metadata reports: Tier 1 and Tier 2 walkers, the
+Titan (base guardian), the Titan shield generators, barrack bosses and the Core
+(patron). Rows exist for every objective, including ones that survived the match
+(`destroyed_time_s` of `0`). Populated during ingest or via `-timelinebackfill`.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` (ON DELETE CASCADE) |
+| `team` | INTEGER | No | Team that destroyed the objective (`0`/`1`) |
+| `objective_id` | INTEGER | No | Valve `ECitadelTeamObjective` id (see below) |
+| `destroyed_time_s` | INTEGER | Yes | Match second it was destroyed; `0` when it survived |
+| `first_damage_time_s` | INTEGER | Yes | Match second it first took damage; `0` when untouched |
+| `player_damage` | INTEGER | Yes | Damage dealt to it by heroes |
+| `creep_damage` | INTEGER | Yes | Damage dealt to it by creeps |
+| `player_spirit_damage` | INTEGER | Yes | Spirit damage dealt to it by heroes |
+
+Objective ids: 0=Core (Patron), 1-4=Tier 1 walkers (lane slots 1-4), 5-8=Tier 2 walkers,
+9=Titan (base guardian), 10-11=Titan shield generators, 12-15=barrack bosses. Labels come
+from `TEAM_OBJECTIVE_NAMES` in `backend/main.py`.
+
+The enum's lane slots are **not** the lane ids used elsewhere (`players.lane`): Valve's map
+data pairs slot 1 with lane 1, slot 3 with lane 4 and slot 4 with lane 6, so a match only
+ever reports slots 1, 3 and 4. `TEAM_OBJECTIVE_LANES` / `objective_lane()` in
+`backend/main.py` hold that mapping; Titan, the shield generators and the Core belong to no
+single lane.
+
+Primary Key:
+- (`match_id`, `team`, `objective_id`)
+
+Indexes:
+- `idx_match_objectives_match` ON `match_objectives(match_id)`
+
+## Table: `match_mid_boss`
+
+Mid boss (Rejuvenator) kills for a match, in the order the API reports them. A match
+has none, one, or a couple when the boss respawns. Populated during ingest or via
+`-timelinebackfill`.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` (ON DELETE CASCADE) |
+| `boss_index` | INTEGER | No | Zero-based order in which the API listed the kill |
+| `team_killed` | INTEGER | Yes | Team that landed the killing blow |
+| `team_claimed` | INTEGER | Yes | Team that claimed the drop |
+| `destroyed_time_s` | INTEGER | Yes | Match second the boss was killed |
+
+Primary Key:
+- (`match_id`, `boss_index`)
+
+Indexes:
+- `idx_match_mid_boss_match` ON `match_mid_boss(match_id)`
 
 ## Table: `user_stats`
 

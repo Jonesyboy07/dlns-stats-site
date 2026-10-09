@@ -12,11 +12,14 @@ import { LOSS, WIN, matchOutcome } from "./playerStats";
 
 export const LANE_META = {
   1: { id: 1, name: "York", color: "#facc15" },
-  4: { id: 4, name: "Greenwich", color: "#4ade80" },
-  6: { id: 6, name: "Broadway", color: "#22d3ee" },
+  // Names and colours follow the game's own lane identity, verified against the
+  // map data: lane 1 is yellow, lane 4 blue and lane 6 green — so Greenwich (the
+  // green lane) is id 6 and Broadway (blue) is id 4.
+  4: { id: 4, name: "Broadway", color: "#22d3ee" },
+  6: { id: 6, name: "Greenwich", color: "#4ade80" },
 };
 
-/** Reading order for the lane lists: York, Greenwich, Broadway. */
+/** Reading order for the lane lists: York, Broadway, Greenwich. */
 export const LANE_ORDER = [1, 4, 6];
 
 /** The row that collects games with no recorded lane. */
@@ -27,7 +30,7 @@ export const playerLane = (match) => match?.lane_real ?? match?.lane ?? null;
 export const laneMeta = (lane) => LANE_META[Number(lane)] ?? null;
 
 /**
- * Games, share and win rate per lane, in York/Greenwich/Broadway order with the
+ * Games, share and win rate per lane, in York/Broadway/Greenwich order with the
  * unrecorded games last. Every lane is listed even at zero, so the table is
  * comparable between players; a win rate is null (rendered "—") until a lane has
  * a decided game, and unknown results count toward games but never toward it.

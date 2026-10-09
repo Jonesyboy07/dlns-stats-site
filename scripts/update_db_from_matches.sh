@@ -6,7 +6,7 @@ cd "$SCRIPT_DIR/.."
 
 PYTHON_EXE="${PYTHON_EXE:-python3}"
 
-MATCHFILE="data/matches.json"
+MATCHFILE="data/brackets.json"
 DB_PATH="data/dlns.sqlite3"
 STATUS_PATH="data/matches_status.json"
 CACHE_PATH="data/user_cache.json"
@@ -29,7 +29,7 @@ fi
 
 echo
 echo "========================================"
-echo "  Updating DB from data/matches.json"
+echo "  Updating DB from data/brackets.json"
 echo "========================================"
 echo "DB: $DB_PATH"
 echo "Match file: $MATCHFILE"

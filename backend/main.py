@@ -9,6 +9,8 @@ import time
 import requests
 import random
 import sqlite3
+import struct
+import zlib
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -573,6 +575,33 @@ CREATE TABLE IF NOT EXISTS match_mid_boss (
 );
 
 CREATE INDEX IF NOT EXISTS idx_match_mid_boss_match ON match_mid_boss(match_id);
+
+-- Per-player position trails from the metadata API's match_paths block: one row per
+-- player per match holding the whole match's samples in compressed blobs, rather than
+-- ~25,000 rows per match. `positions` is what the map replay draws; health/move_type/
+-- combat_type are stored from the same payload so a richer replay needs no re-fetch.
+CREATE TABLE IF NOT EXISTS match_player_paths (
+  match_id INTEGER NOT NULL,
+  player_slot INTEGER NOT NULL,
+  account_id INTEGER,
+  interval_s REAL,
+  sample_count INTEGER NOT NULL,
+  -- World-coordinate extent of this player's trail, for framing the map.
+  world_min_x REAL,
+  world_max_x REAL,
+  world_min_y REAL,
+  world_max_y REAL,
+  -- zlib-compressed little-endian int16, x and y interleaved. See _path_world_samples.
+  positions BLOB NOT NULL,
+  -- One byte per sample, zlib-compressed.
+  health BLOB,
+  move_type BLOB,
+  combat_type BLOB,
+  PRIMARY KEY (match_id, player_slot),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_player_paths_match ON match_player_paths(match_id);
 """
 
 
@@ -987,6 +1016,133 @@ async def ingest_match_mid_boss_async(conn: Any, match_id: int, match_info: Dict
 	await conn.execute("DELETE FROM match_mid_boss WHERE match_id=?", (match_id,))
 	for row in _mid_boss_rows_from_match(match_id, match_info):
 		await conn.execute(_MID_BOSS_UPSERT_SQL, row)
+
+
+# Trail samples are normalised per player into a 0..resolution grid, so the bounds in
+# the same entry are what map a sample back to world space. Every payload seen so far
+# reports 16383, used only when a payload omits its own.
+_PATH_DEFAULT_RESOLUTION = 16383.0
+
+
+def _path_world_samples(path: Dict[str, Any], resolution_x: float, resolution_y: float) -> List[int]:
+	"""One player's trail as interleaved integer world coordinates (x0, y0, x1, y1, ...).
+
+	`x_pos`/`y_pos` are on a 0..resolution grid that the player's own bounding box was
+	normalised into, so `x_min`/`x_max`/`y_min`/`y_max` from the same entry are what put
+	the sample back on the map. Checked against 558 deaths across 8 matches: median
+	error 224-689 world units on a 21504-unit map, which is the 1 Hz sample spacing
+	rather than a transform error. Samples are one second apart, so index i is second i.
+	"""
+	xs = path.get("x_pos") or []
+	ys = path.get("y_pos") or []
+	x_min = extract_float(path.get("x_min"))
+	x_max = extract_float(path.get("x_max"))
+	y_min = extract_float(path.get("y_min"))
+	y_max = extract_float(path.get("y_max"))
+	if not xs or not ys or None in (x_min, x_max, y_min, y_max):
+		return []
+	span_x = x_max - x_min
+	span_y = y_max - y_min
+	if span_x <= 0 or span_y <= 0 or resolution_x <= 0 or resolution_y <= 0:
+		return []
+	coords: List[int] = []
+	# Dropping a sample would desync index from elapsed time, so hold the last position.
+	last_x, last_y = int(round(x_min)), int(round(y_min))
+	for index in range(min(len(xs), len(ys))):
+		grid_x = extract_float(xs[index])
+		grid_y = extract_float(ys[index])
+		if grid_x is not None and grid_y is not None:
+			last_x = int(round(x_min + (grid_x / resolution_x) * span_x))
+			last_y = int(round(y_min + (grid_y / resolution_y) * span_y))
+		coords.extend((last_x, last_y))
+	return coords
+
+
+def _path_byte_series(values: Any, count: int) -> bytes:
+	"""One 0-255 series as exactly `count` bytes, holding the last known value."""
+	series = values if isinstance(values, list) else []
+	out = bytearray()
+	last = 0
+	for index in range(count):
+		value = extract_int(series[index]) if index < len(series) else None
+		if value is not None:
+			last = max(0, min(255, value))
+		out.append(last)
+	return bytes(out)
+
+
+_PATH_INSERT_SQL = (
+	"INSERT OR REPLACE INTO match_player_paths(match_id, player_slot, account_id, interval_s, "
+	"sample_count, world_min_x, world_max_x, world_min_y, world_max_y, positions, health, "
+	"move_type, combat_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+)
+
+
+def _path_rows_from_match(match_id: int, match_info: Dict[str, Any]) -> List[Tuple[Any, ...]]:
+	"""One row per player trail the API reports for the match."""
+	match_paths = match_info.get("match_paths")
+	if not isinstance(match_paths, dict):
+		return []
+	entries = match_paths.get("paths")
+	if not isinstance(entries, list):
+		return []
+	resolution_x = extract_float(match_paths.get("x_resolution")) or _PATH_DEFAULT_RESOLUTION
+	resolution_y = extract_float(match_paths.get("y_resolution")) or _PATH_DEFAULT_RESOLUTION
+	interval_s = extract_float(match_paths.get("interval_s"))
+	account_by_slot: Dict[int, Optional[int]] = {}
+	for player in match_info.get("players") or []:
+		if not isinstance(player, dict):
+			continue
+		player_slot = extract_int(player.get("player_slot"))
+		if player_slot is not None:
+			account_by_slot[player_slot] = extract_int(player.get("account_id"))
+	rows = []
+	for path in entries:
+		if not isinstance(path, dict):
+			continue
+		player_slot = extract_int(path.get("player_slot"))
+		if player_slot is None:
+			continue
+		coords = _path_world_samples(path, resolution_x, resolution_y)
+		if not coords:
+			continue
+		count = len(coords) // 2
+		xs = coords[0::2]
+		ys = coords[1::2]
+
+		def optional_series(key: str) -> Optional[bytes]:
+			values = path.get(key)
+			return zlib.compress(_path_byte_series(values, count), 6) if values else None
+
+		rows.append((
+			match_id,
+			player_slot,
+			account_by_slot.get(player_slot),
+			interval_s,
+			count,
+			min(xs),
+			max(xs),
+			min(ys),
+			max(ys),
+			zlib.compress(struct.pack(f"<{len(coords)}h", *coords), 6),
+			optional_series("health"),
+			optional_series("move_type"),
+			optional_series("combat_type"),
+		))
+	return rows
+
+
+def ingest_player_paths(conn: sqlite3.Connection, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Store the match's per-player position trails. Re-ingest safe."""
+	conn.execute("DELETE FROM match_player_paths WHERE match_id=?", (match_id,))
+	conn.executemany(_PATH_INSERT_SQL, _path_rows_from_match(match_id, match_info))
+
+
+async def ingest_player_paths_async(conn: Any, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Async version of ingest_player_paths."""
+	await conn.execute("DELETE FROM match_player_paths WHERE match_id=?", (match_id,))
+	for row in _path_rows_from_match(match_id, match_info):
+		await conn.execute(_PATH_INSERT_SQL, row)
 
 
 def upsert_player_gold_sources(conn: sqlite3.Connection, match_id: int, account_id: Optional[int], stats: Any) -> None:
@@ -2098,6 +2254,51 @@ def backfill_all_match_timeline(conn: sqlite3.Connection) -> None:
 	)
 
 
+def backfill_all_player_paths(conn: sqlite3.Connection) -> None:
+	"""Populate match_player_paths for matches that have no trail rows yet.
+
+	One metadata request per match, and the metadata payload carries every player's
+	whole-match trail, so this is a large sweep: expect it to be slow and to pull a
+	couple of megabytes per match. Re-running only fetches what is still missing.
+	"""
+	rows = conn.execute(
+		"SELECT DISTINCT p.match_id FROM players p "
+		"WHERE NOT EXISTS (SELECT 1 FROM match_player_paths t WHERE t.match_id = p.match_id) "
+		"ORDER BY p.match_id DESC"
+	).fetchall()
+	match_ids = [int(r[0]) for r in rows]
+	if not match_ids:
+		print("[pathsbackfill] No matches missing position trails.")
+		return
+	print(f"[pathsbackfill] Fetching position trails for {len(match_ids)} matches.")
+	updated_matches = 0
+	skipped = 0
+	errors = 0
+	for idx, match_id in enumerate(match_ids, start=1):
+		try:
+			match_info = fetch_match_metadata(match_id)
+		except SkipMatchSilent:
+			skipped += 1
+			continue
+		except Exception as e:
+			print(f"[pathsbackfill] Fetch failed for {match_id}: {e}")
+			errors += 1
+			continue
+		if not match_info.get("match_paths"):
+			skipped += 1
+			continue
+		ingest_player_paths(conn, match_id, match_info)
+		updated_matches += 1
+		if idx % 10 == 0:
+			conn.commit()
+			print(f"[pathsbackfill] {idx}/{len(match_ids)} matches processed ({updated_matches} updated, {errors} errors)")
+	conn.commit()
+	print(
+		f"[pathsbackfill] Done. Updated {updated_matches} matches. "
+		f"Skipped {skipped}. Errors {errors}."
+	)
+
+
 # Lane ids for the DLNS 3-lane map (callouts): 1=York(Yellow), 4=Broadway(Blue), 6=Greenwich(Green).
 # Lanes sit at fixed map X positions; from leftmost to rightmost X the corridors are
 # lane 1, lane 4, lane 6. Valve's map data agrees: objective lane slots 1/3/4 are lanes
@@ -2774,6 +2975,8 @@ def process_match_into_db(
 	# Timeline rows: objective destructions and mid boss kills
 	ingest_match_objectives(conn, match_id, match_info)
 	ingest_match_mid_boss(conn, match_id, match_info)
+	# Per-player position trails for the map replay
+	ingest_player_paths(conn, match_id, match_info)
 
 	# Also persist updated users from cache to DB
 	for aid in account_ids_int:
@@ -2846,6 +3049,8 @@ async def process_match_into_db_async(
 		# Timeline rows: objective destructions and mid boss kills
 		await ingest_match_objectives_async(conn, match_id, match_info)
 		await ingest_match_mid_boss_async(conn, match_id, match_info)
+		# Per-player position trails for the map replay
+		await ingest_player_paths_async(conn, match_id, match_info)
 
 		for aid in account_ids_int:
 			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
@@ -3284,6 +3489,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-goldbackfill", dest="goldbackfill", type=str, default="false", help="If true, backfill player_gold_sources (soul income) for matches missing it and exit")
 	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
 	parser.add_argument("-timelinebackfill", dest="timelinebackfill", type=str, default="false", help="If true, backfill match_objectives, match_mid_boss and the player_deaths detail columns for matches missing them and exit")
+	parser.add_argument("-pathsbackfill", dest="pathsbackfill", type=str, default="false", help="If true, backfill match_player_paths (per-player position trails for the map replay) for matches missing them and exit. One large metadata fetch per match.")
 	parser.add_argument("-metasync", dest="metasync", type=str, default="false", help="If true, re-apply the feed's authored metadata (teams, week, side, vod) to matches already in the DB and exit. No API calls.")
 	parser.add_argument("-versionbackfill", dest="versionbackfill", type=str, default="false", help="If true, fill matches.game_version from start_time (GameTracking-Deadlock commits, cached locally) and exit. Use 'force' to recompute every match.")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
@@ -3413,6 +3619,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 			print("[timelinebackfill] Running objective/boss/death-detail backfill...")
 			backfill_all_match_timeline(conn)
 			print("[timelinebackfill] Done.")
+			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.pathsbackfill):
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print("[pathsbackfill] Running position-trail backfill...")
+			backfill_all_player_paths(conn)
+			print("[pathsbackfill] Done.")
 			return 0
 		finally:
 			conn.close()

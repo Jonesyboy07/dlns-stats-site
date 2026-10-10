@@ -440,6 +440,38 @@ add `account_id`, `death_index`, `persona_name`, `player_slot`, `hero_id`,
 `killer_player_slot`, `time_to_kill_s`, `death_duration_s` and `position`. Survived
 objectives (`destroyed_time_s` of `0`) are stored but excluded from `events`.
 
+## Route: `/db/matches/<match_id>/positions`
+
+Returns every player's position trail for the match, for the map replay. Trails are one
+sample per second across the whole match.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `match_id` | integer | Requested match ID |
+| `duration_s` | integer or null | Match duration in seconds |
+| `interval_s` | number or null | Seconds between samples |
+| `available` | boolean | `false` when trails have not been ingested for this match |
+| `count` | integer | Number of players with a trail |
+| `extent` | object or null | Union of every trail's `min_x`/`max_x`/`min_y`/`max_y`, for framing the map |
+| `players` | array | One entry per player, plain ascending `player_slot` order |
+
+Each player entry has `player_slot`, `account_id`, `team`, `hero_id`, `persona_name`,
+`sample_count`, an `extent` object, and `positions`.
+
+`positions` is base64 of little-endian int16 with x and y interleaved: sample `i` is
+`positions[i * 4]` for x and `i * 4 + 2` for y, in world units. A whole match is roughly
+100 KB this way against several hundred KB of JSON. Samples outside the playfield are
+included as stored — the API records the pre-game waiting area and players return there
+at the end of a match — so a renderer should skip positions beyond
+`±MAP_RADIUS` rather than clamping them to the edge.
+
+See `docs/db_schema.md` for how the trail's grid coordinates become world coordinates.
+
 ## Route: `/db/matches/<match_id>/items`
 
 Returns enriched purchased-item data for each player in a match.

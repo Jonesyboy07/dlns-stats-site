@@ -77,6 +77,7 @@ Normal ingestion tracks processed IDs in `data/matches_status.json` and skips th
 | `-goldbackfill true` | Backfill player soul-income sources |
 | `-dmgbackfill true` | Backfill player damage sources |
 | `-timelinebackfill true` | Backfill `match_objectives`, `match_mid_boss` and the `player_deaths` detail columns for matches missing them |
+| `-pathsbackfill true` | Backfill `match_player_paths` (per-player position trails for the map replay) for matches missing them |
 | `-metasync true` | Reapply feed metadata to existing matches without API requests |
 | `-timelineprobe MATCH_ID` | Fetch one match's metadata, print a timeline summary, and dump the raw JSON under `-probedir`; read-only, never touches the DB or feed |
 | `-probedir PATH` | Output directory for `-timelineprobe` raw dumps (default `data/_probe`) |
@@ -90,6 +91,19 @@ Normal ingestion tracks processed IDs in `data/matches_status.json` and skips th
 | `-herodelay SECONDS` | Delay between hero requests |
 
 Boolean options accept strings such as `true` and default to `false`. Run `python backend/main.py --help` for the current CLI help.
+
+### Position trail backfill
+
+`-pathsbackfill true` targets matches with no rows in `match_player_paths`, so
+re-running it only fetches what is still missing. It is the heaviest maintenance pass:
+the match metadata payload carries every player's whole-match trail, so each match costs
+one request of a couple of megabytes and takes a few seconds. A full sweep over a few
+hundred matches therefore takes a while, and committing every ten matches means partial
+progress survives an interruption.
+
+Normal ingest writes trails at the same time as the rest of a match, so a backfill is
+only needed for matches ingested before `match_player_paths` existed. See
+`docs/db_schema.md` for how the raw grid coordinates become world coordinates.
 
 ## Repository scripts
 

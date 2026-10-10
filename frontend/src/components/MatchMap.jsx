@@ -1,7 +1,9 @@
 /**
  * The match map: the timeline's deaths drawn on the minimap for the layout the match
  * was played on. It takes the same rows the list below shows, so the two views can
- * never disagree.
+ * never disagree. `children` render inside the frame on top of the markers, which is
+ * how the replay layer puts players on the same map; `caption` replaces the default
+ * caption (pass null for none).
  */
 
 import { useState } from "react";
@@ -9,15 +11,19 @@ import { cdnImage } from "../utils/cdn";
 import { mapVersionConfig, worldToPercent } from "../utils/matchMap";
 
 // The backdrop plate is 1100 px wide for a 1024 px map, so it overhangs the map art
-// evenly on every side. Expressed as a ratio so a replacement pair only needs this
-// number checked.
+// evenly on every side. Applied as a centre-anchored scale rather than a percentage
+// width plus negative offsets: the global `img { max-width: 100% }` reset clamps a
+// percentage width but not a percentage height, which left the plate squashed and its
+// centre pulled off to one side.
 const BACKDROP_RATIO = 1100 / 1024;
 
 // The art is authored almost black (median luminance ~16/255) and sits on an equally
 // dark plate, so as drawn the map barely separates from the plate behind it. Inverting
 // lifts the drawn pixels to light grey while the plate stays dark; hue-rotate cancels
-// the 180 degree hue flip invert() introduces, keeping the artist's tint.
-const MAP_ART_FILTER = "invert(1) hue-rotate(180deg) contrast(1.05)";
+// the 180 degree hue flip invert() introduces, keeping the artist's tint. Brightness
+// then dials the result back so the map reads as context rather than the loudest thing
+// on the page.
+const MAP_ART_FILTER = "invert(1) hue-rotate(180deg) contrast(1.05) brightness(0.62)";
 
 /**
  * Timeline rows that carry a position, as map markers. Pure, so it can be tested
@@ -40,7 +46,7 @@ export function deathMarkers(rows = []) {
     .filter(Boolean);
 }
 
-export default function MatchMap({ rows = [], version = null, className = "" }) {
+export default function MatchMap({ rows = [], version = null, className = "", caption, children = null }) {
   const [failed, setFailed] = useState(false);
   const config = mapVersionConfig(version);
   const markers = deathMarkers(rows);
@@ -53,9 +59,6 @@ export default function MatchMap({ rows = [], version = null, className = "" }) 
     );
   }
 
-  const overhang = (BACKDROP_RATIO - 1) * 50;
-  const backdropSize = `${BACKDROP_RATIO * 100}%`;
-
   return (
     <div className={`flex flex-col items-center gap-2 ${className}`}>
       <div className="relative aspect-square w-full max-w-[520px]">
@@ -63,13 +66,8 @@ export default function MatchMap({ rows = [], version = null, className = "" }) 
           src={cdnImage(config.background)}
           alt=""
           aria-hidden="true"
-          className="absolute rounded-full"
-          style={{
-            left: `-${overhang}%`,
-            top: `-${overhang}%`,
-            width: backdropSize,
-            height: backdropSize,
-          }}
+          className="absolute inset-0 h-full w-full max-w-none rounded-full"
+          style={{ transform: `scale(${BACKDROP_RATIO})` }}
           onError={() => setFailed(true)}
         />
         <img
@@ -92,10 +90,15 @@ export default function MatchMap({ rows = [], version = null, className = "" }) 
             }}
           />
         ))}
+        {children}
       </div>
-      <p className="text-xs text-dim">
-        {config.label} · {markers.length} death{markers.length === 1 ? "" : "s"} plotted
-      </p>
+      {caption === undefined ? (
+        <p className="text-xs text-dim">
+          {config.label} · {markers.length} death{markers.length === 1 ? "" : "s"} plotted
+        </p>
+      ) : (
+        caption
+      )}
     </div>
   );
 }

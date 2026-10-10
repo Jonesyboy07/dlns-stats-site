@@ -14,9 +14,10 @@
  * reproduces their `left_relative` / `top_relative` exactly.
  *
  * Careful: `match_paths` (the per-second player trails) is a different space — its
- * values run 0..16383, and comparing them against world positions puts deaths
- * hundreds of units off in every axis combination tried, so the two are not a
- * straight scale of one another. Plot trails only after working that mapping out.
+ * values run 0..16383 normalised into each player's own bounding box, so they need the
+ * `x_min`/`x_max` bounds from the same entry before they can be placed here. The
+ * backend converts at ingest (see `_path_world_samples` in backend/main.py), so trails
+ * arrive as world coordinates and go straight through `worldToPercent`.
  */
 
 /** Half the map's width in world units; the playfield spans ±MAP_RADIUS. */

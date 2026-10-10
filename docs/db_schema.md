@@ -9,6 +9,9 @@ Tables:
 - `matches` stores match-level metadata.
 - `players` stores per-player stats for each match.
 - `player_deaths` stores a midpoint-distance value for every player death.
+- `match_objectives` stores objective destructions for the match timeline.
+- `match_mid_boss` stores mid boss (Rejuvenator) kills.
+- `match_player_paths` stores per-player position trails for the map replay.
 - `user_stats` stores per-user aggregates derived from `players`.
 
 Relationships:
@@ -17,6 +20,7 @@ Relationships:
 - `player_deaths.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `match_objectives.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `match_mid_boss.match_id` -> `matches.match_id` (ON DELETE CASCADE)
+- `match_player_paths.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `user_stats.account_id` -> `users.account_id` (ON DELETE CASCADE)
 
 ## Pragmas
@@ -225,6 +229,48 @@ Primary Key:
 
 Indexes:
 - `idx_match_mid_boss_match` ON `match_mid_boss(match_id)`
+
+## Table: `match_player_paths`
+
+Per-player position trails from the metadata API's `match_paths` block, used by the
+match map replay. One row per player per match holding the whole match in compressed
+blobs rather than ~25,000 rows. Populated during ingest or via `-pathsbackfill`.
+
+The API sends `x_pos`/`y_pos` on a `0..x_resolution` grid that each player's **own**
+bounding box was normalised into, so ingest converts to world coordinates once using
+`x_min`/`x_max`/`y_min`/`y_max` from the same entry (see `_path_world_samples` in
+`backend/main.py`). Everything else on the site, including the map, works in world
+units, so the conversion cannot be deferred to read time.
+
+Samples are one second apart, so sample `i` is match second `i`. Positions outside the
+playfield are kept: the API records the pre-game waiting area (around x = -13,000,
+outside the ±10,752 the minimap covers) and players return there at the end of a match,
+and the replay needs the sample index to stay aligned with elapsed time.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` (ON DELETE CASCADE) |
+| `player_slot` | INTEGER | No | Slot the trail belongs to |
+| `account_id` | INTEGER | Yes | From the matching entry in `players` |
+| `interval_s` | REAL | Yes | Seconds between samples (1.0 in practice) |
+| `sample_count` | INTEGER | No | Number of samples in `positions` |
+| `world_min_x` | REAL | Yes | Extent of this trail, for framing the map |
+| `world_max_x` | REAL | Yes | |
+| `world_min_y` | REAL | Yes | |
+| `world_max_y` | REAL | Yes | |
+| `positions` | BLOB | No | zlib-compressed little-endian int16, x and y interleaved |
+| `health` | BLOB | Yes | One byte per sample, zlib-compressed |
+| `move_type` | BLOB | Yes | One byte per sample, zlib-compressed |
+| `combat_type` | BLOB | Yes | One byte per sample, zlib-compressed |
+
+Primary Key:
+- (`match_id`, `player_slot`)
+
+Indexes:
+- `idx_match_player_paths_match` ON `match_player_paths(match_id)`
+
+`health`, `move_type` and `combat_type` come free in the same payload and are stored so
+a richer replay needs no re-fetch; nothing reads them yet.
 
 ## Table: `user_stats`
 

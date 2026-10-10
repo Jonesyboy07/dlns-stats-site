@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
 import sqlite3
 import threading
 import time
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -1562,6 +1564,69 @@ def match_events(match_id: int):  # type: ignore
             "deaths": len(deaths),
         },
         "events": events,
+    })
+
+
+@bp.get("/matches/<int:match_id>/positions")
+@cache.cached(timeout=3600)
+def match_positions(match_id: int):  # type: ignore
+    """Per-player position trails for the map replay, one sample per second.
+
+    Samples are stored in world coordinates, so the map's own world->image transform
+    places them directly. They come back as base64 little-endian int16 with x and y
+    interleaved: a whole match is ~100 KB this way against several hundred KB of JSON.
+    """
+    with get_ro_conn() as conn:
+        rows = conn.execute(
+            "SELECT t.player_slot, t.account_id, t.interval_s, t.sample_count, "
+            "t.world_min_x, t.world_max_x, t.world_min_y, t.world_max_y, t.positions, "
+            "p.team, p.hero_id, u.persona_name "
+            "FROM match_player_paths t "
+            "LEFT JOIN players p ON p.match_id = t.match_id AND p.player_slot = t.player_slot "
+            "LEFT JOIN users u ON u.account_id = t.account_id "
+            "WHERE t.match_id = ? ORDER BY t.player_slot",
+            (match_id,),
+        ).fetchall()
+        row = conn.execute(
+            "SELECT duration_s FROM matches WHERE match_id = ?", (match_id,)
+        ).fetchone()
+
+    players: List[Dict[str, Any]] = []
+    extent: Optional[Dict[str, float]] = None
+    interval_s: Optional[float] = None
+    for (player_slot, account_id, player_interval, sample_count,
+         min_x, max_x, min_y, max_y, positions, team, hero_id, persona_name) in rows:
+        if interval_s is None:
+            interval_s = player_interval
+        if positions is None:
+            continue
+        if extent is None:
+            extent = {"min_x": min_x, "max_x": max_x, "min_y": min_y, "max_y": max_y}
+        else:
+            extent["min_x"] = min(extent["min_x"], min_x)
+            extent["max_x"] = max(extent["max_x"], max_x)
+            extent["min_y"] = min(extent["min_y"], min_y)
+            extent["max_y"] = max(extent["max_y"], max_y)
+        players.append({
+            "player_slot": player_slot,
+            "account_id": account_id,
+            "team": team,
+            "hero_id": hero_id,
+            "persona_name": persona_name,
+            "sample_count": sample_count,
+            "extent": {"min_x": min_x, "max_x": max_x, "min_y": min_y, "max_y": max_y},
+            "positions": base64.b64encode(zlib.decompress(positions)).decode("ascii"),
+        })
+
+    return jsonify({
+        "match_id": match_id,
+        "duration_s": row[0] if row else None,
+        "interval_s": interval_s,
+        # False when the trails have not been ingested for this match yet.
+        "available": bool(players),
+        "count": len(players),
+        "extent": extent,
+        "players": players,
     })
 
 

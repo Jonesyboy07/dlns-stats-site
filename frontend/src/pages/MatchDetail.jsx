@@ -9,7 +9,7 @@ import { heroIconUrl } from "../components/HeroIcon";
 import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
 import { buildTimelineRows, clock } from "../utils/matchTimeline";
 import { mapVersionForMatch } from "../utils/matchMap";
-import MatchMap from "../components/MatchMap";
+import MatchReplay from "../components/MatchReplay";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -213,6 +213,7 @@ function MatchDetail() {
   const [itemNames, setItemNames] = useState({});
   const [timeline, setTimeline] = useState(null);
   const [matchEvents, setMatchEvents] = useState(null);
+  const [matchPositions, setMatchPositions] = useState(null);
   const [fetchErrors, setFetchErrors] = useState([]);
   const [seriesGames, setSeriesGames] = useState(null);
   const [seriesTitle, setSeriesTitle] = useState("");
@@ -230,6 +231,7 @@ function MatchDetail() {
     fetchWeekMeta();
     fetchTimeline();
     fetchMatchEvents();
+    fetchMatchPositions();
     fetchSeriesGames();
   }, [matchId]);
 
@@ -273,6 +275,17 @@ function MatchDetail() {
       }
     } catch (err) {
       setFetchErrors((prev) => [...prev, "match events"]);
+    }
+  };
+
+  const fetchMatchPositions = async () => {
+    try {
+      const response = await fetch(`/db/matches/${matchId}/positions`);
+      if (response.ok) {
+        setMatchPositions(await response.json());
+      }
+    } catch (err) {
+      setFetchErrors((prev) => [...prev, "match positions"]);
     }
   };
 
@@ -976,13 +989,20 @@ function MatchDetail() {
       {activeTab === "timeline" && (
         <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6">
           <h3 className={GRAPH_SECTION_LABEL}>Timeline</h3>
-          {matchEvents == null ? (
+          {matchEvents == null || matchPositions == null ? (
             <p className="mt-3 text-sm text-dim">Loading…</p>
           ) : timelineRows.length === 0 ? (
             <p className="mt-3 text-sm text-dim">No timeline recorded for this match yet.</p>
           ) : (
             <>
-              <MatchMap rows={timelineRows} version={mapVersion} className="mt-4" />
+              <MatchReplay
+                key={matchId}
+                rows={timelineRows}
+                players={matchPositions?.players || []}
+                durationS={matchPositions?.duration_s ?? null}
+                version={mapVersion}
+                className="mt-4"
+              />
               <ol className="mt-5 flex flex-col">
                 {timelineRows.map((row) => (
                   <li

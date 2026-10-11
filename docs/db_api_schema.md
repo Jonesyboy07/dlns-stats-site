@@ -412,6 +412,70 @@ plus `player_slot`, `team`, `hero_id`, and `persona_name`. Position and time
 fields can be null when the source match data did not include them. Invalid
 filter values return `400` with `invalid_team` or `invalid_account_id`.
 
+## Route: `/db/matches/<match_id>/events`
+
+Returns the match timeline as one time-ordered list, merging objective destructions,
+mid boss kills and deaths. Runes, neutral camps and sinner buffs are not included: the
+metadata API does not carry their timestamps.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `match_id` | integer | Requested match ID |
+| `duration_s` | integer or null | Match duration in seconds |
+| `available` | boolean | `false` when the timeline rows have not been ingested for this match |
+| `count` | integer | Number of returned events |
+| `counts` | object | Event totals split by `objectives`, `mid_boss` and `deaths` |
+| `events` | array | Events ordered by `time_s`, then objective, mid boss, death |
+
+Each event has `type` (`objective` / `mid_boss` / `death`) and `time_s`. Objectives add
+`team`, `objective_id`, a display `objective` name, `lane` (the 1/4/6 lane id the site uses
+elsewhere, or null for Titan, the shield generators and the Core), `first_damage_time_s` and
+the damage split. Mid boss events add `boss_index`, `team_killed` and `team_claimed`. Deaths
+add `account_id`, `death_index`, `persona_name`, `player_slot`, `hero_id`,
+`killer_player_slot`, `time_to_kill_s`, `death_duration_s` and `position`. Survived
+objectives (`destroyed_time_s` of `0`) are stored but excluded from `events`.
+
+## Route: `/db/matches/<match_id>/positions`
+
+Returns every player's position trail for the match, for the map replay. Trails are one
+sample per second across the whole match.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Response:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `match_id` | integer | Requested match ID |
+| `duration_s` | integer or null | Match duration in seconds |
+| `interval_s` | number or null | Seconds between samples |
+| `available` | boolean | `false` when trails have not been ingested for this match |
+| `count` | integer | Number of players with a trail |
+| `extent` | object or null | Union of every trail's `min_x`/`max_x`/`min_y`/`max_y`, for framing the map |
+| `players` | array | One entry per player, plain ascending `player_slot` order |
+
+Each player entry has `player_slot`, `account_id`, `team`, `hero_id`, `persona_name`,
+`sample_count`, an `extent` object, and `positions`.
+
+`positions` is base64 of little-endian int16 with x and y interleaved: sample `i` is
+`positions[i * 4]` for x and `i * 4 + 2` for y, in world units. A whole match is roughly
+100 KB this way against several hundred KB of JSON. Samples outside the playfield are
+included as stored — the API records the pre-game waiting area and players return there
+at the end of a match — so a renderer should skip positions beyond
+`±MAP_RADIUS` rather than clamping them to the edge.
+
+See `docs/db_schema.md` for how the trail's grid coordinates become world coordinates.
+
+An answer with `available: false` is deliberately not cached: that is the normal state
+before a backfill, and caching it would leave the page reporting no trails for the whole
+timeout after the data landed. `/db/matches/<match_id>/events` works the same way.
+
 ## Route: `/db/matches/<match_id>/items`
 
 Returns enriched purchased-item data for each player in a match.

@@ -36,6 +36,9 @@ dist/
 /_cache/
 data/_cache/
 
+# `-timelineprobe` raw metadata dumps
+data/_probe/
+
 # Frontend builds
 frontend/dist/
 public/react-app/

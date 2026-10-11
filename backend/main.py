@@ -14,7 +14,7 @@ import zlib
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import asqlite
 
@@ -41,7 +41,22 @@ except ImportError:  # pragma: no cover - module execution
 load_dotenv()
 
 DEFAULT_DATA_DIR = Path.cwd() / "data"
-DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "dlns.sqlite3"
+
+
+def _default_db_path(env: Optional[Mapping[str, str]] = None) -> Path:
+	"""The database the CLI should work on.
+
+	The web app takes its database from DB_PATH when that is set (see
+	backend/app/main_web.py), so the CLI resolves the same file. Defaulting to a path
+	inside this checkout instead lets a maintenance pass report success while writing to
+	a database the server never reads.
+	"""
+	source = os.environ if env is None else env
+	configured = source.get("DB_PATH")
+	return Path(configured) if configured else DEFAULT_DATA_DIR / "dlns.sqlite3"
+
+
+DEFAULT_DB_PATH = _default_db_path()
 DEFAULT_CACHE_PATH = DEFAULT_DATA_DIR / "user_cache.json"
 DEFAULT_AVATAR_CACHE_PATH = DEFAULT_DATA_DIR / "avatar_cache.json"
 DEFAULT_STATUS_PATH = DEFAULT_DATA_DIR / "matches_status.json"
@@ -133,6 +148,14 @@ def parse_bool(val: Optional[str]) -> bool:
 		return False
 	v = str(val).strip().lower()
 	return v in {"1", "true", "yes", "y"}
+
+
+def _optional_int(val: Optional[str]) -> Optional[int]:
+	"""An integer argument, or None when the value is not one (including "false")."""
+	try:
+		return int(str(val).strip())
+	except (TypeError, ValueError):
+		return None
 
 
 def to_steamid64(account_id: int) -> str:
@@ -2254,23 +2277,33 @@ def backfill_all_match_timeline(conn: sqlite3.Connection) -> None:
 	)
 
 
-def backfill_all_player_paths(conn: sqlite3.Connection) -> None:
-	"""Populate match_player_paths for matches that have no trail rows yet.
+def backfill_all_player_paths(conn: sqlite3.Connection, only_match_id: Optional[int] = None) -> None:
+	"""Populate match_player_paths for matches missing trails, or for one named match.
 
 	One metadata request per match, and the metadata payload carries every player's
-	whole-match trail, so this is a large sweep: expect it to be slow and to pull a
+	whole-match trail, so a full sweep is heavy: expect it to be slow and to pull a
 	couple of megabytes per match. Re-running only fetches what is still missing.
 	"""
-	rows = conn.execute(
-		"SELECT DISTINCT p.match_id FROM players p "
-		"WHERE NOT EXISTS (SELECT 1 FROM match_player_paths t WHERE t.match_id = p.match_id) "
-		"ORDER BY p.match_id DESC"
-	).fetchall()
-	match_ids = [int(r[0]) for r in rows]
-	if not match_ids:
-		print("[pathsbackfill] No matches missing position trails.")
-		return
-	print(f"[pathsbackfill] Fetching position trails for {len(match_ids)} matches.")
+	if only_match_id is not None:
+		match_ids = [int(only_match_id)]
+		print(f"[pathsbackfill] Backfilling position trails for match {only_match_id}.")
+	else:
+		rows = conn.execute(
+			"SELECT DISTINCT p.match_id FROM players p "
+			"WHERE NOT EXISTS (SELECT 1 FROM match_player_paths t WHERE t.match_id = p.match_id) "
+			"ORDER BY p.match_id DESC"
+		).fetchall()
+		match_ids = [int(r[0]) for r in rows]
+		if not match_ids:
+			# "Nothing is missing" and "there is nothing here" are very different
+			# answers, and the second one usually means the wrong database was used.
+			known = conn.execute("SELECT COUNT(DISTINCT match_id) FROM players").fetchone()[0]
+			if not known:
+				print("[pathsbackfill] This database has no matches recorded, so there is nothing to backfill.")
+			else:
+				print(f"[pathsbackfill] All {known} matches already have position trails.")
+			return
+		print(f"[pathsbackfill] Fetching position trails for {len(match_ids)} matches.")
 	updated_matches = 0
 	skipped = 0
 	errors = 0
@@ -2286,6 +2319,7 @@ def backfill_all_player_paths(conn: sqlite3.Connection) -> None:
 			continue
 		if not match_info.get("match_paths"):
 			skipped += 1
+			print(f"[pathsbackfill] Match {match_id} has no position trails in its metadata.")
 			continue
 		ingest_player_paths(conn, match_id, match_info)
 		updated_matches += 1
@@ -3489,7 +3523,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-goldbackfill", dest="goldbackfill", type=str, default="false", help="If true, backfill player_gold_sources (soul income) for matches missing it and exit")
 	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
 	parser.add_argument("-timelinebackfill", dest="timelinebackfill", type=str, default="false", help="If true, backfill match_objectives, match_mid_boss and the player_deaths detail columns for matches missing them and exit")
-	parser.add_argument("-pathsbackfill", dest="pathsbackfill", type=str, default="false", help="If true, backfill match_player_paths (per-player position trails for the map replay) for matches missing them and exit. One large metadata fetch per match.")
+	parser.add_argument("-pathsbackfill", dest="pathsbackfill", type=str, default="false", help="If true, backfill match_player_paths (per-player position trails for the map replay) for matches missing them and exit. Pass a match id instead to backfill just that match. One large metadata fetch per match.")
 	parser.add_argument("-metasync", dest="metasync", type=str, default="false", help="If true, re-apply the feed's authored metadata (teams, week, side, vod) to matches already in the DB and exit. No API calls.")
 	parser.add_argument("-versionbackfill", dest="versionbackfill", type=str, default="false", help="If true, fill matches.game_version from start_time (GameTracking-Deadlock commits, cached locally) and exit. Use 'force' to recompute every match.")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
@@ -3623,12 +3657,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 		finally:
 			conn.close()
 
-	if parse_bool(args.pathsbackfill):
+	if parse_bool(args.pathsbackfill) or _optional_int(args.pathsbackfill) is not None:
 		conn = db_connect(db_path)
 		db_init(conn)
 		try:
-			print("[pathsbackfill] Running position-trail backfill...")
-			backfill_all_player_paths(conn)
+			# Naming the resolved database keeps a wrong-target run obvious instead of
+			# looking like a job that was already finished.
+			print(f"[pathsbackfill] Database: {db_path}")
+			backfill_all_player_paths(
+				conn,
+				only_match_id=None if parse_bool(args.pathsbackfill) else _optional_int(args.pathsbackfill),
+			)
 			print("[pathsbackfill] Done.")
 			return 0
 		finally:

@@ -1,10 +1,18 @@
+import base64
+import os
+import shutil
+import sqlite3
 import struct
 import tempfile
 import unittest
 import zlib
 from pathlib import Path
 
+from backend.app.main_web import create_app
 from backend.main import (
+    DEFAULT_DATA_DIR,
+    _default_db_path,
+    _optional_int,
     _path_byte_series,
     _path_rows_from_match,
     _path_world_samples,
@@ -139,6 +147,37 @@ class PathRowsFromMatchTests(unittest.TestCase):
         self.assertIsNone(rows[0][2])
 
 
+class PathTargetingTests(unittest.TestCase):
+    """The CLI must work on the same database the web app serves."""
+
+    def test_db_path_from_the_environment_wins(self):
+        self.assertEqual(
+            _default_db_path({"DB_PATH": r"D:\elsewhere\data\dlns.sqlite3"}),
+            Path(r"D:\elsewhere\data\dlns.sqlite3"),
+        )
+
+    def test_falls_back_inside_the_checkout_when_unset(self):
+        self.assertEqual(_default_db_path({}), DEFAULT_DATA_DIR / "dlns.sqlite3")
+
+    def test_an_empty_db_path_falls_back_rather_than_resolving_to_nothing(self):
+        # Path("") is "." which would open a directory as the database file
+        self.assertEqual(_default_db_path({"DB_PATH": ""}), DEFAULT_DATA_DIR / "dlns.sqlite3")
+
+
+class OptionalIntTests(unittest.TestCase):
+    def test_reads_integers_including_negative_placeholder_ids(self):
+        self.assertEqual(_optional_int("38787362"), 38787362)
+        self.assertEqual(_optional_int(" -5 "), -5)
+
+    def test_returns_none_for_anything_that_is_not_an_integer(self):
+        self.assertIsNone(_optional_int("false"))
+        self.assertIsNone(_optional_int("true"))
+        self.assertIsNone(_optional_int(""))
+        self.assertIsNone(_optional_int(None))
+        self.assertIsNone(_optional_int("12abc"))
+        self.assertIsNone(_optional_int("1.5"))
+
+
 class PathIngestTests(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -185,6 +224,74 @@ class PathIngestTests(unittest.TestCase):
             "SELECT COUNT(*) FROM match_player_paths WHERE match_id = 123"
         ).fetchone()[0]
         self.assertEqual(count, 0)
+
+
+class PositionsRouteTests(unittest.TestCase):
+    """The route and its caching: a backfill must be visible as soon as it lands."""
+
+    def setUp(self):
+        self._old_env = {key: os.environ.get(key) for key in ("DB_PATH", "CACHE_DIR", "CACHE_WARMUP_ON_STARTUP")}
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="dlns-paths-"))
+        self.db_path = self.tmpdir / "dlns.sqlite3"
+        os.environ["DB_PATH"] = str(self.db_path)
+        os.environ["CACHE_DIR"] = str(self.tmpdir / "cache")
+        os.environ["CACHE_WARMUP_ON_STARTUP"] = "false"
+        self.app = create_app()
+        self.app.config["TESTING"] = True
+        self.client = self.app.test_client()
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("INSERT INTO matches (match_id, duration_s) VALUES (123, 1903)")
+            conn.execute("INSERT INTO users (account_id, persona_name) VALUES (42, 'Tester')")
+            conn.execute(
+                "INSERT INTO players (match_id, account_id, player_slot, team, hero_id) "
+                "VALUES (123, 42, 1, 0, 11)"
+            )
+
+    def tearDown(self):
+        for key, value in self._old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _insert_trail(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO match_player_paths (match_id, player_slot, account_id, interval_s, "
+                "sample_count, world_min_x, world_max_x, world_min_y, world_max_y, positions) "
+                "VALUES (123, 1, 42, 1.0, 2, -1000, 1000, -500, 500, ?)",
+                (zlib.compress(struct.pack("<4h", -1000, -500, 1000, 500)),),
+            )
+
+    def test_reports_unavailable_before_a_backfill(self):
+        payload = self.client.get("/db/matches/123/positions").get_json()
+        self.assertFalse(payload["available"])
+        self.assertEqual(payload["players"], [])
+        self.assertEqual(payload["extent"], None)
+
+    def test_a_backfill_shows_up_immediately(self):
+        # The first answer must not be cached: a stale "not recorded" would survive the
+        # whole timeout and look like the backfill had failed.
+        self.assertFalse(self.client.get("/db/matches/123/positions").get_json()["available"])
+        self._insert_trail()
+
+        payload = self.client.get("/db/matches/123/positions").get_json()
+        self.assertTrue(payload["available"])
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["extent"], {"min_x": -1000, "max_x": 1000, "min_y": -500, "max_y": 500})
+
+    def test_trails_decode_to_interleaved_world_coordinates(self):
+        self._insert_trail()
+        player = self.client.get("/db/matches/123/positions").get_json()["players"][0]
+
+        self.assertEqual(player["player_slot"], 1)
+        self.assertEqual(player["team"], 0)
+        self.assertEqual(player["hero_id"], 11)
+        self.assertEqual(player["persona_name"], "Tester")
+        decoded = struct.unpack("<4h", base64.b64decode(player["positions"]))
+        self.assertEqual(list(decoded), [-1000, -500, 1000, 500])
 
 
 if __name__ == "__main__":

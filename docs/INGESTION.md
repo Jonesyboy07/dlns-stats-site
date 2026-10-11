@@ -77,7 +77,7 @@ Normal ingestion tracks processed IDs in `data/matches_status.json` and skips th
 | `-goldbackfill true` | Backfill player soul-income sources |
 | `-dmgbackfill true` | Backfill player damage sources |
 | `-timelinebackfill true` | Backfill `match_objectives`, `match_mid_boss` and the `player_deaths` detail columns for matches missing them |
-| `-pathsbackfill true` | Backfill `match_player_paths` (per-player position trails for the map replay) for matches missing them |
+| `-pathsbackfill true` | Backfill `match_player_paths` (per-player position trails for the map replay) for matches missing them. Pass a match id instead of `true` to backfill only that match |
 | `-metasync true` | Reapply feed metadata to existing matches without API requests |
 | `-timelineprobe MATCH_ID` | Fetch one match's metadata, print a timeline summary, and dump the raw JSON under `-probedir`; read-only, never touches the DB or feed |
 | `-probedir PATH` | Output directory for `-timelineprobe` raw dumps (default `data/_probe`) |
@@ -104,6 +104,22 @@ progress survives an interruption.
 Normal ingest writes trails at the same time as the rest of a match, so a backfill is
 only needed for matches ingested before `match_player_paths` existed. See
 `docs/db_schema.md` for how the raw grid coordinates become world coordinates.
+
+A full sweep is expensive, so `-pathsbackfill <match_id>` fetches a single match
+instead. That is the practical way to populate one match for local work:
+
+```
+python3 backend/main.py -pathsbackfill 38787362
+```
+
+### Which database the CLI uses
+
+`-db` defaults to `DB_PATH` when that is set in the environment (or `.env`), which is
+the same value the web app reads, so a maintenance pass and the running server work on
+one file. When `DB_PATH` is unset it falls back to `data/dlns.sqlite3` in the checkout.
+Every backfill prints the database it resolved, and reports an empty database as empty
+rather than as complete, so targeting the wrong file is visible instead of looking like
+a job that had already finished.
 
 ## Repository scripts
 

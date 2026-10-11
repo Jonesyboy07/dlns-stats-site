@@ -41,6 +41,19 @@ def _rows_to_dicts(cur: sqlite3.Cursor) -> List[Dict[str, Any]]:
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
+def _cache_only_when_available(response):
+    """Cache a route's answer only when it carries data.
+
+    "Not recorded yet" is a normal state before a backfill, and caching it would leave
+    the page showing the old answer for the whole timeout after the data lands, which
+    reads as a backfill that did not work.
+    """
+    if response.status_code != 200:
+        return False
+    payload = response.get_json(silent=True)
+    return bool(payload and payload.get("available"))
+
+
 def get_ro_conn() -> sqlite3.Connection:
     db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3")).resolve()
     uri = f"file:{db_path.as_posix()}?mode=ro&cache=shared"
@@ -1470,7 +1483,7 @@ def match_deaths(match_id: int):  # type: ignore
 
 
 @bp.get("/matches/<int:match_id>/events")
-@cache.cached(timeout=3600)
+@cache.cached(timeout=3600, response_filter=_cache_only_when_available)
 def match_events(match_id: int):  # type: ignore
     """Ordered match timeline: objective destructions, mid boss kills and deaths.
 
@@ -1568,7 +1581,7 @@ def match_events(match_id: int):  # type: ignore
 
 
 @bp.get("/matches/<int:match_id>/positions")
-@cache.cached(timeout=3600)
+@cache.cached(timeout=3600, response_filter=_cache_only_when_available)
 def match_positions(match_id: int):  # type: ignore
     """Per-player position trails for the map replay, one sample per second.
 

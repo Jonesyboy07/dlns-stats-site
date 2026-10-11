@@ -472,6 +472,10 @@ at the end of a match — so a renderer should skip positions beyond
 
 See `docs/db_schema.md` for how the trail's grid coordinates become world coordinates.
 
+An answer with `available: false` is deliberately not cached: that is the normal state
+before a backfill, and caching it would leave the page reporting no trails for the whole
+timeout after the data landed. `/db/matches/<match_id>/events` works the same way.
+
 ## Route: `/db/matches/<match_id>/items`
 
 Returns enriched purchased-item data for each player in a match.

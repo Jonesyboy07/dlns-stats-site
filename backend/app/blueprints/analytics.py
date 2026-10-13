@@ -1,4 +1,4 @@
-"""Privacy-first, first-party analytics.
+﻿"""Privacy-first, first-party analytics.
 
 What is stored: per-day aggregate counters (path, referrer host, device class) and a
 count of unique visitors. Nothing identifies a person: no cookies, no IP addresses, no
@@ -32,6 +32,7 @@ from ..utils.auth import require_admin
 analytics_bp = Blueprint("analytics", __name__)
 
 RETENTION_DAYS = 395
+HOURLY_RETENTION_HOURS = 72
 MAX_PATH_LEN = 200
 MAX_PATHS_PER_DAY = 2000
 RATE_LIMIT = 60
@@ -62,6 +63,24 @@ CREATE TABLE IF NOT EXISTS analytics_seen (
     day TEXT NOT NULL,
     h TEXT NOT NULL,
     PRIMARY KEY (day, h)
+);
+CREATE TABLE IF NOT EXISTS analytics_hourly (
+    hour TEXT NOT NULL,
+    path TEXT NOT NULL,
+    referrer TEXT NOT NULL,
+    device TEXT NOT NULL,
+    hits INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (hour, path, referrer, device)
+);
+CREATE TABLE IF NOT EXISTS analytics_visitors_hourly (
+    hour TEXT NOT NULL,
+    visitors INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (hour)
+);
+CREATE TABLE IF NOT EXISTS analytics_seen_hour (
+    hour TEXT NOT NULL,
+    h TEXT NOT NULL,
+    PRIMARY KEY (hour, h)
 );
 """
 
@@ -191,6 +210,10 @@ def _purge(conn: sqlite3.Connection, today: str) -> None:
         return
     cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).strftime("%Y-%m-%d")
     conn.execute("DELETE FROM analytics_seen WHERE day < ?", (today,))
+    conn.execute("DELETE FROM analytics_seen_hour WHERE substr(hour, 1, 10) < ?", (today,))
+    hourly_cutoff = (datetime.now(timezone.utc) - timedelta(hours=HOURLY_RETENTION_HOURS)).strftime("%Y-%m-%dT%H")
+    conn.execute("DELETE FROM analytics_hourly WHERE hour < ?", (hourly_cutoff,))
+    conn.execute("DELETE FROM analytics_visitors_hourly WHERE hour < ?", (hourly_cutoff,))
     conn.execute("DELETE FROM analytics_daily WHERE day < ?", (cutoff,))
     conn.execute("DELETE FROM analytics_visitors_daily WHERE day < ?", (cutoff,))
     _state["last_purge"] = today
@@ -225,11 +248,26 @@ def record_hit():
             with conn:
                 _purge(conn, today)
                 path = _cap_path(conn, today, path)
+                device = _device(ua)
+                hour = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H")
                 conn.execute(
                     "INSERT INTO analytics_daily (day, path, referrer, device, hits) VALUES (?,?,?,?,1) "
                     "ON CONFLICT(day, path, referrer, device) DO UPDATE SET hits = hits + 1",
-                    (today, path, referrer, _device(ua)),
+                    (today, path, referrer, device),
                 )
+                conn.execute(
+                    "INSERT INTO analytics_hourly (hour, path, referrer, device, hits) VALUES (?,?,?,?,1) "
+                    "ON CONFLICT(hour, path, referrer, device) DO UPDATE SET hits = hits + 1",
+                    (hour, path, referrer, device),
+                )
+                if conn.execute(
+                    "INSERT OR IGNORE INTO analytics_seen_hour (hour, h) VALUES (?, ?)", (hour, visitor)
+                ).rowcount:
+                    conn.execute(
+                        "INSERT INTO analytics_visitors_hourly (hour, visitors) VALUES (?, 1) "
+                        "ON CONFLICT(hour) DO UPDATE SET visitors = visitors + 1",
+                        (hour,),
+                    )
                 new = conn.execute(
                     "INSERT OR IGNORE INTO analytics_seen (day, h) VALUES (?, ?)", (today, visitor)
                 ).rowcount
@@ -246,51 +284,114 @@ def record_hit():
     return ("", 204)
 
 
+# The pages themselves are React routes; Flask only serves the shell. The data
+# endpoint below is what is admin-gated.
 @analytics_bp.get("/privacy")
 def privacy():
-    return render_template("privacy.html")
+    return render_template("react.html", page="matchlist")
 
 
 @analytics_bp.get("/admin/analytics")
+def dashboard_page():
+    return render_template("react.html", page="matchlist")
+
+
+def _query_period(conn: sqlite3.Connection, hourly: bool, start: str, end: str) -> dict:
+    """Aggregates for one inclusive [start, end] window, from the hourly or daily tables."""
+    tbl, col, vtbl = (
+        ("analytics_hourly", "hour", "analytics_visitors_hourly")
+        if hourly
+        else ("analytics_daily", "day", "analytics_visitors_daily")
+    )
+    args = (start, end)
+    where = f"{col} BETWEEN ? AND ?"
+    views = conn.execute(f"SELECT COALESCE(SUM(hits),0) FROM {tbl} WHERE {where}", args).fetchone()[0]
+    visitors = conn.execute(f"SELECT COALESCE(SUM(visitors),0) FROM {vtbl} WHERE {where}", args).fetchone()[0]
+    return {
+        "views": views,
+        "visitors": visitors,
+        "per_bucket": {
+            k: (h, v)
+            for k, h, v in conn.execute(
+                f"SELECT h.k, h.hits, COALESCE(v.visitors, 0) FROM "
+                f"(SELECT {col} k, SUM(hits) hits FROM {tbl} WHERE {where} GROUP BY {col}) h "
+                f"LEFT JOIN {vtbl} v ON v.{col} = h.k",
+                args,
+            )
+        },
+        "pages": conn.execute(
+            f"SELECT path, SUM(hits) h FROM {tbl} WHERE {where} GROUP BY path ORDER BY h DESC LIMIT 15", args
+        ).fetchall(),
+        "referrers": conn.execute(
+            f"SELECT referrer, SUM(hits) h FROM {tbl} WHERE {where} AND referrer != '' "
+            f"GROUP BY referrer ORDER BY h DESC LIMIT 10",
+            args,
+        ).fetchall(),
+        "direct": conn.execute(
+            f"SELECT COALESCE(SUM(hits),0) FROM {tbl} WHERE {where} AND referrer = ''", args
+        ).fetchone()[0],
+        "devices": conn.execute(
+            f"SELECT device, SUM(hits) h FROM {tbl} WHERE {where} GROUP BY device ORDER BY h DESC", args
+        ).fetchall(),
+    }
+
+
+@analytics_bp.get("/admin/api/analytics")
 @require_admin
-def dashboard():
+def dashboard_data():
+    """`range` is `24h` (hourly buckets) or a number of days (daily buckets)."""
+    raw = request.args.get("range") or request.args.get("days") or "30"
+    hourly = raw == "24h"
     try:
-        days = int(request.args.get("days", 30))
+        days = 1 if hourly else int(raw)
     except ValueError:
         days = 30
-    if days not in (7, 30, 90, 365):
+    if not hourly and days not in (7, 30, 90, 365):
         days = 30
-    since = (datetime.now(timezone.utc) - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+
+    now = datetime.now(timezone.utc)
+    if hourly:
+        n = 24
+        fmt = lambda d: d.strftime("%Y-%m-%dT%H")  # noqa: E731
+        step = timedelta(hours=1)
+    else:
+        n = days
+        fmt = lambda d: d.strftime("%Y-%m-%d")  # noqa: E731
+        step = timedelta(days=1)
+    first = now - step * (n - 1)
+    prev_last = first - step
+    prev_first = prev_last - step * (n - 1)
 
     conn = _connect()
     try:
-        q = lambda sql: conn.execute(sql, (since,)).fetchall()  # noqa: E731
-        total_hits = conn.execute(
-            "SELECT COALESCE(SUM(hits),0) FROM analytics_daily WHERE day >= ?", (since,)
-        ).fetchone()[0]
-        daily_visitors = dict(q("SELECT day, visitors FROM analytics_visitors_daily WHERE day >= ?"))
-        daily_hits = dict(q("SELECT day, SUM(hits) FROM analytics_daily WHERE day >= ? GROUP BY day"))
-        top_pages = q("SELECT path, SUM(hits) h FROM analytics_daily WHERE day >= ? GROUP BY path ORDER BY h DESC LIMIT 25")
-        referrers = q(
-            "SELECT referrer, SUM(hits) h FROM analytics_daily WHERE day >= ? AND referrer != '' "
-            "GROUP BY referrer ORDER BY h DESC LIMIT 15"
-        )
-        devices = q("SELECT device, SUM(hits) h FROM analytics_daily WHERE day >= ? GROUP BY device ORDER BY h DESC")
+        cur = _query_period(conn, hourly, fmt(first), fmt(now))
+        prev = _query_period(conn, hourly, fmt(prev_first), fmt(prev_last))
     finally:
         conn.close()
 
-    rows = []
-    for i in range(days):
-        d = (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%Y-%m-%d")
-        rows.append({"day": d, "hits": daily_hits.get(d, 0), "visitors": daily_visitors.get(d, 0)})
+    series = []
+    for i in range(n):
+        moment = first + step * i
+        key = fmt(moment)
+        views, visitors = cur["per_bucket"].get(key, (0, 0))
+        label = moment.strftime("%H:00") if hourly else key
+        series.append({"key": key, "label": label, "views": views, "visitors": visitors})
 
-    return render_template(
-        "admin/analytics.html",
-        days=days,
-        total_hits=total_hits,
-        rows=rows,
-        top_pages=top_pages,
-        referrers=referrers,
-        devices=devices,
-        retention=RETENTION_DAYS,
-    )
+    return {
+        "ok": True,
+        "range": "24h" if hourly else str(days),
+        "buckets": n,
+        "granularity": "hour" if hourly else "day",
+        "retention_days": RETENTION_DAYS,
+        "current": {"views": cur["views"], "visitors": cur["visitors"]},
+        "previous": {"views": prev["views"], "visitors": prev["visitors"]},
+        "series": series,
+        "pages": [{"label": p, "views": h} for p, h in cur["pages"]],
+        "referrers": [{"label": r, "views": h} for r, h in cur["referrers"]],
+        "direct_views": cur["direct"],
+        "devices": [{"label": d, "views": h} for d, h in cur["devices"]],
+    }
+
+
+
+

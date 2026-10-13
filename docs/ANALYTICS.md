@@ -11,6 +11,7 @@ Aggregate page counts are enough. We do not need to know who a visitor is, so we
 ## What is processed
 - Per day: page path (no query string), referrer domain, device class (desktop/mobile/tablet), view count.
 - Per day: unique-visitor count, derived from `HMAC-SHA256(secret, day|IP|user agent)`. These hashes are kept only for the current day and deleted on the first request after the day rolls over. Raw IPs and user agents are never stored.
+- Per hour (used for the 24-hour view): the same aggregate counters and a unique-visitor count per hour, kept for 72 hours and then deleted. The hourly hashes are deleted with the daily ones at the end of the day.
 - Admin pages, API and auth paths, bots, and Do Not Track / Global Privacy Control / opted-out visitors are not counted.
 - Per-IP rate limiting holds IPs in memory only (60 requests/minute window), never on disk.
 

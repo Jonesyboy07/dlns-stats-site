@@ -73,7 +73,7 @@ Normal ingestion tracks processed IDs in `data/matches_status.json` and skips th
 | `-userfetch true` | Refetch usernames for cached users |
 | `-itembackfill true` | Backfill items across current matches |
 | `-lanebackfill true` | Fill missing game-reported lane assignments |
-| `-laneinfer true` | Infer real lanes from match paths. `-laneinfer force` re-infers matches that already have `lane_real` (needed after a change to the lane geometry) |
+| `-laneinfer true` | Infer real lanes from match paths. `-laneinfer force` re-infers matches that already have `lane_real` (needed after a change to the lane geometry or to the position transform) |
 | `-goldbackfill true` | Backfill player soul-income sources |
 | `-dmgbackfill true` | Backfill player damage sources |
 | `-timelinebackfill true` | Backfill `match_objectives`, `match_mid_boss` and the `player_deaths` detail columns for matches missing them |

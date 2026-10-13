@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from ..heroes import get_hero_name
 from ..utils import brackets as bk
 from ..utils.auth import require_admin
+from ..utils.item_icons import icon_key, item_icon_index, resolve_icon, shop_item_name
 from ..help_config import load_help_config, save_help_config
 from ...constants import HEROES_URL, ITEMS_URL
 from ...game_version import resolve_game_version
@@ -1415,8 +1416,30 @@ def match_players(match_id: int):  # type: ignore
     for p in data:
         p["gold_sources"] = gs_by_acct.get(p.get("account_id"), [])
         p["damage_sources"] = dmg_by_acct.get(p.get("account_id"), [])
+        # Lane provenance, so consumers never mix the two silently: `lane_source` names
+        # the value in use (the inferred lane is preferred, the game-reported one is the
+        # fallback) and `lane_agrees` says whether the two matched. Both are None-safe,
+        # and `lane_agrees` is None whenever either side is missing.
+        lane = p.get("lane")
+        lane_real = p.get("lane_real")
+        p["lane_source"] = (
+            "inferred" if lane_real is not None else "assigned" if lane is not None else None
+        )
+        p["lane_agrees"] = None if lane is None or lane_real is None else lane_real == lane
 
-    return jsonify({"players": data})
+    inferred = sum(1 for p in data if p["lane_source"] == "inferred")
+    assigned = sum(1 for p in data if p["lane_source"] == "assigned")
+    comparable = [p for p in data if p["lane_agrees"] is not None]
+    return jsonify({
+        "players": data,
+        "lane_inference": {
+            "inferred": inferred,
+            "assigned": assigned,
+            "unknown": len(data) - inferred - assigned,
+            "comparable": len(comparable),
+            "agree": sum(1 for p in comparable if p["lane_agrees"]),
+        },
+    })
 
 
 @bp.get("/items/names")
@@ -1487,8 +1510,11 @@ def match_deaths(match_id: int):  # type: ignore
 def match_events(match_id: int):  # type: ignore
     """Ordered match timeline: objective destructions, mid boss kills and deaths.
 
-    Runes, neutral camps and sinner buffs are not here: the metadata API does not
-    carry their timestamps, so they would need a demo-file query.
+    Item purchases ride along in a separate `purchases` list: the metadata API logs
+    every buy with its `game_time_s`, but a match carries a few hundred of them against
+    a few dozen events, so merging the two would bury the timeline. Runes, neutral camps
+    and sinner buffs are not here at all: the metadata API does not carry their
+    timestamps, so they would need a demo-file query.
     """
     with get_ro_conn() as conn:
         objectives = conn.execute(
@@ -1518,6 +1544,15 @@ def match_events(match_id: int):  # type: ignore
         row = conn.execute(
             "SELECT duration_s FROM matches WHERE match_id = ?", (match_id,)
         ).fetchone()
+        listed = conn.execute(
+            "SELECT p.account_id, p.player_slot, p.team, p.hero_id, "
+            "u.persona_name, p.raw_items_json "
+            "FROM players p "
+            "LEFT JOIN users u ON u.account_id = p.account_id "
+            "WHERE p.match_id = ? AND p.raw_items_json IS NOT NULL "
+            "ORDER BY p.player_slot",
+            (match_id,),
+        ).fetchall()
 
     events: List[Dict[str, Any]] = []
     for (team, objective_id, destroyed_time_s, first_damage_time_s,
@@ -1560,6 +1595,53 @@ def match_events(match_id: int):  # type: ignore
             "position": None if x is None and y is None and z is None else {"x": x, "y": y, "z": z},
         })
 
+    # Purchases, straight out of the metadata feed's per-player item log. That log also
+    # carries one entry per hero-ability level, so the catalog is what separates a real
+    # purchase from a level-up; the ids it does not know about are dropped with them.
+    catalog = _item_catalog()
+    purchases: List[Dict[str, Any]] = []
+    for account_id, player_slot, team, hero_id, persona_name, raw_items_json in listed:
+        try:
+            entries = json.loads(raw_items_json)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            item_id = entry.get("item_id")
+            if item_id is None:
+                continue
+            try:
+                item_id_int = int(item_id)
+            except (TypeError, ValueError):
+                continue
+            meta = catalog.get(item_id_int)
+            if not meta or meta.get("type") == "ability":
+                continue
+            purchases.append({
+                "type": "purchase",
+                "time_s": entry.get("game_time_s"),
+                "team": team,
+                "account_id": account_id,
+                "player_slot": player_slot,
+                "hero_id": hero_id,
+                "persona_name": persona_name,
+                "item_id": item_id_int,
+                "item": meta.get("name"),
+                "icon": meta.get("icon"),
+                "image": meta.get("image"),
+                "tier": meta.get("tier"),
+                "slot": meta.get("slot"),
+                # 0 means the player still owned it when the match ended.
+                "sold_time_s": entry.get("sold_time_s") or None,
+            })
+
+    # Buys and sells land on the same second — a player sells a component to afford its
+    # upgrade — so the slot is what keeps the order stable between requests.
+    purchases.sort(key=lambda e: (e["time_s"] is None, e["time_s"] or 0, e["player_slot"] or 0))
+
     # Stable order: by time, then a fixed type order so simultaneous events read
     # the same way every request.
     type_order = {"objective": 0, "mid_boss": 1, "death": 2}
@@ -1575,8 +1657,10 @@ def match_events(match_id: int):  # type: ignore
             "objectives": len(objectives),
             "mid_boss": len(bosses),
             "deaths": len(deaths),
+            "purchases": len(purchases),
         },
         "events": events,
+        "purchases": purchases,
     })
 
 
@@ -1800,6 +1884,7 @@ def match_build(match_id: int):  # type: ignore
             current_app.logger.warning("Item catalog unavailable: %s", e)
             return jsonify({})
 
+    icons = item_icon_index()
     item_lookup: dict = {}
     ability_lookup: dict = {}
     for item in (item_catalog if isinstance(item_catalog, list) else []):
@@ -1816,12 +1901,16 @@ def match_build(match_id: int):  # type: ignore
                 "hero": item.get("hero"),
             }
         else:
+            # The shipped art path, so the client never has to rebuild a filename
+            # from the display name (which the game does not match).
+            shipped = resolve_icon(item, icons)
             item_lookup[iid_int] = {
                 "name": item.get("name", ""),
                 "image": item.get("image", ""),
                 "item_slot_type": item.get("item_slot_type", ""),
                 "item_tier": item.get("item_tier"),
                 "type": item_type,
+                "icon": f"items/{shipped}" if shipped else None,
             }
 
     with get_ro_conn() as conn:
@@ -4376,52 +4465,8 @@ def night_shift_scope(conn: sqlite3.Connection) -> Tuple[str, str]:
     return fragment, f"Night Shift · Weeks {first}–{last}"
 
 
-def _icon_key(value: str) -> str:
-    """Punctuation-insensitive icon key.
-
-    Shipped filenames and the asset API disagree on punctuation (Hunter's Aura
-    is "hunter's_aura_psd.png" locally but "hunters_aura.png" upstream), so both
-    sides are reduced to lowercase alphanumerics with & read as "and".
-    """
-    return re.sub(r"[^a-z0-9]", "", (value or "").lower().replace("&", "and"))
-
-
-def _item_icon_index() -> Dict[str, str]:
-    """'<slot>/<key>' and '*/<key>' -> shipped filename under public/images/items."""
-    cached = cache.get("dlns_item_icon_index")
-    if cached is not None:
-        return cached
-
-    index: Dict[str, str] = {}
-    # current_app.root_path is backend/app, so parents[1] is the project root.
-    root = Path(current_app.root_path).resolve().parents[1] / "public" / "images" / "items"
-    try:
-        for path in sorted(root.rglob("*.png")):
-            rel = path.relative_to(root).as_posix()
-            slot, _, filename = rel.partition("/")
-            if not filename:
-                continue
-            stem = filename[:-4]
-            if stem.endswith("_psd"):
-                stem = stem[:-4]
-            key = _icon_key(stem)
-            if not key:
-                continue
-            index.setdefault(f"{slot}/{key}", rel)
-            # The asset API's item category drifts from the folders shipped
-            # here (Dispel Magic is "spirit" upstream, "vitality" here), so keep
-            # a slot-agnostic fallback too.
-            index.setdefault(f"*/{key}", rel)
-    except OSError:
-        current_app.logger.warning("Item icon folder unreadable: %s", root)
-
-    if index:
-        cache.set("dlns_item_icon_index", index, timeout=21600)
-    return index
-
-
 def _item_catalog() -> Dict[int, Dict[str, Any]]:
-    """Shop item id -> {name, slot, tier, type, icon} (cached)."""
+    """Shop item id -> {name, slot, tier, type, image, icon} (cached)."""
     cached = cache.get("dlns_item_catalog")
     if cached is not None:
         return cached
@@ -4438,38 +4483,28 @@ def _item_catalog() -> Dict[int, Dict[str, Any]]:
         current_app.logger.warning("Item catalog unavailable: %s", exc)
         raw_catalog = []
 
-    icons = _item_icon_index()
+    icons = item_icon_index()
     catalog: Dict[int, Dict[str, Any]] = {}
     for item in raw_catalog if isinstance(raw_catalog, list) else []:
         item_id = item.get("id")
         if item_id is None:
             continue
-        name = item.get("name") or ""
-        class_name = item.get("class_name") or ""
         # Internal variants (e.g. upgrade_clip_size_fixed_t3) carry no display
         # name and are never real purchases, so keep them out of the catalog.
-        if not name or name == class_name or name.startswith("upgrade_"):
+        name = shop_item_name(item)
+        if name is None:
             continue
 
-        slot = item.get("item_slot_type") or ""
-        shop_image = item.get("shop_image") or ""
-        shop_base = shop_image.rsplit("/", 1)[-1].rsplit(".", 1)[0] if shop_image else ""
-
-        # shop_image usually matches the shipped asset, but some items still
-        # point at a legacy filename (Dispel Magic -> debuff_remover.png), so
-        # fall back to the display name.
-        candidates = []
-        for key in (_icon_key(shop_base), _icon_key(name)):
-            if key:
-                candidates += [f"{slot}/{key}", f"*/{key}"]
-        shipped = next((icons[key] for key in candidates if key in icons), None)
-
+        shipped = resolve_icon(item, icons)
         catalog[int(item_id)] = {
             "name": name,
-            "slot": slot,
+            "slot": item.get("item_slot_type") or "",
             "tier": item.get("item_tier"),
             "type": item.get("type") or "",
             "icon": f"items/{shipped}" if shipped else None,
+            # The upstream art, for the items whose file was never cut; the client
+            # shows it when `icon` is missing or 404s.
+            "image": item.get("image") or None,
         }
 
     if catalog:
@@ -4594,7 +4629,7 @@ def _ability_icon_index() -> Dict[str, str]:
             stem = rel.rsplit("/", 1)[-1][:-4]
             if stem.endswith("_psd"):
                 stem = stem[:-4]
-            key = _icon_key(stem)
+            key = icon_key(stem)
             if key:
                 index.setdefault(key, rel)
     except OSError:
@@ -4638,7 +4673,7 @@ def _hero_ability_slots() -> Dict[int, Dict[str, Any]]:
             if not entry:
                 continue
             name = entry.get("name") or class_name
-            icon = icons.get(_icon_key(entry.get("class_name") or name))
+            icon = icons.get(icon_key(entry.get("class_name") or name))
             abilities.append(
                 {
                     "slot": slot,

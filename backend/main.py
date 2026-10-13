@@ -2353,11 +2353,15 @@ def infer_lanes_from_paths(mi: Dict[str, Any]) -> Dict[int, int]:
 	the players array): team0 = 1-6, team1 = 7-12. (The damage/paths indexing slot
 	0 is a non-hero aggregate and is never a real player.)
 
-	Method: mean X per player over the laning window (LANE_INFER_START_S..END_S,
+	Method: mean world X per player over the laning window (LANE_INFER_START_S..END_S,
 	2-5 min), split each team's six players into three lane pairs by X order
 	(exactly 2 per lane), pair the two teams' lanes by nearest mean X (same
 	corridor), then label the 3 lanes by fixed map geometry (LANE_BY_XPOS).
 	assigned_lane is NOT used for labeling - it is noise (players swap freely).
+
+	Positions are converted to world coordinates first because `x_pos` is normalised
+	into each player's own bounding box (`x_min`/`x_max`), so raw grid values are not
+	a shared axis and cannot be compared between players.
 	"""
 	players = mi.get("players") or []
 	by_slot: Dict[int, Dict[str, Any]] = {}
@@ -2375,12 +2379,17 @@ def infer_lanes_from_paths(mi: Dict[str, Any]) -> Dict[int, int]:
 	if not paths or len(paths) < 12:
 		return {}
 
-	interval = mp.get("interval_s") or 1.0
+	resolution_x = extract_float(mp.get("x_resolution")) or _PATH_DEFAULT_RESOLUTION
+	resolution_y = extract_float(mp.get("y_resolution")) or _PATH_DEFAULT_RESOLUTION
+	interval = extract_float(mp.get("interval_s")) or 1.0
 	i0 = int(LANE_INFER_START_S / interval)
 	i1 = int(LANE_INFER_END_S / interval)
 	mean_x: Dict[int, float] = {}
 	for ps, p in paths.items():
-		xs = (p.get("x_pos") or [])[i0:i1]
+		# `x_pos` is normalised into each player's own bounding box, so two players in
+		# the same lane can carry wildly different grid values. Convert to world X (the
+		# same transform the ingest uses) so the means are comparable across players.
+		xs = _path_world_samples(p, resolution_x, resolution_y)[0::2][i0:i1]
 		if xs:
 			mean_x[ps] = sum(xs) / len(xs)
 	if len(mean_x) < 12:

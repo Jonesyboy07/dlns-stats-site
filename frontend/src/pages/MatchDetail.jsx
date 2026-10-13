@@ -6,10 +6,22 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
 import { heroIconUrl } from "../components/HeroIcon";
+import ItemIcon from "../components/ItemIcon";
 import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
-import { buildTimelineRows, clock } from "../utils/matchTimeline";
+import { buildPurchaseRows, buildTimelineRows, clock, mergeTimelineRows } from "../utils/matchTimeline";
 import { mapVersionForMatch } from "../utils/matchMap";
+import {
+  LANING_END_S,
+  LANING_MILESTONES_S,
+  laneMatchups,
+  laneSoulsLead,
+  laningKillSummary,
+  laningKills,
+  playerLaningStats,
+  soulsAt,
+} from "../utils/laning";
 import MatchReplay from "../components/MatchReplay";
+import MatchMap from "../components/MatchMap";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -220,6 +232,9 @@ function MatchDetail() {
   // Build tab: focused player (default view) vs. "See all" side-by-side view.
   const [buildSeeAll, setBuildSeeAll] = useState(false);
   const [buildFocusId, setBuildFocusId] = useState(null);
+  // Timeline tab: whose item purchases are merged into the list. Empty shows the
+  // events only, because a match logs hundreds of buys.
+  const [timelineItemPlayers, setTimelineItemPlayers] = useState([]);
 
   useEffect(() => {
     fetchHeroes();
@@ -391,11 +406,12 @@ function MatchDetail() {
     }
   };
 
+  // The backend resolves the shipped art path for each item (see
+  // backend/app/utils/item_icons.py) because the game's filenames do not match the
+  // display names; fall back to the upstream image when no local file matches.
   const getLocalItemImage = (item) => {
-    if (!item.name) return item.image || null;
-    const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
-    const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
-    return folder ? cdnImage(`items/${folder}/${filename}`) : staticImagePathToCdn(item.image || null);
+    if (!item) return null;
+    return item.icon ? cdnImage(item.icon) : staticImagePathToCdn(item.image || null);
   };
 
   const getHeroName = (heroId) => {
@@ -565,6 +581,26 @@ function MatchDetail() {
   // Lane objectives carry their lane colour; everything else sits on a side.
   const timelineMarkerColor = (row) =>
     row.laneColor || (row.team === 0 ? CHART_AMBER : row.team === 1 ? CHART_SAPPHIRE : "#94a3b8");
+
+  // The timeline keeps purchases out of its default view: a match logs a few hundred
+  // buys against a few dozen kills and objectives, so whose are merged in is a choice.
+  const purchaseRows = buildPurchaseRows(matchEvents?.purchases || []);
+  const purchaseRowPlayers = players.filter((player) =>
+    purchaseRows.some((row) => row.accountId === player.account_id),
+  );
+  const shownPurchaseRows = purchaseRows.filter((row) =>
+    timelineItemPlayers.includes(row.accountId),
+  );
+  // Derived rather than a length check: a selection made on the previous match can
+  // still be in state here, and comparing counts would then label the button wrong.
+  const allTimelineItemsOn =
+    purchaseRowPlayers.length > 0 &&
+    purchaseRowPlayers.every((player) => timelineItemPlayers.includes(player.account_id));
+  const timelineListRows = mergeTimelineRows(timelineRows, shownPurchaseRows);
+  const toggleTimelineItems = (accountId) =>
+    setTimelineItemPlayers((prev) =>
+      prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId],
+    );
 
   // --- Laning / scoreboard helpers ---
   // `assigned_lane` values are reported by the game (current 3-duo-lane map):
@@ -948,7 +984,7 @@ function MatchDetail() {
 
       {/* Tabs below scoreboard */}
       <div className="flex items-center gap-1 mb-4 border-b border-border-light">
-        {["graphs", "build", "timeline"].map((tab) => (
+        {["laning", "graphs", "build", "timeline"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -991,57 +1027,389 @@ function MatchDetail() {
           <h3 className={GRAPH_SECTION_LABEL}>Timeline</h3>
           {matchEvents == null || matchPositions == null ? (
             <p className="mt-3 text-sm text-dim">Loading…</p>
-          ) : timelineRows.length === 0 ? (
-            <p className="mt-3 text-sm text-dim">No timeline recorded for this match yet.</p>
           ) : (
             <>
-              <MatchReplay
-                key={matchId}
-                rows={timelineRows}
-                players={matchPositions?.players || []}
-                durationS={matchPositions?.duration_s ?? null}
-                version={mapVersion}
-                className="mt-4"
-              />
-              <ol className="mt-5 flex flex-col">
-                {timelineRows.map((row) => (
-                  <li
-                    key={row.key}
-                    className="flex items-center gap-3 py-1.5 border-b border-border-light/40 last:border-b-0"
+              {timelineRows.length > 0 && (
+                <MatchReplay
+                  key={matchId}
+                  rows={timelineRows}
+                  players={matchPositions?.players || []}
+                  durationS={matchPositions?.duration_s ?? null}
+                  version={mapVersion}
+                  className="mt-4"
+                />
+              )}
+              {purchaseRowPlayers.length > 0 && (
+                <div
+                  className={`flex flex-wrap items-center gap-1.5 ${
+                    timelineRows.length > 0
+                      ? "mt-5 border-t border-border-light/40 pt-4"
+                      : "mt-4"
+                  }`}
+                >
+                  <span className="mr-1 font-valve-oracle text-[11px] font-semibold uppercase tracking-wide text-dim">
+                    Show items for
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTimelineItemPlayers(
+                        allTimelineItemsOn
+                          ? []
+                          : purchaseRowPlayers.map((player) => player.account_id),
+                      )
+                    }
+                    className="rounded-full border border-border-light px-2.5 py-1 text-[11px] font-semibold text-dim transition-colors hover:text-secondary"
                   >
-                    <span className="w-12 shrink-0 text-right font-valve-oracle text-[13px] tabular-nums text-dim">
-                      {clock(row.time_s)}
-                    </span>
-                    <span
-                      className="w-2 h-2 shrink-0 rounded-sm"
-                      style={{ backgroundColor: timelineMarkerColor(row) }}
-                      aria-hidden="true"
-                    />
-                    {row.heroId != null && (
-                      <HeroIcon
-                        src={getHeroIcon(row.heroId)}
-                        name={getHeroName(row.heroId)}
-                        className="w-5 h-5"
+                    {allTimelineItemsOn ? "None" : "All"}
+                  </button>
+                  {purchaseRowPlayers.map((player) => {
+                    const on = timelineItemPlayers.includes(player.account_id);
+                    const color = player.team === 0 ? CHART_AMBER : CHART_SAPPHIRE;
+                    return (
+                      <button
+                        key={player.account_id}
+                        type="button"
+                        aria-pressed={on}
+                        title={`${player.persona_name} – ${getHeroName(player.hero_id)}`}
+                        onClick={() => toggleTimelineItems(player.account_id)}
+                        className={`flex items-center gap-1.5 rounded-full border py-0.5 pl-1 pr-2.5 text-[11px] font-semibold transition-colors ${
+                          on ? "text-primary" : "border-border-light text-dim hover:text-secondary"
+                        }`}
+                        style={on ? { backgroundColor: `${color}40`, borderColor: color } : undefined}
+                      >
+                        <HeroIcon
+                          src={getHeroIcon(player.hero_id)}
+                          name={getHeroName(player.hero_id)}
+                          className="w-4 h-4"
+                          rounded="rounded-full"
+                        />
+                        {player.persona_name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {timelineListRows.length === 0 ? (
+                <p className="mt-3 text-sm text-dim">
+                  No timeline recorded for this match yet.
+                </p>
+              ) : (
+                <ol className="mt-5 flex flex-col">
+                  {timelineListRows.map((row) => (
+                    <li
+                      key={row.key}
+                      className="flex items-center gap-3 py-1.5 border-b border-border-light/40 last:border-b-0"
+                    >
+                      <span className="w-12 shrink-0 text-right font-valve-oracle text-[13px] tabular-nums text-dim">
+                        {clock(row.time_s)}
+                      </span>
+                      <span
+                        className="w-2 h-2 shrink-0 rounded-sm"
+                        style={{ backgroundColor: timelineMarkerColor(row) }}
+                        aria-hidden="true"
                       />
-                    )}
-                    <span className="text-sm text-secondary">{row.text}</span>
-                    {row.killerHeroId != null && (
-                      <span className="text-[11px] whitespace-nowrap text-dim">
-                        {getHeroName(row.killerHeroId)}
-                      </span>
-                    )}
-                    {row.damage ? (
-                      <span className="ml-auto text-xs tabular-nums whitespace-nowrap text-dim">
-                        {formatK(row.damage)} damage
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
+                      {row.heroId != null && (
+                        <HeroIcon
+                          src={getHeroIcon(row.heroId)}
+                          name={getHeroName(row.heroId)}
+                          className="w-5 h-5"
+                        />
+                      )}
+                      {row.type === "purchase" && (
+                        <ItemIcon
+                          icon={row.icon}
+                          name={row.item}
+                          size="w-5 h-5"
+                          fallback={staticImagePathToCdn(row.image || null)}
+                        />
+                      )}
+                      <span className="text-sm text-secondary">{row.text}</span>
+                      {row.killerHeroId != null && (
+                        <span className="text-[11px] whitespace-nowrap text-dim">
+                          {getHeroName(row.killerHeroId)}
+                        </span>
+                      )}
+                      {row.trailing ? (
+                        <span className="ml-auto text-[11px] whitespace-nowrap text-dim">
+                          {row.trailing}
+                        </span>
+                      ) : null}
+                      {row.damage ? (
+                        <span className="ml-auto text-xs tabular-nums whitespace-nowrap text-dim">
+                          {formatK(row.damage)} damage
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              )}
             </>
           )}
         </div>
       )}
+
+      {/* Laning tab: the opening minutes as three 2v2 matchups. */}
+      {activeTab === "laning" && (() => {
+        const { rows: laneRows, unassigned } = laneMatchups(players);
+        const snapshotsFor = (player) =>
+          timeline?.players?.[String(player?.account_id)]?.snapshots || [];
+        const statsFor = (player) => playerLaningStats(snapshotsFor(player));
+        // Snapshots can exist without usable timestamps; until one has a time there is
+        // nothing to anchor a milestone to, so the numbers stay hidden rather than wrong.
+        const anyLaningData = players.some((player) => statsFor(player).souls != null);
+        const killRows = laningKills(timelineRows);
+        const killSummary = laningKillSummary(killRows);
+
+        const laneTeamName = (side) => (side === 0 ? amberTeamName : sapphireTeamName) || (side === 0 ? "Amber" : "Sapphire");
+
+        // One player in a matchup row: hero, name, and the lane's K/D/A so the mirrored
+        // pairs can be read against each other.
+        const matchupCell = (player) => {
+          const stats = statsFor(player);
+          return (
+            <div key={player.account_id} className="flex min-w-0 items-center gap-2">
+              <HeroIcon
+                src={getHeroIcon(player.hero_id)}
+                name={getHeroName(player.hero_id)}
+                className="w-6 h-6 shrink-0"
+              />
+              {/* Dashed marker = the lane came from the game's assignment, not inference
+                  (same convention as the player pages). */}
+              {player.lane_source && player.lane_source !== "inferred" && (
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full border border-dashed border-border-lighter"
+                  title="Lane from the game's assignment — no positional inference for this player"
+                />
+              )}
+              <span className="truncate text-[13px] text-primary" title={player.persona_name || "Anonymous"}>
+                {player.persona_name || "Anonymous"}
+              </span>
+              <span
+                className="ml-auto shrink-0 tabular-nums text-[12px] text-muted"
+                title={`Kills / deaths / assists in the first ${clock(LANING_END_S)}`}
+              >
+                {stats.kills == null ? "—" : `${stats.kills}/${stats.deaths}/${stats.assists}`}
+              </span>
+            </div>
+          );
+        };
+
+        return (
+          <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6 flex flex-col gap-8">
+            {/* ---- Lane matchups ---- */}
+            <div className="flex flex-col gap-3">
+              <h3 className={GRAPH_SECTION_LABEL}>Lane matchups</h3>
+              {players.length === 0 ? (
+                <p className="text-sm text-dim">No players recorded for this match.</p>
+              ) : (
+                <>
+                  <div className="grid gap-3 lg:grid-cols-3">
+                    {laneRows.map((row) => {
+                      const meta = LANE_META[row.lane];
+                      // Souls lead at the end of laning: the one number that says which
+                      // pair came out ahead without reading both rows.
+                      const lead = laneSoulsLead(row.left, row.right, snapshotsFor);
+                      const verdict = !lead
+                        ? "—"
+                        : lead.diff === 0
+                          ? "Even"
+                          : `${laneTeamName(lead.diff > 0 ? 0 : 1)} +${formatK(Math.abs(lead.diff))}`;
+                      const verdictClass =
+                        !lead || lead.diff === 0
+                          ? "text-dim"
+                          : lead.diff > 0
+                            ? "text-team-amber"
+                            : "text-blue-300";
+                      return (
+                        <div
+                          key={row.lane}
+                          className="flex flex-col gap-2 rounded-lg border border-border-light bg-table/40 p-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="h-2.5 w-2.5 rounded-[2px]"
+                              style={{ backgroundColor: meta.color }}
+                            />
+                            <span className="font-valve-oracle text-[13px] font-semibold text-primary">
+                              {meta.name}
+                            </span>
+                            <span
+                              className={`ml-auto text-[12px] font-bold tabular-nums ${verdictClass}`}
+                              title={`Souls lead at ${clock(LANING_END_S)}`}
+                            >
+                              {verdict}
+                            </span>
+                          </div>
+                          {row.left.length === 0 && row.right.length === 0 ? (
+                            <p className="text-[12px] text-dim">Nobody laning here.</p>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="flex flex-col gap-1">{row.left.map(matchupCell)}</div>
+                              <div className="flex flex-col gap-1">{row.right.map(matchupCell)}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <span className="text-[11px] text-dim">
+                    Mirrored rows lane against each other · badge = souls lead at {clock(LANING_END_S)} ·
+                    K/D/A is kills/deaths/assists in that window.
+                    {unassigned > 0
+                      ? ` ${unassigned} player${unassigned === 1 ? "" : "s"} had no recorded lane, so ${unassigned === 1 ? "is" : "are"} not shown.`
+                      : ""}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* ---- Laning phase numbers ---- */}
+            <div className="flex flex-col gap-3">
+              <h3 className={GRAPH_SECTION_LABEL}>Laning phase</h3>
+              {!anyLaningData ? (
+                <p className="text-sm text-dim">
+                  {timeline?.available
+                    ? "This match's snapshots have no usable timestamps, so the laning-phase numbers are unavailable."
+                    : "No snapshot timeline recorded for this match yet."}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="text-[11px] uppercase tracking-[.06em] text-dim">
+                        <th className="py-1.5 pr-3 text-left font-semibold">Player</th>
+                        <th className="py-1.5 pr-3 text-left font-semibold">Lane</th>
+                        {LANING_MILESTONES_S.map((seconds) => (
+                          <th key={seconds} className="py-1.5 pr-3 text-right font-semibold">
+                            Souls @{clock(seconds)}
+                          </th>
+                        ))}
+                        <th className="py-1.5 pr-3 text-right font-semibold">Souls/min</th>
+                        <th className="py-1.5 text-right font-semibold">Hero damage</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-light/40">
+                      {[...amberPlayers, ...sapphirePlayers].map((player) => {
+                        const stats = statsFor(player);
+                        const snapshots = snapshotsFor(player);
+                        const meta = LANE_META[Number(playerLane(player))];
+                        const isAmber = player.team === 0;
+                        return (
+                          <tr key={player.account_id}>
+                            <td className="py-1.5 pr-3">
+                              <span
+                                className={`flex min-w-0 items-center gap-2 ${
+                                  isAmber ? "text-amber-100/90" : "text-blue-200/90"
+                                }`}
+                              >
+                                <HeroIcon
+                                  src={getHeroIcon(player.hero_id)}
+                                  name={getHeroName(player.hero_id)}
+                                  className="w-5 h-5 shrink-0"
+                                />
+                                <span className="truncate" title={player.persona_name || "Anonymous"}>
+                                  {player.persona_name || "Anonymous"}
+                                </span>
+                              </span>
+                            </td>
+                            <td className="py-1.5 pr-3">
+                              {meta ? (
+                                <span className="flex items-center gap-1.5 text-secondary">
+                                  <span
+                                    aria-hidden="true"
+                                    className="h-2 w-2 rounded-[2px]"
+                                    style={{ backgroundColor: meta.color }}
+                                  />
+                                  {meta.name}
+                                </span>
+                              ) : (
+                                <span className="text-dim">—</span>
+                              )}
+                            </td>
+                            {LANING_MILESTONES_S.map((seconds) => {
+                              const souls = soulsAt(snapshots, seconds);
+                              return (
+                                <td key={seconds} className="py-1.5 pr-3 text-right tabular-nums text-primary">
+                                  {souls == null ? "—" : formatK(souls)}
+                                </td>
+                              );
+                            })}
+                            <td className="py-1.5 pr-3 text-right tabular-nums text-secondary">
+                              {stats.soulsPerMinute == null ? "—" : formatK(Math.round(stats.soulsPerMinute))}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums text-secondary">
+                              {stats.damage == null ? "—" : formatK(stats.damage)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <span className="text-[11px] text-dim">
+                Souls are read from the stats snapshots at or before each mark; K/D/A and damage
+                are the climb since the first snapshot.
+              </span>
+            </div>
+
+            {/* ---- Laning kills ---- */}
+            <div className="flex flex-col gap-3">
+              <h3 className={GRAPH_SECTION_LABEL}>Laning kills</h3>
+              {matchEvents == null ? (
+                <p className="text-sm text-dim">Loading…</p>
+              ) : killRows.length === 0 ? (
+                <p className="text-sm text-dim">
+                  No deaths recorded in the first {clock(LANING_END_S)}.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+                  <MatchMap
+                    rows={killRows}
+                    version={mapVersion}
+                    className="lg:w-[380px] lg:shrink-0"
+                    caption={
+                      <p className="text-xs text-dim">
+                        {killSummary.total} death{killSummary.total === 1 ? "" : "s"} in the first{" "}
+                        {clock(LANING_END_S)} · {laneTeamName(0)} {killSummary.amber} /{" "}
+                        {laneTeamName(1)} {killSummary.sapphire}
+                      </p>
+                    }
+                  />
+                  <ol className="flex min-w-0 flex-1 flex-col">
+                    {killRows.map((row) => (
+                      <li
+                        key={row.key}
+                        className="flex items-center gap-3 py-1.5 border-b border-border-light/40 last:border-b-0"
+                      >
+                        <span className="w-12 shrink-0 text-right font-valve-oracle text-[13px] tabular-nums text-dim">
+                          {clock(row.time_s)}
+                        </span>
+                        {row.heroId != null && (
+                          <HeroIcon
+                            src={getHeroIcon(row.heroId)}
+                            name={getHeroName(row.heroId)}
+                            className="w-5 h-5"
+                          />
+                        )}
+                        <span className="truncate text-sm text-secondary">{row.text}</span>
+                        {row.killerHeroId != null && (
+                          <span className="ml-auto whitespace-nowrap text-[11px] text-dim">
+                            {getHeroName(row.killerHeroId)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Graphs tab */}
       {activeTab === "graphs" && players.length > 0 && (

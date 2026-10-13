@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildTimelineRows, clock, objectiveLabel } from "./matchTimeline";
+import {
+  buildPurchaseRows,
+  buildTimelineRows,
+  clock,
+  mergeTimelineRows,
+  objectiveLabel,
+} from "./matchTimeline";
 
 const players = [
   { player_slot: 1, account_id: 42, persona_name: "Kaizen", hero_id: 11, team: 0 },
@@ -109,5 +115,89 @@ describe("buildTimelineRows", () => {
   it("handles an empty or missing feed", () => {
     expect(buildTimelineRows([], players)).toEqual([]);
     expect(buildTimelineRows()).toEqual([]);
+  });
+});
+
+// Two purchases by the same player, one of them sold back later.
+const purchases = [
+  { item_id: 1, item: "Extra Spirit", icon: "items/spirit/extra_spirit_psd.png", image: null,
+    time_s: 210, team: 0, account_id: 42, player_slot: 1, hero_id: 11,
+    persona_name: "Kaizen", sold_time_s: 0 },
+  { item_id: 2, item: "High-Velocity Rounds", icon: "items/weapon/high_velocity_rounds_psd.png",
+    image: "https://cdn.example/items/hvr.png", time_s: 95, team: 0, account_id: 42,
+    player_slot: 1, hero_id: 11, persona_name: "Kaizen", sold_time_s: 640 },
+];
+
+describe("buildPurchaseRows", () => {
+  const rows = buildPurchaseRows(purchases);
+
+  it("keeps the purchase time and the item it names", () => {
+    expect(rows.map((row) => row.time_s)).toEqual([210, 95]);
+    expect(rows[0].text).toBe("Extra Spirit");
+    expect(rows[0].icon).toBe("items/spirit/extra_spirit_psd.png");
+    expect(rows[0].accountId).toBe(42);
+    expect(rows[0].heroId).toBe(11);
+  });
+
+  it("folds the sell into the same row instead of adding another", () => {
+    // 0 is the API's "still owned", so only the sold one carries a time.
+    expect(rows[0].soldTimeS).toBeNull();
+    expect(rows[0].trailing).toBe("Kaizen");
+    expect(rows[1].soldTimeS).toBe(640);
+    expect(rows[1].trailing).toBe("Kaizen · sold 10:40");
+  });
+
+  it("carries no lane or position, so the map skips purchases", () => {
+    expect(rows[0].position).toBeNull();
+    expect(rows[0].lane).toBeNull();
+    expect(rows[0].type).toBe("purchase");
+  });
+
+  it("survives a purchase with no catalogue entry", () => {
+    const [row] = buildPurchaseRows([{ item_id: 7, time_s: 10 }]);
+    expect(row.text).toBe("Unknown item");
+    expect(row.icon).toBeNull();
+    expect(row.trailing).toBe("");
+  });
+
+  it("handles an empty or missing list", () => {
+    expect(buildPurchaseRows([])).toEqual([]);
+    expect(buildPurchaseRows()).toEqual([]);
+  });
+});
+
+describe("mergeTimelineRows", () => {
+  const eventRows = buildTimelineRows(events, players);
+
+  it("interleaves purchases with the events by time", () => {
+    const merged = mergeTimelineRows(eventRows, buildPurchaseRows(purchases));
+
+    expect(merged.map((row) => row.time_s)).toEqual([95, 210, 355, 481, 1047, 1790]);
+    expect(merged.map((row) => row.type)).toEqual([
+      "purchase", "purchase", "death", "objective", "mid_boss", "objective",
+    ]);
+  });
+
+  it("puts an event above a purchase that shares its second", () => {
+    const merged = mergeTimelineRows(
+      [{ type: "death", time_s: 300 }],
+      buildPurchaseRows([{ item_id: 1, item: "Extra Spirit", time_s: 300 }]),
+    );
+
+    expect(merged.map((row) => row.type)).toEqual(["death", "purchase"]);
+  });
+
+  it("sorts a purchase with no time to the end", () => {
+    const merged = mergeTimelineRows(
+      [{ type: "death", time_s: 355 }],
+      buildPurchaseRows([{ item_id: 1, item: "Extra Spirit", time_s: null }]),
+    );
+
+    expect(merged.map((row) => row.type)).toEqual(["death", "purchase"]);
+  });
+
+  it("returns the events unchanged when no player is selected", () => {
+    expect(mergeTimelineRows(eventRows, [])).toEqual(eventRows);
+    expect(mergeTimelineRows()).toEqual([]);
   });
 });

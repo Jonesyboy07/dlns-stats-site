@@ -42,6 +42,61 @@ const defaultTeamLabel = (team) =>
   team === 0 ? "Amber" : team === 1 ? "Sapphire" : "Unknown";
 
 /**
+ * Which row wins a shared timestamp. Items sort after the fight they were bought for:
+ * a buy at 11:05 reads better under the kill that forced it than above it.
+ */
+export const ROW_TYPE_ORDER = { objective: 0, mid_boss: 1, death: 2, purchase: 3 };
+
+/**
+ * One row per item purchase, in the same shape as an event row so one list can render
+ * both. `accountId` is what the timeline's per-player filter matches on, and
+ * `soldTimeS` is when the player sold it back — null while they still held it.
+ *
+ * A match logs a few hundred purchases against a few dozen events, so the caller
+ * decides whose to merge in rather than showing them all by default.
+ */
+export function buildPurchaseRows(purchases = []) {
+  return (purchases || []).map((purchase, index) => {
+    const item = purchase?.item || "Unknown item";
+    // `sold_time_s` is 0 while the player still holds the item; the API's raw sentinel
+    // is handled here too, so a row is correct whether or not the route normalised it.
+    const soldTimeS = purchase?.sold_time_s || null;
+    const owner = purchase?.persona_name || null;
+    return {
+      key: `purchase-${purchase?.item_id ?? "?"}-${index}`,
+      time_s: purchase?.time_s ?? null,
+      type: "purchase",
+      team: purchase?.team ?? null,
+      position: null,
+      lane: null,
+      laneName: null,
+      laneColor: null,
+      heroId: purchase?.hero_id ?? null,
+      killerHeroId: null,
+      damage: null,
+      accountId: purchase?.account_id ?? null,
+      label: "Item",
+      item,
+      icon: purchase?.icon ?? null,
+      image: purchase?.image ?? null,
+      soldTimeS,
+      text: item,
+      trailing: [owner, soldTimeS != null ? `sold ${clock(soldTimeS)}` : null]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  });
+}
+
+/** Timeline rows and purchase rows merged into one time-ordered list. */
+export function mergeTimelineRows(rows = [], purchases = []) {
+  const at = (row) => (row?.time_s == null ? Number.POSITIVE_INFINITY : Number(row.time_s));
+  return [...(rows || []), ...(purchases || [])].sort(
+    (a, b) => at(a) - at(b) || (ROW_TYPE_ORDER[a?.type] ?? 9) - (ROW_TYPE_ORDER[b?.type] ?? 9),
+  );
+}
+
+/**
  * One row per event: `{ key, time_s, type, label, text, lane, laneName, laneColor,
  * team, heroId, killerHeroId, damage }`.
  *

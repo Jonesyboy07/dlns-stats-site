@@ -1,10 +1,14 @@
+import json
 import os
 import shutil
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from backend.app.blueprints import db_api
+from backend.app.cache import cache
 from backend.app.main_web import create_app
 from backend.main import (
     db_connect,
@@ -51,6 +55,49 @@ SAMPLE_MATCH_INFO = {
         }
     ],
 }
+
+# The API's per-player item log mixes shop purchases with one entry per hero-ability
+# level, and 0 is the "still owned when the match ended" sentinel.
+SAMPLE_ITEM_LOG = [
+    {"item_id": 1, "game_time_s": 210, "sold_time_s": 0, "flags": 0, "upgrade_id": 0},
+    {"item_id": 2, "game_time_s": 95, "sold_time_s": 640, "flags": 1, "upgrade_id": 0},
+    # An ability: the timeline must not report a level-up as a purchase.
+    {"item_id": 3, "game_time_s": 300, "sold_time_s": 0, "flags": 0, "upgrade_id": 47109322},
+    # An id the catalog does not know at all.
+    {"item_id": 999, "game_time_s": 120, "sold_time_s": 0, "flags": 0, "upgrade_id": 0},
+]
+
+
+def shop_item(**overrides):
+    """A catalog row whose art the icon resolver can find on disk."""
+    item = {
+        "id": 1,
+        "name": "Bullet Armor",
+        "class_name": "upgrade_bullet_armor",
+        "type": "upgrade",
+        "item_slot_type": "vitality",
+        "item_tier": 2,
+        "cost": 1250,
+        "shopable": True,
+        "image": "https://cdn.example/items/bullet_armor.png",
+        # The game's asset name, which differs from the display name.
+        "shop_image": "https://cdn.example/assets/images/items/vitality/bullet_resilience.png",
+    }
+    item.update(overrides)
+    return item
+
+
+class _CatalogResponse:
+    """Enough of a `requests.Response` for the item catalog fetch."""
+
+    def __init__(self, payload):
+        self._payload = payload
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._payload
 
 
 class TimelineIngestTests(unittest.TestCase):
@@ -160,11 +207,44 @@ class MatchEventsRouteTests(unittest.TestCase):
         self.app.config["TESTING"] = True
         self.client = self.app.test_client()
 
+        # Serve the catalogue from a fixture so the route never reaches the upstream
+        # API. Resolving it goes through the real code path, so the icon asserted for
+        # "Bullet Armor" is the file this repo actually ships.
+        self.catalog = mock.patch(
+            "backend.app.blueprints.db_api.requests.get",
+            return_value=_CatalogResponse([
+                shop_item(),
+                shop_item(
+                    id=2,
+                    name="Test Trinket",
+                    class_name="upgrade_test_trinket",
+                    item_tier=3,
+                    image="https://cdn.example/items/test_trinket.png",
+                    shop_image="",
+                ),
+                shop_item(
+                    id=3,
+                    name="Alchemical Flask",
+                    class_name="citadel_ability_alchemical_flask",
+                    type="ability",
+                ),
+            ]),
+        )
+        self.catalog.start()
+        self.addCleanup(self.catalog.stop)
+
+        with self.app.app_context():
+            cache.delete("dlns_item_catalog")
+            cache.delete("dlns_item_icon_index")
+            db_api._item_catalog()
+
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("INSERT INTO matches (match_id, duration_s) VALUES (123, 1903)")
             conn.execute("INSERT INTO users (account_id, persona_name) VALUES (42, 'Tester')")
             conn.execute(
-                "INSERT INTO players (match_id, account_id, player_slot, team, hero_id) VALUES (123, 42, 1, 0, 11)"
+                "INSERT INTO players (match_id, account_id, player_slot, team, hero_id, raw_items_json) "
+                "VALUES (123, 42, 1, 0, 11, ?)",
+                (json.dumps(SAMPLE_ITEM_LOG),),
             )
             conn.executemany(
                 "INSERT INTO match_objectives (match_id, team, objective_id, destroyed_time_s, "
@@ -203,7 +283,7 @@ class MatchEventsRouteTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload["available"])
         self.assertEqual(payload["duration_s"], 1903)
-        self.assertEqual(payload["counts"], {"objectives": 2, "mid_boss": 1, "deaths": 1})
+        self.assertEqual(payload["counts"], {"objectives": 2, "mid_boss": 1, "deaths": 1, "purchases": 2})
         self.assertEqual(
             [e["type"] for e in payload["events"]], ["death", "objective", "mid_boss", "objective"]
         )
@@ -236,6 +316,52 @@ class MatchEventsRouteTests(unittest.TestCase):
         self.assertFalse(payload["available"])
         self.assertEqual(payload["events"], [])
         self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["purchases"], [])
+
+    def test_purchases_carry_the_time_the_item_and_the_seller_art(self):
+        purchases = self.client.get("/db/matches/123/events").get_json()["purchases"]
+
+        self.assertEqual([p["item"] for p in purchases], ["Test Trinket", "Bullet Armor"])
+        self.assertEqual([p["time_s"] for p in purchases], [95, 210])
+
+        sold = purchases[0]
+        self.assertEqual(sold["sold_time_s"], 640)
+        self.assertEqual(sold["team"], 0)
+        self.assertEqual(sold["account_id"], 42)
+        self.assertEqual(sold["persona_name"], "Tester")
+        self.assertEqual(sold["item_id"], 2)
+        self.assertEqual(sold["slot"], "vitality")
+        self.assertEqual(sold["tier"], 3)
+        # No shipped art matches this name, so the upstream image is what is left.
+        self.assertIsNone(sold["icon"])
+        self.assertEqual(sold["image"], "https://cdn.example/items/test_trinket.png")
+
+        held = purchases[1]
+        # 0 means the player still owned it; the client shows no sell time for it.
+        self.assertIsNone(held["sold_time_s"])
+        # Resolved through the shared resolver, from the asset name and not the name.
+        self.assertEqual(held["icon"], "items/vitality/bullet_resilience_psd.png")
+
+    def test_purchases_skip_abilities_and_unknown_ids(self):
+        purchases = self.client.get("/db/matches/123/events").get_json()["purchases"]
+
+        self.assertNotIn(3, [p["item_id"] for p in purchases])
+        self.assertNotIn(999, [p["item_id"] for p in purchases])
+
+    def test_purchases_stay_out_of_the_event_list(self):
+        payload = self.client.get("/db/matches/123/events").get_json()
+
+        self.assertNotIn("purchase", [e["type"] for e in payload["events"]])
+        self.assertEqual(payload["count"], len(payload["events"]))
+
+    def test_a_match_without_item_logs_still_reports_purchases_as_empty(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("UPDATE players SET raw_items_json = NULL WHERE match_id = 123")
+
+        payload = self.client.get("/db/matches/123/events").get_json()
+
+        self.assertEqual(payload["purchases"], [])
+        self.assertEqual(payload["counts"]["purchases"], 0)
 
 
 if __name__ == "__main__":

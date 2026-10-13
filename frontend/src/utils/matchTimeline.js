@@ -64,6 +64,7 @@ export function buildTimelineRows(events = [], players = [], teamLabel = default
       time_s: event.time_s ?? null,
       type: event.type,
       team: event.team ?? null,
+      playerSlot: event.player_slot ?? null,
       // World coordinates, kept so the map can plot the same rows the list shows.
       position: event.position ?? null,
       lane: null,

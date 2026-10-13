@@ -7,6 +7,7 @@ import {
   nextTime,
   playerMarkersAt,
   replayDuration,
+  respawnSeconds,
   trailPositionAt,
 } from "./replay";
 
@@ -92,7 +93,8 @@ describe("trailPositionAt", () => {
 });
 
 describe("playerMarkersAt", () => {
-  const east = trail([10752, 0, 10752, 0], { player_slot: 4, team: 0, hero_id: 3 });
+  const east = trail([10000, 0, 10000, 0], { player_slot: 4, team: 0, hero_id: 3 });
+  const corner = trail([-8000, -8000, -8000, -8000], { player_slot: 5, team: 1, hero_id: 2 });
   const centre = trail([0, 0, 0, 0], { player_slot: 9, team: 1, hero_id: 6 });
   const spawn = trail([-12960, -256, -12960, -256], { player_slot: 2, team: 1, hero_id: 1 });
 
@@ -100,13 +102,34 @@ describe("playerMarkersAt", () => {
     const markers = playerMarkersAt([east, centre], 0);
     expect(markers.map((marker) => marker.playerSlot)).toEqual([4, 9]);
     // world +x is the map's right edge, the centre is the middle
-    expect(markers[0]).toMatchObject({ left: 100, top: 50, team: 0, heroId: 3 });
+    expect(markers[0]).toMatchObject({ top: 50, team: 0, heroId: 3, dead: false });
+    expect(markers[0].left).toBeCloseTo(50 + (10000 / 21504) * 100);
     expect(markers[1]).toMatchObject({ left: 50, top: 50, team: 1, heroId: 6 });
   });
 
   it("drops players it cannot place", () => {
     expect(playerMarkersAt([spawn], 0)).toEqual([]);
     expect(playerMarkersAt([east], 500)).toEqual([]);
+  });
+
+  it("drops a position inside the square image but outside the map circle", () => {
+    expect(isOnMap(-8000, -8000)).toBe(true);
+    expect(playerMarkersAt([corner], 0)).toEqual([]);
+  });
+
+  it("pins a hero to where they died until they respawn", () => {
+    const walker = trail(new Array(400).fill(0), { player_slot: 9, team: 1, hero_id: 6 });
+    const rows = [{ type: "death", time_s: 100, playerSlot: 9, position: { x: 500, y: 0 } }];
+    const [dead] = playerMarkersAt([walker], 101, rows);
+    expect(dead.dead).toBe(true);
+    expect(dead.respawnIn).toBeGreaterThan(0);
+    expect(dead.left).toBeGreaterThan(50);
+    expect(playerMarkersAt([walker], 100, rows)[0].dead).toBe(true);
+    expect(playerMarkersAt([walker], 99, rows)[0].dead).toBe(false);
+    expect(playerMarkersAt([walker], 100 + respawnSeconds(100) + 1, rows)[0]).toMatchObject({
+      dead: false,
+      left: 50,
+    });
   });
 
   it("names a player without a persona", () => {

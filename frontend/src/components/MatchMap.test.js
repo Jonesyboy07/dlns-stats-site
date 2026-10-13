@@ -9,7 +9,7 @@ describe("deathMarkers", () => {
     ]);
 
     expect(markers).toEqual([
-      { key: "death-0", left: 50, top: 50, team: 0, text: "Kaizen killed by Nemesis" },
+      { key: "death-0", left: 50, top: 50, team: 0, timeS: null, text: "Kaizen killed by Nemesis" },
     ]);
   });
 

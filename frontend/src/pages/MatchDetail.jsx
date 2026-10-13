@@ -1036,6 +1036,7 @@ function MatchDetail() {
                   players={matchPositions?.players || []}
                   durationS={matchPositions?.duration_s ?? null}
                   version={mapVersion}
+                  heroIcon={getHeroIcon}
                   className="mt-4"
                 />
               )}

@@ -9,6 +9,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MatchMap from "./MatchMap";
 import { clock } from "../utils/matchTimeline";
 import { mapVersionConfig } from "../utils/matchMap";
+
+const teamColor = (team) =>
+  team === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)";
 import {
   REPLAY_SPEEDS,
   decodeTrail,
@@ -23,6 +26,7 @@ export default function MatchReplay({
   durationS = null,
   version = null,
   rows = [],
+  heroIcon = null,
   className = "",
 }) {
   const trails = useMemo(() => players.map(decodeTrail).filter(Boolean), [players]);
@@ -64,7 +68,7 @@ export default function MatchReplay({
     );
   }
 
-  const markers = playerMarkersAt(trails, time);
+  const markers = playerMarkersAt(trails, time, rows);
   const config = mapVersionConfig(version);
 
   const togglePlay = () => {
@@ -81,27 +85,64 @@ export default function MatchReplay({
     <div className={`flex flex-col items-center gap-2 ${className}`}>
       <MatchMap
         rows={elapsedRows(rows, time)}
+        now={time}
         version={version}
         className="w-full"
         caption={
-          <p className="text-xs text-dim">
-            {config.label} · {trails.length} player{trails.length === 1 ? "" : "s"} tracked
+          <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-dim">
+            <span>
+              {config.label} · {trails.length} player{trails.length === 1 ? "" : "s"} tracked
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-white/80 ring-2 ring-team-amber" /> alive
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-white/30 ring-2 ring-white/30" /> dead, respawning
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="font-bold leading-none text-team-amber">×</span> past death
+            </span>
           </p>
         }
       >
         {markers.map((marker) => (
           <span
             key={marker.key}
-            title={marker.name}
+            title={marker.dead ? `${marker.name} (respawns in ~${marker.respawnIn}s)` : marker.name}
             aria-label={marker.name}
-            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white/70 shadow-[0_0_6px_rgb(0_0_0/0.9)]"
+            className="absolute -translate-x-1/2 -translate-y-1/2"
             style={{
               left: `${marker.left}%`,
               top: `${marker.top}%`,
-              backgroundColor:
-                marker.team === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)",
+              zIndex: marker.dead ? 2 : 3,
             }}
-          />
+          >
+            <span
+              className="relative block h-[26px] w-[26px] overflow-hidden rounded-full"
+              style={{
+                boxShadow: `0 0 0 2.5px ${marker.dead ? "rgb(255 255 255 / 0.35)" : teamColor(marker.team)}, 0 0 0 4px rgb(0 0 0 / 0.75)${
+                  marker.dead ? "" : `, 0 0 10px ${teamColor(marker.team)}`
+                }`,
+                backgroundColor: teamColor(marker.team),
+                opacity: marker.dead ? 0.7 : 1,
+              }}
+            >
+              {heroIcon && marker.heroId ? (
+                <img
+                  src={heroIcon(marker.heroId)}
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full max-w-none object-cover"
+                  style={marker.dead ? { filter: "grayscale(1) brightness(0.6)" } : undefined}
+                />
+              ) : null}
+              {marker.dead && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-bold tabular-nums text-white">
+                  {marker.respawnIn}
+                </span>
+              )}
+            </span>
+          </span>
         ))}
       </MatchMap>
 

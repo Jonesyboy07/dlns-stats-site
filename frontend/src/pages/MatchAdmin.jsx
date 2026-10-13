@@ -488,7 +488,7 @@ export function MatchAdmin() {
       <div>
         <h1 className="text-2xl font-bold text-white">Bulk Match Submit</h1>
         <p className="text-sm text-gray-400 mt-1">
-          Build an event week, add sets, then enter all matches at once.
+          Build an event week, add sets, then enter all matches at once. Games are saved to brackets.json (the same events as the Brackets page) and to the stats database.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -828,7 +828,7 @@ export function MatchAdmin() {
         <div>
           <h1 className="text-2xl font-bold text-white">Match Editor</h1>
           <p className="text-sm text-gray-400 mt-1">
-            Select a match from the nested sidebar, then edit in the main panel.
+            Pick a game in the sidebar (event, week, set), change what you need and save. Changes update brackets.json and the stats database.
           </p>
         </div>
         <button

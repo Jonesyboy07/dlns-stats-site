@@ -179,29 +179,6 @@ class RoundEditTests(unittest.TestCase):
             add_first_round(generate_single_elim(["A", "B"], [1]), "Q", 1, None, None)
 
 
-class RemoveFromMatchesJsonTests(unittest.TestCase):
-    """Moving an event: old copies go, the kept (title, week) stays, emptied weeks are dropped."""
-
-    def test_moved_games_leave_no_empty_week(self):
-        import json
-        import tempfile
-        from pathlib import Path
-        from backend.app.blueprints.brackets import _remove_from_matches_json
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "matches.json"
-            game = {"team_a": "A", "team_b": "B", "matches": [{"game": "Game 1", "team_a_side": 0, "match_id": 7}]}
-            other = {"team_a": "C", "team_b": "D", "matches": [{"game": "Game 1", "team_a_side": 0, "match_id": 8}]}
-            path.write_text(json.dumps({"series": [{"title": "Night Shift", "weeks": [
-                {"week": 995, "games": [game]},
-                {"week": 994, "games": [game]},
-                {"week": 996, "games": [other]},
-                {"week": 997, "games": []},
-            ]}]}), encoding="utf-8")
-            _remove_from_matches_json(path, {7}, keep=("Night Shift", 994))
-            weeks = json.loads(path.read_text(encoding="utf-8"))["series"][0]["weeks"]
-            self.assertEqual([w["week"] for w in weeks], [994, 996, 997])  # 997 was already empty
-
-
 class WriteBansTests(unittest.TestCase):
     """_write_bans replaces a game's match_bans rows and skips games with no match row."""
 

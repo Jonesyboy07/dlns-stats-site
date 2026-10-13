@@ -40,13 +40,25 @@ export function deathMarkers(rows = []) {
         left: point.left,
         top: point.top,
         team: row.team ?? null,
+        timeS: row.time_s ?? null,
         text: row.text,
       };
     })
     .filter(Boolean);
 }
 
-export default function MatchMap({ rows = [], version = null, className = "", caption, children = null }) {
+const TEAM_COLOR = (team) =>
+  team === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)";
+
+/** How a past death is drawn: bright and pulsing when fresh, fading to a faint mark. */
+function deathMarkStyle(timeS, now) {
+  if (now == null || timeS == null) return { opacity: 0.85, fresh: false };
+  const age = Math.max(0, now - timeS);
+  if (age < 8) return { opacity: 1, fresh: true };
+  return { opacity: Math.max(0.3, 0.85 - (age - 8) / 240), fresh: false };
+}
+
+export default function MatchMap({ rows = [], version = null, className = "", caption, now = null, children = null }) {
   const [failed, setFailed] = useState(false);
   const config = mapVersionConfig(version);
   const markers = deathMarkers(rows);
@@ -77,19 +89,35 @@ export default function MatchMap({ rows = [], version = null, className = "", ca
           style={{ filter: MAP_ART_FILTER }}
           onError={() => setFailed(true)}
         />
-        {markers.map((marker) => (
-          <span
-            key={marker.key}
-            title={marker.text}
-            className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-1 ring-black/70"
-            style={{
-              left: `${marker.left}%`,
-              top: `${marker.top}%`,
-              backgroundColor:
-                marker.team === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)",
-            }}
-          />
-        ))}
+        {markers.map((marker) => {
+          const { opacity, fresh } = deathMarkStyle(marker.timeS, now);
+          return (
+            <span
+              key={marker.key}
+              title={marker.text}
+              className={`pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 ${
+                fresh ? "animate-pulse" : ""
+              }`}
+              style={{ left: `${marker.left}%`, top: `${marker.top}%`, opacity, zIndex: 1 }}
+            >
+              <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
+                <path
+                  d="M2 2 L9 9 M9 2 L2 9"
+                  stroke="black"
+                  strokeOpacity="0.8"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M2 2 L9 9 M9 2 L2 9"
+                  stroke={TEAM_COLOR(marker.team)}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+          );
+        })}
         {children}
       </div>
       {caption === undefined ? (

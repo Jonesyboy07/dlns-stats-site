@@ -52,6 +52,29 @@ export function isOnMap(x, y, radius = MAP_RADIUS) {
   );
 }
 
+/** How far out from the centre, as a fraction of the map radius, a hero can be placed. */
+export const PLAYFIELD_FRACTION = 0.95;
+
+/**
+ * Whether a position is somewhere a hero can actually stand. The minimap is a circle
+ * inside its square image; the pre-game spawn sits out past the circle (towards a
+ * corner of the square), so a square test lets it through and a dot floats beside the map.
+ */
+export function inPlayfield(x, y, radius = MAP_RADIUS) {
+  return Number.isFinite(x) && Number.isFinite(y) && Math.hypot(x, y) <= radius * PLAYFIELD_FRACTION;
+}
+
+/**
+ * Approximate respawn delay for a death at `deathTimeS`. The feed carries no respawn
+ * time and the in-game delay grows through the match, so this is an estimate used only
+ * to tell a dead hero's ghost from a living one.
+ */
+export function respawnSeconds(deathTimeS) {
+  const time = Number(deathTimeS);
+  const base = Number.isFinite(time) && time > 0 ? time : 0;
+  return Math.min(90, 6 + base * 0.035);
+}
+
 /**
  * A trail's position at `timeS`, interpolated between the one-second samples so motion
  * is smooth rather than stepping. Returns null when there is nothing to draw: past the
@@ -76,21 +99,47 @@ export function trailPositionAt(trail, timeS) {
   const y =
     trail.samples[index * 2 + 1] + (trail.samples[next * 2 + 1] - trail.samples[index * 2 + 1]) * fraction;
 
-  return isOnMap(x, y) ? { x, y } : null;
+  return inPlayfield(x, y) ? { x, y } : null;
 }
 
 /**
- * Every player's marker at `timeS`, in map percentages, skipping anyone the trail
- * cannot place.
+ * The most recent death of each player slot by `timeS`, from timeline rows that carry
+ * the victim's slot.
  */
-export function playerMarkersAt(trails, timeS) {
+function latestDeaths(rows, timeS) {
+  const bySlot = new Map();
+  for (const row of rows || []) {
+    if (row?.type !== "death" || row.playerSlot == null || row.time_s == null) continue;
+    if (row.time_s > timeS) continue;
+    const known = bySlot.get(row.playerSlot);
+    if (!known || row.time_s >= known.time_s) bySlot.set(row.playerSlot, row);
+  }
+  return bySlot;
+}
+
+/**
+ * Every player's marker at `timeS`, in map percentages. A hero inside their respawn
+ * window is `dead`, pinned where they fell with `respawnIn` seconds left; everyone else
+ * follows their trail, and anyone the trail cannot place is skipped.
+ */
+export function playerMarkersAt(trails, timeS, rows = []) {
+  const now = Number(timeS);
+  const deaths = latestDeaths(rows, now);
   return trails.reduce((markers, trail) => {
-    const position = trailPositionAt(trail, timeS);
-    if (!position) return markers;
-    const point = worldToPercent(position.x, position.y);
-    if (!point) return markers;
     const player = trail.player || {};
+    const death = deaths.get(player.player_slot);
+    const remaining = death ? death.time_s + respawnSeconds(death.time_s) - now : 0;
+    const dead = remaining > 0;
+
+    let position = null;
+    if (!dead) position = trailPositionAt(trail, timeS);
+    else if (death.position) position = { x: death.position.x, y: death.position.y };
+    else position = trailPositionAt(trail, death.time_s);
+    const point = position ? worldToPercent(position.x, position.y) : null;
+    if (!point) return markers;
     markers.push({
+      dead,
+      respawnIn: dead ? Math.ceil(remaining) : 0,
       key: `player-${player.player_slot}`,
       playerSlot: player.player_slot,
       team: player.team ?? null,

@@ -28,6 +28,17 @@ function formatBytes(bytes) {
   return `${value.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
 
+function formatCommit(c) {
+  if (!c?.sha) return 'Unknown';
+  const text = `${c.sha.slice(0, 7)}${c.subject ? ` - ${c.subject}` : ''}`;
+  if (!c.url) return text;
+  return (
+    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+      {text}
+    </a>
+  );
+}
+
 function Stat({ label, value }) {
   return (
     <div className="rounded-xl border border-gray-700/60 bg-gray-800/30 p-5">
@@ -144,6 +155,11 @@ export default function SystemAdmin() {
         <Stat label="Active threads" value={info.threads} />
         <Stat label="Platform" value={info.platform} />
         <Stat label="Restart mode" value={info.restart_mode} />
+        <Stat label="Running commit" value={formatCommit(info.git?.local)} />
+        <Stat
+          label={`Latest GitHub commit (${info.git?.branch || 'main'})${info.git?.up_to_date === false ? ' - update available' : ''}`}
+          value={formatCommit(info.git?.remote)}
+        />
       </div>
 
       <button

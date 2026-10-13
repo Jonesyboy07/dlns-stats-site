@@ -172,6 +172,12 @@ function App() {
                   >
                     Community
                   </Link>
+                  <a
+                    href="/privacy"
+                    className="hover:text-white transition-colors"
+                  >
+                    Privacy &amp; analytics opt-out
+                  </a>
                 </div>
               </div>
             </div>

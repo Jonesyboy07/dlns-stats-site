@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Analytics • DLNS Stats{% endblock %}
+{% block content %}
+<section class="card">
+  <header>
+    <h1>Analytics</h1>
+    <p>
+      {% for d in (7, 30, 90, 365) %}
+        {% if d == days %}<strong>{{ d }}d</strong>{% else %}<a href="?days={{ d }}">{{ d }}d</a>{% endif %}{% if not loop.last %} · {% endif %}
+      {% endfor %}
+      · <a href="{{ url_for('admin.admin_panel') }}">Back to admin</a>
+    </p>
+  </header>
+  <p><strong>{{ total_hits }}</strong> page views in the last {{ days }} days. Aggregates are kept for {{ retention }} days.</p>
+
+  <div class="grid">
+    <div>
+      <h3>Top pages</h3>
+      <table><thead><tr><th>Path</th><th>Views</th></tr></thead><tbody>
+        {% for p, h in top_pages %}<tr><td>{{ p }}</td><td>{{ h }}</td></tr>{% else %}<tr><td colspan="2">No data</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+    <div>
+      <h3>Referrers</h3>
+      <table><thead><tr><th>Site</th><th>Views</th></tr></thead><tbody>
+        {% for r, h in referrers %}<tr><td>{{ r }}</td><td>{{ h }}</td></tr>{% else %}<tr><td colspan="2">No data</td></tr>{% endfor %}
+      </tbody></table>
+      <h3>Devices</h3>
+      <table><thead><tr><th>Type</th><th>Views</th></tr></thead><tbody>
+        {% for d, h in devices %}<tr><td>{{ d }}</td><td>{{ h }}</td></tr>{% else %}<tr><td colspan="2">No data</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+
+  <h3>Per day</h3>
+  <table><thead><tr><th>Day</th><th>Views</th><th>Unique visitors</th></tr></thead><tbody>
+    {% for r in rows %}<tr><td>{{ r.day }}</td><td>{{ r.hits }}</td><td>{{ r.visitors }}</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endblock %}

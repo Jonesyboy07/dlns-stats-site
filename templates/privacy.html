@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Privacy • DLNS Stats{% endblock %}
+{% block content %}
+<section class="card">
+  <header><h1>Privacy &amp; analytics</h1></header>
+  <p>This site counts page views with its own simple analytics. It uses no cookies and no third parties.</p>
+  <h3>What we collect</h3>
+  <ul>
+    <li>The page path you viewed (no query strings), the date, the website you came from (domain only) and a device type (desktop, mobile or tablet).</li>
+    <li>A count of unique visitors per day. This uses a one-way hash of your IP address and browser details that is deleted at the end of the day. Your IP address itself is never stored.</li>
+  </ul>
+  <h3>What we don't collect</h3>
+  <p>Cookies, IP addresses, user agents, account or Steam/Discord IDs, location, or anything that follows you between days or sites. The data is not shared or sold.</p>
+  <h3>Why and how long</h3>
+  <p>To see which parts of the site are used (legitimate interest). Aggregate counts are deleted after 13 months. Only site admins can view them.</p>
+  <h3>Opt out</h3>
+  <p>We honour Do Not Track and Global Privacy Control automatically. You can also opt out here. Your choice is remembered with one small first-party preference cookie (<code>dlns_optout</code>, 1 year) plus a matching browser setting. It contains no identifier and is used only to remember that you opted out.</p>
+  <label><input type="checkbox" id="optout"> Don't count my visits</label>
+  <script>
+    (function () {
+      var box = document.getElementById('optout');
+      var a = window.dlnsAnalytics;
+      if (!a) return;
+      box.checked = a.isOptedOut();
+      fetch('/api/a/status', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (s) { if (s.optedOut) box.checked = true; })
+        .catch(function () {});
+      box.addEventListener('change', function () { a.setOptOut(box.checked); });
+    })();
+  </script>
+</section>
+{% endblock %}

@@ -7,6 +7,7 @@
 | [Data ingestion](INGESTION.md) | Match-feed format, ingester options, and update scripts |
 | [Development guide](AGENTS.md) | Source conventions, frontend/backend workflows, and tests |
 | [Project structure](PROJECT_STRUCTURE.md) | Current repository layout and application organization |
+| [Analytics](ANALYTICS.md) | Privacy-first analytics design and legitimate-interest assessment |
 | [Database schema](db_schema.md) | SQLite tables, fields, relationships, and indexes |
 | [Database API notes](db_api_schema.md) | `/db` endpoint behavior and response notes |
 | [OpenAPI specification](openapi_spec.json) | Machine-readable API contract served at `/api/openapi.json` |

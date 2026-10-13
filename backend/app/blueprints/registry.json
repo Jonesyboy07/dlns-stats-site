@@ -7,5 +7,6 @@
   {"module": "sitemap", "attr": "sitemap_bp"},
   {"module": "react_stats", "attr": "react_stats_bp"},
   {"module": "interviews", "attr": "interviews_bp"},
-  {"module": "brackets", "attr": "brackets_bp"}
+  {"module": "brackets", "attr": "brackets_bp"},
+  {"module": "analytics", "attr": "analytics_bp"}
 ]

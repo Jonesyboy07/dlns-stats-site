@@ -57,6 +57,16 @@ def create_app() -> Flask:
     
     app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
 
+    # Only trust X-Forwarded-* when told how many proxies sit in front, so clients
+    # cannot spoof their IP. Set TRUSTED_PROXIES=1 behind one reverse proxy/CDN.
+    try:
+        proxy_hops = int(os.getenv("TRUSTED_PROXIES", "0"))
+    except ValueError:
+        proxy_hops = 0
+    if proxy_hops > 0:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=proxy_hops, x_proto=proxy_hops, x_host=proxy_hops)
     def _send_static_with_fallback(filename: str, mimetype: str | None = None):
         # Primary static root is /public; fall back to /static for migrated assets.
         try:

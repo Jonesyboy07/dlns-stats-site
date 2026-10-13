@@ -115,7 +115,6 @@ export default function MatchReplay({
               left: `${marker.left}%`,
               top: `${marker.top}%`,
               zIndex: marker.dead ? 2 : 3,
-              transition: "left 0.5s linear, top 0.5s linear",
             }}
           >
             <span

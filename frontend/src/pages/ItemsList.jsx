@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { cdnImage } from "../utils/cdn";
+import { staticImagePathToCdn } from "../utils/cdn";
+import ItemIcon from "../components/ItemIcon";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 
 export default function ItemsList() {
@@ -56,12 +57,6 @@ export default function ItemsList() {
     { value: "vitality", label: "Vitality" },
     { value: "spirit", label: "Spirit" },
   ];
-
-  const getLocalImage = (item) => {
-    const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
-    const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
-    return folder ? cdnImage(`items/${folder}/${filename}`) : null;
-  };
 
   if (loading) {
     return <LoadingSkeleton variant="list-item" />;
@@ -171,22 +166,18 @@ export default function ItemsList() {
               className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50 
                        hover:border-purple-500/50 transition-all hover:scale-105 cursor-pointer"
             >
-              {/* Item Image */}
-              {(() => {
-                const src = getLocalImage(item);
-                return src ? (
-                  <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
-                    <img
-                      src={src}
-                      alt={item.name}
-                      className="w-full h-full object-contain p-1"
-                      onError={(e) => {
-                        e.target.parentElement.style.display = "none";
-                      }}
-                    />
-                  </div>
-                ) : null;
-              })()}
+              {/* Item Image — the backend resolves the shipped art; fall back to the
+                  upstream image only when no local file matches. */}
+              <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
+                <ItemIcon
+                  icon={item.icon}
+                  fallback={staticImagePathToCdn(item.image)}
+                  name={item.name}
+                  size="h-full w-full"
+                  fit="object-contain"
+                  className="rounded-none p-1"
+                />
+              </div>
 
               {/* Item Info */}
               <div className="space-y-1">

@@ -522,6 +522,11 @@ CREATE TABLE IF NOT EXISTS player_deaths (
   killer_player_slot INTEGER,
   time_to_kill_s REAL,
   death_duration_s INTEGER,
+  -- Where the killer stood when the blow landed, so the map can draw the line from
+  -- killer to victim. Same source as the fields above, and null with them.
+  killer_position_x REAL,
+  killer_position_y REAL,
+  killer_position_z REAL,
   PRIMARY KEY (match_id, account_id, death_index),
   FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
@@ -760,6 +765,9 @@ def db_init(conn: sqlite3.Connection) -> bool:
 			("killer_player_slot", "INTEGER"),
 			("time_to_kill_s", "REAL"),
 			("death_duration_s", "INTEGER"),
+			("killer_position_x", "REAL"),
+			("killer_position_y", "REAL"),
+			("killer_position_z", "REAL"),
 		):
 			if column not in death_cols:
 				conn.execute(f"ALTER TABLE player_deaths ADD COLUMN {column} {column_type}")
@@ -839,6 +847,12 @@ async def upsert_player_snapshots_async(conn: Any, match_id: int, account_id: Op
 		)
 
 
+def _xyz(value: Any) -> Dict[str, Optional[float]]:
+	"""`{x, y, z}` from an API position object; missing axes come back as None."""
+	position = value if isinstance(value, dict) else {}
+	return {axis: extract_float(position.get(axis)) for axis in ("x", "y", "z")}
+
+
 def _death_row(
 	account_id: int,
 	death_index: int,
@@ -847,18 +861,23 @@ def _death_row(
 	killer_player_slot: Optional[int],
 	time_to_kill_s: Optional[float],
 	death_duration_s: Optional[int],
+	killer_positions: Optional[Dict[str, Optional[float]]] = None,
 ) -> Tuple[Any, ...]:
 	midpoint_distance = (
 		math.sqrt(sum(positions[axis] ** 2 for axis in ("x", "y", "z")))
 		if all(positions[axis] is not None for axis in ("x", "y", "z"))
 		else None
 	)
+	# The killer's position comes from the same detail entry as the victim's, but only
+	# the detail path has it; the snapshot fallback reports no killer at all.
+	killer = killer_positions or {}
 	return (
 		account_id, death_index, death_time_s,
 		positions["x"], positions["y"], positions["z"],
 		positions["x"], positions["y"], positions["z"],
 		midpoint_distance,
 		killer_player_slot, time_to_kill_s, death_duration_s,
+		killer.get("x"), killer.get("y"), killer.get("z"),
 	)
 
 
@@ -890,8 +909,10 @@ def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[Any, ...]]:
 		details = [d for d in (player.get("death_details") or []) if isinstance(d, dict)]
 		if details:
 			for death_index, detail in enumerate(details, start=1):
-				death_pos = detail.get("death_pos") or {}
-				positions = {axis: extract_float(death_pos.get(axis)) for axis in ("x", "y", "z")}
+				positions = _xyz(detail.get("death_pos"))
+				# The API reports the killer's own position alongside the victim's, which
+				# is what the timeline's killer-to-victim lines are drawn from.
+				killer_positions = _xyz(detail.get("killer_pos"))
 				rows.append(_death_row(
 					account_id,
 					death_index,
@@ -900,6 +921,7 @@ def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[Any, ...]]:
 					extract_int(detail.get("killer_player_slot")),
 					extract_float(detail.get("time_to_kill_s")),
 					extract_int(detail.get("death_duration_s")),
+					killer_positions,
 				))
 			continue
 
@@ -942,8 +964,9 @@ def _death_rows_from_match(match_info: Dict[str, Any]) -> List[Tuple[Any, ...]]:
 _DEATH_INSERT_SQL = (
 	"INSERT INTO player_deaths(match_id, account_id, death_index, death_time_s, position_x, "
 	"position_y, position_z, midpoint_distance_x, midpoint_distance_y, midpoint_distance_z, "
-	"midpoint_distance, killer_player_slot, time_to_kill_s, death_duration_s) "
-	"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	"midpoint_distance, killer_player_slot, time_to_kill_s, death_duration_s, "
+	"killer_position_x, killer_position_y, killer_position_z) "
+	"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 
@@ -1764,6 +1787,9 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 			("killer_player_slot", "INTEGER"),
 			("time_to_kill_s", "REAL"),
 			("death_duration_s", "INTEGER"),
+			("killer_position_x", "REAL"),
+			("killer_position_y", "REAL"),
+			("killer_position_z", "REAL"),
 		):
 			if column not in death_cols:
 				await conn.execute(f"ALTER TABLE player_deaths ADD COLUMN {column} {column_type}")
@@ -2234,11 +2260,18 @@ def backfill_all_match_timeline(conn: sqlite3.Connection) -> None:
 	"""Populate match_objectives / match_mid_boss and the death detail columns.
 
 	Targets matches that have players but no objective rows, which is every match
-	ingested before the timeline tables existed. One metadata request per match.
+	ingested before the timeline tables existed, plus matches whose deaths predate a
+	column added to `player_deaths` since -- re-running the deaths is what fills
+	those, so the second arm keeps a new column from silently staying empty on the
+	matches that already have objectives. One metadata request per match.
 	"""
 	rows = conn.execute(
 		"SELECT DISTINCT p.match_id FROM players p "
 		"WHERE NOT EXISTS (SELECT 1 FROM match_objectives o WHERE o.match_id = p.match_id) "
+		"OR EXISTS ("
+		"SELECT 1 FROM player_deaths d WHERE d.match_id = p.match_id "
+		"AND d.killer_player_slot IS NOT NULL AND d.killer_position_x IS NULL"
+		") "
 		"ORDER BY p.match_id DESC"
 	).fetchall()
 	match_ids = [int(r[0]) for r in rows]
@@ -2353,11 +2386,15 @@ def infer_lanes_from_paths(mi: Dict[str, Any]) -> Dict[int, int]:
 	the players array): team0 = 1-6, team1 = 7-12. (The damage/paths indexing slot
 	0 is a non-hero aggregate and is never a real player.)
 
-	Method: mean X per player over the laning window (LANE_INFER_START_S..END_S,
+	Method: mean world X per player over the laning window (LANE_INFER_START_S..END_S,
 	2-5 min), split each team's six players into three lane pairs by X order
 	(exactly 2 per lane), pair the two teams' lanes by nearest mean X (same
 	corridor), then label the 3 lanes by fixed map geometry (LANE_BY_XPOS).
 	assigned_lane is NOT used for labeling - it is noise (players swap freely).
+
+	Positions are converted to world coordinates first because `x_pos` is normalised
+	into each player's own bounding box (`x_min`/`x_max`), so raw grid values are not
+	a shared axis and cannot be compared between players.
 	"""
 	players = mi.get("players") or []
 	by_slot: Dict[int, Dict[str, Any]] = {}
@@ -2375,12 +2412,17 @@ def infer_lanes_from_paths(mi: Dict[str, Any]) -> Dict[int, int]:
 	if not paths or len(paths) < 12:
 		return {}
 
-	interval = mp.get("interval_s") or 1.0
+	resolution_x = extract_float(mp.get("x_resolution")) or _PATH_DEFAULT_RESOLUTION
+	resolution_y = extract_float(mp.get("y_resolution")) or _PATH_DEFAULT_RESOLUTION
+	interval = extract_float(mp.get("interval_s")) or 1.0
 	i0 = int(LANE_INFER_START_S / interval)
 	i1 = int(LANE_INFER_END_S / interval)
 	mean_x: Dict[int, float] = {}
 	for ps, p in paths.items():
-		xs = (p.get("x_pos") or [])[i0:i1]
+		# `x_pos` is normalised into each player's own bounding box, so two players in
+		# the same lane can carry wildly different grid values. Convert to world X (the
+		# same transform the ingest uses) so the means are comparable across players.
+		xs = _path_world_samples(p, resolution_x, resolution_y)[0::2][i0:i1]
 		if xs:
 			mean_x[ps] = sum(xs) / len(xs)
 	if len(mean_x) < 12:
@@ -3403,6 +3445,7 @@ def _timeline_death(entry: Dict[str, Any]) -> Dict[str, Any]:
 		"killer_player_slot": extract_int(entry.get("killer_player_slot")),
 		"time_to_kill_s": extract_float(entry.get("time_to_kill_s")),
 		"death_duration_s": extract_int(entry.get("death_duration_s")),
+		"killer_pos": _xyz(entry.get("killer_pos")),
 	}
 
 

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { AMBER, SAPPHIRE, WIN, LOSS, UNKNOWN } from "./playerStats";
-import { LANE_META, LANE_ORDER, UNKNOWN_LANE, laneBreakdown, laneMeta, playerLane } from "./lanes";
+import {
+  LANE_META,
+  LANE_ORDER,
+  UNKNOWN_LANE,
+  laneAgrees,
+  laneBreakdown,
+  laneMeta,
+  laneSource,
+  playerLane,
+} from "./lanes";
 
 const match = (overrides = {}) => ({
   match_id: 1,
@@ -32,6 +41,24 @@ describe("laneMeta / playerLane", () => {
     expect(playerLane(match({ lane: 4, lane_real: null }))).toBe(4);
     expect(playerLane(match({ lane: null, lane_real: null }))).toBeNull();
     expect(playerLane(undefined)).toBeNull();
+  });
+});
+
+describe("laneSource / laneAgrees", () => {
+  it("names the value in use and falls back to the assigned lane", () => {
+    expect(laneSource(match({ lane: 4, lane_real: 6 }))).toBe("inferred");
+    expect(laneSource(match({ lane: 4, lane_real: null }))).toBe("assigned");
+    expect(laneSource(match({ lane: null, lane_real: null }))).toBeNull();
+    expect(laneSource(undefined)).toBeNull();
+  });
+
+  it("only reports agreement when both lanes are recorded", () => {
+    expect(laneAgrees(match({ lane: 4, lane_real: 4 }))).toBe(true);
+    expect(laneAgrees(match({ lane: 4, lane_real: 6 }))).toBe(false);
+    // One side missing cannot disagree — that is "unknown", not "false".
+    expect(laneAgrees(match({ lane: 4, lane_real: null }))).toBeNull();
+    expect(laneAgrees(match({ lane: null, lane_real: 6 }))).toBeNull();
+    expect(laneAgrees(match({ lane: null, lane_real: null }))).toBeNull();
   });
 });
 

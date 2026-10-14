@@ -378,12 +378,26 @@ Response:
 | Key | Type | Notes |
 | --- | --- | --- |
 | `players` | array | Raw `players` table rows plus `persona_name` |
+| `lane_inference` | object | Match-level summary of lane provenance (see below) |
 
 Returned fields include all columns from the `players` table and:
 
-| Extra Field | Type |
-| --- | --- |
-| `persona_name` | string or null |
+| Extra Field | Type | Notes |
+| --- | --- | --- |
+| `persona_name` | string or null | |
+| `lane_source` | string or null | Which lane value is in use: `inferred` (from `lane_real`) or `assigned` (from `lane`); `null` when neither is recorded |
+| `lane_agrees` | boolean or null | Whether `lane_real` equals `lane`; `null` unless both are recorded (a match with only one cannot disagree) |
+
+`lane_inference` counts the players by provenance so a match's inference quality is
+visible without walking the array:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `inferred` | integer | Players using the inferred lane |
+| `assigned` | integer | Players falling back to the game-reported lane |
+| `unknown` | integer | Players with no lane at all |
+| `comparable` | integer | Players with both lanes recorded (the denominator for `agree`) |
+| `agree` | integer | Of `comparable`, how many had the two lanes match |
 
 
 ## Route: `/db/matches/<match_id>/deaths`
@@ -415,8 +429,9 @@ filter values return `400` with `invalid_team` or `invalid_account_id`.
 ## Route: `/db/matches/<match_id>/events`
 
 Returns the match timeline as one time-ordered list, merging objective destructions,
-mid boss kills and deaths. Runes, neutral camps and sinner buffs are not included: the
-metadata API does not carry their timestamps.
+mid boss kills and deaths, plus the item purchases that ride along beside them. Runes,
+neutral camps and sinner buffs are not included: the metadata API does not carry their
+timestamps.
 
 Path parameters:
 - `match_id`: integer match ID
@@ -429,16 +444,30 @@ Response:
 | `duration_s` | integer or null | Match duration in seconds |
 | `available` | boolean | `false` when the timeline rows have not been ingested for this match |
 | `count` | integer | Number of returned events |
-| `counts` | object | Event totals split by `objectives`, `mid_boss` and `deaths` |
+| `counts` | object | Event totals split by `objectives`, `mid_boss`, `deaths` and `purchases` |
 | `events` | array | Events ordered by `time_s`, then objective, mid boss, death |
+| `purchases` | array | Item purchases ordered by `time_s`, then `player_slot` |
 
 Each event has `type` (`objective` / `mid_boss` / `death`) and `time_s`. Objectives add
 `team`, `objective_id`, a display `objective` name, `lane` (the 1/4/6 lane id the site uses
 elsewhere, or null for Titan, the shield generators and the Core), `first_damage_time_s` and
 the damage split. Mid boss events add `boss_index`, `team_killed` and `team_claimed`. Deaths
 add `account_id`, `death_index`, `persona_name`, `player_slot`, `hero_id`,
-`killer_player_slot`, `time_to_kill_s`, `death_duration_s` and `position`. Survived
-objectives (`destroyed_time_s` of `0`) are stored but excluded from `events`.
+`killer_player_slot`, `time_to_kill_s`, `death_duration_s`, `position` and
+`killer_position`. Survived objectives (`destroyed_time_s` of `0`) are stored but excluded
+from `events`. `killer_position` is null for matches ingested before it was captured, so a
+client drawing killer-to-victim lines should treat a null one as "no line for this death".
+
+`purchases` is kept apart from `events` because a match logs a few hundred buys against a
+few dozen events; the timeline tab renders it only for the players the reader selects.
+Each purchase has `type` of `purchase`, `time_s` (the buy), `sold_time_s` (when the player
+sold it back, null while they still held it), `account_id`, `persona_name`, `player_slot`,
+`team`, `hero_id`, `item_id`, a display `item` name, the resolved `icon` path, the upstream
+`image` as a fallback, `tier` and `slot`. The source is the metadata feed's per-player item
+log, which also holds one entry per hero-ability level; only catalogued shop items are
+listed, so those level-ups never appear as purchases. The 12 matches ingested before item
+logs were stored return `purchases` of `[]`.
+
 
 ## Route: `/db/matches/<match_id>/positions`
 

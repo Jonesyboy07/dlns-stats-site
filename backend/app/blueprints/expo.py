@@ -16,6 +16,7 @@ import requests
 from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 from ..heroes import get_hero_name as get_local_hero_name
 from ..cache import cache
+from ..utils.item_icons import item_icon_index, resolve_icon, shop_item_name
 from ...constants import HERO_DETAILS_URL, ITEM_DETAILS_URL, ITEMS_URL
 
 # Unique, isolated Blueprint for the DLNS exporter UI and API
@@ -881,21 +882,42 @@ def process_status(job_id: str) -> Any:  # type: ignore
 
 @expo_bp.get("/items")
 def items_list():  # type: ignore
-    cached = cache.get("dlns_items_list")
+    """The shop catalogue the Items page renders.
+
+    Every real item carries `icon`, the shipped path resolved from public/images/items
+    (see backend/app/utils/item_icons.py), because the game's asset filenames do not
+    match the display names and the browser cannot work them out for itself. Internal
+    `upgrade_*` rows are dropped here rather than by every caller: they are not
+    purchasable and have no art.
+    """
+    cached = cache.get("dlns_items_list_enriched")
     if cached is not None:
         return jsonify(cached)
-    try:
-        resp = requests.get(
-            ITEMS_URL,
-            params={"language": "english"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        cache.set("dlns_items_list", data, timeout=21600)
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
+
+    raw = cache.get("dlns_items_list")
+    if raw is None:
+        try:
+            resp = requests.get(
+                ITEMS_URL,
+                params={"language": "english"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            raw = resp.json()
+            cache.set("dlns_items_list", raw, timeout=21600)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+
+    icons = item_icon_index()
+    data = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict) or shop_item_name(item) is None:
+            continue
+        shipped = resolve_icon(item, icons)
+        data.append({**item, "icon": f"items/{shipped}" if shipped else None})
+
+    cache.set("dlns_items_list_enriched", data, timeout=21600)
+    return jsonify(data)
 
 
 @expo_bp.get("/items/<int:item_id>")

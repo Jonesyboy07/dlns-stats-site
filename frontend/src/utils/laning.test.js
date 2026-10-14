@@ -1,0 +1,213 @@
+import { describe, expect, it } from "vitest";
+import {
+  LANING_END_S,
+  firstSnapshot,
+  laneMatchups,
+  laneSoulsLead,
+  laningKillSummary,
+  laningKills,
+  playerLaningStats,
+  snapshotAt,
+  soulsAt,
+  soulsPerMinute,
+  statDelta,
+} from "./laning";
+
+const snap = (time_stamp_s, overrides = {}) => ({
+  time_stamp_s,
+  net_worth: 0,
+  kills: 0,
+  deaths: 0,
+  assists: 0,
+  player_damage: 0,
+  player_healing: 0,
+  ...overrides,
+});
+
+const player = (overrides = {}) => ({
+  account_id: 1,
+  player_slot: 1,
+  team: 0,
+  lane: 1,
+  lane_real: null,
+  ...overrides,
+});
+
+const deathRow = (time_s, team = 0) => ({ type: "death", time_s, team, text: `${time_s}s` });
+
+describe("firstSnapshot / snapshotAt", () => {
+  it("finds the earliest snapshot regardless of array order", () => {
+    const late = snap(600);
+    const early = snap(0);
+    expect(firstSnapshot([late, early])).toBe(early);
+  });
+
+  it("returns null when no snapshot carries a usable time", () => {
+    expect(firstSnapshot([])).toBeNull();
+    expect(firstSnapshot([snap(null), snap(undefined)])).toBeNull();
+  });
+
+  it("takes the latest snapshot at or before the requested second", () => {
+    const snapshots = [snap(0), snap(300), snap(600), snap(900)];
+    expect(snapshotAt(snapshots, 600).time_stamp_s).toBe(600);
+    expect(snapshotAt(snapshots, 599).time_stamp_s).toBe(300);
+    expect(snapshotAt(snapshots, 0).time_stamp_s).toBe(0);
+  });
+
+  it("returns null when the timeline does not reach back that far", () => {
+    expect(snapshotAt([snap(300), snap(600)], 120)).toBeNull();
+  });
+});
+
+describe("soulsAt / statDelta / soulsPerMinute", () => {
+  it("reads souls at the milestone", () => {
+    const snapshots = [snap(0, { net_worth: 500 }), snap(300, { net_worth: 2000 })];
+    expect(soulsAt(snapshots, 300)).toBe(2000);
+    expect(soulsAt(snapshots, LANING_END_S)).toBe(2000);
+  });
+
+  it("reports null souls before the first snapshot", () => {
+    expect(soulsAt([snap(300, { net_worth: 2000 })], 120)).toBeNull();
+    expect(soulsAt([], 300)).toBeNull();
+  });
+
+  it("measures a stat's climb from the first snapshot", () => {
+    const snapshots = [snap(120, { kills: 1, player_damage: 100 }), snap(600, { kills: 3, player_damage: 900 })];
+    expect(statDelta(snapshots, 600, "kills")).toBe(2);
+    expect(statDelta(snapshots, 600, "player_damage")).toBe(800);
+  });
+
+  it("never returns a negative delta and is null without an endpoint", () => {
+    const snapshots = [snap(0, { kills: 3 }), snap(600, { kills: 1 })];
+    expect(statDelta(snapshots, 600, "kills")).toBe(0);
+    expect(statDelta([snap(600, { kills: 3 })], 120, "kills")).toBeNull();
+  });
+
+  it("computes souls per minute, or null when it cannot", () => {
+    const snapshots = [snap(0, { net_worth: 0 }), snap(300, { net_worth: 1500 })];
+    expect(soulsPerMinute(snapshots, 300)).toBe(300);
+    expect(soulsPerMinute([snap(600, { net_worth: 1500 })], 300)).toBeNull();
+    expect(soulsPerMinute(snapshots, 0)).toBeNull();
+  });
+});
+
+describe("playerLaningStats", () => {
+  it("returns every field over the laning window", () => {
+    const snapshots = [
+      snap(0, { net_worth: 600, kills: 0, deaths: 0, assists: 0, player_damage: 0 }),
+      snap(600, { net_worth: 3600, kills: 2, deaths: 1, assists: 1, player_damage: 1200 }),
+    ];
+    expect(playerLaningStats(snapshots)).toEqual({
+      souls: 3600,
+      soulsPerMinute: 360,
+      kills: 2,
+      deaths: 1,
+      assists: 1,
+      damage: 1200,
+    });
+  });
+
+  it("is all null when there is no timeline to read", () => {
+    expect(playerLaningStats([])).toEqual({
+      souls: null,
+      soulsPerMinute: null,
+      kills: null,
+      deaths: null,
+      assists: null,
+      damage: null,
+    });
+  });
+});
+
+describe("laneMatchups", () => {
+  const players = [
+    player({ account_id: 1, player_slot: 5, team: 0, lane_real: 1 }),
+    player({ account_id: 2, player_slot: 2, team: 0, lane: 1, lane_real: 1 }),
+    player({ account_id: 3, player_slot: 7, team: 1, lane: 1 }),
+    player({ account_id: 4, player_slot: 3, team: 0, lane: 4 }),
+    player({ account_id: 5, player_slot: 9, team: 1, lane: null, lane_real: null }),
+  ];
+  const { rows, unassigned } = laneMatchups(players);
+
+  it("lists every lane in reading order", () => {
+    expect(rows.map((row) => row.lane)).toEqual([1, 4, 6]);
+  });
+
+  it("splits a lane by team and orders each side by slot", () => {
+    const york = rows.find((row) => row.lane === 1);
+    expect(york.left.map((p) => p.account_id)).toEqual([2, 1]);
+    expect(york.right.map((p) => p.account_id)).toEqual([3]);
+  });
+
+  it("prefers the inferred lane over the assigned one", () => {
+    const ambiguous = [player({ account_id: 9, lane: 4, lane_real: 6 })];
+    expect(laneMatchups(ambiguous).rows.find((row) => row.lane === 6).left).toHaveLength(1);
+  });
+
+  it("counts players with no lane instead of dropping them silently", () => {
+    expect(unassigned).toBe(1);
+  });
+
+  it("keeps empty lanes so the three boards stay comparable", () => {
+    const { rows: only } = laneMatchups([player({ lane: 4 })]);
+    expect(only.find((row) => row.lane === 6).left).toEqual([]);
+  });
+});
+
+describe("laneSoulsLead", () => {
+  const left = [player({ account_id: 1 })];
+  const right = [player({ account_id: 2, team: 1 })];
+  const snapshotsFor = (p) =>
+    p.account_id === 1
+      ? [snap(0, { net_worth: 200 }), snap(600, { net_worth: 3000 })]
+      : [snap(0, { net_worth: 200 }), snap(600, { net_worth: 1800 })];
+
+  it("reports the lead and the differential", () => {
+    expect(laneSoulsLead(left, right, snapshotsFor)).toEqual({ left: 3000, right: 1800, diff: 1200 });
+  });
+
+  it("is null when either side has no known souls", () => {
+    expect(laneSoulsLead(left, right, () => [])).toBeNull();
+  });
+});
+
+describe("tolerance to missing or malformed input", () => {
+  it("treats a non-array where a list is expected as empty instead of throwing", () => {
+    // A wrong argument (e.g. a snapshots getter returning the stats object) must not
+    // take the page down; it degrades to "unknown".
+    expect(snapshotAt({ souls: 1 }, 300)).toBeNull();
+    expect(firstSnapshot(undefined)).toBeNull();
+    expect(soulsAt(null, 300)).toBeNull();
+    expect(laningKills(undefined)).toEqual([]);
+    expect(laningKillSummary(undefined)).toEqual({ total: 0, amber: 0, sapphire: 0, firstBlood: null });
+    expect(laneSoulsLead([player()], [player({ team: 1 })], () => ({}))).toBeNull();
+  });
+
+  it("keeps the empty lane rows when players is not a list", () => {
+    expect(laneMatchups(undefined).rows.map((row) => row.lane)).toEqual([1, 4, 6]);
+  });
+});
+
+describe("laningKills / laningKillSummary", () => {
+  const rows = [
+    deathRow(45, 0),
+    { type: "objective", time_s: 200 },
+    deathRow(400, 1),
+    deathRow(900, 1),
+    { type: "death", time_s: null, team: 0 },
+  ];
+
+  it("keeps only deaths inside the window", () => {
+    expect(laningKills(rows).map((row) => row.time_s)).toEqual([45, 400]);
+    expect(laningKills(rows, 100).map((row) => row.time_s)).toEqual([45]);
+  });
+
+  it("counts deaths per side and names the opening kill", () => {
+    expect(laningKillSummary(laningKills(rows))).toEqual({
+      total: 2,
+      amber: 1,
+      sapphire: 1,
+      firstBlood: rows[0],
+    });
+  });
+});

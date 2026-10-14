@@ -27,6 +27,24 @@ export const UNKNOWN_LANE = { id: null, name: "Unknown", color: null };
 
 export const playerLane = (match) => match?.lane_real ?? match?.lane ?? null;
 
+/**
+ * Which of the two lane values is in use: the positionally-inferred `lane_real` when
+ * it exists, otherwise the game-reported `lane`. Mirrors `lane_source` on
+ * `/db/matches/<id>/players` so callers can label a lane instead of silently mixing
+ * an inferred lane with a game-reported one. `null` when neither is recorded.
+ */
+export const laneSource = (match) =>
+  match?.lane_real != null ? "inferred" : match?.lane != null ? "assigned" : null;
+
+/**
+ * Whether the inferred lane agrees with the game-reported one. `null` unless both are
+ * recorded — a match with only one of them cannot disagree. Mirrors `lane_agrees`.
+ */
+export const laneAgrees = (match) => {
+  if (match?.lane_real == null || match?.lane == null) return null;
+  return Number(match.lane_real) === Number(match.lane);
+};
+
 export const laneMeta = (lane) => LANE_META[Number(lane)] ?? null;
 
 /**

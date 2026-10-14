@@ -11,6 +11,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -21,6 +22,15 @@ _SPEC = importlib.util.spec_from_file_location(
 backup_db = importlib.util.module_from_spec(_SPEC)
 sys.modules['backup_db'] = backup_db
 _SPEC.loader.exec_module(backup_db)
+
+
+def _cleanup(path: Path) -> None:
+    """Windows keeps SQLite handles open briefly past close(), so retry the delete."""
+    for attempt in range(3):
+        shutil.rmtree(path, ignore_errors=True)
+        if not path.exists() or attempt == 2:
+            return
+        time.sleep(0.2)
 
 
 class BackupTests(unittest.TestCase):
@@ -36,7 +46,7 @@ class BackupTests(unittest.TestCase):
         conn.close()
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        _cleanup(self.tmpdir)
 
     def _copies(self):
         return sorted(self.out_dir.glob('dlns.auto_*.sqlite3'))
@@ -45,8 +55,11 @@ class BackupTests(unittest.TestCase):
         path = backup_db.backup(self.db_path, self.out_dir, log=lambda _: None)
         self.assertTrue(path.exists())
         self.assertEqual(path.parent, self.out_dir)
-        rows = sqlite3.connect(f'file:{path.as_posix()}?mode=ro', uri=True).execute(
-            'SELECT match_id FROM matches ORDER BY match_id').fetchall()
+        conn = sqlite3.connect(f'file:{path.as_posix()}?mode=ro', uri=True)
+        try:
+            rows = conn.execute('SELECT match_id FROM matches ORDER BY match_id').fetchall()
+        finally:
+            conn.close()
         self.assertEqual(rows, [(1,), (2,), (3,)])
 
     def test_a_missing_database_is_an_error(self):
@@ -136,7 +149,7 @@ class MainTests(unittest.TestCase):
         self.out_dir = self.tmpdir / 'out'
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        _cleanup(self.tmpdir)
 
     def test_returns_zero_and_prints_the_copy(self):
         import contextlib, io

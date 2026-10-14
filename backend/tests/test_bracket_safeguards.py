@@ -7,11 +7,13 @@ games under a week whose other games were played days apart asks for confirmatio
 first and writes nothing until it gets one.
 """
 
+import gc
 import json
 import os
 import shutil
 import sqlite3
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -307,7 +309,16 @@ class WeekGuardRouteTests(unittest.TestCase):
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        # The app's own connections keep the file locked on Windows until they are
+        # collected, so hand it back before deleting and retry briefly if it lingers.
+        self.client = None
+        self.app = None
+        gc.collect()
+        for attempt in range(3):
+            shutil.rmtree(self.tmpdir, ignore_errors=True)
+            if not self.tmpdir.exists() or attempt == 2:
+                break
+            time.sleep(0.2)
 
     def _write(self, script):
         conn = sqlite3.connect(self.db_path)

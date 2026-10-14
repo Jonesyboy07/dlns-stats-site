@@ -110,8 +110,9 @@ without it fall back to increases in the player stats snapshots, which only date
 to the snapshot that reported it (positions are sampled at that snapshot) and can
 over-count the final death. Each per-axis midpoint distance uses the map origin as its
 zero point; `midpoint_distance` is the Euclidean 3D distance and is NULL unless all three
-coordinates are available.
-
+coordinates are available. The killer's own position comes from the same `death_details`
+entry, and is what the match timeline draws its killer-to-victim lines from; rows written
+before that column existed stay NULL until `-timelinebackfill true` re-reads them.
 | Column | Type | Null | Notes |
 | --- | --- | --- | --- |
 | `match_id` | INTEGER | No | FK -> `matches.match_id` |
@@ -128,6 +129,9 @@ coordinates are available.
 | `killer_player_slot` | INTEGER | Yes | In-game slot (1-12) of the killer, from `death_details`; NULL on the snapshot fallback |
 | `time_to_kill_s` | REAL | Yes | Time-to-kill in seconds, as reported for the death |
 | `death_duration_s` | INTEGER | Yes | Death duration in seconds, as reported for the death |
+| `killer_position_x` | REAL | Yes | Map X coordinate the killer stood at, from `death_details[].killer_pos`; NULL on the snapshot fallback |
+| `killer_position_y` | REAL | Yes | Map Y coordinate the killer stood at |
+| `killer_position_z` | REAL | Yes | Map Z coordinate the killer stood at |
 
 Primary Key:
 - (`match_id`, `account_id`, `death_index`)

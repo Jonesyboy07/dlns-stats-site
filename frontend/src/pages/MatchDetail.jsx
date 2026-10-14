@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import heroMeta from "../../../data/hero_meta.json";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
@@ -6,9 +6,15 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
 import { heroIconUrl } from "../components/HeroIcon";
-import ItemIcon from "../components/ItemIcon";
 import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
-import { buildPurchaseRows, buildTimelineRows, clock, mergeTimelineRows } from "../utils/matchTimeline";
+import { buildTimelineRows, clock, objectiveLabel, parseMatchTime, matchTimeParam } from "../utils/matchTimeline";
+import { buildObjectives, buildTimelineModel } from "../utils/matchTimelineModel";
+import { buildFeedRows } from "../utils/matchTimelineFeed";
+import { PLAYBACK_TICK_MS, buildLaneView, playbackStep } from "../utils/matchTimelineLanes";
+import { killInvolves, trailMarkers } from "../utils/matchTimelineMap";
+import { decodeTrail } from "../utils/replay";
+import { buildRoster, teamScores } from "../utils/matchTimelineRoster";
+import { laneMeta } from "../utils/lanes";
 import { mapVersionForMatch } from "../utils/matchMap";
 import {
   LANING_END_S,
@@ -20,8 +26,13 @@ import {
   playerLaningStats,
   soulsAt,
 } from "../utils/laning";
-import MatchReplay from "../components/MatchReplay";
 import MatchMap from "../components/MatchMap";
+import TimelineMapPanel from "../components/TimelineMapPanel";
+import TimelineFeed from "../components/TimelineFeed";
+import TimelineLanes from "../components/TimelineLanes";
+import TimelineHeader from "../components/TimelineHeader";
+import TimelineRoster from "../components/TimelineRoster";
+import TimelineTransport from "../components/TimelineTransport";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -232,9 +243,96 @@ function MatchDetail() {
   // Build tab: focused player (default view) vs. "See all" side-by-side view.
   const [buildSeeAll, setBuildSeeAll] = useState(false);
   const [buildFocusId, setBuildFocusId] = useState(null);
-  // Timeline tab: whose item purchases are merged into the list. Empty shows the
-  // events only, because a match logs hundreds of buys.
-  const [timelineItemPlayers, setTimelineItemPlayers] = useState([]);
+  // Timeline tab: whose item purchases are merged into the list, and who the map
+  // highlights. Empty shows the events only, because a match logs hundreds of buys.
+  const [timelineSelection, setTimelineSelection] = useState([]);
+  // Timeline map display controls.
+  const [mapMode, setMapMode] = useState("realtime");
+  const [mapHeat, setMapHeat] = useState("team");
+  const [mapRange, setMapRange] = useState("all");
+  const [mapLines, setMapLines] = useState("hover");
+  const [mapHoverKillId, setMapHoverKillId] = useState(null);
+  const [mapFocusedFight, setMapFocusedFight] = useState(null);
+  const [feedFilter, setFeedFilter] = useState("all");
+  // Null means "the end of the match", which is where the timeline opens. A `?t=` in
+  // the URL opens there instead, which is what makes a timeline link shareable.
+  const [timelineTime, setTimelineTime] = useState(() =>
+    parseMatchTime(new URLSearchParams(window.location.search).get("t")),
+  );
+  const [timelinePlaying, setTimelinePlaying] = useState(false);
+  // A viewing preference rather than match state, so it survives switching matches.
+  const [timelineSpeed, setTimelineSpeed] = useState(1);
+
+  // The map, the feed and the lanes all read from one derivation of the same feed, so
+  // they can never disagree about what a fight was or who was on a streak. Objectives
+  // are translated here rather than inside the model so the tier names live in one
+  // place for the whole timeline. It has to sit with the other hooks, above the
+  // loading/error returns below, or the hook count changes between renders.
+  const timelineModel = useMemo(() => {
+    const events = matchEvents?.events || [];
+    return buildTimelineModel({
+      events,
+      purchases: matchEvents?.purchases || [],
+      players,
+      objectives: buildObjectives(events, { labelOf: objectiveLabel, laneOf: laneMeta }),
+      durationS: matchEvents?.duration_s ?? matchPositions?.duration_s ?? null,
+    });
+  }, [matchEvents, matchPositions, players]);
+
+  // Playback advances the clock on a timer rather than per animation frame, so a
+  // dropped frame cannot make the replay skip ahead. At 1 x the step is the tick's own
+  // length, so the match plays at real time and the speeds multiply that. The site's
+  // replay uses the same split: one effect ticks, a second stops at the end so the
+  // transport offers Play again rather than sitting on pause.
+  useEffect(() => {
+    if (!timelinePlaying) return undefined;
+    const durationS = timelineModel.durationS;
+    if (!durationS) return undefined;
+    const step = playbackStep(timelineSpeed);
+    const id = setInterval(() => {
+      setTimelineTime((current) => Math.min((current ?? 0) + step, durationS));
+    }, PLAYBACK_TICK_MS);
+    return () => clearInterval(id);
+  }, [timelinePlaying, timelineSpeed, timelineModel.durationS]);
+
+  useEffect(() => {
+    if (!timelinePlaying) return;
+    const durationS = timelineModel.durationS;
+    if (durationS && (timelineTime ?? 0) >= durationS) setTimelinePlaying(false);
+  }, [timelinePlaying, timelineTime, timelineModel.durationS]);
+
+  // Keep the address bar pointing at the current second, so the link is always
+  // shareable. Skipped while playing: rewriting the URL twenty times a second is wasted
+  // work, and the resting position is written once playback stops.
+  useEffect(() => {
+    if (timelinePlaying) return;
+    const url = new URL(window.location.href);
+    const param = timelineTime == null ? null : matchTimeParam(timelineTime);
+    if (param == null) url.searchParams.delete("t");
+    else url.searchParams.set("t", param);
+    window.history.replaceState(null, "", url);
+  }, [timelineTime, timelinePlaying]);
+
+  // The clock the whole timeline reads: the end of the match until a row or the
+  // scrubber moves it. A `?t=` from a longer match can outrun this one, so it clamps.
+  const timelineT =
+    timelineTime == null
+      ? timelineModel.durationS
+      : Math.min(timelineTime, timelineModel.durationS ?? timelineTime);
+
+  // Trails mode is the only thing that needs the position trails, and decoding them is
+  // wasted work otherwise: a whole match's trails are a few hundred KB of base64.
+  const timelineTrails = useMemo(
+    () =>
+      mapMode === "realtime"
+        ? (matchPositions?.players || []).map(decodeTrail).filter(Boolean)
+        : [],
+    [mapMode, matchPositions],
+  );
+  const timelinePlayerMarkers = useMemo(
+    () => trailMarkers(timelineTrails, timelineModel.kills, timelineT),
+    [timelineTrails, timelineModel.kills, timelineT],
+  );
 
   useEffect(() => {
     fetchHeroes();
@@ -248,6 +346,15 @@ function MatchDetail() {
     fetchMatchEvents();
     fetchMatchPositions();
     fetchSeriesGames();
+    // The timeline's clock, focus and highlight are all per-match, and this component
+    // is reused when only the match id in the URL changes. The clock re-reads `?t=`
+    // rather than resetting to null, or a shared link would lose its timestamp the
+    // moment the page mounted.
+    setTimelineTime(parseMatchTime(new URLSearchParams(window.location.search).get("t")));
+    setMapFocusedFight(null);
+    setMapHoverKillId(null);
+    setTimelineSelection([]);
+    setTimelinePlaying(false);
   }, [matchId]);
 
   const fetchSeriesGames = async () => {
@@ -578,29 +685,64 @@ function MatchDetail() {
   );
   // Which minimap layout this match was played on (null when the start time is unknown).
   const mapVersion = mapVersionForMatch(adjacentMatches);
-  // Lane objectives carry their lane colour; everything else sits on a side.
-  const timelineMarkerColor = (row) =>
-    row.laneColor || (row.team === 0 ? CHART_AMBER : row.team === 1 ? CHART_SAPPHIRE : "#94a3b8");
 
-  // The timeline keeps purchases out of its default view: a match logs a few hundred
-  // buys against a few dozen kills and objectives, so whose are merged in is a choice.
-  const purchaseRows = buildPurchaseRows(matchEvents?.purchases || []);
-  const purchaseRowPlayers = players.filter((player) =>
-    purchaseRows.some((row) => row.accountId === player.account_id),
-  );
-  const shownPurchaseRows = purchaseRows.filter((row) =>
-    timelineItemPlayers.includes(row.accountId),
-  );
-  // Derived rather than a length check: a selection made on the previous match can
-  // still be in state here, and comparing counts would then label the button wrong.
-  const allTimelineItemsOn =
-    purchaseRowPlayers.length > 0 &&
-    purchaseRowPlayers.every((player) => timelineItemPlayers.includes(player.account_id));
-  const timelineListRows = mergeTimelineRows(timelineRows, shownPurchaseRows);
-  const toggleTimelineItems = (accountId) =>
-    setTimelineItemPlayers((prev) =>
+  // The roster is the one selection control: highlighting a player adds their lane and
+  // narrows the feed and the map.
+  const toggleTimelinePlayer = (accountId) =>
+    setTimelineSelection((prev) =>
       prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId],
     );
+
+  // The map, the feed and the lanes all read from one derivation of the same feed, so
+  // they can never disagree about what a fight was or who was on a streak.
+  const timelineSelectionNames = players
+    .filter((player) => timelineSelection.includes(player.account_id))
+    .map((player) => player.persona_name || `#${player.account_id}`);
+
+  const timelineFeedRows = buildFeedRows(timelineModel, {
+    t: timelineT,
+    filter: feedFilter,
+    selection: timelineSelection,
+    hoveredKillId: mapHoverKillId,
+    focusedFight: mapFocusedFight,
+    durationS: timelineModel.durationS,
+  });
+  const timelineTeamName = (team) =>
+    (team === 0 ? amberTeamName : team === 1 ? sapphireTeamName : null) || "Unknown";
+
+  // The roster, the scoreline and the map all read the clock, so they are derived
+  // together and can never drift apart.
+  const timelineRoster = buildRoster({ players, kills: timelineModel.kills, t: timelineT });
+  const timelineScores = teamScores(timelineModel.kills, timelineT);
+
+  const timelineLaneView = buildLaneView({
+    kills: timelineModel.kills,
+    objectives: timelineModel.objectives,
+    fights: timelineModel.fights,
+    keyPurchases: timelineModel.keyPurchases,
+    selection: timelineSelection,
+    players,
+    durationS: timelineModel.durationS,
+    involves: (kill) => killInvolves(kill, timelineSelection),
+  });
+
+  // Seeking always drops the fight focus: the reader has asked to be somewhere else.
+  const seekTimeline = (timeS) => {
+    setTimelineTime(timeS);
+    setMapFocusedFight(null);
+  };
+
+  const toggleTimelinePlay = () => {
+    const durationS = timelineModel.durationS;
+    if (!durationS) return;
+    if (timelinePlaying) {
+      setTimelinePlaying(false);
+      return;
+    }
+    // Play at the end of the match starts it again from the beginning.
+    if ((timelineTime ?? 0) >= durationS) setTimelineTime(0);
+    setTimelinePlaying(true);
+  };
 
   // --- Laning / scoreboard helpers ---
   // `assigned_lane` values are reported by the game (current 3-duo-lane map):
@@ -1024,126 +1166,103 @@ function MatchDetail() {
       {/* Timeline tab: where it happened, then a plain list of what happened. */}
       {activeTab === "timeline" && (
         <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6">
-          <h3 className={GRAPH_SECTION_LABEL}>Timeline</h3>
+          <TimelineHeader
+            className="mb-4"
+            teamNames={[amberTeamName, sapphireTeamName]}
+            scores={timelineScores}
+            t={timelineT ?? 0}
+            durationS={timelineModel.durationS}
+          />
           {matchEvents == null || matchPositions == null ? (
             <p className="mt-3 text-sm text-dim">Loading…</p>
           ) : (
             <>
-              {timelineRows.length > 0 && (
-                <MatchReplay
-                  key={matchId}
-                  rows={timelineRows}
-                  players={matchPositions?.players || []}
-                  durationS={matchPositions?.duration_s ?? null}
-                  version={mapVersion}
-                  heroIcon={getHeroIcon}
-                  className="mt-4"
-                />
-              )}
-              {purchaseRowPlayers.length > 0 && (
-                <div
-                  className={`flex flex-wrap items-center gap-1.5 ${
-                    timelineRows.length > 0
-                      ? "mt-5 border-t border-border-light/40 pt-4"
-                      : "mt-4"
-                  }`}
-                >
-                  <span className="mr-1 font-valve-oracle text-[11px] font-semibold uppercase tracking-wide text-dim">
-                    Show items for
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTimelineItemPlayers(
-                        allTimelineItemsOn
-                          ? []
-                          : purchaseRowPlayers.map((player) => player.account_id),
-                      )
-                    }
-                    className="rounded-full border border-border-light px-2.5 py-1 text-[11px] font-semibold text-dim transition-colors hover:text-secondary"
-                  >
-                    {allTimelineItemsOn ? "None" : "All"}
-                  </button>
-                  {purchaseRowPlayers.map((player) => {
-                    const on = timelineItemPlayers.includes(player.account_id);
-                    const color = player.team === 0 ? CHART_AMBER : CHART_SAPPHIRE;
-                    return (
-                      <button
-                        key={player.account_id}
-                        type="button"
-                        aria-pressed={on}
-                        title={`${player.persona_name} – ${getHeroName(player.hero_id)}`}
-                        onClick={() => toggleTimelineItems(player.account_id)}
-                        className={`flex items-center gap-1.5 rounded-full border py-0.5 pl-1 pr-2.5 text-[11px] font-semibold transition-colors ${
-                          on ? "text-primary" : "border-border-light text-dim hover:text-secondary"
-                        }`}
-                        style={on ? { backgroundColor: `${color}40`, borderColor: color } : undefined}
-                      >
-                        <HeroIcon
-                          src={getHeroIcon(player.hero_id)}
-                          name={getHeroName(player.hero_id)}
-                          className="w-4 h-4"
-                          rounded="rounded-full"
-                        />
-                        {player.persona_name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {timelineListRows.length === 0 ? (
-                <p className="mt-3 text-sm text-dim">
-                  No timeline recorded for this match yet.
-                </p>
-              ) : (
-                <ol className="mt-5 flex flex-col">
-                  {timelineListRows.map((row) => (
-                    <li
-                      key={row.key}
-                      className="flex items-center gap-3 py-1.5 border-b border-border-light/40 last:border-b-0"
-                    >
-                      <span className="w-12 shrink-0 text-right font-valve-oracle text-[13px] tabular-nums text-dim">
-                        {clock(row.time_s)}
-                      </span>
-                      <span
-                        className="w-2 h-2 shrink-0 rounded-sm"
-                        style={{ backgroundColor: timelineMarkerColor(row) }}
-                        aria-hidden="true"
+              {timelineModel.kills.length > 0 || timelineRows.length > 0 ? (
+                <>
+                  <TimelineRoster
+                    className="mb-5"
+                    roster={timelineRoster}
+                    selection={timelineSelection}
+                    teamNames={[amberTeamName, sapphireTeamName]}
+                    onToggle={toggleTimelinePlayer}
+                    onClear={() => setTimelineSelection([])}
+                    heroName={getHeroName}
+                  />
+
+                  <div className="grid gap-5 xl:grid-cols-[520px_1fr]">
+                    {/* The map and its transport are one column, so the controls sit
+                        under the thing they move rather than at the foot of the tab. */}
+                    <div className="flex flex-col gap-2.5">
+                      <TimelineMapPanel
+                        kills={timelineModel.kills}
+                        t={timelineT}
+                        durationS={timelineModel.durationS}
+                        mode={mapMode}
+                        heatColor={mapHeat}
+                        range={mapRange}
+                        lines={mapLines}
+                        playerMarkers={timelinePlayerMarkers}
+                        heroIcon={getHeroIcon}
+                        hoveredKillId={mapHoverKillId}
+                        selection={timelineSelection}
+                        focusedFight={mapFocusedFight}
+                        version={mapVersion}
+                        teamNames={[amberTeamName, sapphireTeamName]}
+                        selectionNames={timelineSelectionNames}
+                        onHoverKill={setMapHoverKillId}
+                        onExitFight={() => setMapFocusedFight(null)}
+                        onChange={(patch) => {
+                          if (patch.mode !== undefined) setMapMode(patch.mode);
+                          if (patch.heatColor !== undefined) setMapHeat(patch.heatColor);
+                          if (patch.range !== undefined) setMapRange(patch.range);
+                          if (patch.lines !== undefined) setMapLines(patch.lines);
+                        }}
                       />
-                      {row.heroId != null && (
-                        <HeroIcon
-                          src={getHeroIcon(row.heroId)}
-                          name={getHeroName(row.heroId)}
-                          className="w-5 h-5"
-                        />
-                      )}
-                      {row.type === "purchase" && (
-                        <ItemIcon
-                          icon={row.icon}
-                          name={row.item}
-                          size="w-5 h-5"
-                          fallback={staticImagePathToCdn(row.image || null)}
-                        />
-                      )}
-                      <span className="text-sm text-secondary">{row.text}</span>
-                      {row.killerHeroId != null && (
-                        <span className="text-[11px] whitespace-nowrap text-dim">
-                          {getHeroName(row.killerHeroId)}
-                        </span>
-                      )}
-                      {row.trailing ? (
-                        <span className="ml-auto text-[11px] whitespace-nowrap text-dim">
-                          {row.trailing}
-                        </span>
-                      ) : null}
-                      {row.damage ? (
-                        <span className="ml-auto text-xs tabular-nums whitespace-nowrap text-dim">
-                          {formatK(row.damage)} damage
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ol>
+                      <TimelineTransport
+                        t={timelineT ?? 0}
+                        durationS={timelineModel.durationS}
+                        playing={timelinePlaying}
+                        speed={timelineSpeed}
+                        onTogglePlay={toggleTimelinePlay}
+                        onSeek={seekTimeline}
+                        onSpeed={setTimelineSpeed}
+                      />
+                    </div>
+                    <TimelineFeed
+                      rows={timelineFeedRows}
+                      filter={feedFilter}
+                      onFilter={setFeedFilter}
+                      onSeek={seekTimeline}
+                      onFocusFight={(fight) => {
+                        setMapFocusedFight(fight);
+                        setTimelineTime(fight.endS);
+                        // A fight brings its own rows, so the filter must not hide them.
+                        setFeedFilter("all");
+                      }}
+                      onHoverKill={setMapHoverKillId}
+                      heroName={getHeroName}
+                      teamName={timelineTeamName}
+                    />
+                  </div>
+
+                  <TimelineLanes
+                    className="mt-6"
+                    view={timelineLaneView}
+                    t={timelineT ?? 0}
+                    durationS={timelineModel.durationS}
+                    onSeek={seekTimeline}
+                    onFocusFight={(fight) => {
+                      setMapFocusedFight(fight);
+                      setTimelineTime(fight.endS);
+                      setFeedFilter("all");
+                    }}
+                    focusedFight={mapFocusedFight}
+                    fights={timelineModel.fights}
+                    heroName={getHeroName}
+                  />
+                </>
+              ) : (
+                <p className="mt-3 text-sm text-dim">No timeline recorded for this match yet.</p>
               )}
             </>
           )}

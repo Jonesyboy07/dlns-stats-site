@@ -8,22 +8,12 @@
 
 import { useState } from "react";
 import { cdnImage } from "../utils/cdn";
-import { mapVersionConfig, worldToPercent } from "../utils/matchMap";
-
-// The backdrop plate is 1100 px wide for a 1024 px map, so it overhangs the map art
-// evenly on every side. Applied as a centre-anchored scale rather than a percentage
-// width plus negative offsets: the global `img { max-width: 100% }` reset clamps a
-// percentage width but not a percentage height, which left the plate squashed and its
-// centre pulled off to one side.
-const BACKDROP_RATIO = 1100 / 1024;
-
-// The art is authored almost black (median luminance ~16/255) and sits on an equally
-// dark plate, so as drawn the map barely separates from the plate behind it. Inverting
-// lifts the drawn pixels to light grey while the plate stays dark; hue-rotate cancels
-// the 180 degree hue flip invert() introduces, keeping the artist's tint. Brightness
-// then dials the result back so the map reads as context rather than the loudest thing
-// on the page.
-const MAP_ART_FILTER = "invert(1) hue-rotate(180deg) contrast(1.05) brightness(0.62)";
+import {
+  BACKDROP_RATIO,
+  MAP_ART_FILTER,
+  mapVersionConfig,
+  worldToPercent,
+} from "../utils/matchMap";
 
 /**
  * Timeline rows that carry a position, as map markers. Pure, so it can be tested

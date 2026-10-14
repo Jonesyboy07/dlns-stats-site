@@ -48,9 +48,9 @@ SAMPLE_MATCH_INFO = {
             ],
             "death_details": [
                 {"game_time_s": 355, "killer_player_slot": 9, "time_to_kill_s": 4.5, "death_duration_s": 14,
-                 "death_pos": {"x": 3, "y": 4, "z": 0}},
+                 "death_pos": {"x": 3, "y": 4, "z": 0}, "killer_pos": {"x": 30, "y": 40, "z": 0}},
                 {"game_time_s": 530, "killer_player_slot": 10, "time_to_kill_s": 28.4, "death_duration_s": 21,
-                 "death_pos": {"x": 0, "y": 0, "z": None}},
+                 "death_pos": {"x": 0, "y": 0, "z": None}, "killer_pos": {"x": 60, "y": 70, "z": None}},
             ],
         }
     ],
@@ -164,6 +164,19 @@ class TimelineIngestTests(unittest.TestCase):
         self.assertIsNone(rows[1][5])
         self.assertEqual(rows[1][6], 10)
 
+    def test_deaths_store_the_killers_position(self):
+        ingest_player_deaths(self.conn, 123, SAMPLE_MATCH_INFO)
+        self.conn.commit()
+
+        rows = self.conn.execute(
+            "SELECT killer_position_x, killer_position_y, killer_position_z "
+            "FROM player_deaths ORDER BY death_index"
+        ).fetchall()
+        # The killer stands somewhere else than the victim, or the map's line would
+        # be a dot.
+        self.assertEqual(rows[0], (30.0, 40.0, 0.0))
+        self.assertEqual(rows[1], (60.0, 70.0, None))
+
     def test_death_count_matches_the_authoritative_player_count(self):
         ingest_player_deaths(self.conn, 123, SAMPLE_MATCH_INFO)
         self.conn.commit()
@@ -185,12 +198,64 @@ class TimelineIngestTests(unittest.TestCase):
 
         row = self.conn.execute(
             "SELECT death_time_s, position_x, midpoint_distance, killer_player_slot, "
-            "time_to_kill_s, death_duration_s FROM player_deaths"
+            "time_to_kill_s, death_duration_s, killer_position_x, killer_position_y, "
+            "killer_position_z FROM player_deaths"
         ).fetchone()
         self.assertEqual(row[0], 360)  # snapshot time is the best available
         self.assertEqual(row[1], 360.0)  # sampled from match_paths
         self.assertEqual(row[2], 360.0)
-        self.assertEqual(row[3:], (None, None, None))
+        # Only the detail path reports a killer, so there is nothing to draw a line to.
+        self.assertEqual(row[3:], (None, None, None, None, None, None))
+
+
+class PlayerDeathColumnMigrationTests(unittest.TestCase):
+    """A database created before the killer-position columns existed gains them."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.db_path = Path(self.tmpdir.name) / "old.sqlite3"
+        # The shape the table had before the killer position was captured.
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            "CREATE TABLE player_deaths ("
+            "match_id INTEGER NOT NULL, account_id INTEGER NOT NULL, "
+            "death_index INTEGER NOT NULL, death_time_s INTEGER, "
+            "position_x REAL, position_y REAL, position_z REAL, "
+            "midpoint_distance_x REAL, midpoint_distance_y REAL, midpoint_distance_z REAL, "
+            "midpoint_distance REAL, killer_player_slot INTEGER, time_to_kill_s REAL, "
+            "death_duration_s INTEGER, "
+            "PRIMARY KEY (match_id, account_id, death_index))"
+        )
+        conn.commit()
+        conn.close()
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_db_init_adds_the_killer_position_columns(self):
+        conn = db_connect(self.db_path)
+        db_init(conn)
+
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(player_deaths)")}
+        self.assertIn("killer_position_x", cols)
+        self.assertIn("killer_position_y", cols)
+        self.assertIn("killer_position_z", cols)
+        conn.close()
+
+    def test_an_upgraded_database_accepts_the_new_rows(self):
+        conn = db_connect(self.db_path)
+        db_init(conn)
+        conn.execute("INSERT INTO matches (match_id, duration_s) VALUES (?, ?)", (123, 1903))
+        conn.commit()
+
+        ingest_player_deaths(conn, 123, SAMPLE_MATCH_INFO)
+        conn.commit()
+
+        rows = conn.execute(
+            "SELECT killer_position_x, killer_position_y FROM player_deaths ORDER BY death_index"
+        ).fetchall()
+        self.assertEqual(rows, [(30.0, 40.0), (60.0, 70.0)])
+        conn.close()
 
 
 class MatchEventsRouteTests(unittest.TestCase):
@@ -264,8 +329,9 @@ class MatchEventsRouteTests(unittest.TestCase):
             )
             conn.execute(
                 "INSERT INTO player_deaths (match_id, account_id, death_index, death_time_s, "
-                "killer_player_slot, time_to_kill_s, death_duration_s, position_x) "
-                "VALUES (123, 42, 1, 355, 9, 4.5, 14, 120.5)"
+                "killer_player_slot, time_to_kill_s, death_duration_s, position_x, "
+                "killer_position_x, killer_position_y) "
+                "VALUES (123, 42, 1, 355, 9, 4.5, 14, 120.5, 900.25, 700.5)"
             )
 
     def tearDown(self):
@@ -296,6 +362,8 @@ class MatchEventsRouteTests(unittest.TestCase):
         self.assertEqual(death["persona_name"], "Tester")
         self.assertEqual(death["killer_player_slot"], 9)
         self.assertEqual(death["position"], {"x": 120.5, "y": None, "z": None})
+        # Both ends of the kill line, so the map can draw it.
+        self.assertEqual(death["killer_position"], {"x": 900.25, "y": 700.5, "z": None})
 
         lane_objective = events[1]
         self.assertEqual(lane_objective["objective"], "Tier 1 Walker (Lane 3)")

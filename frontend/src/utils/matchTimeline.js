@@ -8,24 +8,30 @@
 
 import { laneMeta } from "./lanes";
 
-/** Short names for the objective ids (see docs/db_schema.md). */
+/**
+ * Short names for the objective ids (see docs/db_schema.md). The ids are Valve's
+ * `ECitadelTeamObjective` slots; the names here follow the objective's tier on the
+ * board, so the lane objectives read Guardian -> Walker -> Base Guardian and the
+ * base reads Shrine -> Patron Guardian -> Patron. Id 2, 6 and 13 are the lane-2 slot,
+ * which no match reports: the current map has three lanes.
+ */
 export const OBJECTIVE_LABELS = {
   0: "Patron",
-  1: "Tier 1 Walker",
-  2: "Tier 1 Walker",
-  3: "Tier 1 Walker",
-  4: "Tier 1 Walker",
-  5: "Tier 2 Walker",
-  6: "Tier 2 Walker",
-  7: "Tier 2 Walker",
-  8: "Tier 2 Walker",
-  9: "Base Guardian",
-  10: "Shield Generator",
-  11: "Shield Generator",
-  12: "Barrack Boss",
-  13: "Barrack Boss",
-  14: "Barrack Boss",
-  15: "Barrack Boss",
+  1: "Guardian",
+  2: "Guardian",
+  3: "Guardian",
+  4: "Guardian",
+  5: "Walker",
+  6: "Walker",
+  7: "Walker",
+  8: "Walker",
+  9: "Patron Guardian",
+  10: "Shrine",
+  11: "Shrine",
+  12: "Base Guardian",
+  13: "Base Guardian",
+  14: "Base Guardian",
+  15: "Base Guardian",
 };
 
 export const objectiveLabel = (objectiveId) =>
@@ -37,6 +43,33 @@ export const clock = (seconds) => {
   const total = Math.max(0, Math.floor(Number(seconds)));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 };
+
+/**
+ * A shareable `?t=` value as a match second: either `m:ss` or bare seconds, which is
+ * what `clock` writes and what a hand-edited URL tends to contain. Returns null when
+ * there is nothing usable, so the caller can fall back to its own default rather than
+ * seeking to zero.
+ *
+ * The emptiness check is explicit because `Number(null)` and `Number("")` are both 0,
+ * which would read as "the start of the match".
+ */
+export const parseMatchTime = (value) => {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (text.includes(":")) {
+    const [minutes, seconds] = text.split(":");
+    const whole = Number(minutes);
+    const part = Number(seconds);
+    if (!Number.isFinite(whole) || !Number.isFinite(part)) return null;
+    return Math.max(0, Math.round(whole * 60 + part));
+  }
+  const raw = Number(text);
+  return Number.isFinite(raw) ? Math.max(0, Math.round(raw)) : null;
+};
+
+/** The `?t=` value for a match second, i.e. `clock` in the form the URL carries. */
+export const matchTimeParam = (seconds) => clock(seconds);
 
 const defaultTeamLabel = (team) =>
   team === 0 ? "Amber" : team === 1 ? "Sapphire" : "Unknown";

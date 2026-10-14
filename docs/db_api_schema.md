@@ -453,8 +453,10 @@ Each event has `type` (`objective` / `mid_boss` / `death`) and `time_s`. Objecti
 elsewhere, or null for Titan, the shield generators and the Core), `first_damage_time_s` and
 the damage split. Mid boss events add `boss_index`, `team_killed` and `team_claimed`. Deaths
 add `account_id`, `death_index`, `persona_name`, `player_slot`, `hero_id`,
-`killer_player_slot`, `time_to_kill_s`, `death_duration_s` and `position`. Survived
-objectives (`destroyed_time_s` of `0`) are stored but excluded from `events`.
+`killer_player_slot`, `time_to_kill_s`, `death_duration_s`, `position` and
+`killer_position`. Survived objectives (`destroyed_time_s` of `0`) are stored but excluded
+from `events`. `killer_position` is null for matches ingested before it was captured, so a
+client drawing killer-to-victim lines should treat a null one as "no line for this death".
 
 `purchases` is kept apart from `events` because a match logs a few hundred buys against a
 few dozen events; the timeline tab renders it only for the players the reader selects.

@@ -43,11 +43,20 @@ describe("clock", () => {
 });
 
 describe("objectiveLabel", () => {
-  it("names the objective ids", () => {
-    expect(objectiveLabel(3)).toBe("Tier 1 Walker");
-    expect(objectiveLabel(9)).toBe("Base Guardian");
-    expect(objectiveLabel(12)).toBe("Barrack Boss");
+  it("names each tier in the order the board is taken", () => {
+    // Lane objectives climb Guardian -> Walker -> Base Guardian.
+    expect(objectiveLabel(3)).toBe("Guardian");
+    expect(objectiveLabel(7)).toBe("Walker");
+    expect(objectiveLabel(12)).toBe("Base Guardian");
+    // Then the base: shrines, the Patron's own guardian, and the Patron.
+    expect(objectiveLabel(10)).toBe("Shrine");
+    expect(objectiveLabel(9)).toBe("Patron Guardian");
     expect(objectiveLabel(0)).toBe("Patron");
+  });
+
+  it("names every slot the API can report", () => {
+    const named = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(objectiveLabel);
+    expect(named.every((label) => !label.startsWith("Objective "))).toBe(true);
   });
 
   it("falls back for an id it does not know", () => {
@@ -78,7 +87,7 @@ describe("buildTimelineRows", () => {
 
   it("labels a lane objective with its lane name and colour", () => {
     const objective = rows[1];
-    expect(objective.text).toBe("Broadway Tier 1 Walker destroyed by Sapphire");
+    expect(objective.text).toBe("Broadway Guardian destroyed by Sapphire");
     expect(objective.lane).toBe(4);
     expect(objective.laneName).toBe("Broadway");
     expect(objective.laneColor).toBe("#22d3ee");
@@ -86,8 +95,8 @@ describe("buildTimelineRows", () => {
   });
 
   it("has no lane for objectives that belong to none", () => {
-    expect(rows[3].lane).toBeNull();  // the Base Guardian
-    expect(rows[3].text).toBe("Base Guardian destroyed by Amber");
+    expect(rows[3].lane).toBeNull();  // the Patron Guardian
+    expect(rows[3].text).toBe("Patron Guardian destroyed by Amber");
   });
 
   it("describes a mid boss with the team that claimed it", () => {
@@ -99,7 +108,7 @@ describe("buildTimelineRows", () => {
     const named = buildTimelineRows(events, players, (team) =>
       team === 0 ? "Melee Creeps" : "Pulsar Esports",
     );
-    expect(named[3].text).toBe("Base Guardian destroyed by Melee Creeps");
+    expect(named[3].text).toBe("Patron Guardian destroyed by Melee Creeps");
     expect(named[2].text).toBe("Mid Boss killed, claimed by Pulsar Esports");
   });
 

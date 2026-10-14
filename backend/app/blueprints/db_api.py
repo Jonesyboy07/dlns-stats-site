@@ -1524,6 +1524,7 @@ def match_events(match_id: int):  # type: ignore
             "SELECT d.account_id, d.death_index, d.death_time_s, "
             "d.killer_player_slot, d.time_to_kill_s, d.death_duration_s, "
             "d.position_x, d.position_y, d.position_z, "
+            "d.killer_position_x, d.killer_position_y, d.killer_position_z, "
             "p.player_slot, p.team, p.hero_id, u.persona_name "
             "FROM player_deaths d "
             "LEFT JOIN players p ON p.match_id = d.match_id AND p.account_id = d.account_id "
@@ -1570,7 +1571,8 @@ def match_events(match_id: int):  # type: ignore
             "team_claimed": team_claimed,
         })
     for (account_id, death_index, death_time_s, killer_slot, time_to_kill,
-         death_duration_s, x, y, z, player_slot, team, hero_id, persona_name) in deaths:
+         death_duration_s, x, y, z, kx, ky, kz,
+         player_slot, team, hero_id, persona_name) in deaths:
         events.append({
             "type": "death",
             "time_s": death_time_s,
@@ -1584,6 +1586,11 @@ def match_events(match_id: int):  # type: ignore
             "time_to_kill_s": time_to_kill,
             "death_duration_s": death_duration_s,
             "position": None if x is None and y is None and z is None else {"x": x, "y": y, "z": z},
+            # Where the killer stood. Null for matches ingested before this was
+            # captured, so the map can only draw kill lines when both ends exist.
+            "killer_position": (
+                None if kx is None and ky is None and kz is None else {"x": kx, "y": ky, "z": kz}
+            ),
         })
 
     # Purchases, straight out of the metadata feed's per-player item log. That log also

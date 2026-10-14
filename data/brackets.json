@@ -12681,6 +12681,445 @@
         }
       ],
       "edited_at": 1791233492
+    },
+    {
+      "id": "night-shift-w59-eu",
+      "title": "Night Shift",
+      "week": 59,
+      "region": "EU",
+      "ban_pattern": "ABBA",
+      "created_at": 1791490711,
+      "format": "gauntlet",
+      "rounds": [
+        {
+          "round": 1,
+          "name": "Qualifiers",
+          "best_of": 3
+        },
+        {
+          "round": 2,
+          "name": "Challenger",
+          "best_of": 1
+        },
+        {
+          "round": 3,
+          "name": "Finals",
+          "best_of": 3
+        }
+      ],
+      "series": [
+        {
+          "id": "R1M1",
+          "round": 1,
+          "team_a": "Abrahams",
+          "team_b": "Kastalia",
+          "winner_to": {
+            "series": "R2M1",
+            "slot": "team_b"
+          },
+          "loser_to": null,
+          "vod": "",
+          "games": [
+            {
+              "game": 1,
+              "match_id": 111485877,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 60
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 84
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 17
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 50
+                }
+              ]
+            },
+            {
+              "game": 2,
+              "match_id": 111506086,
+              "winner": "team_b",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 84
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 60
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 67
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 50
+                }
+              ]
+            },
+            {
+              "game": 3,
+              "match_id": 111532711,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 84
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 60
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 50
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 10
+                }
+              ]
+            }
+          ],
+          "outcome": null
+        },
+        {
+          "id": "R2M1",
+          "round": 2,
+          "team_a": "Buff Enjoyers",
+          "team_b": null,
+          "winner_to": {
+            "series": "R3M1",
+            "slot": "team_b"
+          },
+          "loser_to": null,
+          "vod": "https://www.youtube.com/watch?v=MsU-9q6Za2U&t=1577&feature=youtu.be",
+          "games": [
+            {
+              "game": 1,
+              "match_id": 112575268,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 27
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 81
+                },
+                {
+                  "order": 3,
+                  "team": "team_b",
+                  "hero_id": 88
+                },
+                {
+                  "order": 4,
+                  "team": "team_a",
+                  "hero_id": 8
+                }
+              ]
+            }
+          ],
+          "outcome": null
+        },
+        {
+          "id": "R3M1",
+          "round": 3,
+          "team_a": "Leviathan",
+          "team_b": null,
+          "winner_to": null,
+          "loser_to": null,
+          "vod": "https://www.youtube.com/watch?v=T_X2bXJdkkg&t=1078&feature=youtu.be",
+          "games": [
+            {
+              "game": 1,
+              "match_id": 112606086,
+              "winner": "team_b",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_b",
+                  "hero_id": 27
+                },
+                {
+                  "order": 2,
+                  "team": "team_a",
+                  "hero_id": 81
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 50
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 10
+                }
+              ]
+            },
+            {
+              "game": 2,
+              "match_id": 112633589,
+              "winner": "team_b",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 27
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 81
+                },
+                {
+                  "order": 3,
+                  "team": "team_b",
+                  "hero_id": 50
+                },
+                {
+                  "order": 4,
+                  "team": "team_a",
+                  "hero_id": 10
+                }
+              ]
+            }
+          ],
+          "outcome": null
+        }
+      ],
+      "edited_at": 1791494406
+    },
+    {
+      "id": "night-shift-w59-na",
+      "title": "Night Shift",
+      "week": 59,
+      "region": "NA",
+      "ban_pattern": "ABBA",
+      "created_at": 1791494453,
+      "format": "gauntlet",
+      "rounds": [
+        {
+          "round": 1,
+          "name": "Qualifiers",
+          "best_of": 3
+        },
+        {
+          "round": 2,
+          "name": "Challenger",
+          "best_of": 1
+        },
+        {
+          "round": 3,
+          "name": "Finals",
+          "best_of": 3
+        }
+      ],
+      "series": [
+        {
+          "id": "R1M1",
+          "round": 1,
+          "team_a": "New Legacy",
+          "team_b": "Requiem",
+          "winner_to": {
+            "series": "R2M1",
+            "slot": "team_b"
+          },
+          "loser_to": null,
+          "vod": "",
+          "games": [
+            {
+              "game": 1,
+              "match_id": 111682026,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 79
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 81
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 67
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 18
+                }
+              ]
+            },
+            {
+              "game": 2,
+              "match_id": 111701120,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 79
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 52
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 67
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 1
+                }
+              ]
+            }
+          ],
+          "outcome": null
+        },
+        {
+          "id": "R2M1",
+          "round": 2,
+          "team_a": "Pulsar Esports",
+          "team_b": null,
+          "winner_to": {
+            "series": "R3M1",
+            "slot": "team_b"
+          },
+          "loser_to": null,
+          "vod": "https://www.youtube.com/watch?v=V4hI5LkCXL8&t=1151s",
+          "games": [
+            {
+              "game": 1,
+              "match_id": 112663977,
+              "winner": "team_b",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_b",
+                  "hero_id": 27
+                },
+                {
+                  "order": 2,
+                  "team": "team_a",
+                  "hero_id": 65
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 18
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 69
+                }
+              ]
+            }
+          ],
+          "outcome": null
+        },
+        {
+          "id": "R3M1",
+          "round": 3,
+          "team_a": "Melee Creeps",
+          "team_b": null,
+          "winner_to": null,
+          "loser_to": null,
+          "vod": "https://www.youtube.com/watch?v=kSoLtekXbKk&t=942s",
+          "games": [
+            {
+              "game": 1,
+              "match_id": 112691800,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_a",
+                  "hero_id": 88
+                },
+                {
+                  "order": 2,
+                  "team": "team_b",
+                  "hero_id": 81
+                },
+                {
+                  "order": 3,
+                  "team": "team_b",
+                  "hero_id": 14
+                },
+                {
+                  "order": 4,
+                  "team": "team_a",
+                  "hero_id": 1
+                }
+              ]
+            },
+            {
+              "game": 2,
+              "match_id": 112714806,
+              "winner": "team_a",
+              "bans": [
+                {
+                  "order": 1,
+                  "team": "team_b",
+                  "hero_id": 79
+                },
+                {
+                  "order": 2,
+                  "team": "team_a",
+                  "hero_id": 88
+                },
+                {
+                  "order": 3,
+                  "team": "team_a",
+                  "hero_id": 15
+                },
+                {
+                  "order": 4,
+                  "team": "team_b",
+                  "hero_id": 18
+                }
+              ]
+            }
+          ],
+          "outcome": null
+        }
+      ],
+      "edited_at": 1791495394
     }
   ]
 }

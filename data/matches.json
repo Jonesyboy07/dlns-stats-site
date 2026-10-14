@@ -4632,6 +4632,118 @@
               "url": "https://www.youtube.com/watch?v=SN7HqwnP1aQ"
             }
           ]
+        },
+        {
+          "week": 59,
+          "games": [
+            {
+              "team_a": "Abrahams",
+              "team_b": "Kastalia",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 111485877
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 111506086
+                },
+                {
+                  "game": "Game 3",
+                  "team_a_side": 1,
+                  "match_id": 111532711
+                }
+              ],
+              "region": "EU",
+              "title": "Qualifiers"
+            },
+            {
+              "team_a": "Buff Enjoyers",
+              "team_b": "Abrahams",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 112575268
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=MsU-9q6Za2U&t=1577&feature=youtu.be",
+              "region": "EU",
+              "title": "Challenger"
+            },
+            {
+              "team_a": "Leviathan",
+              "team_b": "Buff Enjoyers",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 112606086
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 112633589
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=T_X2bXJdkkg&t=1078&feature=youtu.be",
+              "region": "EU",
+              "title": "Finals"
+            },
+            {
+              "team_a": "New Legacy",
+              "team_b": "Requiem",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 111682026
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 1,
+                  "match_id": 111701120
+                }
+              ],
+              "region": "NA",
+              "title": "Qualifiers"
+            },
+            {
+              "team_a": "Pulsar Esports",
+              "team_b": "New Legacy",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 0,
+                  "match_id": 112663977
+                }
+              ],
+              "match_vod": "https://www.youtube.com/watch?v=V4hI5LkCXL8&t=1151s",
+              "region": "NA",
+              "title": "Challenger"
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "New Legacy",
+              "matches": [
+                {
+                  "game": "Game 1",
+                  "team_a_side": 1,
+                  "match_id": 112691800
+                },
+                {
+                  "game": "Game 2",
+                  "team_a_side": 0,
+                  "match_id": 112714806
+                }
+              ],
+              "region": "NA",
+              "title": "Finals",
+              "match_vod": "https://www.youtube.com/watch?v=kSoLtekXbKk&t=942s"
+            }
+          ]
         }
       ]
     },

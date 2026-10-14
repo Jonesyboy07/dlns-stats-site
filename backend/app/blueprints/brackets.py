@@ -14,8 +14,9 @@ import sqlite3
 import threading
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 
@@ -57,9 +58,39 @@ def _load() -> Dict[str, Any]:
     return data
 
 
+# Every write keeps a copy of what it replaced, so a bad save in the editor is a file
+# restore rather than a reconstruction. Only the most recent few are kept.
+BRACKETS_BACKUP_KEEP = 10
+
+
+def _prune_backups(path: Path, keep: int = BRACKETS_BACKUP_KEEP) -> None:
+    for old in sorted(path.parent.glob(f'{path.name}.bak-*'))[:-keep]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+
+
+def _backup(path: Path) -> Optional[Path]:
+    """Copy the file about to be replaced to `<name>.bak-<utc stamp>`.
+
+    Returns the backup path, or None when there was nothing to copy. Two saves inside
+    one second share one backup: the earlier copy already holds the state that matters.
+    """
+    if not path.exists():
+        return None
+    stamp = datetime.fromtimestamp(time.time(), timezone.utc).strftime('%Y%m%d-%H%M%S')
+    backup = path.with_name(f'{path.name}.bak-{stamp}')
+    if not backup.exists():
+        backup.write_bytes(path.read_bytes())
+        _prune_backups(path)
+    return backup
+
+
 def _save(data: Dict[str, Any]) -> None:
     path = _brackets_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    _backup(path)
     tmp = path.with_suffix('.json.tmp')
     with tmp.open('w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -99,6 +130,146 @@ def _ingested(match_ids: List[int]) -> Dict[int, Dict[str, Any]]:
             result = 'team_a' if int(winning_team) == int(side) else 'team_b'
         found[int(mid)] = {'result': result, 'duration_s': duration_s, 'start_time': start_time}
     return found
+
+
+# How far a game's play date can sit from the games already saved under the same week
+# before the week number is treated as suspect. A week's EU and NA nights can straddle a
+# day or two, so this is deliberately loose.
+WEEK_DRIFT_DAYS = 3
+
+
+def _parse_stamp(value: Any) -> Optional[datetime]:
+    if value in (None, ''):
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+def _day_span(start: Optional[datetime], end: Optional[datetime]) -> str:
+    """'12 Oct', '12–14 Oct' or '28 Sep – 2 Oct'."""
+    if start is None:
+        return 'an unknown date'
+    if end is None or end.date() == start.date():
+        return f'{start.day} {start:%b}'
+    if (start.year, start.month) == (end.year, end.month):
+        return f'{start.day}–{end.day} {start:%b}'
+    return f'{start.day} {start:%b} – {end.day} {end:%b}'
+
+
+def _play_date(match_id: int) -> Optional[datetime]:
+    """The night a match was played, straight from the API.
+
+    Used for games that aren't in the DB yet — a series being entered for the first
+    time — which have no stored ``start_time`` to judge. Unknown or unfetchable matches
+    (private lobbies, API trouble) return None and are simply not judged.
+    """
+    try:
+        info = fetch_match_metadata(int(match_id))
+    except Exception:
+        return None
+    return _parse_stamp(parse_time_to_iso(info.get('start_time') or info.get('started_at') or info.get('start')))
+
+
+def _week_warning(match_ids: Iterable[int], week: Any, db_path: Path,
+                  exclude: Iterable[int] = ()) -> Optional[str]:
+    """Why these games may not belong to ``week``, or None when the dates agree.
+
+    Only games that would actually change week are judged — new ids, or ids filed under
+    a different week. A series re-saved onto the week it already sits on relabels
+    nothing, so a stale ``start_time`` can't nag about a no-op save.
+
+    The other side is the games already on that week, ignoring this event's own (an
+    event's earlier or later series are not a mismatch). Two events can share a week —
+    an EU and an NA run, or a qualifier — so only a *different date window* counts: the
+    mistake this catches is next week's games landing in this week's event, which
+    relabels them in the stats tables.
+    """
+    ids = sorted({int(m) for m in match_ids if m is not None and int(m) > 0})
+    try:
+        week = int(week)
+    except (TypeError, ValueError):
+        return None
+    if not ids:
+        return None
+    # ``exclude`` adds the rest of this event's games to the ids kept out of the peers.
+    others = sorted({int(m) for m in exclude if m is not None and int(m) > 0} | set(ids))
+
+    conn = db_connect(db_path)
+    try:
+        placeholders = ','.join('?' * len(ids))
+        current = {int(mid): (filed, stamp) for mid, filed, stamp in conn.execute(
+            f'SELECT match_id, event_week, start_time FROM matches WHERE match_id IN ({placeholders})',
+            tuple(ids),
+        )}
+        moving = [i for i in ids if i not in current or current[i][0] != week]
+        if not moving:
+            return None
+        peer_sql = (
+            'SELECT match_id, start_time FROM matches '
+            'WHERE event_week = ? AND start_time IS NOT NULL AND match_id > 0'
+        )
+        params: List[Any] = [week]
+        if others:
+            peer_sql += f' AND match_id NOT IN ({",".join("?" * len(others))})'
+            params.extend(others)
+        peers = conn.execute(peer_sql, tuple(params)).fetchall()
+    finally:
+        conn.close()
+
+    # Parsed in Python rather than with SQL MIN/MAX: start_time holds mixed ISO shapes
+    # ('Z' and '+00:00'), whose string order is not their time order.
+    peer_stamps = sorted(d for d in (_parse_stamp(stamp) for _, stamp in peers) if d)
+    if not peer_stamps:
+        return None  # nothing to compare against, so nothing to warn about
+    own = [d for d in (_parse_stamp(current.get(i, (None, None))[1]) for i in moving) if d]
+    # Ids with no row yet were never ingested: their night has to come from the API.
+    own += [d for d in (_play_date(i) for i in moving if i not in current) if d]
+    if not own:
+        return None
+    own.sort()
+    own_min, own_max = own[0], own[-1]
+    peer_min, peer_max = peer_stamps[0], peer_stamps[-1]
+    peer_count = len(peer_stamps)
+
+    games = 'this game was played' if len(moving) == 1 else f'these {len(moving)} games were played'
+    held = '1 game' if peer_count == 1 else f'{peer_count} games'
+    span = _day_span(own_min, own_max)
+    peer_span = _day_span(peer_min, peer_max)
+    if (own_min - peer_max).days >= WEEK_DRIFT_DAYS:
+        return (f'Week {week} already holds {held} played {peer_span}, but {games} {span}. '
+                f'That looks like a later week — save week {week} anyway?')
+    if (peer_min - own_max).days >= WEEK_DRIFT_DAYS:
+        return (f'Week {week} already holds {held} played {peer_span}, but {games} {span}, earlier. '
+                f'That looks like an earlier week — save week {week} anyway?')
+    return None
+
+
+def _week_block(match_ids: Iterable[int], week: Any, exclude: Iterable[int] = ()) -> Optional[Any]:
+    """A 409 asking for confirmation when the week looks wrong, else None.
+
+    Returning before the caller writes anything means a mistaken week costs nothing:
+    no relabelling, no re-ingest, no deleted rows.
+    """
+    warning = _week_warning(match_ids, week, _db_path(), exclude)
+    if not warning:
+        return None
+    return jsonify({'ok': False, 'error': warning, 'warning': warning, 'needs_confirm': True}), 409
+
+
+def _week_reuse_note(data: Dict[str, Any], week: Any, title: str) -> Optional[str]:
+    """Mention events already on this week when a new one is created for it."""
+    try:
+        week = int(week)
+    except (TypeError, ValueError):
+        return None
+    same = [e for e in data.get('events') or [] if e.get('week') == week]
+    if not same:
+        return None
+    names = ', '.join(f"{e.get('title')} ({e.get('region') or 'no region'})" for e in same[:3])
+    return (f'Week {week} already has an event: {names}. Games saved there are relabelled '
+            f'as week {week} — check the week number if {title} is a different night.')
 
 
 def _computed(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -423,9 +594,13 @@ def create_event():
             'created_at': int(time.time()),
             **structure,
         }
+        note = _week_reuse_note(data, week, title)
         data['events'].append(event)
         _save(data)
-    return jsonify({'ok': True, 'event': _computed(event)})
+    out = {'ok': True, 'event': _computed(event)}
+    if note:
+        out['warning'] = note
+    return jsonify(out)
 
 
 @brackets_bp.route('/api/events/<event_id>')
@@ -641,6 +816,10 @@ def save_series(event_id: str, series_id: str):
         resolved = next(s for s in _computed(event)['series'] if s['id'] == series_id)
         if new_ids and not (resolved.get('team_a') and resolved.get('team_b')):
             return jsonify({'ok': False, 'error': 'Both teams must be decided before adding games.'}), 400
+        if kept_ids and not payload.get('confirm_week'):
+            blocked = _week_block(kept_ids, event.get('week'), bk.match_ids(event))
+            if blocked:
+                return blocked
         _save(data)
 
     job_series = dict(series, team_a=resolved.get('team_a'), team_b=resolved.get('team_b'))
@@ -672,6 +851,10 @@ def edit_event(event_id: str):
         if not event:
             return jsonify({'ok': False, 'error': 'Event not found.'}), 404
         relocate = (event.get('title'), event.get('week')) != (title, week)
+        if week != event.get('week') and not payload.get('confirm_week'):
+            blocked = _week_block(bk.match_ids(event), week, bk.match_ids(event))
+            if blocked:
+                return blocked
         event['title'], event['week'] = title, week
         event['region'] = (payload.get('region') or '').strip()
         if 'ban_pattern' in payload:

@@ -30,6 +30,15 @@ python run_debug.py --sandbox   # http://localhost:5050/admin/brackets/
 
 `--sandbox` points the app at `data/sandbox/` (git-ignored), seeded on first run with copies of `data/dlns.sqlite3`, `matches.json`, `brackets.json` and the user/avatar caches. Saving a series there never touches the real files. `--sandbox --reset` starts again from a fresh copy. Without `--sandbox`, saves write to the real `data/dlns.sqlite3` and `data/matches.json`.
 
+## What a wrong week does, and the guards against it
+
+An event's week (and title, region, round names) is copied onto every match row when a series is saved, so stats pages and the week tree read them from there. A series saved with the wrong week therefore *relabels* games that were already in stats — there is no undo, only the backups below.
+
+Two guards run before anything is written:
+
+- **Backups.** Every save of `brackets.json` first copies the file it is replacing to `brackets.json.bak-<utc stamp>`. The last 10 are kept. A bad save is then a file restore, not a reconstruction. (`scripts/migrate_brackets.py` writes its own `brackets.json.bak-<time>` too.)
+- **Week check.** Saving a series (or changing an event's week) compares the nights the games would be filed under with the games already on that week. If the two date windows are 3 or more days apart, the save is refused with a 409 and nothing is written; the editor shows the reason and a **Save anyway** button that resends with `confirm_week: true`. The rules that keep it quiet otherwise: only games that would actually change week are judged (a first-time id has no stored date, so its night is fetched from the API; a re-save of a series already on that week is a no-op and is not checked), an event's own games are never its own peers, and a week with no dated games has nothing to compare against. Creating an event for a week another event already uses only warns (it is not refused — an EU and an NA run share a week).
+
 ## Migrating existing weeks
 
 `scripts/migrate_brackets.py` turns each week + region of `matches.json` into a gauntlet event in `brackets.json`. It only ever writes `brackets.json`: `matches.json` is read as-is and the DB is opened read-only. Without `--write` it writes nothing.

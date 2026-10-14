@@ -32,6 +32,8 @@ const Community = lazy(() => import("./pages/Community"));
 const Help = lazy(() => import("./pages/Help"));
 const Search = lazy(() => import("./pages/Search"));
 const Updates = lazy(() => import("./pages/Updates"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const AnalyticsAdmin = lazy(() => import("./pages/AnalyticsAdmin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function Navigation() {
@@ -126,6 +128,8 @@ function App() {
               <Route path="/help" element={<Help />} />
               <Route path="/search" element={<Search />} />
               <Route path="/updates" element={<Updates />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
@@ -171,6 +175,12 @@ function App() {
                     className="hover:text-white transition-colors"
                   >
                     Community
+                  </Link>
+                  <Link
+                    to="/privacy"
+                    className="hover:text-white transition-colors"
+                  >
+                    Privacy &amp; analytics opt-out
                   </Link>
                 </div>
               </div>

@@ -176,7 +176,8 @@
         <a href="{{ url_for('interviews.index') }}">Interviews</a> • 
         <a href="{{ url_for('updates') }}">Updates</a> • 
         <a href="{{ url_for('community') }}">Community</a> • 
-        <a href="{{ url_for('help_page') }}">Help</a> 
+        <a href="{{ url_for('help_page') }}">Help</a> &bull; 
+        <a href="{{ url_for('analytics.privacy') }}">Privacy &amp; analytics opt-out</a>
       </div>
     </small>
     <small class="muted">
@@ -197,6 +198,7 @@
   </button>
   
   <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/analytics.js') }}" defer></script>
   <script>
     window.__DLNS_HELP_CONFIG__ = {{ help_config | default({}, true) | tojson }};
   </script>

@@ -89,5 +89,6 @@
   {% elif page == "system_admin" %}
     <script type="module" src="{{ url_for('static', filename='react-app/system_admin.js') }}"></script>
   {% endif %}
+  <script src="{{ url_for('static', filename='js/analytics.js') }}" defer></script>
 </body>
 </html>

@@ -27,6 +27,11 @@ const adminCards = [
     href: '/react-admin/help-config',
   },
   {
+    title: 'Analytics',
+    description: 'Privacy-friendly site traffic: views, visitors, top pages and referrers.',
+    href: '/admin/analytics',
+  },
+  {
     title: 'System Status',
     description: 'Uptime, last restart and a restart button. Owner and co-owner only.',
     href: '/admin/system',

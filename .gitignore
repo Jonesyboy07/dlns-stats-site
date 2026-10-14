@@ -53,6 +53,8 @@ data/dlns.sqlite3-wal
 data/matches_status.json
 data/dlns.sqlite3
 data/sandbox/
+data/analytics.sqlite3*
+data/.analytics_secret
 data/cache
 data/vo_uploads
 data/recorded/

@@ -1180,10 +1180,19 @@ def _git_info() -> Dict[str, Any]:
     if _GIT_CACHE['data'] is not None and now - _GIT_CACHE['at'] < _GIT_CACHE_TTL_S:
         return _GIT_CACHE['data']
     branch = os.getenv('UPDATE_BRANCH', 'main').strip() or 'main'
-    info: Dict[str, Any] = {'branch': branch, 'local': None, 'remote': None, 'up_to_date': None}
+    info: Dict[str, Any] = {'branch': branch, 'local': None, 'remote': None, 'history': [], 'up_to_date': None}
     try:
-        sha, date, subject = _git('log', '-1', '--format=%H%x1f%cI%x1f%s').split('\x1f', 2)
-        info['local'] = {'sha': sha, 'date': date, 'subject': subject}
+        sha, date, author, subject = _git('log', '-1', '--format=%H%x1f%cI%x1f%an%x1f%s').split('\x1f', 3)
+        info['local'] = {'sha': sha, 'date': date, 'author': author, 'subject': subject}
+    except Exception:
+        pass
+    try:
+        history = _git('log', '-8', '--format=%H%x1f%cI%x1f%an%x1f%s')
+        for line in history.splitlines():
+            parts = line.split('\x1f', 3)
+            if len(parts) == 4:
+                sha, date, author, subject = parts
+                info['history'].append({'sha': sha, 'date': date, 'author': author, 'subject': subject})
     except Exception:
         pass
     try:
@@ -1192,8 +1201,8 @@ def _git_info() -> Dict[str, Any]:
         if remote_sha:
             remote: Dict[str, Any] = {'sha': remote_sha}
             try:
-                date, subject = _git('log', '-1', '--format=%cI%x1f%s', remote_sha).split('\x1f', 1)
-                remote.update(date=date, subject=subject)
+                date, author, subject = _git('log', '-1', '--format=%cI%x1f%an%x1f%s', remote_sha).split('\x1f', 2)
+                remote.update(date=date, author=author, subject=subject)
             except Exception:
                 pass
             info['remote'] = remote
@@ -1202,17 +1211,40 @@ def _git_info() -> Dict[str, Any]:
     except Exception:
         pass
     base = _github_base_url()
+    info['repository_url'] = base or None
     if base:
         for key in ('local', 'remote'):
             if info[key]:
                 info[key]['url'] = f"{base}/commit/{info[key]['sha']}"
+        for commit in info['history']:
+            commit['url'] = f"{base}/commit/{commit['sha']}"
     _GIT_CACHE.update(at=now, data=info)
     return info
+
+
+_SYSTEM_FILE_PATHS = (
+    'backend/main.py',
+    'backend/app/blueprints/admin.py',
+    'backend/app/blueprints/db_api.py',
+    'frontend/src/pages/SystemAdmin.jsx',
+)
+
+
+def _system_file_sizes(repo_root: Path) -> List[Dict[str, Any]]:
+    sizes = []
+    for relative_path in _SYSTEM_FILE_PATHS:
+        try:
+            size = (repo_root / relative_path).stat().st_size
+        except OSError:
+            size = None
+        sizes.append({'path': relative_path, 'size_bytes': size})
+    return sizes
 
 
 @admin_bp.route('/api/system')
 @require_owners
 def system_info():
+    repo_root = Path(__file__).resolve().parents[3]
     db_path = Path(current_app.config.get('DB_PATH', './data/dlns.sqlite3'))
     try:
         db_size = db_path.stat().st_size
@@ -1229,6 +1261,7 @@ def system_info():
         'platform': platform.platform(),
         'threads': threading.active_count(),
         'db_size_bytes': db_size,
+        'file_sizes': _system_file_sizes(repo_root),
         'restart_mode': _restart_service_name() or os.getenv('ADMIN_RESTART_MODE', 'respawn'),
         'git': _git_info(),
     })

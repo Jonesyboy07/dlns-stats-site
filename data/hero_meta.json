@@ -1014,6 +1014,35 @@
       }
     ]
   },
+  "78": {
+    "tagline": [
+      "RECKLESS",
+      "HIGH-FLYING",
+      "EXPLOSIVE"
+    ],
+    "abilities": [
+      {
+        "name": "Strix Salvo",
+        "image": "static\\images\\abilities\\deadman_danny\\deadpack_salvo_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Chimera Mk1",
+        "image": "static\\images\\abilities\\deadman_danny\\deadpack_chimera_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Jettison Fuel",
+        "image": "static\\images\\abilities\\deadman_danny\\deadpack_thermalmass_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Close The Deal",
+        "image": "static\\images\\abilities\\deadman_danny\\deadpack_flight_psd.png",
+        "invert": true
+      }
+    ]
+  },
   "79": {
     "tagline": [
       "HELPFUL",
@@ -1126,6 +1155,35 @@
       {
         "name": "Rule, Ratannia!",
         "image": "static\\images\\abilities\\rat_king\\ratking_flag_psd.png",
+        "invert": true
+      }
+    ]
+  },
+  "85": {
+    "tagline": [
+      "STRATEGIST",
+      "FOCUSED",
+      "CHECKMATE"
+    ],
+    "abilities": [
+      {
+        "name": "Setup Bishop",
+        "image": "static\\images\\abilities\\solomon\\chessmaster_bishop_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Kingside Knight",
+        "image": "static\\images\\abilities\\solomon\\chessmaster_knight_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Rook Battery",
+        "image": "static\\images\\abilities\\solomon\\chessmaster_rook_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Develop Queen",
+        "image": "static\\images\\abilities\\solomon\\chessmaster_queen_psd.png",
         "invert": true
       }
     ]

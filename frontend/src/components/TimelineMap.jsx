@@ -212,7 +212,7 @@ export default function TimelineMap({
               title={
                 marker.dead ? `${marker.name} (respawns in ~${marker.respawnIn}s)` : marker.name
               }
-              className="absolute -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-200 motion-reduce:transition-none"
+              className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${marker.left}%`, top: `${marker.top}%`, zIndex: marker.dead ? 2 : 3 }}
             >
               <span

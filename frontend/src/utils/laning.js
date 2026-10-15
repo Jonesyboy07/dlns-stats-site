@@ -1,28 +1,27 @@
 /**
- * The match page's laning tab: the opening minutes read as three 2v2 matchups.
+ * The snapshot side of the laning tab (`components/laning/*`): souls, K/D/A and damage
+ * over the opening minutes, plus the lane grouping the map, the head-to-head and the
+ * build table all mirror.
  *
- * Two sources feed it. The matchup and the lane-phase numbers come from the per-player
- * timeline snapshots (`/matches/<id>/timeline`); the kills come from the same event
- * rows the timeline tab already builds (`buildTimelineRows`). Lane assignment follows
- * the scoreboard — the positionally-inferred `lane_real` when it exists, otherwise the
- * game-reported `lane` (see `playerLane`).
+ * One source feeds it: the per-player timeline snapshots (`/matches/<id>/timeline`).
+ * Lane assignment follows the scoreboard — the positionally-inferred `lane_real` when it
+ * exists, otherwise the game-reported `lane` (see `playerLane`).
  *
  * Snapshot helpers are tolerant of the data the API actually sends: snapshots can start
  * after 0:00, `time_stamp_s` can be missing, and a match may have no snapshots at all.
  * Anything that cannot be known is returned as `null` rather than a misleading 0, so the
  * UI can show "—".
+ *
+ * The clock, the kill list and the reveal rules live in `laningTab.js`.
  */
 
 import { LANE_ORDER, playerLane } from "./lanes";
 
 /**
- * Laning ends here for this tab. Lanes hold for roughly the first ten minutes; after
- * that rotations and objectives dominate and the same numbers stop meaning "laning".
+ * Laning ends here. Lanes hold for roughly the first ten minutes; after that rotations
+ * and objectives dominate and the same numbers stop meaning "laning".
  */
 export const LANING_END_S = 600;
-
-/** The milestones the panel reports: 5:00 and the end of laning. */
-export const LANING_MILESTONES_S = [300, LANING_END_S];
 
 /** A finite number, or null for a missing value (`Number(null)` is `0`, which is not a time). */
 function numberOrNull(value) {
@@ -73,28 +72,6 @@ export function statDelta(snapshots = [], seconds, key) {
   return Math.max(0, (Number(end[key]) || 0) - (Number(start[key]) || 0));
 }
 
-/** Souls per minute up to `seconds`, or null when either side is unknown. */
-export function soulsPerMinute(snapshots = [], seconds) {
-  const souls = soulsAt(snapshots, seconds);
-  if (souls == null || !(seconds > 0)) return null;
-  return (souls / seconds) * 60;
-}
-
-/**
- * Everything the panel shows for one player over the laning window. Every field is null
- * when the snapshots cannot answer it, so a caller can render "—" without guessing.
- */
-export function playerLaningStats(snapshots = [], seconds = LANING_END_S) {
-  return {
-    souls: soulsAt(snapshots, seconds),
-    soulsPerMinute: soulsPerMinute(snapshots, seconds),
-    kills: statDelta(snapshots, seconds, "kills"),
-    deaths: statDelta(snapshots, seconds, "deaths"),
-    assists: statDelta(snapshots, seconds, "assists"),
-    damage: statDelta(snapshots, seconds, "player_damage"),
-  };
-}
-
 /**
  * The two sides of every lane, in York/Broadway/Greenwich order, each ordered by slot so
  * the mirrored rows pair a lane's opponents the same way every time. `unassigned` counts
@@ -118,47 +95,4 @@ export function laneMatchups(players = []) {
     row.right.sort(bySlot);
   }
   return { rows: LANE_ORDER.map((lane) => rows.get(lane)), unassigned };
-}
-
-/** Sum of a side's souls at `seconds`, and whether every value behind it was known. */
-function sideSouls(players, snapshotsFor, seconds) {
-  let total = 0;
-  let known = false;
-  for (const player of players) {
-    const souls = soulsAt(snapshotsFor(player), seconds);
-    if (souls == null) continue;
-    total += souls;
-    known = true;
-  }
-  return { total, known };
-}
-
-/**
- * Which side led a lane on souls at `seconds`. `snapshotsFor(player)` must return that
- * player's snapshot list. Returns `null` when either side has no known souls, so an
- * unknown lane is never drawn as a win, a loss or a tie.
- */
-export function laneSoulsLead(leftPlayers, rightPlayers, snapshotsFor, seconds = LANING_END_S) {
-  const left = sideSouls(leftPlayers, snapshotsFor, seconds);
-  const right = sideSouls(rightPlayers, snapshotsFor, seconds);
-  if (!left.known || !right.known) return null;
-  return { left: left.total, right: right.total, diff: left.total - right.total };
-}
-
-/** Deaths inside the laning window, in the event feed's own time order. */
-export function laningKills(rows = [], endS = LANING_END_S) {
-  return list(rows).filter(
-    (row) => row?.type === "death" && row.time_s != null && row.time_s <= endS
-  );
-}
-
-/** Deaths per side (the victim's team) plus the opening kill, for the map caption. */
-export function laningKillSummary(killRows = []) {
-  const rows = list(killRows);
-  const summary = { total: rows.length, amber: 0, sapphire: 0, firstBlood: rows[0] ?? null };
-  for (const row of rows) {
-    if (row.team === 0) summary.amber += 1;
-    else if (row.team === 1) summary.sapphire += 1;
-  }
-  return summary;
 }

@@ -10,6 +10,7 @@ from unittest import mock
 from backend.app.blueprints import db_api
 from backend.app.cache import cache
 from backend.app.main_web import create_app
+from backend.constants import HEROES_URL
 from backend.main import (
     db_connect,
     db_init,
@@ -430,6 +431,126 @@ class MatchEventsRouteTests(unittest.TestCase):
 
         self.assertEqual(payload["purchases"], [])
         self.assertEqual(payload["counts"]["purchases"], 0)
+
+
+class MatchBuildRouteTests(unittest.TestCase):
+    """`/matches/<id>/build` orders a hero's abilities by their catalogue slot."""
+
+    def setUp(self):
+        self._old_env = {key: os.environ.get(key) for key in ("DB_PATH", "CACHE_DIR", "CACHE_WARMUP_ON_STARTUP")}
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="dlns-build-"))
+        self.db_path = self.tmpdir / "dlns.sqlite3"
+        os.environ["DB_PATH"] = str(self.db_path)
+        os.environ["CACHE_DIR"] = str(self.tmpdir / "cache")
+        os.environ["CACHE_WARMUP_ON_STARTUP"] = "false"
+        self.app = create_app()
+        self.app.config["TESTING"] = True
+        self.client = self.app.test_client()
+
+        # The hero catalogue is the only place that pairs a hero with its four
+        # abilities in slot order, and it is a different document from the item
+        # catalogue, so the stub has to answer each URL with its own payload.
+        abilities = [
+            shop_item(id=3, name="Alpha", class_name="citadel_ability_alpha", type="ability", hero=11),
+            shop_item(id=4, name="Bravo", class_name="citadel_ability_bravo", type="ability", hero=11),
+            shop_item(id=5, name="Charlie", class_name="citadel_ability_charlie", type="ability", hero=11),
+            shop_item(id=6, name="Delta", class_name="citadel_ability_delta", type="ability", hero=11),
+            # An ability no hero in the catalogue claims, so the slot stays unknown.
+            shop_item(id=7, name="Orphan", class_name="citadel_ability_orphan", type="ability"),
+            shop_item(),
+        ]
+        heroes = [
+            {
+                "id": 11,
+                # Deliberately not the order the item log reports the points in.
+                "items": {
+                    "signature1": "citadel_ability_charlie",
+                    "signature2": "citadel_ability_alpha",
+                    "signature3": "citadel_ability_bravo",
+                    "signature4": "citadel_ability_delta",
+                },
+            }
+        ]
+
+        def catalogue(url, **_kwargs):
+            return _CatalogResponse(heroes if url == HEROES_URL else abilities)
+
+        self.catalog = mock.patch("backend.app.blueprints.db_api.requests.get", side_effect=catalogue)
+        self.catalog.start()
+        self.addCleanup(self.catalog.stop)
+
+        with self.app.app_context():
+            for key in ("dlns_items_list", "dlns_heroes_list", "dlns_hero_ability_slots", "dlns_item_catalog"):
+                cache.delete(key)
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("INSERT INTO matches (match_id, duration_s) VALUES (123, 1903)")
+            conn.execute("INSERT INTO users (account_id, persona_name) VALUES (42, 'Tester')")
+            conn.execute(
+                "INSERT INTO players (match_id, account_id, player_slot, team, hero_id, raw_items_json) "
+                "VALUES (123, 42, 1, 0, 11, ?)",
+                (
+                    json.dumps(
+                        [
+                            # Charlie unlocked first, then Alpha, then Charlie's 1 AP tier,
+                            # then a shop item, then the ability no hero claims.
+                            {"item_id": 5, "game_time_s": 30, "sold_time_s": 0, "upgrade_id": 11},
+                            {"item_id": 3, "game_time_s": 45, "sold_time_s": 0, "upgrade_id": 22},
+                            {"item_id": 5, "game_time_s": 90, "sold_time_s": 0, "upgrade_id": 33},
+                            {"item_id": 1, "game_time_s": 60, "sold_time_s": 0, "upgrade_id": 0},
+                            {"item_id": 7, "game_time_s": 120, "sold_time_s": 0, "upgrade_id": 44},
+                            {"item_id": 4, "game_time_s": 150, "sold_time_s": 0, "upgrade_id": 55},
+                            {"item_id": 6, "game_time_s": 180, "sold_time_s": 0, "upgrade_id": 66},
+                        ]
+                    ),
+                ),
+            )
+
+    def tearDown(self):
+        for key, value in self._old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def build(self):
+        response = self.client.get("/db/matches/123/build")
+        self.assertEqual(response.status_code, 200)
+        return response.get_json()["42"]
+
+    def test_abilities_carry_the_slot_from_the_hero_catalogue(self):
+        abilities = {row["ability_id"]: row for row in self.build()["abilities"]}
+
+        # The point order in the log is 5, 3, 7, 4, 6; the slots are the catalogue's.
+        self.assertEqual(abilities[5]["slot"], 1)  # charlie is signature1
+        self.assertEqual(abilities[3]["slot"], 2)  # alpha is signature2
+        self.assertEqual(abilities[4]["slot"], 3)  # bravo is signature3
+        self.assertEqual(abilities[6]["slot"], 4)  # delta is signature4
+
+    def test_an_ability_no_hero_claims_has_no_slot(self):
+        abilities = {row["ability_id"]: row for row in self.build()["abilities"]}
+
+        self.assertIn(7, abilities)
+        self.assertIsNone(abilities[7]["slot"])
+
+    def test_the_payload_still_leads_with_the_order_points_were_spent(self):
+        # The client sorts by slot itself; the endpoint keeps its own order so the
+        # build tab's existing grid is unchanged. Bravo has no points in the log, so
+        # it is not in the payload at all.
+        abilities = self.build()["abilities"]
+
+        self.assertEqual([row["ability_id"] for row in abilities], [5, 3, 7, 4, 6])
+        self.assertEqual(abilities[0]["upgrades"], [
+            {"tier": 0, "game_time_s": 30},
+            {"tier": 1, "game_time_s": 90},
+        ])
+
+    def test_items_keep_their_purchase_time(self):
+        items = self.build()["items"]
+
+        self.assertEqual([item["game_time_s"] for item in items], [60])
+        self.assertEqual(items[0]["name"], "Bullet Armor")
 
 
 if __name__ == "__main__":

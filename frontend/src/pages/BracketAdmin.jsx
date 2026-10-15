@@ -9,15 +9,39 @@ const sectionCls = 'rounded-xl border border-gray-700/60 bg-gray-800/20 p-4 md:p
 const btnPrimary = 'px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50';
 const btnGhost = 'text-xs px-3 py-2 rounded border border-gray-600 text-gray-200 hover:bg-gray-700/40 disabled:opacity-50';
 
-const readJson = async (res, fallback) => {
+export const readJson = async (res, fallback) => {
   const type = res.headers.get('content-type') || '';
   if (!type.includes('application/json')) {
     throw new Error('Request returned HTML (likely a login redirect). Sign in again on this host and retry.');
   }
   const data = await res.json();
-  if (!res.ok || !data?.ok) throw new Error(data?.error || fallback);
+  if (!res.ok || !data?.ok) {
+    const err = new Error(data?.error || fallback);
+    // The server sends the detail alongside the message (a week warning, a job that
+    // failed), so keep the whole body reachable from the catch.
+    err.payload = data;
+    err.status = res.status;
+    throw err;
+  }
   return data;
 };
+
+/** Confirmation for a save the server refused because the week looks wrong. */
+function WeekWarning({ message, busy, onConfirm, onDismiss }) {
+  return (
+    <div className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 space-y-2 text-sm text-amber-100">
+      <p className="whitespace-pre-wrap">{message}</p>
+      <div className="flex gap-2">
+        <button type="button" onClick={onConfirm} disabled={busy} className={btnPrimary}>
+          Save anyway
+        </button>
+        <button type="button" onClick={onDismiss} className={btnGhost}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export const api = async (path, opts = {}, fallback = 'Request failed') => {
   const res = await fetch(`${API}${path}`, {
@@ -121,7 +145,7 @@ function CreateEvent({ onCreated, onCancel, defaultBanPattern }) {
     setSaving(true);
     try {
       const data = await api('/events', { method: 'POST', body: JSON.stringify(body) }, 'Failed to create event');
-      onCreated(data.event);
+      onCreated(data.event, data.warning);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -564,12 +588,14 @@ function SeriesEditor({ event, series, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [job, setJob] = useState(null);
   const [error, setError] = useState('');
+  const [weekWarning, setWeekWarning] = useState('');
 
   useEffect(() => {
     setForm(toForm(series, event.ban_pattern));
     setChecks({});
     setJob(null);
     setError('');
+    setWeekWarning('');
   }, [series.id, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const teamA = form.team_a || series.team_a;
@@ -602,8 +628,9 @@ function SeriesEditor({ event, series, onSaved }) {
     [teamA, teamB],
   );
 
-  const save = async () => {
+  const save = async (confirmed = false) => {
     setError('');
+    setWeekWarning('');
     setJob(null);
     setSaving(true);
     try {
@@ -620,6 +647,7 @@ function SeriesEditor({ event, series, onSaved }) {
           bans: banPayload(g.bans, banPattern),
         })),
         outcome: form.dq ? { type: 'dq', ...form.dq } : null,
+        confirm_week: confirmed,
       };
       if (!series.fed_a) body.team_a = form.team_a;
       if (!series.fed_b) body.team_b = form.team_b;
@@ -632,7 +660,8 @@ function SeriesEditor({ event, series, onSaved }) {
       if (final.status === 'error') setError(final.message);
       await onSaved();
     } catch (err) {
-      setError(err.message);
+      if (err.payload?.needs_confirm) setWeekWarning(err.message);
+      else setError(err.message);
     } finally {
       setSaving(false);
     }
@@ -839,6 +868,14 @@ function SeriesEditor({ event, series, onSaved }) {
         </div>
       ) : null}
 
+      {weekWarning && (
+        <WeekWarning
+          message={weekWarning}
+          busy={saving}
+          onConfirm={() => save(true)}
+          onDismiss={() => setWeekWarning('')}
+        />
+      )}
       {error && <div className="text-sm text-red-300 whitespace-pre-wrap">{error}</div>}
       {job && (
         <div className={`text-xs rounded border px-3 py-2 ${job.status === 'error' ? 'border-red-500/50 text-red-200' : 'border-gray-700/60 text-gray-200'}`}>
@@ -847,7 +884,7 @@ function SeriesEditor({ event, series, onSaved }) {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={save} disabled={saving} className={btnPrimary}>
+        <button type="button" onClick={() => save()} disabled={saving} className={btnPrimary}>
           {saving ? 'Saving…' : 'Save series'}
         </button>
         <button
@@ -899,9 +936,11 @@ function EventEditor({ event, onChanged, onClose }) {
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState(null);
   const [error, setError] = useState('');
+  const [weekWarning, setWeekWarning] = useState('');
 
   useEffect(() => {
     setForm(toEventForm(event));
+    setWeekWarning('');
   }, [event]);
 
   const roundName = (n) => form.rounds.find((r) => r.round === n)?.name || `Round ${n}`;
@@ -919,17 +958,19 @@ function EventEditor({ event, onChanged, onClose }) {
 
   const run = async (fn) => {
     setError('');
+    setWeekWarning('');
     setBusy(true);
     try {
       await fn();
     } catch (err) {
-      setError(err.message);
+      if (err.payload?.needs_confirm) setWeekWarning(err.message);
+      else setError(err.message);
     } finally {
       setBusy(false);
     }
   };
 
-  const save = () =>
+  const save = (confirmed = false) =>
     run(async () => {
       setJob(null);
       // Fed slots are null in the form and left out, so they keep advancing automatically.
@@ -947,6 +988,7 @@ function EventEditor({ event, onChanged, onClose }) {
             ban_pattern: form.ban_pattern,
             rounds: form.rounds,
             teams,
+            confirm_week: confirmed,
           }),
         },
         'Failed to save event',
@@ -1064,6 +1106,14 @@ function EventEditor({ event, onChanged, onClose }) {
         ))}
       </div>
 
+      {weekWarning && (
+        <WeekWarning
+          message={weekWarning}
+          busy={busy}
+          onConfirm={() => save(true)}
+          onDismiss={() => setWeekWarning('')}
+        />
+      )}
       {error && <div className="text-sm text-red-300 whitespace-pre-wrap">{error}</div>}
       {job && (
         <div
@@ -1075,7 +1125,7 @@ function EventEditor({ event, onChanged, onClose }) {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={save} disabled={busy} className={btnPrimary}>
+        <button type="button" onClick={() => save()} disabled={busy} className={btnPrimary}>
           {busy ? 'Saving…' : 'Save and re-import'}
         </button>
         <span className="text-xs text-gray-500">
@@ -1161,6 +1211,7 @@ export function BracketAdmin() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const loadEvents = useCallback(async () => {
     try {
@@ -1240,6 +1291,15 @@ export function BracketAdmin() {
         </div>
       )}
 
+      {notice && (
+        <div className="text-sm text-amber-100 rounded border border-amber-500/60 bg-amber-500/10 px-3 py-2 flex justify-between gap-3">
+          <span className="whitespace-pre-wrap">{notice}</span>
+          <button type="button" onClick={() => setNotice('')} className="text-xs shrink-0">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <select id="event-pick" value={eventId} onChange={(e) => { setEventId(e.target.value); setCreating(false); }} className={`${inputCls} w-auto`}>
           {!events.length && <option value="">No events yet</option>}
@@ -1282,8 +1342,9 @@ export function BracketAdmin() {
         <CreateEvent
           defaultBanPattern={events[0]?.ban_pattern}
           onCancel={events.length ? () => setCreating(false) : null}
-          onCreated={async (ev) => {
+          onCreated={async (ev, warning) => {
             setCreating(false);
+            setNotice(warning || '');
             await loadEvents();
             setEventId(ev.id);
             setEvent(ev);

@@ -1968,7 +1968,15 @@ def match_build(match_id: int):  # type: ignore
             for aid_int, upgrades in enriched_abilities_raw.items():
                 meta = ability_lookup.get(aid_int)
                 if meta and meta.get("name"):
-                    enriched_abilities.append({**meta, "ability_id": aid_int, "upgrades": upgrades})
+                    enriched_abilities.append({
+                        **meta,
+                        "ability_id": aid_int,
+                        # Which of the hero's four abilities this is. The payload's own
+                        # order is the order points were spent in, so a client cannot
+                        # derive the slot from position.
+                        "slot": _ability_slot(meta.get("hero"), aid_int),
+                        "upgrades": upgrades,
+                    })
             enriched_abilities.sort(
                 key=lambda a: (a["upgrades"][0]["game_time_s"] is None, a["upgrades"][0]["game_time_s"] or 0)
                 if a["upgrades"] else (True, 0)
@@ -2017,7 +2025,12 @@ def match_build(match_id: int):  # type: ignore
             for aid_int, upgrades in grouped.items():
                 meta = ability_lookup.get(aid_int)
                 if meta and meta.get("name"):
-                    enriched_abilities.append({**meta, "ability_id": aid_int, "upgrades": upgrades})
+                    enriched_abilities.append({
+                        **meta,
+                        "ability_id": aid_int,
+                        "slot": _ability_slot(meta.get("hero"), aid_int),
+                        "upgrades": upgrades,
+                    })
             enriched_abilities.sort(
                 key=lambda a: (a["upgrades"][0]["game_time_s"] is None, a["upgrades"][0]["game_time_s"] or 0)
                 if a["upgrades"] else (True, 0)
@@ -4684,6 +4697,22 @@ def _hero_ability_slots() -> Dict[int, Dict[str, Any]]:
     if slots:
         cache.set("dlns_hero_ability_slots", slots, timeout=21600)
     return slots
+
+
+def _ability_slot(hero_id: Any, ability_id: Any) -> Optional[int]:
+    """A hero's ability as slot 1-4, or None when the catalogues cannot say.
+
+    The match payload's abilities carry the hero they belong to, and
+    `_hero_ability_slots` already holds the hero -> ability id -> slot mapping the
+    damage-source groups use, so ordering a build grid costs no extra lookup.
+    """
+    try:
+        hero = int(hero_id)
+        ability = int(ability_id)
+    except (TypeError, ValueError):
+        return None
+    hero_slots = _hero_ability_slots().get(hero) or {}
+    return (hero_slots.get("slots") or {}).get(ability)
 
 
 def _match_won(side: Any, winner: Any, result: Any) -> Optional[bool]:

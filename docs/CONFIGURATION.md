@@ -36,6 +36,18 @@ Review the comments in `.env.example` and replace placeholders for the features 
 
 For public deployment, use a production WSGI server behind a reverse proxy, set `BASE_URL` to the public origin, set secure cookies when served over HTTPS, and use a strong private `SECRET_KEY`. Configure the proxy, TLS, process supervision, logging, and backups for your deployment environment. The start scripts bind to loopback, not a public network interface.
 
+## Database backups
+
+`data/dlns.sqlite3` is ignored by git and holds every match, week and player row, so a copy of it is the only way back from a bad write or an accidental ingest.
+
+- `python scripts/backup_db.py` writes a verified snapshot to `_cache/dlns.auto_<utc stamp>.sqlite3` (`scripts/backup_db.bat` is the same thing for Windows callers). Options: `--db` (default `DB_PATH` or `./data/dlns.sqlite3`), `--dir` (default `_cache` beside the data directory), `--keep` (default 7 copies), `--quiet`.
+- The snapshot is taken with SQLite's backup API, so it is consistent while the site is serving and the site does not need stopping.
+- Each copy is checked (`PRAGMA quick_check` plus a `matches` row count against the source) before it replaces the temporary file; if the check fails, the temporary file is deleted and the command exits non-zero, so a failed run cannot leave behind something that looks like a backup.
+- Only files matching `dlns.auto_*.sqlite3` are pruned, so hand-made copies such as `dlns.backup_before_<label>.sqlite3` are never deleted.
+- To make it automatic on Windows, schedule the batch file daily (Task Scheduler → run `scripts\backup_db.bat`, or `schtasks /create /tn "DLNS DB backup" /tr "<repo>\scripts\backup_db.bat --keep 7" /sc daily /st 05:30`). On Linux use the same script from cron.
+
+`data/brackets.json` has its own protection: every admin save keeps the file it replaced as `brackets.json.bak-<utc stamp>` (the last 10 are kept).
+
 ## Cache and replay behavior
 
 Flask caching defaults to a filesystem cache under `_cache/flask_cache`; settings can be overridden with `CACHE_*`. Startup cache warmup is enabled by default and can be disabled with `CACHE_WARMUP_ON_STARTUP=false`.

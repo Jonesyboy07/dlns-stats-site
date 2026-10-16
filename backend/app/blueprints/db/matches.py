@@ -415,7 +415,7 @@ def latest_matches_paged():  # type: ignore
         conds.append("m.match_mode = ?")
         params.append(mm)
     if event_title:
-        conds.append("m.event_title = ?")
+        conds.append("LOWER(m.event_title) = LOWER(?)")
         params.append(event_title)
     if event_week is not None:
         conds.append("m.event_week = ?")

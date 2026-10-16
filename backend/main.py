@@ -782,6 +782,18 @@ def db_init(conn: sqlite3.Connection) -> bool:
 			conn.commit()
 	except Exception:
 		pass
+	# Read-path indexes (hero pages, event/week filters, recent-match ordering). They
+	# come last because the event_* columns are added by the migrations above.
+	for ddl in (
+		"CREATE INDEX IF NOT EXISTS idx_players_hero ON players(hero_id, match_id)",
+		"CREATE INDEX IF NOT EXISTS idx_players_account_hero ON players(account_id, hero_id)",
+		"CREATE INDEX IF NOT EXISTS idx_matches_event ON matches(event_title, event_week)",
+		"CREATE INDEX IF NOT EXISTS idx_matches_start ON matches(start_time)",
+	):
+		try:
+			conn.execute(ddl)
+		except Exception:
+			pass
 	conn.commit()
 	return large_table_change
 

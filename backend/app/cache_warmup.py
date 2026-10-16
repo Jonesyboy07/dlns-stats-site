@@ -102,6 +102,12 @@ def _build_warmup_paths(app) -> list[str]:
         "/db/stats/hero-selection",
         "/db/matches/latest",
         "/db/matches/latest/paged?page=1&per_page=20",
+        "/db/items/names",
+        "/db/heroes/trending",
+        "/db/nightshift/index",
+        "/db/stream/status",
+        "/api/community",
+        "/api/updates",
     ]
 
     seed = _discover_seed_ids(app)
@@ -161,6 +167,33 @@ def _build_warmup_paths(app) -> list[str]:
     return list(dict.fromkeys(paths))
 
 
+def _db_signature(app) -> tuple:
+    """Cheap change detector: mtime/size of the SQLite file and its WAL."""
+    from pathlib import Path
+
+    base = Path(app.config.get("DB_PATH", "./data/dlns.sqlite3")).resolve()
+    sig = []
+    for p in (base, base.with_name(base.name + "-wal")):
+        try:
+            st = p.stat()
+            sig.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            sig.append(None)
+    return tuple(sig)
+
+
+def _invalidate(app) -> None:
+    try:
+        from .cache import cache
+
+        with app.app_context():
+            invalidate = getattr(cache, "invalidate_data", None)
+            if invalidate:
+                invalidate()
+    except Exception as exc:
+        app.logger.warning("Cache invalidation failed: %s", exc)
+
+
 def run_cache_warmup(app) -> dict[str, Any]:
     started_at = time.time()
     success = 0
@@ -170,6 +203,16 @@ def run_cache_warmup(app) -> dict[str, Any]:
     paths = _build_warmup_paths(app)
 
     with app.app_context():
+        # Upstream catalogues (items/heroes) are fetched here, never on a visitor's request.
+        try:
+            from .blueprints.db.core import _heroes_raw, _item_catalog, _items_raw
+
+            _items_raw()
+            _heroes_raw()
+            _item_catalog()
+        except Exception as exc:
+            app.logger.warning("Catalog warmup failed: %s", exc)
+
         with app.test_client() as client:
             for path in paths:
                 try:
@@ -207,19 +250,43 @@ def schedule_cache_warmup(app) -> None:
         return
 
     delay_s = float(app.config.get("CACHE_WARMUP_DELAY_SECONDS", 1.0) or 0)
+    interval_s = float(app.config.get("CACHE_WARMUP_INTERVAL_SECONDS", 600) or 0)
+    watch_s = float(app.config.get("CACHE_DB_WATCH_SECONDS", 10) or 0)
 
     def _runner() -> None:
         if delay_s > 0:
             time.sleep(delay_s)
-        result = run_cache_warmup(app)
-        app.logger.info(
-            "Cache warmup finished in %sms (%s/%s successful)",
-            result["elapsed_ms"],
-            result["success"],
-            result["total"],
-        )
-        if result["failed"]:
-            app.logger.warning("Cache warmup had %s failures", result["failed"])
+        # Re-running keeps the hot pages refreshed in the background (expired entries are
+        # served instantly and rebuilt behind the scenes), so visitors rarely wait on a
+        # cold computation. A DB change (new match, admin edit) triggers an immediate
+        # refresh instead of waiting for the next interval.
+        last_sig = _db_signature(app)
+        next_run = 0.0
+        while True:
+            now = time.time()
+            sig = _db_signature(app)
+            changed = sig != last_sig
+            if changed:
+                # Let an in-progress ingest settle before rebuilding.
+                time.sleep(min(watch_s, 5.0))
+                sig = _db_signature(app)
+                last_sig = sig
+                _invalidate(app)
+            if changed or now >= next_run:
+                result = run_cache_warmup(app)
+                app.logger.info(
+                    "Cache warmup finished in %sms (%s/%s successful)%s",
+                    result["elapsed_ms"],
+                    result["success"],
+                    result["total"],
+                    " after data change" if changed else "",
+                )
+                if result["failed"]:
+                    app.logger.warning("Cache warmup had %s failures", result["failed"])
+                if interval_s <= 0 and not watch_s:
+                    return
+                next_run = time.time() + interval_s if interval_s > 0 else float("inf")
+            time.sleep(watch_s if watch_s > 0 else max(interval_s, 1.0))
 
     thread = threading.Thread(target=_runner, name="cache-warmup", daemon=True)
     thread.start()

@@ -1,6 +1,8 @@
 # Core Flask web framework and extensions
 Flask>=2.3.0
 Flask-Compress>=1.10.0
+# Brotli bodies for cached responses (falls back to gzip if missing)
+Brotli>=1.0.9
 Flask-Caching>=2.0.0
 Flask-CORS>=4.0.0
 

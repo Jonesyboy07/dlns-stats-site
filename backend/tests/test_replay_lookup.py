@@ -35,8 +35,10 @@ class ReplayWarmupTests(unittest.TestCase):
 class ReplayRetryRouteTests(unittest.TestCase):
     def setUp(self):
         self._old_warmup = os.environ.get("CACHE_WARMUP_ON_STARTUP")
+        self._old_cache_dir = os.environ.get("CACHE_DIR")
         os.environ["CACHE_WARMUP_ON_STARTUP"] = "false"
         self.tmpdir = tempfile.TemporaryDirectory()
+        os.environ["CACHE_DIR"] = str(Path(self.tmpdir.name) / "cache")
         self.app = create_app()
         self.app.config.update(
             TESTING=True,
@@ -51,13 +53,17 @@ class ReplayRetryRouteTests(unittest.TestCase):
             os.environ.pop("CACHE_WARMUP_ON_STARTUP", None)
         else:
             os.environ["CACHE_WARMUP_ON_STARTUP"] = self._old_warmup
+        if self._old_cache_dir is None:
+            os.environ.pop("CACHE_DIR", None)
+        else:
+            os.environ["CACHE_DIR"] = self._old_cache_dir
         self.tmpdir.cleanup()
 
     def test_cached_not_found_returns_without_retry(self):
         with patch(
-            "backend.app.blueprints.db_api._get_persisted_replay_lookup",
+            "backend.app.blueprints.db.matches._get_persisted_replay_lookup",
             return_value={"found": False, "replay": None, "searched_dirs": 9},
-        ), patch("backend.app.blueprints.db_api._replay_match_item") as replay_match_item:
+        ), patch("backend.app.blueprints.db.matches._replay_match_item") as replay_match_item:
             response = self.client.get("/db/matches/123456/replay")
 
         self.assertEqual(response.status_code, 404)
@@ -66,10 +72,10 @@ class ReplayRetryRouteTests(unittest.TestCase):
 
     def test_retry_bypasses_cached_not_found_and_rescans(self):
         with patch(
-            "backend.app.blueprints.db_api._get_persisted_replay_lookup",
+            "backend.app.blueprints.db.matches._get_persisted_replay_lookup",
             return_value={"found": False, "replay": None, "searched_dirs": 9},
         ), patch(
-            "backend.app.blueprints.db_api._replay_match_item",
+            "backend.app.blueprints.db.matches._replay_match_item",
             return_value=(
                 {
                     "name": "123456.zip",

@@ -1226,6 +1226,14 @@ _SYSTEM_FILE_PATHS = (
     'backend/main.py',
     'backend/app/blueprints/admin.py',
     'backend/app/blueprints/db_api.py',
+    'backend/app/blueprints/db/core.py',
+    'backend/app/blueprints/db/matches.py',
+    'backend/app/blueprints/db/users.py',
+    'backend/app/blueprints/db/heroes.py',
+    'backend/app/blueprints/db/teams.py',
+    'backend/app/blueprints/db/stats.py',
+    'backend/app/blueprints/db/nightshift.py',
+    'backend/app/blueprints/db/site.py',
     'frontend/src/pages/SystemAdmin.jsx',
 )
 

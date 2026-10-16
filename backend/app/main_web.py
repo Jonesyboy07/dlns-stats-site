@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, make_response, Response
+from flask import Flask, g, render_template, request, redirect, url_for, send_from_directory, make_response, Response
 from flask_compress import Compress
 from flask_cors import CORS
 from werkzeug.exceptions import NotFound
@@ -135,6 +136,7 @@ def create_app() -> Flask:
     app.config['CACHE_IGNORE_ERRORS'] = True
     app.config['CACHE_WARMUP_ON_STARTUP'] = os.getenv("CACHE_WARMUP_ON_STARTUP", "true")
     app.config['CACHE_WARMUP_DELAY_SECONDS'] = float(os.getenv("CACHE_WARMUP_DELAY_SECONDS", "1.0"))
+    app.config['CACHE_WARMUP_INTERVAL_SECONDS'] = float(os.getenv("CACHE_WARMUP_INTERVAL_SECONDS", "600"))
     
     # Initialize cache with config dict - must be BEFORE registering blueprints
     cache.init_app(app, config={
@@ -196,6 +198,27 @@ def create_app() -> Flask:
 
     # Register blueprints from blueprints/registry.json
     register_blueprints(app)
+
+    # Request timing: Server-Timing is visible in the browser's Network tab, and any
+    # request slower than SLOW_REQUEST_MS is logged with its cache state so slow routes
+    # show up from real traffic instead of guesswork.
+    slow_ms = float(os.getenv("SLOW_REQUEST_MS", "300"))
+
+    @app.before_request
+    def _start_timer():  # type: ignore
+        g._t0 = time.perf_counter()
+
+    @app.after_request
+    def _finish_timer(resp):  # type: ignore
+        t0 = g.get("_t0")
+        if t0 is None:
+            return resp
+        ms = (time.perf_counter() - t0) * 1000
+        state = resp.headers.get("X-Cache", "-")
+        resp.headers["Server-Timing"] = f'app;dur={ms:.1f}, cache;desc="{state}"'
+        if ms >= slow_ms and not request.path.startswith(("/static/", "/public/")):
+            app.logger.warning("SLOW %s %s %s %.0fms cache=%s", request.method, request.path, resp.status_code, ms, state)
+        return resp
 
     # Prime key endpoints in background so first user request is warm.
     schedule_cache_warmup(app)

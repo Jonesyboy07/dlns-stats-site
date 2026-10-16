@@ -47,7 +47,7 @@ See [data ingestion](INGESTION.md) for the supported input shape, all maintenanc
 - **React:** interactive pages use separate entry points in `frontend/src/entries/`; page components live in `frontend/src/pages/`.
 - **Routes:** Flask blueprints are listed in `backend/app/blueprints/registry.json` and loaded by `backend/app/blueprints/loader.py`.
 - **Database:** SQLite is initialized by the application/ingester. The `/db` API uses read-only connections for query endpoints. Schema details are in [db_schema.md](db_schema.md).
-- **API:** the primary JSON API is in `backend/app/blueprints/db_api.py`; its OpenAPI reference is available at `/api/docs`.
+- **API:** the primary JSON API lives in the `backend/app/blueprints/db/` package, split by area (`matches`, `users`, `heroes`, `teams`, `stats`, `nightshift`, `site`) with shared helpers in `core.py`. All modules attach routes to one blueprint mounted at `/db`; `db_api.py` imports them and re-exports their names. Its OpenAPI reference is available at `/api/docs`.
 
 When adding a React page, follow an existing page's pattern: add the entry under `frontend/src/entries/`, include it in `frontend/vite.config.js`, and add or update the matching Flask page route/template as appropriate.
 
@@ -65,7 +65,8 @@ When adding a React page, follow an existing page's pattern: add the entry under
 | `wsgi.py` | WSGI application object |
 | `backend/app/main_web.py` | Flask app factory and configuration |
 | `backend/app/blueprints/registry.json` | Registered blueprint list |
-| `backend/app/blueprints/db_api.py` | Main `/db` JSON API |
+| `backend/app/blueprints/db_api.py` | Entry point for the `/db` JSON API (imports the `db/` modules) |
+| `backend/app/blueprints/db/` | `/db` route modules by area; shared helpers in `core.py` |
 | `frontend/vite.config.js` | Vite entries, build output, dev proxies, and Vitest config |
 | `docs/openapi_spec.json` | Tracked OpenAPI specification |
 | `docs/db_schema.md` | SQLite schema reference |

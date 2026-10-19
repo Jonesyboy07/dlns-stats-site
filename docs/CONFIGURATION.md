@@ -16,6 +16,7 @@ Review the comments in `.env.example` and replace placeholders for the features 
 | --- | --- |
 | Application | `SECRET_KEY`, `BASE_URL`, `OG_IMAGE`, `SEO_PRERENDER` |
 | Search indexing | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`, `INDEXNOW_KEY`, `INDEXNOW_ENDPOINT` |
+| Canonical host | `BASE_URL`, `CANONICAL_HOST`, `FORCE_HTTPS`, `CANONICAL_REDIRECTS`, `CANONICAL_REDIRECT_EXEMPT_HOSTS`, `TRUSTED_PROXIES` |
 | Database and match API | `DB_PATH`, `API_LATEST_LIMIT`, `STEAM_API_KEY` |
 | Cache and response compression | `CACHE_TYPE`, `CACHE_DEFAULT_TIMEOUT`, `CACHE_DIR`, `CACHE_THRESHOLD`, `CACHE_WARMUP_ON_STARTUP`, `CACHE_WARMUP_DELAY_SECONDS`, `COMPRESS_LEVEL`, `COMPRESS_BR_LEVEL`, `COMPRESS_MIN_SIZE` |
 | Replay storage and indexing | `REPLAY_SHARE_API_URL`, `REPLAY_DOWNLOAD_BASE_URL`, `REPLAY_URL_CACHE_TTL_SECONDS`, `REPLAY_URL_FILE_CACHE_PATH`, `REPLAY_INDEX_FILE_CACHE_PATH`, `REPLAY_INDEX_REFRESH_HOURS`, `REPLAY_SCAN_MAX_DIRS`, `REPLAY_SCAN_DEADLINE_SECONDS`, `REPLAY_LISTING_TIMEOUT_SECONDS`, `REPLAY_SCAN_PARTIAL_TTL_SECONDS` |
@@ -52,6 +53,54 @@ Every React page is served by `templates/react.html`, whose title, description, 
 - `backend/app/prerender.py` renders a compact content snapshot into `#root` for the home/match list, match, player, player×hero, hero, team, week and index pages. It contains real headings, player/team names, tables and internal links, so crawlers and no-JS visitors see content before the React bundle runs; React replaces it on mount. Snapshots are cached for five minutes and capped in memory. Set `SEO_PRERENDER=0` to disable it.
 
 When adding a page to the React app, add its route metadata to `STATIC_ROUTES` in `frontend/src/utils/seo.js` (client-side navigation) and to `_STATIC_PAGES` in `backend/app/seo.py` (server-rendered shell). Add a `_build` branch in `backend/app/prerender.py` if the page needs crawlable content. Add its canonical URL to `backend/app/blueprints/sitemap.py` only when it is a public landing page worth indexing.
+
+## Canonical host and redirects
+
+The canonical origin is the **apex** host, `https://dlns-stats.co.uk`. Both `www` and non-`www` must not serve duplicate 200 responses.
+
+### Cloudflare (primary)
+
+In the Cloudflare dashboard for `dlns-stats.co.uk`:
+
+1. **SSL/TLS → Overview → Full (strict).** Never use “Flexible”; it causes redirect loops.
+2. **SSL/TLS → Edge Certificates → Always Use HTTPS: On.**
+3. **Rules → Redirect Rules → Create rule:**
+   - When: `http.host eq "www.dlns-stats.co.uk"`
+   - Then: permanent redirect (301) to `https://dlns-stats.co.uk` + original path
+   - Enable “Preserve query string”
+4. Keep DNS records for **both** hostnames; Universal SSL covers both.
+5. Optionally add HSTS later under Edge Certificates, after the redirects have been verified.
+
+Expected result:
+
+| Incoming | Response |
+| --- | --- |
+| `http://dlns-stats.co.uk/...` | `301 https://dlns-stats.co.uk/...` |
+| `http://www.dlns-stats.co.uk/...` | `301 https://dlns-stats.co.uk/...` |
+| `https://www.dlns-stats.co.uk/...` | `301 https://dlns-stats.co.uk/...` |
+| `https://dlns-stats.co.uk/...` | `200` |
+
+### Flask guard (fallback)
+
+`backend/app/canonical_host.py` redirects `GET`/`HEAD` requests that reach Flask with a non-canonical host or without HTTPS. It is disabled automatically for local `BASE_URL` values and skips `127.0.0.1`, `localhost` and `::1` so health checks never loop.
+
+- `CANONICAL_HOST` — optional; derived from `BASE_URL` when empty.
+- `FORCE_HTTPS` — optional; derived from whether `BASE_URL` starts with `https://`.
+- `CANONICAL_REDIRECTS` — set to `0` to disable the Flask guard (for example during a proxy migration).
+- `CANONICAL_REDIRECT_EXEMPT_HOSTS` — comma-separated extra exemptions.
+- `TRUSTED_PROXIES` — **must match the real proxy chain**, or Flask sees `http` and redirects in a loop:
+  - Cloudflare → Flask/Waitress: `1`
+  - Cloudflare → nginx/Caddy → Flask: `2`
+
+### Verification
+
+```bash
+curl -sI http://dlns-stats.co.uk/players | grep -Ei 'HTTP/|location'
+curl -sI https://www.dlns-stats.co.uk/players | grep -Ei 'HTTP/|location'
+curl -sI https://dlns-stats.co.uk/players | grep -Ei 'HTTP/|location'
+```
+
+The first two must be a single `301` to `https://dlns-stats.co.uk/players`; the last must be `200`. Canonical links, `og:url`, `sitemap.xml` and IndexNow already use `BASE_URL`, so set it to `https://dlns-stats.co.uk`.
 
 ## Search Console, Bing and IndexNow
 

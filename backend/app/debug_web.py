@@ -22,6 +22,7 @@ from .cache import cache
 from .cache_warmup import schedule_cache_warmup
 from dotenv import load_dotenv
 from .heroes import get_hero_name
+from .canonical_host import register_canonical_redirect
 from .help_config import load_help_config
 from .prerender import register_prerender
 from .seo import register_seo
@@ -56,6 +57,14 @@ def create_app() -> Flask:
     
     app.config['DATABASE_PATH'] = Path('./data/dlns.sqlite3')
     app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5050')  # Use env variable
+    # Canonical-host guard. Cloudflare performs the primary www -> apex redirect;
+    # these settings keep direct-to-origin requests canonical too.
+    app.config['CANONICAL_HOST'] = os.getenv('CANONICAL_HOST', '').strip()
+    app.config['FORCE_HTTPS'] = os.getenv('FORCE_HTTPS', '').strip()
+    app.config['CANONICAL_REDIRECTS'] = os.getenv('CANONICAL_REDIRECTS', '1').strip()
+    app.config['CANONICAL_REDIRECT_EXEMPT_HOSTS'] = os.getenv(
+        'CANONICAL_REDIRECT_EXEMPT_HOSTS', '127.0.0.1,localhost,::1'
+    ).strip()
     # Server-rendered page content for crawlers and no-JS visitors.
     app.config['SEO_PRERENDER'] = os.getenv('SEO_PRERENDER', '1')
     # Search-engine ownership verification and IndexNow submission.
@@ -188,6 +197,8 @@ def create_app() -> Flask:
     register_seo(app)
     # Crawlable content snapshot rendered inside #root before React mounts.
     register_prerender(app)
+    # Defence-in-depth www/HTTPS redirect; Cloudflare handles the edge.
+    register_canonical_redirect(app)
 
     # Register blueprints from blueprints/registry.json
     register_blueprints(app)

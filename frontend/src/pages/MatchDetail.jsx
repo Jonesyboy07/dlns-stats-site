@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import heroMeta from "../../../data/hero_meta.json";
 import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
@@ -17,13 +17,17 @@ import { buildRoster, teamScores } from "../utils/matchTimelineRoster";
 import { laneMeta } from "../utils/lanes";
 import { mapVersionForMatch } from "../utils/matchMap";
 import { laneMatchups } from "../utils/laning";
-import LaningTab from "../components/laning/LaningTab";
-import TimelineMapPanel from "../components/TimelineMapPanel";
-import TimelineFeed from "../components/TimelineFeed";
-import TimelineLanes from "../components/TimelineLanes";
+import { absoluteUrl, usePageMeta } from "../utils/seo";
 import TimelineHeader from "../components/TimelineHeader";
-import TimelineRoster from "../components/TimelineRoster";
-import TimelineTransport from "../components/TimelineTransport";
+
+// The timeline and laning tabs are heavy and not the default view, so their
+// components stay out of the initial MatchDetail bundle until the tab is opened.
+const LaningTab = lazy(() => import("../components/laning/LaningTab"));
+const TimelineMapPanel = lazy(() => import("../components/TimelineMapPanel"));
+const TimelineFeed = lazy(() => import("../components/TimelineFeed"));
+const TimelineLanes = lazy(() => import("../components/TimelineLanes"));
+const TimelineRoster = lazy(() => import("../components/TimelineRoster"));
+const TimelineTransport = lazy(() => import("../components/TimelineTransport"));
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -253,6 +257,55 @@ function MatchDetail() {
   const [timelinePlaying, setTimelinePlaying] = useState(false);
   // A viewing preference rather than match state, so it survives switching matches.
   const [timelineSpeed, setTimelineSpeed] = useState(1);
+
+  // The server renders the same title/description into the HTML shell; this keeps
+  // them accurate when the user navigates between matches inside the app.
+  const seoTeams = [adjacentMatches.event_team_a, adjacentMatches.event_team_b].filter(Boolean);
+  const seoWeek = adjacentMatches.event_week;
+  const seoBreadcrumbs = seoTeams.length === 2
+    ? [
+        { name: "Home", path: "/" },
+        ...(seoWeek ? [{ name: `Night Shift Week ${seoWeek}`, path: `/week/${seoWeek}` }] : []),
+        { name: `${seoTeams[0]} vs ${seoTeams[1]}`, path: `/matches/${matchId}` },
+      ]
+    : undefined;
+  const seoRawStart = adjacentMatches.start_time || adjacentMatches.created_at;
+  const seoStartDate = seoRawStart
+    ? (() => {
+        const date = /^\d+$/.test(String(seoRawStart))
+          ? new Date(Number(seoRawStart) * 1000)
+          : new Date(seoRawStart);
+        return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+      })()
+    : undefined;
+  const seoJsonLd = seoTeams.length === 2
+    ? {
+        "@context": "https://schema.org",
+        "@type": "SportsEvent",
+        name: `${seoTeams[0]} vs ${seoTeams[1]}`,
+        url: absoluteUrl(`/matches/${matchId}`),
+        eventStatus: "https://schema.org/EventScheduled",
+        homeTeam: { "@type": "SportsTeam", name: seoTeams[0] },
+        awayTeam: { "@type": "SportsTeam", name: seoTeams[1] },
+        ...(seoStartDate ? { startDate: seoStartDate } : {}),
+        ...(adjacentMatches.event_title
+          ? { superEvent: { "@type": "SportsEvent", name: adjacentMatches.event_title } }
+          : {}),
+      }
+    : undefined;
+  usePageMeta({
+    title:
+      seoTeams.length === 2
+        ? `${seoTeams[0]} vs ${seoTeams[1]}${seoWeek ? ` — Week ${seoWeek}` : ""}`
+        : undefined,
+    description:
+      seoTeams.length === 2
+        ? `${seoTeams[0]} vs ${seoTeams[1]}. Full Deadlock scoreboard, player souls and damage, item builds and match timeline.`
+        : undefined,
+    canonicalPath: `/matches/${matchId}`,
+    breadcrumbs: seoBreadcrumbs,
+    jsonLd: seoJsonLd,
+  });
 
   // The map, the feed and the lanes all read from one derivation of the same feed, so
   // they can never disagree about what a fight was or who was on a streak. Objectives
@@ -1164,6 +1217,13 @@ function MatchDetail() {
 
       {/* Timeline tab: where it happened, then a plain list of what happened. */}
       {activeTab === "timeline" && (
+        <Suspense
+          fallback={
+            <div className="mb-6 rounded-xl border border-border-light bg-card p-6 text-sm text-dim">
+              Loading timeline…
+            </div>
+          }
+        >
         <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6">
           <TimelineHeader
             className="mb-4"
@@ -1266,11 +1326,19 @@ function MatchDetail() {
             </>
           )}
         </div>
+        </Suspense>
       )}
 
       {/* Laning tab: the opening minutes as a playable map, a lane head-to-head and
           a mirrored build table, all reading one lane filter and one clock. */}
       {activeTab === "laning" && (
+        <Suspense
+          fallback={
+            <div className="mb-6 rounded-xl border border-border-light bg-card p-6 text-sm text-dim">
+              Loading laning view…
+            </div>
+          }
+        >
         <LaningTab
           players={players}
           laneRows={laningLaneRows}
@@ -1286,6 +1354,7 @@ function MatchDetail() {
           unassigned={timelineLaneUnassigned}
           className="mb-6"
         />
+        </Suspense>
       )}
 
       {/* Graphs tab */}

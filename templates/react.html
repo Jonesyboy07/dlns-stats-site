@@ -3,7 +3,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DLNS Stats</title>
+
+  {# Per-route metadata comes from backend/app/seo.py. The fallbacks keep this
+     template usable in contexts where the SEO context processor is absent. #}
+  {% set __seo_title = meta_title or 'DLNS Stats' %}
+  {% set __seo_desc = meta_desc or 'Deadlock Night Shift match results, player and team statistics, hero performance and weekly standings.' %}
+  {% set __seo_url = meta_url or ((BASE_URL or '') ~ request.path) %}
+  {% set __seo_image = meta_image or url_for('static', filename='og.png') %}
+  {% set __seo_image_abs = __seo_image if __seo_image.startswith('http') else ((BASE_URL or '') ~ __seo_image) %}
+
+  <title>{{ __seo_title }}</title>
+  <link rel="canonical" href="{{ __seo_url }}">
+  <meta name="description" content="{{ __seo_desc }}">
+  <meta name="robots" content="{{ meta_robots or 'index, follow' }}">
+  {% for verification in meta_verifications or [] %}
+  <meta name="{{ verification.name }}" content="{{ verification.content }}">
+  {% endfor %}
+
+  {# Warm the image CDN and the two fonts used above the fold. #}
+  {% if IMAGE_CDN_BASE %}
+  <link rel="preconnect" href="{{ IMAGE_CDN_BASE }}" crossorigin>
+  {% endif %}
+  <link rel="preload" href="/static/fonts/valveoracle-medium.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/static/fonts/valvepulp-bold.ttf" as="font" type="font/ttf" crossorigin>
+
+  <meta property="og:type" content="{{ meta_og_type or 'website' }}">
+  <meta property="og:title" content="{{ __seo_title }}">
+  <meta property="og:description" content="{{ __seo_desc }}">
+  <meta property="og:url" content="{{ __seo_url }}">
+  <meta property="og:image" content="{{ __seo_image_abs }}">
+  <meta property="og:site_name" content="DLNS Stats">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ __seo_title }}">
+  <meta name="twitter:description" content="{{ __seo_desc }}">
+  <meta name="twitter:image" content="{{ __seo_image_abs }}">
+
+  {% if meta_jsonld %}
+  <script type="application/ld+json">{{ meta_jsonld | safe }}</script>
+  {% endif %}
+
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='react-app/assets/App.css') }}">
   <style>
@@ -46,10 +89,37 @@
       from { transform: translateX(0); opacity: 1; }
       to { transform: translateX(400px); opacity: 0; }
     }
+
+    /* Server-rendered crawlable snapshot; React replaces it as soon as it mounts. */
+    .prerender {
+      max-width: 72rem;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+      color: #e5e7eb;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    .prerender-breadcrumb { margin: 0 0 0.75rem; font-size: 0.85rem; color: #9ca3af; }
+    .prerender-breadcrumb a { color: #a78bfa; }
+    .prerender h1 { margin: 0 0 0.5rem; font-size: 1.9rem; color: #fff; }
+    .prerender h2 { margin: 1.75rem 0 0.5rem; font-size: 1.15rem; color: #c4b5fd; }
+    .prerender h3 { margin: 1.25rem 0 0.4rem; font-size: 1rem; color: #e9d5ff; }
+    .prerender p { margin: 0.4rem 0; color: #b2b2b8; }
+    .prerender a { color: #a78bfa; text-decoration: none; }
+    .prerender a:hover { text-decoration: underline; }
+    .prerender section { margin-top: 1rem; overflow-x: auto; }
+    .prerender table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .prerender th, .prerender td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+      white-space: nowrap;
+    }
+    .prerender th { color: #9ca3af; font-weight: 600; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">{{ prerender_html | safe }}</div>
   <script>
     window.__DLNS_HELP_CONFIG__ = {{ help_config | default({}, true) | tojson }};
     // Lets the crest folder be repointed without rebuilding the frontend bundle.

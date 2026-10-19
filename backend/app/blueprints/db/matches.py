@@ -54,14 +54,36 @@ def _cache_only_when_available(response):
     return bool(payload and payload.get("available"))
 
 
-def _fetch_replay_listing(path: str | None = None) -> list[dict[str, Any]]:
+def _replay_scan_settings() -> tuple[int, float, float]:
+    """Interactive scan limits: (max directories, total deadline, per-list timeout)."""
+    config = current_app.config
+    try:
+        max_dirs = int(config.get("REPLAY_SCAN_MAX_DIRS", 100))
+    except (TypeError, ValueError):
+        max_dirs = 100
+    try:
+        deadline = float(config.get("REPLAY_SCAN_DEADLINE_SECONDS", 5.0))
+    except (TypeError, ValueError):
+        deadline = 5.0
+    try:
+        listing_timeout = float(config.get("REPLAY_LISTING_TIMEOUT_SECONDS", 3.0))
+    except (TypeError, ValueError):
+        listing_timeout = 3.0
+    return max(1, max_dirs), max(0.1, deadline), max(0.5, listing_timeout)
+
+
+def _fetch_replay_listing(
+    path: str | None = None, timeout: float | None = None
+) -> list[dict[str, Any]]:
     url = _replay_share_api_url()
     if path:
         # Filebrowser's public share API navigates by appending the folder path
         # to the share URL. (A ?path= query param is ignored by the server, which
         # would make the recursive scan never descend past the share root.)
         url = f"{url.rstrip('/')}/{quote(str(path).lstrip('/'), safe='/')}"
-    resp = requests.get(url, timeout=10)
+    if timeout is None:
+        _, _, timeout = _replay_scan_settings()
+    resp = requests.get(url, timeout=timeout)
     resp.raise_for_status()
     payload = resp.json()
     items = payload.get("items")
@@ -165,6 +187,7 @@ def _get_persisted_replay_lookup(match_id: int) -> dict[str, Any] | None:
             "found": found,
             "replay": replay if found else None,
             "searched_dirs": int(entry.get("searched_dirs") or 0),
+            "retry_after_seconds": max(0, expires_at - now),
         }
 
 
@@ -262,19 +285,31 @@ def _schedule_index_refresh() -> bool:
     return True
 
 
-def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, Any] | None, int]:
-    """Return (matched_item, visited_dir_count).
+def _replay_match_item(
+    match_id: int,
+    max_dirs: int | None = None,
+    deadline_seconds: float | None = None,
+) -> tuple[dict[str, Any] | None, int, bool]:
+    """Return (matched_item, visited_dir_count, scan_complete).
 
     Looks up a prebuilt replay index first (instant, no network). If the match
-    is absent, it still walks the live share so newly uploaded or previously
-    missed replays can be found immediately, while also scheduling an index
-    refresh when needed so later lookups stay fast.
+    is absent, it walks a bounded slice of the live share so newly uploaded
+    replays can still be found without tying up a worker for minutes. The walk
+    stops at the directory cap or total deadline, and reports whether it managed
+    to inspect the whole tree.
     """
     payload = _load_replay_index()
     replays = payload.get("replays") or {}
     indexed = replays.get(str(match_id))
     if isinstance(indexed, dict):
-        return indexed, 0
+        return indexed, 0, True
+
+    configured_dirs, configured_deadline, listing_timeout = _replay_scan_settings()
+    if max_dirs is None:
+        max_dirs = configured_dirs
+    if deadline_seconds is None:
+        deadline_seconds = configured_deadline
+    deadline = time.monotonic() + max(0.0, float(deadline_seconds))
 
     try:
         _schedule_index_refresh()
@@ -285,8 +320,14 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
     visited_dirs = 0
     seen_dirs: set[str] = set()
     stack: list[str] = [""]
+    complete = True
 
     while stack and visited_dirs < max_dirs:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            complete = False
+            break
+
         current_path = stack.pop()
         norm_path = (current_path or "").strip()
         if norm_path in seen_dirs:
@@ -295,9 +336,14 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
         visited_dirs += 1
 
         try:
-            items = _fetch_replay_listing(norm_path or None)
+            items = _fetch_replay_listing(
+                norm_path or None,
+                timeout=max(0.25, min(listing_timeout, remaining)),
+            )
         except Exception:
-            # Ignore unreadable directories and continue scan.
+            # Ignore unreadable directories and continue scan, but remember that
+            # the result is inconclusive so the negative cache stays short-lived.
+            complete = False
             continue
 
         # Prefer deterministic traversal order.
@@ -332,13 +378,18 @@ def _replay_match_item(match_id: int, max_dirs: int = 3000) -> tuple[dict[str, A
                 _save_replay_index(refreshed)
             except Exception:
                 pass
-            return item, visited_dirs
+            return item, visited_dirs, True
 
         for next_dir in sorted(dir_paths, reverse=True):
             if next_dir not in seen_dirs:
                 stack.append(next_dir)
 
-    return None, visited_dirs
+    if stack:
+        complete = False
+    current_app.logger.debug(
+        "replay scan match=%s dirs=%s complete=%s", match_id, visited_dirs, complete
+    )
+    return None, visited_dirs, complete
 
 
 @bp.get("/matches/tree")
@@ -638,18 +689,24 @@ def match_replay(match_id: int):
                     "cache_source": "file",
                     "cache_ttl_seconds": ttl_seconds,
                     "searched_dirs": int(persisted_lookup.get("searched_dirs") or 0),
+                    "retry_after_seconds": int(persisted_lookup.get("retry_after_seconds") or 0),
                     "error": "replay_not_found",
                     "message": "Replay was not found in replay_storage for this match ID.",
                 }
             ), 404
 
-    item, visited_dirs = _replay_match_item(match_id)
+    item, visited_dirs, scan_complete = _replay_match_item(match_id)
     if not item:
+        try:
+            partial_ttl = int(current_app.config.get("REPLAY_SCAN_PARTIAL_TTL_SECONDS", 300))
+        except (TypeError, ValueError):
+            partial_ttl = 300
+        negative_ttl = ttl_seconds if scan_complete else min(ttl_seconds, max(1, partial_ttl))
         _set_persisted_replay_lookup(
             match_id,
             found=False,
             replay=None,
-            ttl_seconds=ttl_seconds,
+            ttl_seconds=negative_ttl,
             searched_dirs=visited_dirs,
         )
         return jsonify(
@@ -658,9 +715,15 @@ def match_replay(match_id: int):
                 "match_id": match_id,
                 "found": False,
                 "cached": False,
+                "scan_complete": scan_complete,
+                "retry_after_seconds": negative_ttl,
                 "searched_dirs": visited_dirs,
                 "error": "replay_not_found",
-                "message": "Replay was not found in replay_storage for this match ID.",
+                "message": (
+                    "Replay was not found in replay_storage for this match ID."
+                    if scan_complete
+                    else "Replay was not found yet. The share index is refreshing; try again shortly."
+                ),
             }
         ), 404
 
@@ -690,6 +753,7 @@ def match_replay(match_id: int):
             "cached": False,
             "cache_source": None,
             "cache_ttl_seconds": ttl_seconds,
+            "scan_complete": scan_complete,
             "searched_dirs": visited_dirs,
             "replay": replay_payload,
         }

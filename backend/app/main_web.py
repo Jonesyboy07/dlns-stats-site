@@ -24,6 +24,8 @@ from .cache_warmup import schedule_cache_warmup
 from dotenv import load_dotenv
 from .heroes import get_hero_name
 from .help_config import load_help_config
+from .prerender import register_prerender
+from .seo import register_seo
 
 
 def _ensure_db_schema(app: Flask) -> None:
@@ -85,6 +87,15 @@ def create_app() -> Flask:
     
     app.config['DATABASE_PATH'] = Path('./data/dlns.sqlite3')
     app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5050')  # Use env variable
+    # Server-rendered page content for crawlers and no-JS visitors.
+    app.config['SEO_PRERENDER'] = os.getenv('SEO_PRERENDER', '1')
+    # Search-engine ownership verification and IndexNow submission.
+    app.config['GOOGLE_SITE_VERIFICATION'] = os.getenv('GOOGLE_SITE_VERIFICATION', '').strip()
+    app.config['BING_SITE_VERIFICATION'] = os.getenv('BING_SITE_VERIFICATION', '').strip()
+    app.config['INDEXNOW_KEY'] = os.getenv('INDEXNOW_KEY', '').strip()
+    app.config['INDEXNOW_ENDPOINT'] = os.getenv(
+        'INDEXNOW_ENDPOINT', 'https://api.indexnow.org/indexnow'
+    ).strip()
     app.config['OG_IMAGE'] = os.getenv('OG_IMAGE', 'og.png')  # place og.png in /static
     app.config['IMAGE_CDN_BASE'] = os.getenv('IMAGE_CDN_BASE', 'https://cdn.dlns-stats.co.uk/public/images')
     # Team crests sit in a teamLogos/ folder beside the other art on the images
@@ -113,6 +124,18 @@ def create_app() -> Flask:
     )
     # How often (hours) the full replay index is rebuilt in the background.
     app.config["REPLAY_INDEX_REFRESH_HOURS"] = int(os.getenv("REPLAY_INDEX_REFRESH_HOURS", "6"))
+    # Interactive index-miss fallback: small and time-bounded so a missing replay
+    # can never hold a worker for minutes.
+    app.config["REPLAY_SCAN_MAX_DIRS"] = int(os.getenv("REPLAY_SCAN_MAX_DIRS", "100"))
+    app.config["REPLAY_SCAN_DEADLINE_SECONDS"] = float(
+        os.getenv("REPLAY_SCAN_DEADLINE_SECONDS", "5")
+    )
+    app.config["REPLAY_LISTING_TIMEOUT_SECONDS"] = float(
+        os.getenv("REPLAY_LISTING_TIMEOUT_SECONDS", "3")
+    )
+    app.config["REPLAY_SCAN_PARTIAL_TTL_SECONDS"] = int(
+        os.getenv("REPLAY_SCAN_PARTIAL_TTL_SECONDS", "300")
+    )
     
     #Discord Info
     app.config["DISCORD_CLIENT_ID"] = os.getenv("DISCORD_CLIENT_ID")
@@ -219,6 +242,13 @@ def create_app() -> Flask:
         if ms >= slow_ms and not request.path.startswith(("/static/", "/public/")):
             app.logger.warning("SLOW %s %s %s %.0fms cache=%s", request.method, request.path, resp.status_code, ms, state)
         return resp
+
+    # Registered after the timer so the not-found status hook runs first and the
+    # SLOW log reports the real status (after_request runs in reverse order).
+    # Per-route titles, descriptions, canonicals and social tags for the React shell.
+    register_seo(app)
+    # Crawlable content snapshot rendered inside #root before React mounts.
+    register_prerender(app)
 
     # Prime key endpoints in background so first user request is warm.
     schedule_cache_warmup(app)

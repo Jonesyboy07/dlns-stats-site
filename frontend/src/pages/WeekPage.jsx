@@ -24,6 +24,7 @@ import {
   scopeSeries,
   summarizeIndexWeek,
 } from "../utils/weekData";
+import { usePageMeta } from "../utils/seo";
 
 const DEFAULT_EVENT = "Night Shift";
 const PAGE_TABS = ["o", "2", "3", "4"];
@@ -57,6 +58,23 @@ export default function WeekPage() {
   const [pbMode, setPbMode] = useState("all");
   const [teamFilter, setTeamFilter] = useState("");
   const [expanded, setExpanded] = useState(false);
+
+  usePageMeta({
+    title: weekNum != null ? `Night Shift Week ${weekNum} — Results & Standings` : "Night Shift Weeks",
+    description:
+      weekNum != null
+        ? `Deadlock Night Shift week ${weekNum}: brackets, series results, standings, hero picks and player leaderboards.`
+        : "Night Shift weekly brackets, series results, standings and hero picks for the current DLNS event.",
+    canonicalPath: weekNum != null ? `/week/${weekNum}` : "/week",
+    breadcrumbs:
+      weekNum != null
+        ? [
+            { name: "Home", path: "/" },
+            { name: "Night Shift weeks", path: "/week" },
+            { name: `Week ${weekNum}`, path: `/week/${weekNum}` },
+          ]
+        : [{ name: "Home", path: "/" }, { name: "Night Shift weeks", path: "/week" }],
+  });
 
   const eventQuery = useCallback(
     (title) => `event_title=${encodeURIComponent(title)}`,

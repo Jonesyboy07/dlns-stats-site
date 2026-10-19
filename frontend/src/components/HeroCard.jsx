@@ -28,7 +28,7 @@ export const heroInitials = (heroName) => {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 };
 
-function HeroCard({ name, size = "h-[110px] w-[66px]", className = "" }) {
+function HeroCard({ name, size = "h-[110px] w-[66px]", className = "", priority = false }) {
   const [failed, setFailed] = useState(false);
   const label = name || "Unknown hero";
 
@@ -48,6 +48,8 @@ function HeroCard({ name, size = "h-[110px] w-[66px]", className = "" }) {
       src={heroArtUrl(name)}
       alt={label}
       title={label}
+      loading={priority ? "eager" : "lazy"}
+      decoding="async"
       onError={() => setFailed(true)}
       className={`${size} shrink-0 rounded-lg border border-border-light object-cover ${className}`}
     />

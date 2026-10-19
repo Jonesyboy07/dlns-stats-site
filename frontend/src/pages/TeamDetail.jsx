@@ -9,6 +9,7 @@ import TeamSeriesTab from "../components/team/TeamSeriesTab";
 import { formatPercent, formatRecord } from "../utils/format";
 import { recordOf, teamWeekRange } from "../utils/team";
 import { isActivePlayer } from "../utils/timeline";
+import { usePageMeta } from "../utils/seo";
 import { useUrlParam } from "../utils/useUrlParam";
 
 const TABS = ["Overview", "Series", "Players"];
@@ -22,6 +23,21 @@ function TeamDetail() {
   const [error, setError] = useState(null);
   // The tab lives in the URL, so refreshing keeps you where you were.
   const [activeTab, setActiveTab] = useUrlParam("tab", TABS, "Overview");
+
+  usePageMeta({
+    title: data?.team_name ? `${data.team_name} — Deadlock Team Stats` : `${decodedName} Team Stats`,
+    description: data?.team_name
+      ? `${data.team_name}'s Deadlock Night Shift record, roster, hero usage and weekly series results.`
+      : undefined,
+    canonicalPath: `/team/${encodeURIComponent(decodedName)}`,
+    breadcrumbs: data?.team_name
+      ? [
+          { name: "Home", path: "/" },
+          { name: "Teams", path: "/teams" },
+          { name: data.team_name, path: `/team/${encodeURIComponent(decodedName)}` },
+        ]
+      : undefined,
+  });
 
   useEffect(() => {
     let alive = true;

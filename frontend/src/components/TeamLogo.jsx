@@ -30,6 +30,7 @@ function TeamLogo({
   rounded = "rounded-lg",
   textClass = "text-[11px]",
   className = "",
+  priority = false,
 }) {
   const [seen, setSeen] = useState(name);
   const [stage, setStage] = useState(0);
@@ -61,6 +62,8 @@ function TeamLogo({
       src={stage === 0 ? teamLogoUrl(name) : TEAM_LOGO_FALLBACK}
       alt={name}
       title={name}
+      loading={priority ? "eager" : "lazy"}
+      decoding="async"
       onError={() => setStage((current) => current + 1)}
       className={`${box} object-contain ${className}`}
     />

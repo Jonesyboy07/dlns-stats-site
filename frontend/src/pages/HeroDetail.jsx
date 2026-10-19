@@ -27,6 +27,7 @@ import {
 import { formatInteger } from "../utils/format";
 import { LANE_META } from "../utils/lanes";
 import { formatPercent, ordinal, signedPoints } from "../utils/heroPages";
+import { usePageMeta } from "../utils/seo";
 
 const DASH = "—";
 /** Panels only unlock once a hero has this many games. */
@@ -54,6 +55,22 @@ function HeroDetail() {
   const [reloadKey, setReloadKey] = useState(0);
   const [bans, setBans] = useState(null);
   const [bansFailed, setBansFailed] = useState(false);
+
+  const seoHeroName = profile?.hero_name ?? heroNamesData.heroes?.[heroId]?.name ?? null;
+  usePageMeta({
+    title: seoHeroName ? `${seoHeroName} Stats — Deadlock Night Shift` : undefined,
+    description: seoHeroName
+      ? `${seoHeroName} pick rate, win rate, item builds, matchups and top players in the Deadlock Night Shift league.`
+      : undefined,
+    canonicalPath: `/hero/${heroId}`,
+    breadcrumbs: seoHeroName
+      ? [
+          { name: "Home", path: "/" },
+          { name: "Heroes", path: "/heroes" },
+          { name: seoHeroName, path: `/hero/${heroId}` },
+        ]
+      : undefined,
+  });
 
   // Fetched apart from the profile: it's cached briefly so new bans show up quickly.
   useEffect(() => {

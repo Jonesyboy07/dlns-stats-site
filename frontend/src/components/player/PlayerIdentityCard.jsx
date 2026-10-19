@@ -14,7 +14,7 @@ export default function PlayerIdentityCard({ user, accountId, matches = [], team
 
   return (
     <section className="flex flex-wrap items-center gap-5 rounded-xl border border-border-light bg-card px-5 py-[18px] shadow">
-      <PlayerAvatar player={user} size="h-16 w-16 text-xl" rounded="rounded-xl" />
+      <PlayerAvatar player={user} size="h-16 w-16 text-xl" rounded="rounded-xl" priority />
 
       <div className="min-w-0 flex-1">
         <h1

@@ -17,6 +17,7 @@ import SegmentedControl from "../components/player/SegmentedControl";
 import TrendChart from "../components/player/TrendChart";
 import { laneBreakdown } from "../utils/lanes";
 import { headlineStats, heroPool, heroTrend } from "../utils/playerStats";
+import { absoluteUrl, usePageMeta } from "../utils/seo";
 import { useUrlParam } from "../utils/useUrlParam";
 
 /** The metrics the trend can plot, in toggle order. */
@@ -55,6 +56,40 @@ function PlayerHeroDetail() {
   // Both view switches live in the URL, so refreshing keeps the view you were on.
   const [metric, setMetric] = useUrlParam("metric", TREND_METRIC_IDS, "kda");
   const [sideTab, setSideTab] = useUrlParam("view", SIDE_TAB_IDS, "lane");
+
+  usePageMeta({
+    title:
+      user?.persona_name && hero?.hero_name
+        ? `${user.persona_name} on ${hero.hero_name} — Deadlock Stats`
+        : undefined,
+    description:
+      user?.persona_name && hero?.hero_name
+        ? `${user.persona_name}'s ${hero.hero_name} stats in the Deadlock Night Shift league: matches, builds, matchups and performance trends.`
+        : undefined,
+    canonicalPath: `/player/${accountId}/hero/${heroId}`,
+    breadcrumbs:
+      user?.persona_name && hero?.hero_name
+        ? [
+            { name: "Home", path: "/" },
+            { name: "Players", path: "/players" },
+            { name: user.persona_name, path: `/player/${accountId}` },
+            { name: hero.hero_name, path: `/player/${accountId}/hero/${heroId}` },
+          ]
+        : undefined,
+    jsonLd: user?.persona_name
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ProfilePage",
+          url: absoluteUrl(`/player/${accountId}/hero/${heroId}`),
+          mainEntity: {
+            "@type": "Person",
+            name: user.persona_name,
+            identifier: accountId,
+            url: absoluteUrl(`/player/${accountId}`),
+          },
+        }
+      : undefined,
+  });
 
   useEffect(() => {
     let alive = true;
@@ -123,7 +158,7 @@ function PlayerHeroDetail() {
 
       <section className="mb-4 grid items-end gap-6 rounded-xl border border-border-light bg-card p-5 shadow md:grid-cols-[120px_minmax(0,1fr)_auto]">
         <div className="relative h-[200px] w-[120px]">
-          <HeroCard name={heroName} size="h-[200px] w-[120px]" className="rounded-xl" />
+          <HeroCard name={heroName} size="h-[200px] w-[120px]" className="rounded-xl" priority />
           <span className="absolute -bottom-2.5 -right-2.5 rounded-[10px] border-[3px] border-card bg-input p-0.5">
             <HeroIcon name={heroName} size="h-9 w-9" className="rounded-lg" />
           </span>
@@ -138,7 +173,7 @@ function PlayerHeroDetail() {
             to={`/player/${accountId}`}
             className="flex min-w-0 items-center gap-2.5 transition-colors hover:text-secondary"
           >
-            <PlayerAvatar player={user} size="h-8 w-8" rounded="rounded-lg" />
+            <PlayerAvatar player={user} size="h-8 w-8" rounded="rounded-lg" priority />
             <span className="flex min-w-0 flex-col">
               <b className="truncate text-[15px] text-primary">{persona}</b>
               <span className="truncate text-[12px] text-muted">

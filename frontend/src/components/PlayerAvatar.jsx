@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 
 /** Player avatar with an initials fallback when Steam art is unavailable. */
-function PlayerAvatar({ player, size = "h-9 w-9", rounded = "rounded-full", className = "" }) {
+function PlayerAvatar({
+  player,
+  size = "h-9 w-9",
+  rounded = "rounded-full",
+  className = "",
+  priority = false,
+}) {
   const [failed, setFailed] = useState(false);
 
   if (player?.avatar_url && !failed) {
@@ -9,6 +15,8 @@ function PlayerAvatar({ player, size = "h-9 w-9", rounded = "rounded-full", clas
       <img
         src={player.avatar_url}
         alt=""
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
         onError={() => setFailed(true)}
         className={`${size} shrink-0 ${rounded} object-cover ${className}`}
       />

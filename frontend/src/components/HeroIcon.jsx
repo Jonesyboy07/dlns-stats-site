@@ -39,6 +39,8 @@ function HeroIcon({ name, size = "h-8 w-8", className = "" }) {
       src={heroIconUrl(name)}
       alt={name}
       title={name}
+      loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
       className={`${size} shrink-0 rounded object-cover ${className}`}
     />

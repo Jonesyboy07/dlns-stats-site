@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import DLNS_Header from "./components/DLNS_Header";
 import { cdnImage } from "./utils/cdn";
 import ScrollToTop from "./components/ScrollToTop";
+import { applyPageMeta, routeMetaFor } from "./utils/seo";
 import "./App.css";
 
 const MatchDetail = lazy(() => import("./pages/MatchDetail"));
@@ -72,17 +73,52 @@ function Navigation() {
   );
 }
 
+/**
+ * Applies route-level metadata on every navigation. Page components overwrite it
+ * with richer titles once their data loads, so this only needs to be a sensible
+ * immediate fallback (and the final state for pages that never fetch data).
+ */
+function RouteSeo() {
+  const location = useLocation();
+  const firstRender = useRef(true);
+  useEffect(() => {
+    // On a full page load the server already rendered richer metadata (and
+    // JSON-LD), so only in-app navigations need the client-side fallback.
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    applyPageMeta(routeMetaFor(location.pathname));
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
+  // The gothic backdrop is ~3.6 MB of decoration. Loading it after the first
+  // paint keeps it from competing with the LCP text/fonts on every route.
+  const [showBackground, setShowBackground] = useState(false);
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => setShowBackground(true), { timeout: 2500 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = setTimeout(() => setShowBackground(true), 1200);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
     <BrowserRouter>
+      <RouteSeo />
       <ScrollToTop />
       <div className="relative min-h-screen flex flex-col bg-base">
         {/* Background image, black & white, fades to bg colour toward bottom */}
-        <div
-          aria-hidden="true"
-          className="absolute top-0 left-0 right-0 h-[620px] bg-cover bg-top bg-no-repeat grayscale opacity-[0.16] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_25%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_25%,transparent_100%)]"
-          style={{ backgroundImage: `url("${cdnImage("background/background_gothic_jpg.jpeg")}")` }}
-        />
+        {showBackground && (
+          <div
+            aria-hidden="true"
+            className="absolute top-0 left-0 right-0 h-[620px] bg-cover bg-top bg-no-repeat grayscale opacity-[0.16] pointer-events-none z-0 [mask-image:linear-gradient(to_bottom,black_0%,black_25%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_25%,transparent_100%)]"
+            style={{ backgroundImage: `url("${cdnImage("background/background_gothic_jpg.jpeg")}")` }}
+          />
+        )}
 
         {/* The site's only gradient: a soft violet glow under the nav, layered over
             the grayscale image (so it is deliberately NOT part of the grayscale

@@ -35,6 +35,7 @@ function TeamIdentityCard({
         size="h-[112px] w-[96px]"
         rounded="rounded-xl"
         textClass="font-valve-pulp text-[26px]"
+        priority
       />
 
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">

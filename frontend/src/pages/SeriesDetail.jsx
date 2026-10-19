@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import { heroIconUrl } from "../components/HeroIcon";
+import { absoluteUrl, usePageMeta } from "../utils/seo";
 
 function SeriesDetail() {
   const { matchId } = useParams();
@@ -9,6 +10,45 @@ function SeriesDetail() {
   const [heroes, setHeroes] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  usePageMeta({
+    title:
+      series?.event_team_a && series?.event_team_b
+        ? `${series.event_team_a} vs ${series.event_team_b} — Series`
+        : undefined,
+    description:
+      series?.event_team_a && series?.event_team_b
+        ? `${series.event_team_a} vs ${series.event_team_b} series results at ${
+            series.event_title || "the Night Shift"
+          }${series.event_week ? ` Week ${series.event_week}` : ""}.`
+        : undefined,
+    canonicalPath: `/series/${matchId}`,
+    breadcrumbs:
+      series?.event_team_a && series?.event_team_b
+        ? [
+            { name: "Home", path: "/" },
+            ...(series.event_week != null
+              ? [{ name: `Night Shift Week ${series.event_week}`, path: `/week/${series.event_week}` }]
+              : []),
+            {
+              name: `${series.event_team_a} vs ${series.event_team_b} — Series`,
+              path: `/series/${matchId}`,
+            },
+          ]
+        : undefined,
+    jsonLd:
+      series?.event_team_a && series?.event_team_b
+        ? {
+            "@context": "https://schema.org",
+            "@type": "SportsEvent",
+            name: `${series.event_team_a} vs ${series.event_team_b} — Series`,
+            url: absoluteUrl(`/series/${matchId}`),
+            eventStatus: "https://schema.org/EventScheduled",
+            homeTeam: { "@type": "SportsTeam", name: series.event_team_a },
+            awayTeam: { "@type": "SportsTeam", name: series.event_team_b },
+          }
+        : undefined,
+  });
 
   useEffect(() => {
     fetchHeroes();

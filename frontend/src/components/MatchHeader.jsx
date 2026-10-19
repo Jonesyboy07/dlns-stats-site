@@ -119,7 +119,7 @@ export default function MatchHeader({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               {amberTeamName ? (
-                <TeamLogo name={amberTeamName} size="h-9 w-9" rounded="rounded-md" />
+                <TeamLogo name={amberTeamName} size="h-9 w-9" rounded="rounded-md" priority />
               ) : null}
               {amberTeamName ? (
                 <Link
@@ -200,7 +200,7 @@ export default function MatchHeader({
                 </span>
               )}
               {sapphireTeamName ? (
-                <TeamLogo name={sapphireTeamName} size="h-9 w-9" rounded="rounded-md" />
+                <TeamLogo name={sapphireTeamName} size="h-9 w-9" rounded="rounded-md" priority />
               ) : null}
             </div>
             <div className="text-sm text-blue-100/80 mt-0.5 whitespace-nowrap">
@@ -261,7 +261,7 @@ export default function MatchHeader({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               {amberTeamName ? (
-                <TeamLogo name={amberTeamName} size="h-7 w-7" rounded="rounded" />
+                <TeamLogo name={amberTeamName} size="h-7 w-7" rounded="rounded" priority />
               ) : null}
               {amberTeamName ? (
                 <Link
@@ -301,7 +301,7 @@ export default function MatchHeader({
                 <span className="block text-blue-200 text-xl font-bold uppercase">Sapphire</span>
               )}
               {sapphireTeamName ? (
-                <TeamLogo name={sapphireTeamName} size="h-7 w-7" rounded="rounded" />
+                <TeamLogo name={sapphireTeamName} size="h-7 w-7" rounded="rounded" priority />
               ) : null}
             </div>
             <div className="text-[13px] text-blue-100/80 mt-0.5 whitespace-nowrap">

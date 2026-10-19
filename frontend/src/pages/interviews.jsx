@@ -4,6 +4,7 @@ import {
   interviewsGetEntry,
   interviewsList,
 } from '../utils/api';
+import { absoluteUrl, usePageMeta } from '../utils/seo';
 
 const styles = `
   .iv-wrap {
@@ -151,6 +152,37 @@ export function InterviewsPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [canUpload, setCanUpload] = useState(false);
+
+  usePageMeta({
+    title: selected?.title ? `${selected.title} — DLNS Interview` : undefined,
+    description: selected?.title
+      ? selected.guest
+        ? `Interview with ${selected.guest} from the Deadlock Night Shift community.`
+        : `Read ${selected.title} on DLNS Stats.`
+      : undefined,
+    canonicalPath: selected
+      ? `/interviews/${selected.short_id || selected.id || selectedId}`
+      : '/interviews/',
+    breadcrumbs: selected?.title
+      ? [
+          { name: 'Home', path: '/' },
+          { name: 'Interviews', path: '/interviews/' },
+          { name: selected.title, path: `/interviews/${selected.short_id || selected.id || selectedId}` },
+        ]
+      : [
+          { name: 'Home', path: '/' },
+          { name: 'Interviews', path: '/interviews/' },
+        ],
+    jsonLd: selected?.title
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: selected.title,
+          url: absoluteUrl(`/interviews/${selected.short_id || selected.id || selectedId}`),
+          ...(selected.created_at ? { datePublished: selected.created_at } : {}),
+        }
+      : undefined,
+  });
 
   useEffect(() => {
     (async () => {

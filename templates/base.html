@@ -23,6 +23,10 @@
 
   <meta name="description" content="{{ __meta_desc }}">
 
+  {% for verification in meta_verifications or [] %}
+  <meta name="{{ verification.name }}" content="{{ verification.content }}">
+  {% endfor %}
+
   <meta property="og:type" content="website">
   <meta property="og:title" content="{{ __meta_title }}">
   <meta property="og:description" content="{{ __meta_desc }}">

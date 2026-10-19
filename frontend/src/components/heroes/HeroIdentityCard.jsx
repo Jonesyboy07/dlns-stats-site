@@ -16,12 +16,16 @@ function Portrait({ name }) {
         src={cdnImage("vertical/card_backer_psd.png")}
         alt=""
         aria-hidden="true"
+        loading="lazy"
+        decoding="async"
         className="absolute inset-0 h-full w-full object-cover opacity-30"
       />
       {name && !failed && (
         <img
           src={heroArtUrl(name)}
           alt={name}
+          loading="eager"
+          decoding="async"
           onError={() => setFailed(true)}
           className="absolute inset-0 h-full w-full object-cover"
         />

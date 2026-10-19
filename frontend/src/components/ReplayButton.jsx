@@ -98,9 +98,11 @@ export default function ReplayButton({ matchId, compact = false }) {
   const lookupReplay = async ({ opened = false } = {}) => {
     const { controller, requestId } = beginLookup();
     try {
+      // The background preload stays cheap; an explicit click forces a fresh
+      // bounded lookup when the cached answer is "not found".
       const { res, data } = await fetchReplayLookup(matchId, {
         signal: controller.signal,
-        retryOnMiss: false,
+        retryOnMiss: opened,
       });
       const nextState = resolveReplayLookupState(res, data, { opened });
 
@@ -141,7 +143,7 @@ export default function ReplayButton({ matchId, compact = false }) {
       try {
         const { res, data } = await fetchReplayLookup(matchId, {
           signal: controller.signal,
-          retryOnMiss: true,
+          retryOnMiss: false,
         });
         if (requestId === requestIdRef.current) {
           setState(resolveReplayLookupState(res, data));

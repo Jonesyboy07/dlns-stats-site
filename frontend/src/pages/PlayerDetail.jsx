@@ -12,6 +12,7 @@ import StatTiles from "../components/player/StatTiles";
 import TeammatesPanel from "../components/player/TeammatesPanel";
 import TenureTimeline from "../components/player/TenureTimeline";
 import { heroPool, playedTeams } from "../utils/playerStats";
+import { absoluteUrl, usePageMeta } from "../utils/seo";
 import { useUrlParam } from "../utils/useUrlParam";
 
 /** Layout 1a: identity card first, then tabs underneath it. */
@@ -39,6 +40,34 @@ function PlayerDetail() {
   // The tab lives in the URL, so refreshing keeps you where you were.
   const [activeTab, setActiveTab] = useUrlParam("tab", TABS, "Overview");
   const [reloadKey, setReloadKey] = useState(0);
+  const personaName = user?.persona_name;
+  usePageMeta({
+    title: personaName ? `${personaName} — Deadlock Player Stats` : undefined,
+    description: personaName
+      ? `${personaName}'s Deadlock Night Shift match history, hero pool, teammates, opponents and performance statistics.`
+      : undefined,
+    canonicalPath: `/player/${accountId}`,
+    breadcrumbs: personaName
+      ? [
+          { name: "Home", path: "/" },
+          { name: "Players", path: "/players" },
+          { name: personaName, path: `/player/${accountId}` },
+        ]
+      : undefined,
+    jsonLd: personaName
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ProfilePage",
+          url: absoluteUrl(`/player/${accountId}`),
+          mainEntity: {
+            "@type": "Person",
+            name: personaName,
+            identifier: accountId,
+            url: absoluteUrl(`/player/${accountId}`),
+          },
+        }
+      : undefined,
+  });
   // Shared by the hero pool and the match table's hero filter.
   const heroOptions = useMemo(() => heroPool(matches), [matches]);
 

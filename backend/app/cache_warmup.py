@@ -16,7 +16,6 @@ def _to_bool(value: Any, default: bool = False) -> bool:
 def _discover_seed_ids(app) -> dict[str, Any]:
     seed: dict[str, Any] = {
         "match_id": None,
-        "recent_match_ids": [],
         "account_id": None,
         "hero_id": None,
         "event_title": None,
@@ -41,23 +40,6 @@ def _discover_seed_ids(app) -> dict[str, Any]:
                     seed["match_id"] = row[0]
                     seed["event_title"] = row[1]
                     seed["event_week"] = row[2]
-
-                replay_limit = max(
-                    0,
-                    int(app.config.get("CACHE_WARMUP_REPLAY_MATCH_LIMIT", 20) or 20),
-                )
-                if replay_limit:
-                    rows = conn.execute(
-                        """
-                        SELECT match_id
-                        FROM matches
-                        WHERE match_id > 0
-                        ORDER BY COALESCE(start_time, created_at) DESC
-                        LIMIT ?
-                        """,
-                        (replay_limit,),
-                    ).fetchall()
-                    seed["recent_match_ids"] = [row[0] for row in rows if row and row[0]]
 
                 row = conn.execute(
                     """
@@ -112,7 +94,6 @@ def _build_warmup_paths(app) -> list[str]:
 
     seed = _discover_seed_ids(app)
     match_id = seed.get("match_id")
-    recent_match_ids = seed.get("recent_match_ids") or []
     account_id = seed.get("account_id")
     hero_id = seed.get("hero_id")
     event_title = seed.get("event_title")
@@ -134,9 +115,6 @@ def _build_warmup_paths(app) -> list[str]:
                 f"/db/series/{match_id}",
             ]
         )
-
-    for replay_match_id in recent_match_ids:
-        paths.append(f"/db/matches/{replay_match_id}/replay")
 
     if account_id:
         paths.extend(

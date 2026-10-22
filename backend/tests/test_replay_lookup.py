@@ -11,7 +11,7 @@ from backend.app.main_web import create_app
 
 
 class ReplayWarmupTests(unittest.TestCase):
-    def test_build_warmup_paths_includes_recent_replay_lookups(self):
+    def test_build_warmup_paths_skips_slow_replay_lookups(self):
         app = Flask(__name__)
         with patch.object(
             cache_warmup,
@@ -27,9 +27,7 @@ class ReplayWarmupTests(unittest.TestCase):
         ):
             paths = cache_warmup._build_warmup_paths(app)
 
-        self.assertIn("/db/matches/321/replay", paths)
-        self.assertIn("/db/matches/654/replay", paths)
-        self.assertIn("/db/matches/987/replay", paths)
+        self.assertFalse(any(path.endswith("/replay") for path in paths))
 
 
 class ReplayRetryRouteTests(unittest.TestCase):

@@ -62,7 +62,9 @@
     "82": {"name": "Opera", "released": false},
     "84": {"name": "Rat King", "released": true},
     "85": {"name": "Solomon", "released": true},
+    "86": {"name": "Violet", "released": true},
+    "87": {"name": "Nurse Harrow", "released": true},
     "88": {"name": "Baba", "released": true}
   },
-  "updated_at": "2026-10-14T21:01:41+00:00"
+  "updated_at": "2026-10-23T09:37:11+00:00"
 }

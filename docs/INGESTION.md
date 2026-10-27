@@ -37,6 +37,24 @@ The `-matchfile` input is JSON organized into series, weeks, games, and match re
 
 Each game may contain multiple match records. The match feed carries event/team metadata in addition to the match IDs.
 
+## Submitting from the live admin
+
+The web admin can ingest a night without committing data to Git. Both entry points
+write to the runtime files beside `DB_PATH` (`dlns.sqlite3` and `brackets.json`):
+
+- **MatchAdmin** (`/admin/matches`) posts the `title` / `week` / `sets` form to
+  `POST /admin/match/bulk-submit`. The background job fetches each match from the
+  match API, writes the match and player rows, commits, then calls
+  `brackets.record_items()` to add the games to `brackets.json`.
+- **BracketAdmin** (`/admin/brackets`) saves the event and each series to
+  `brackets.json` first, then runs the same ingest job with `bracket_saved` set so
+  the bracket is not rewritten.
+
+`brackets.json` is the schedule the home page and `/db/weeks` read, so a submission
+that only reaches the database (for example because the bracket write failed) shows
+on `/matches` but not in the home page's week groups. Keep `data/brackets.json`
+writable by the service user and avoid resetting it to the Git version on deploys.
+
 ## Common commands
 
 ```bash

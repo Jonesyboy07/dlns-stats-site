@@ -46,6 +46,7 @@ static/react-app/
 
 # Logs and temp files
 *.log
+/logs/
 logs/recorded/
 data/temp.json
 data/dlns.sqlite3-shm

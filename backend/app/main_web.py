@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import time
+import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from flask import Flask, g, render_template, request, redirect, url_for, send_from_directory, make_response, Response
 from flask_compress import Compress
@@ -27,6 +29,54 @@ from .canonical_host import register_canonical_redirect
 from .help_config import load_help_config
 from .prerender import register_prerender
 from .seo import register_seo
+
+
+class _SlowRequestLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().startswith("SLOW ")
+
+
+def _configure_file_logging(app: Flask, log_dir: Path) -> None:
+    log_dir.mkdir(parents=True, exist_ok=True)
+    app.logger.setLevel(logging.INFO)
+    log_files = {
+        "app": log_dir / "app.log",
+        "errors": log_dir / "errors.log",
+        "slow": log_dir / "slow_requests.log",
+    }
+    managed_handlers = [
+        handler
+        for handler in app.logger.handlers
+        if getattr(handler, "_dlns_file_handler", False)
+    ]
+    if {
+        Path(handler.baseFilename)
+        for handler in managed_handlers
+        if isinstance(handler, RotatingFileHandler)
+    } == set(log_files.values()):
+        return
+
+    for handler in managed_handlers:
+        app.logger.removeHandler(handler)
+        handler.close()
+
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    for name, path in log_files.items():
+        handler = RotatingFileHandler(
+            path, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
+        handler._dlns_file_handler = True
+        handler.setFormatter(formatter)
+        if name == "errors":
+            handler.setLevel(logging.WARNING)
+        elif name == "slow":
+            handler.setLevel(logging.WARNING)
+            handler.addFilter(_SlowRequestLogFilter())
+        else:
+            handler.setLevel(logging.INFO)
+        app.logger.addHandler(handler)
 
 
 def _ensure_db_schema(app: Flask) -> None:
@@ -60,6 +110,7 @@ def create_app() -> Flask:
     fallback_static_folder = project_root / 'static'
     
     app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+    _configure_file_logging(app, Path(os.getenv("LOG_DIR", project_root / "logs")))
 
     # Only trust X-Forwarded-* when told how many proxies sit in front, so clients
     # cannot spoof their IP. Set TRUSTED_PROXIES=1 behind one reverse proxy/CDN.

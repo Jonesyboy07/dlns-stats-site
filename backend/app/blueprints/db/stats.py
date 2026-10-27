@@ -134,6 +134,41 @@ def weeks_map():  # type: ignore
                         "match_vod": series.get("match_vod") or "",
                     }
 
+    # Matches ingested but not yet recorded in the authored schedule (brackets.json,
+    # or legacy matches.json) would otherwise vanish from pages that group matches
+    # through this map — the home page skips any match without a detail row. Fill
+    # those in from the database so a new week still appears once its games are in.
+    try:
+        with get_ro_conn() as conn:
+            sql = (
+                "SELECT match_id, event_title, event_week, event_team_a, event_team_b, "
+                "event_game, event_subtitle, match_vod FROM matches "
+                "WHERE event_week IS NOT NULL "
+                "AND event_title IS NOT NULL AND TRIM(event_title) != ''"
+            )
+            params: tuple[Any, ...] = ()
+            if event_title_filter_lc:
+                sql += " AND LOWER(event_title) = ?"
+                params = (event_title_filter_lc,)
+            cur = conn.execute(sql, params)
+            for row in _rows_to_dicts(cur):
+                key = str(row["match_id"])
+                if key in details:
+                    continue
+                result.setdefault(key, row["event_week"])
+                details[key] = {
+                    "series": row["event_title"],
+                    "week": row["event_week"],
+                    "team_a": row["event_team_a"],
+                    "team_b": row["event_team_b"],
+                    "game": row["event_game"],
+                    "series_title": (row["event_subtitle"] or "").strip(),
+                    "match_vod": row["match_vod"] or "",
+                }
+    except Exception:
+        # The authored schedule is still a usable answer if the DB is unavailable.
+        pass
+
     if not event_title_filter_lc:
         for _, entries in week_sources:
             for entry in entries:

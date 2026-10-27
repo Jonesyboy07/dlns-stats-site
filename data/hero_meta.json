@@ -1189,21 +1189,38 @@
     ]
   },
   "86": {
-    "tagline": [],
-    "abilities": []
+    "tagline": [
+      "AMBITIOUS",
+      "NIMBLE",
+      "CREATIVE"
+    ],
+    "abilities": [
+            {
+        "name": "Living Ink",
+        "image": "static\\images\\abilities\\violet\\artist_living_ink_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Flow State",
+        "image": "static\\images\\abilities\\violet\\artist_brush_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Still Life",
+        "image": "static\\images\\abilities\\violet\\artist_portrait_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Abstract Landscape",
+        "image": "static\\images\\abilities\\violet\\artist_landscape_psd.png",
+        "invert": true
+      }
+    ]
   },
   "87": {
     "tagline": [],
-    "abilities": []
-  },
-  "88": {
-    "tagline": [
-      "CACKLING",
-      "BEADY",
-      "HEXING"
-    ],
-        "abilities": [
-      {
+    "abilities": [
+            {
         "name": "Threadsap",
         "image": "static\\images\\abilities\\celeste\\threadsap_psd.png",
         "invert": true
@@ -1221,6 +1238,35 @@
       {
         "name": "Feed the Birds",
         "image": "static\\images\\abilities\\celeste\\pigeon_launcher_psd.png",
+        "invert": true
+      }
+    ]
+  },
+  "88": {
+    "tagline": [
+      "CACKLING",
+      "BEADY",
+      "HEXING"
+    ],
+        "abilities": [
+      {
+        "name": "Threadsap",
+        "image": "static\\images\\abilities\\baba\\threadsap_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Granny Long Legs",
+        "image": "static\\images\\abilities\\baba\\strafing_run_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Baba's Brew",
+        "image": "static\\images\\abilities\\baba\\teapot_brew_psd.png",
+        "invert": true
+      },
+      {
+        "name": "Feed the Birds",
+        "image": "static\\images\\abilities\\baba\\pigeon_launcher_psd.png",
         "invert": true
       }
     ]

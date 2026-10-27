@@ -115,7 +115,11 @@ costs Steam a lookup for the two posts it displays rather than the whole feed.
 
 ## Route: `/db/weeks`
 
-Returns match-to-week mapping plus event metadata extracted from `matches.json`.
+Returns match-to-week mapping plus event metadata. Entries come from the authored
+schedule (`data/brackets.json`, plus legacy `data/matches.json` weeks it does not
+cover); matches already in the database but missing from that schedule are filled
+in from the `matches` table, so a newly ingested week still groups on the home
+page.
 
 Response:
 
@@ -123,7 +127,7 @@ Response:
 | --- | --- | --- |
 | `weeks` | object | Map of `match_id` string -> week number |
 | `details` | object | Map of `match_id` string -> event details |
-| `title` | string | Root title from `matches.json` |
+| `title` | string | Selected event title, or the schedule root title |
 
 `details[match_id]` contains:
 
@@ -134,11 +138,14 @@ Response:
 | `team_a` | string or null | Event team A |
 | `team_b` | string or null | Event team B |
 | `game` | string or null | Game label such as `Game 1` |
-| `series_title` | string | Stage label from `matches.json`, e.g. `FINALS`. Often empty |
+| `series_title` | string | Stage label from the schedule, e.g. `FINALS`. Often empty |
 | `match_vod` | string | VOD URL for the game, empty when none is recorded |
 
 Fallback behavior:
-- If `matches.json` is missing or unreadable, returns `{ "weeks": {}, "title": "" }`.
+- Matches in the database but not in the authored schedule are still returned, using
+  the match row's event columns. The schedule is preferred when both have an entry.
+- If the schedule file is missing or unreadable, the endpoint still reports
+  database-backed weeks; `weeks`/`details` are empty only when neither source has data.
 
 ## Route: `/db/stats/overview`
 

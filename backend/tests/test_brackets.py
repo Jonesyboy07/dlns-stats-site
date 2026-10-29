@@ -7,8 +7,9 @@ a ``{match_id: winning slot}`` map into scores, winners and advancement.
 import unittest
 
 from backend.app.utils.brackets import (
-    BAN_PATTERNS, BYE, add_first_round, ban_pattern, compute, generate, generate_gauntlet,
-    generate_single_elim, match_ids, remove_first_round, series_ban_pattern, stats_id,
+    BAN_PATTERNS, BYE, add_first_round, ban_order, ban_pattern, ban_slots, bans_per_team, compute,
+    generate, generate_gauntlet, generate_single_elim, match_ids, remove_first_round,
+    series_ban_pattern, stats_id,
 )
 
 
@@ -34,6 +35,39 @@ class BanPatternTests(unittest.TestCase):
             series_ban_pattern({"ban_pattern": "AABB"}, {"ban_pattern": "invalid"}),
             "AABB",
         )
+
+
+class BansPerTeamTests(unittest.TestCase):
+    def test_events_without_the_setting_ban_two(self):
+        self.assertEqual(bans_per_team({}), 2)
+        self.assertEqual(ban_slots({}), 4)
+        self.assertEqual(bans_per_team({"bans_per_team": "nonsense"}), 2)
+        self.assertEqual(bans_per_team({"bans_per_team": 5}), 2)
+
+    def test_three_per_team_gives_six_slots(self):
+        self.assertEqual(bans_per_team({"bans_per_team": 3}), 3)
+        self.assertEqual(ban_slots({"bans_per_team": 3}), 6)
+
+    def test_two_bans_a_team_keeps_the_existing_orders(self):
+        # Unchanged from before the setting existed.
+        self.assertEqual(ban_order("ABBA", 2), ["A", "B", "B", "A"])
+        self.assertEqual(ban_order("ABAB", 2), ["A", "B", "A", "B"])
+        self.assertEqual(ban_order("AABB", 2), ["A", "A", "B", "B"])
+        self.assertEqual(ban_order("ROUND", 2), ["A", "B", "A", "B"])
+
+    def test_three_bans_a_team_extends_each_pattern(self):
+        self.assertEqual(ban_order("ABBA", 3), ["A", "B", "B", "A", "A", "B"])
+        self.assertEqual(ban_order("ABAB", 3), ["A", "B"] * 3)
+        self.assertEqual(ban_order("AABB", 3), ["A", "A", "A", "B", "B", "B"])
+        self.assertEqual(ban_order("ROUND", 3), ["A", "B"] * 3)
+
+    def test_every_pattern_splits_the_slots_evenly(self):
+        for pattern in BAN_PATTERNS:
+            for per_team in (2, 3):
+                slots = ban_order(pattern, per_team)
+                self.assertEqual(len(slots), 2 * per_team, pattern)
+                self.assertEqual(slots.count("A"), per_team, (pattern, per_team))
+                self.assertEqual(slots.count("B"), per_team, (pattern, per_team))
 
 
 class GauntletTests(unittest.TestCase):

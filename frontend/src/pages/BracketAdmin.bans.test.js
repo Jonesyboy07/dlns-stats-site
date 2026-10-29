@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { banPayload, banTeam, toBanForm } from './BracketAdmin.jsx';
+import { banOrderSlots, banPayload, banTeam, toBanForm } from './BracketAdmin.jsx';
 
 const order = (first, pattern) => [0, 1, 2, 3].map((i) => banTeam(first, i, pattern));
+const other = (slot) => (slot === 'team_a' ? 'team_b' : 'team_a');
 
 describe('ban order', () => {
   it('follows the event pattern from the team that bans first', () => {
@@ -10,6 +11,18 @@ describe('ban order', () => {
     expect(order('team_a', 'ABAB')).toEqual(['team_a', 'team_b', 'team_a', 'team_b']);
     expect(order('team_a', 'AABB')).toEqual(['team_a', 'team_a', 'team_b', 'team_b']);
     expect(order('team_b', 'ROUND')).toEqual(['team_a', 'team_b', 'team_a', 'team_b']);
+  });
+
+  it('extends the pattern to three bans a team', () => {
+    const three = (first, pattern) => banOrderSlots(pattern, 3).map((side) => side === 'A' ? first : other(first));
+    expect(three('team_a', 'ABBA')).toEqual(['team_a', 'team_b', 'team_b', 'team_a', 'team_a', 'team_b']);
+    expect(three('team_b', 'ABBA')).toEqual(['team_b', 'team_a', 'team_a', 'team_b', 'team_b', 'team_a']);
+    expect(three('team_a', 'ABAB')).toEqual(['team_a', 'team_b', 'team_a', 'team_b', 'team_a', 'team_b']);
+    expect(three('team_a', 'AABB')).toEqual(['team_a', 'team_a', 'team_a', 'team_b', 'team_b', 'team_b']);
+    // Round-based bans ignore the first-ban team: one ban each, three times.
+    expect([0, 1, 2, 3, 4, 5].map((i) => banTeam('team_b', i, 'ROUND', 3))).toEqual([
+      'team_a', 'team_b', 'team_a', 'team_b', 'team_a', 'team_b',
+    ]);
   });
 
   it('falls back to A, B, B, A for events without a pattern', () => {
@@ -21,6 +34,20 @@ describe('ban order', () => {
     expect(banPayload(draft, 'ABBA')).toEqual([
       { order: 1, team: 'team_b', hero_id: 13 },
       { order: 3, team: 'team_a', hero_id: 6 },
+    ]);
+  });
+
+  it('sends six slots when the event bans three per team', () => {
+    const draft = toBanForm(undefined, 'ABBA', 3);
+    draft.heroes = ['13', '6', '1', '2', '3', '4'];
+    expect(draft.heroes).toHaveLength(6);
+    expect(banPayload(draft, 'ABBA', 3)).toEqual([
+      { order: 1, team: 'team_a', hero_id: 13 },
+      { order: 2, team: 'team_b', hero_id: 6 },
+      { order: 3, team: 'team_b', hero_id: 1 },
+      { order: 4, team: 'team_a', hero_id: 2 },
+      { order: 5, team: 'team_a', hero_id: 3 },
+      { order: 6, team: 'team_b', hero_id: 4 },
     ]);
   });
 

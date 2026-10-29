@@ -6,6 +6,9 @@ from typing import Any, Dict, List
 from flask import jsonify, request
 
 from ...cache import cache
+from ...heroes import get_hero_name
+from ...utils import stats_summary as ss
+from ....steam_news import iso_to_epoch, news_for_games
 from .core import (
     _rows_to_dicts,
     _schedule_data,
@@ -442,3 +445,268 @@ def stats_hero_selection():
             )
 
     return jsonify({"heroes": heroes})
+
+
+# ── Redesigned stats page ──
+# `/stats/periods` feeds the Period picker (weeks, their match counts and the
+# patches they were played on); `/stats/summary` feeds the headline and the
+# Overview tab for one week range and region. Both read Night Shift by default.
+
+_STATS_MATCH_SQL = """
+    SELECT match_id, event_week, event_region, event_team_a, event_team_b,
+           winning_team, duration_s, start_time
+    FROM matches
+    WHERE LOWER(event_title) = LOWER(?) AND event_week IS NOT NULL AND match_id > 0
+    ORDER BY event_week ASC, COALESCE(start_time, '') ASC, match_id ASC
+"""
+
+
+def _stats_event_title() -> str:
+    return (request.args.get("event_title") or "").strip() or "Night Shift"
+
+
+def _stats_matches(conn, event_title: str):
+    rows = _rows_to_dicts(conn.execute(_STATS_MATCH_SQL, (event_title,)))
+    return rows, ss.resolve_regions(rows)
+
+
+def _region_order(regions: Dict[int, Any]) -> List[str]:
+    return sorted({region for region in regions.values() if region})
+
+
+def _stats_filters(rows: List[Dict[str, Any]], region_names: List[str]):
+    """The requested ?weeks= range (default: the last two weeks) and region (None = all)."""
+    last_week = max(row["event_week"] for row in rows)
+    weeks = ss.parse_weeks(request.args.get("weeks")) or (max(last_week - 1, 1), last_week)
+    requested = ss.normalize_region(request.args.get("region"))
+    return weeks, requested if requested in region_names else None
+
+
+def _stats_players(conn, event_title: str, first_week: int, last_week: int) -> Dict[int, List[Dict[str, Any]]]:
+    """Player rows of the event's matches in a week range, grouped by match."""
+    cur = conn.execute(
+        """
+        SELECT p.match_id, p.account_id, p.hero_id, p.result,
+               p.kills, p.deaths, p.assists, p.player_damage, p.obj_damage,
+               p.player_healing, p.net_worth, p.last_hits, p.denies, u.persona_name
+        FROM players p
+        JOIN matches m ON m.match_id = p.match_id
+        LEFT JOIN users u ON u.account_id = p.account_id
+        WHERE LOWER(m.event_title) = LOWER(?) AND m.event_week BETWEEN ? AND ?
+        """,
+        (event_title, first_week, last_week),
+    )
+    players_by_match: Dict[int, List[Dict[str, Any]]] = {}
+    for player in _rows_to_dicts(cur):
+        players_by_match.setdefault(player["match_id"], []).append(player)
+    return players_by_match
+
+
+def _with_hero_names(entries: List[Dict[str, Any]], key: str, name_key: str) -> List[Dict[str, Any]]:
+    for entry in entries:
+        hero = entry.get(key)
+        entry[name_key] = get_hero_name(hero) if hero is not None else None
+    return entries
+
+
+def _week_update(matches: List[Dict[str, Any]]) -> Any:
+    """The game update a week's games were played under, as the week page shows it."""
+    games = []
+    for match in matches:
+        start = iso_to_epoch(match.get("start_time"))
+        if start is not None:
+            games.append((start, start + int(match.get("duration_s") or 0)))
+    return news_for_games(games).get("update") if games else None
+
+
+@bp.get("/stats/periods")
+@cache.cached(timeout=1800, query_string=True)
+def stats_periods():
+    """Every week of the event with its match count, and the patches over them."""
+    event_title = _stats_event_title()
+    with get_ro_conn() as conn:
+        rows, regions = _stats_matches(conn, event_title)
+    if not rows:
+        return jsonify({"event_title": event_title, "regions": [], "weeks": [], "patches": []})
+
+    by_week: Dict[int, List[Dict[str, Any]]] = {}
+    for row in rows:
+        by_week.setdefault(row["event_week"], []).append(row)
+    region_names = _region_order(regions)
+
+    weeks = []
+    week_updates = []
+    for week in range(min(by_week), max(by_week) + 1):
+        games = by_week.get(week, [])
+        counts = {name: 0 for name in region_names}
+        for game in games:
+            region = regions.get(game["match_id"])
+            if region in counts:
+                counts[region] += 1
+        weeks.append({"week": week, "matches": len(games), "regions": counts})
+        week_updates.append((week, _week_update(games)))
+
+    return jsonify(
+        {
+            "event_title": event_title,
+            "regions": region_names,
+            "weeks": weeks,
+            "patches": ss.group_patches(week_updates),
+        }
+    )
+
+
+def _longest(matches: List[Dict[str, Any]]) -> Any:
+    timed = [m for m in matches if (m.get("duration_s") or 0) > 0]
+    return max(timed, key=lambda m: (m["duration_s"], -m["match_id"]), default=None)
+
+
+@bp.get("/stats/summary")
+@cache.cached(timeout=1800, query_string=True)
+def stats_summary():
+    """Headline and Overview aggregates for ?weeks=a-b&region=All|EU|NA.
+
+    `weeks` defaults to the event's last two weeks. The headline's change lines
+    compare the range's last week with the week before it, whether or not that
+    week is inside the range.
+    """
+    event_title = _stats_event_title()
+    with get_ro_conn() as conn:
+        rows, regions = _stats_matches(conn, event_title)
+        region_names = _region_order(regions)
+        if not rows:
+            return jsonify({"event_title": event_title, "regions": region_names, "range": None})
+
+        first_week = min(row["event_week"] for row in rows)
+        (start, end), region = _stats_filters(rows, region_names)
+        # Players for the range plus the week the change lines look back to.
+        players_by_match = _stats_players(conn, event_title, min(start, end - 1), end)
+
+    in_range, latest_w, previous_w = (start, end), (end, end), (end - 1, end - 1)
+
+    def block(name):
+        return {
+            "range": ss.summarize(ss.scoped(rows, regions, name, in_range), players_by_match),
+            "latest": ss.summarize(ss.scoped(rows, regions, name, latest_w), players_by_match),
+            "previous": ss.summarize(ss.scoped(rows, regions, name, previous_w), players_by_match),
+        }
+
+    headline = {"All": block(None)}
+    for name in region_names:
+        headline[name] = block(name)
+
+    scope = ss.scoped(rows, regions, region, in_range)
+    timed = [m for m in scope if (m.get("duration_s") or 0) > 0]
+    shortest = min(timed, key=lambda m: (m["duration_s"], m["match_id"]), default=None)
+    longest = _longest(scope)
+    ref = lambda m: ss.game_ref(m, regions.get(m["match_id"]) if m else None)  # noqa: E731
+
+    heroes = sorted(
+        (
+            {"hero_id": hero, "name": get_hero_name(hero), "picks": entry["picks"], "wins": entry["wins"]}
+            for hero, entry in ss.hero_rates(scope, players_by_match).items()
+        ),
+        key=lambda h: (-h["picks"], h["hero_id"]),
+    )
+
+    latest = ss.scoped(rows, regions, region, latest_w)
+    previous = ss.scoped(rows, regions, region, previous_w)
+    riser = ss.biggest_riser(latest, previous, players_by_match)
+    if riser:
+        riser["name"] = get_hero_name(riser["hero_id"])
+    record = ss.record_set(scope, players_by_match, end)
+    if record and record.get("hero_id") is not None:
+        record["hero_name"] = get_hero_name(record["hero_id"])
+    # Per region, or the whole event when no match has a region yet.
+    swing_regions = [region] if region else region_names or ["All"]
+    scope_of = lambda name: None if name == "All" else name  # noqa: E731
+    swing = ss.side_swing(
+        {name: ss.scoped(rows, regions, scope_of(name), latest_w) for name in swing_regions},
+        {name: ss.scoped(rows, regions, scope_of(name), previous_w) for name in swing_regions},
+        end,
+    )
+
+    return jsonify(
+        {
+            "event_title": event_title,
+            "regions": region_names,
+            "region": region or "All",
+            "range": [start, end],
+            "latest_week": end,
+            "previous_week": end - 1,
+            "headline": headline,
+            "side": {
+                "amber_wins": sum(1 for m in scope if m.get("winning_team") == 0),
+                "sapphire_wins": sum(1 for m in scope if m.get("winning_team") == 1),
+                "trend": [
+                    point
+                    for point in ss.side_trend(ss.scoped(rows, regions, region), end)
+                    if point["week"] >= first_week
+                ],
+            },
+            "length": {
+                "games": len(timed),
+                "average": round(sum(m["duration_s"] for m in timed) / len(timed)) if timed else None,
+                "shortest": ref(shortest),
+                "longest": ref(longest),
+                "buckets": ss.duration_buckets([m["duration_s"] for m in timed]),
+            },
+            "heroes": {"matches": len(scope), "list": heroes},
+            "this_week": {
+                "week": end,
+                "riser": riser,
+                "record": record,
+                "longest": ref(_longest(latest)),
+                "side_swing": swing,
+            },
+        }
+    )
+
+
+def _scoped_for_tab():
+    """Matches and players for one ?weeks=&region= view, or None when the event is empty."""
+    event_title = _stats_event_title()
+    with get_ro_conn() as conn:
+        rows, regions = _stats_matches(conn, event_title)
+        if not rows:
+            return event_title, None
+        (start, end), region = _stats_filters(rows, _region_order(regions))
+        players_by_match = _stats_players(conn, event_title, start, end)
+    scope = ss.scoped(rows, regions, region, (start, end))
+    return event_title, {"scope": scope, "players": players_by_match, "regions": regions, "range": [start, end], "region": region or "All"}
+
+
+@bp.get("/stats/records-board")
+@cache.cached(timeout=1800, query_string=True)
+def stats_records_board():
+    """The Records tab for ?weeks=a-b&region=: the top five games for each record."""
+    event_title, view = _scoped_for_tab()
+    if view is None:
+        return jsonify({"event_title": event_title, "range": None, "records": []})
+    cards = ss.record_cards(view["scope"], view["players"], view["regions"])
+    for card in cards:
+        if card["kind"] == "player":
+            _with_hero_names(card["entries"], "hero_id", "hero_name")
+    return jsonify({"event_title": event_title, "range": view["range"], "region": view["region"], "records": cards})
+
+
+@bp.get("/stats/leaderboards")
+@cache.cached(timeout=1800, query_string=True)
+def stats_leaderboards():
+    """The Leaderboards tab for ?weeks=a-b&region=: every stat, by Average and Total."""
+    event_title, view = _scoped_for_tab()
+    if view is None:
+        return jsonify({"event_title": event_title, "range": None, "stats": {}})
+    boards = ss.leaderboards(view["scope"], view["players"])
+    for modes in boards.values():
+        for rows in modes.values():
+            _with_hero_names(rows, "top_hero_id", "top_hero_name")
+    return jsonify(
+        {
+            "event_title": event_title,
+            "range": view["range"],
+            "region": view["region"],
+            "min_games": ss.LEADER_MIN_GAMES,
+            "stats": boards,
+        }
+    )

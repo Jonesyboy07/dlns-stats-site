@@ -30,11 +30,12 @@ const isVoided = (outcome, gameNo) =>
   outcome?.type === 'dq' && (outcome.played_games === 'void' || gameNo > Number(outcome.after_game || 0));
 
 function BanLine({ bans, series, heroes, roundBased }) {
+  const perRound = 2;
   const groups = roundBased
-    ? [
-        { label: 'Round 1', bans: bans.filter((b) => b.order <= 2) },
-        { label: 'Round 2', bans: bans.filter((b) => b.order > 2) },
-      ].filter((group) => group.bans.length)
+    ? Array.from({ length: Math.max(1, Math.ceil(bans.length / perRound)) }, (_, i) => ({
+        label: `Round ${i + 1}`,
+        bans: bans.filter((b) => b.order > i * perRound && b.order <= (i + 1) * perRound),
+      })).filter((group) => group.bans.length)
     : [{ label: 'Bans', bans }];
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-300">

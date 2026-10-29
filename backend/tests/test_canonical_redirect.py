@@ -100,6 +100,18 @@ class CanonicalRedirectTests(unittest.TestCase):
             response.headers["Location"], "https://canonical.example.test/players"
         )
 
+    def test_host_redirect_is_not_cached_indefinitely(self):
+        response = self.client.get("/players", base_url="https://www.example.test")
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response.headers.get("Cache-Control"), "no-store")
+
+    def test_https_upgrade_redirect_is_not_cached_indefinitely(self):
+        response = self.client.get("/players", base_url="http://example.test")
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response.headers.get("Cache-Control"), "no-store")
+
 
 if __name__ == "__main__":
     unittest.main()

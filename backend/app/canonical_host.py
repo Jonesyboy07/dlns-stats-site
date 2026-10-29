@@ -83,4 +83,10 @@ def register_canonical_redirect(app: Flask) -> None:
         current_app.logger.debug(
             "canonical redirect %s%s -> %s", request.host, request.path, target
         )
-        return redirect(target, code=301)
+        response = redirect(target, code=301)
+        # A 301 is cached indefinitely without an explicit policy. If the proxy
+        # chain briefly reports the wrong scheme, those cached redirects keep
+        # replaying in browsers long after the origin is fixed, so never let a
+        # canonical redirect stick in a browser cache.
+        response.headers["Cache-Control"] = "no-store"
+        return response

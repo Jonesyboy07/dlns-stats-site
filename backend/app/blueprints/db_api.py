@@ -129,8 +129,12 @@ from .db.site import (  # noqa: F401
 from .db.stats import (  # noqa: F401
     stats_averages,
     stats_hero_selection,
+    stats_leaderboards,
     stats_overview,
+    stats_periods,
     stats_records,
+    stats_records_board,
+    stats_summary,
     stats_weekly,
     weeks_map,
 )

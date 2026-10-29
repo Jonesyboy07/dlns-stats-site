@@ -67,6 +67,7 @@ def _week_brackets(event_title: str, week: int) -> List[Dict[str, Any]]:
     for event in events:
         payload = bk.compute(event, results)
         payload["ban_pattern"] = bk.ban_pattern(event)
+        payload["bans_per_team"] = bk.bans_per_team(event)
         computed.append(payload)
     computed.sort(key=lambda event: str(event.get("region") or ""))
     return computed

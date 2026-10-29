@@ -276,6 +276,7 @@ def _computed(event: Dict[str, Any]) -> Dict[str, Any]:
     found = _ingested(bk.match_ids(event))
     out = bk.compute(event, {mid: m['result'] for mid, m in found.items() if m['result']})
     out['ban_pattern'] = bk.ban_pattern(event)
+    out['bans_per_team'] = bk.bans_per_team(event)
     for s in out.get('series') or []:
         for g in s.get('games') or []:
             row = found.get(bk.stats_id(g))
@@ -540,6 +541,7 @@ def list_events():
     events = [
         {k: e.get(k) for k in ('id', 'title', 'week', 'region', 'format', 'created_at')}
         | {'ban_pattern': bk.ban_pattern(e)}
+        | {'bans_per_team': bk.bans_per_team(e)}
         | {'series_count': len(e.get('series') or [])}
         for e in data['events']
     ]
@@ -574,23 +576,38 @@ def create_event():
     pattern = str(payload.get('ban_pattern') or '').upper()
     if pattern and pattern not in bk.BAN_PATTERNS:
         return jsonify({'ok': False, 'error': f"Ban order must be one of {', '.join(bk.BAN_PATTERNS)}."}), 400
+    per_team_raw = payload.get('bans_per_team')
+    per_team: Optional[int] = None
+    if per_team_raw not in (None, ''):
+        try:
+            per_team = int(per_team_raw)
+        except (TypeError, ValueError):
+            per_team = None
+        if per_team not in bk.BANS_PER_TEAM_CHOICES:
+            return jsonify(
+                {'ok': False, 'error': 'Bans per team must be one of '
+                                       + ', '.join(str(n) for n in bk.BANS_PER_TEAM_CHOICES) + '.'}
+            ), 400
     base_id = _slug('-'.join(str(p) for p in (title, f'w{week}' if week is not None else '', region) if p))
     with _brackets_lock:
         data = _load()
         event_id, n = base_id, 2
         while _find_event(data, event_id):
             event_id, n = f'{base_id}-{n}', n + 1
+        latest = max(enumerate(data['events']), key=lambda ie: (ie[1].get('created_at') or 0, ie[0]), default=(0, None))[1]
         if not pattern:
             # Carry the latest event's ban order forward, so a mid-season change sticks.
             # Ties (same second, or a migration batch) go to the one added last.
-            latest = max(enumerate(data['events']), key=lambda ie: (ie[1].get('created_at') or 0, ie[0]), default=(0, None))[1]
             pattern = bk.ban_pattern(latest) if latest else bk.DEFAULT_BAN_PATTERN
+        if per_team is None:
+            per_team = bk.bans_per_team(latest) if latest else bk.DEFAULT_BANS_PER_TEAM
         event = {
             'id': event_id,
             'title': title,
             'week': week,
             'region': region,
             'ban_pattern': pattern,
+            'bans_per_team': per_team,
             'created_at': int(time.time()),
             **structure,
         }
@@ -659,17 +676,18 @@ def _new_placeholder_id(used: Set[int]) -> int:
     return pid
 
 
-MAX_BANS_PER_TEAM = 2
-BAN_SLOTS = 4
+MAX_BANS_PER_TEAM = 2  # default for events saved before it was a setting
 
 
-def _clean_bans(raw: Any, game_no: int) -> List[Dict[str, Any]]:
+def _clean_bans(raw: Any, game_no: int, per_team: int = MAX_BANS_PER_TEAM) -> List[Dict[str, Any]]:
     """Ban draft for one game, in ban order: [{order, team, hero_id}].
 
     Bans happen outside the game (a third-party tool), so they're entered by hand.
-    ``order`` is the ban slot (1-4), so a skipped slot keeps the later bans in place.
-    Each team bans up to two heroes and a hero can only be banned once.
+    ``order`` is the ban slot (1 to ``2 * per_team``), so a skipped slot keeps the
+    later bans in place. Each team bans up to ``per_team`` heroes and a hero can
+    only be banned once.
     """
+    slots = 2 * per_team
     bans: List[Dict[str, Any]] = []
     for pos, b in enumerate(raw or [], start=1):
         if not isinstance(b, dict) or b.get('hero_id') in (None, ''):
@@ -678,8 +696,8 @@ def _clean_bans(raw: Any, game_no: int) -> List[Dict[str, Any]]:
             order = int(b.get('order') or pos)
         except (TypeError, ValueError):
             order = pos
-        if not 1 <= order <= BAN_SLOTS:
-            raise ValueError(f'Game {game_no}: ban order must be 1 to {BAN_SLOTS}.')
+        if not 1 <= order <= slots:
+            raise ValueError(f'Game {game_no}: ban order must be 1 to {slots}.')
         if b.get('team') not in bk.SLOTS:
             raise ValueError(f'Game {game_no}, ban {order}: pick which team banned.')
         try:
@@ -691,15 +709,15 @@ def _clean_bans(raw: Any, game_no: int) -> List[Dict[str, Any]]:
     if len({b['order'] for b in bans}) != len(bans):
         raise ValueError(f'Game {game_no}: two bans share the same slot.')
     for slot in bk.SLOTS:
-        if sum(1 for b in bans if b['team'] == slot) > MAX_BANS_PER_TEAM:
-            raise ValueError(f'Game {game_no}: each team can ban at most {MAX_BANS_PER_TEAM} heroes.')
+        if sum(1 for b in bans if b['team'] == slot) > per_team:
+            raise ValueError(f'Game {game_no}: each team can ban at most {per_team} heroes.')
     heroes = [b['hero_id'] for b in bans]
     if len(set(heroes)) != len(heroes):
         raise ValueError(f'Game {game_no}: the same hero is banned twice.')
     return bans
 
 
-def _clean_games(raw: Any) -> List[Dict[str, Any]]:
+def _clean_games(raw: Any, per_team: int = MAX_BANS_PER_TEAM) -> List[Dict[str, Any]]:
     games: List[Dict[str, Any]] = []
     for g in raw or []:
         if not isinstance(g, dict):
@@ -728,7 +746,7 @@ def _clean_games(raw: Any) -> List[Dict[str, Any]]:
         if g.get('winner') not in bk.SLOTS:
             raise ValueError(f'Game {len(games) + 1}: pick who won.')
         entry['winner'] = g['winner']
-        bans = _clean_bans(g.get('bans'), len(games) + 1)
+        bans = _clean_bans(g.get('bans'), len(games) + 1, per_team)
         if bans:
             entry['bans'] = bans
         vod = (g.get('vod') or '').strip()
@@ -762,11 +780,6 @@ def _clean_outcome(raw: Any, game_count: int) -> Optional[Dict[str, Any]]:
 @require_admin
 def save_series(event_id: str, series_id: str):
     payload = request.get_json(silent=True) or {}
-    try:
-        games = _clean_games(payload.get('games'))
-        outcome = _clean_outcome(payload.get('outcome'), len(games))
-    except ValueError as e:
-        return jsonify({'ok': False, 'error': str(e)}), 400
 
     with _brackets_lock:
         data = _load()
@@ -776,6 +789,12 @@ def save_series(event_id: str, series_id: str):
         series = next((s for s in event.get('series') or [] if s.get('id') == series_id), None)
         if not series:
             return jsonify({'ok': False, 'error': 'Series not found.'}), 404
+
+        try:
+            games = _clean_games(payload.get('games'), bk.bans_per_team(event))
+            outcome = _clean_outcome(payload.get('outcome'), len(games))
+        except ValueError as e:
+            return jsonify({'ok': False, 'error': str(e)}), 400
 
         pattern = None
         if 'ban_pattern' in payload:
@@ -862,6 +881,17 @@ def edit_event(event_id: str):
             if pattern not in bk.BAN_PATTERNS:
                 return jsonify({'ok': False, 'error': f"Ban order must be one of {', '.join(bk.BAN_PATTERNS)}."}), 400
             event['ban_pattern'] = pattern
+        if 'bans_per_team' in payload:
+            try:
+                per_team = int(payload.get('bans_per_team'))
+            except (TypeError, ValueError):
+                per_team = None
+            if per_team not in bk.BANS_PER_TEAM_CHOICES:
+                return jsonify(
+                    {'ok': False, 'error': 'Bans per team must be one of '
+                                           + ', '.join(str(n) for n in bk.BANS_PER_TEAM_CHOICES) + '.'}
+                ), 400
+            event['bans_per_team'] = per_team
 
         for r in payload.get('rounds') or []:
             stored = next((x for x in event.get('rounds') or [] if x.get('round') == r.get('round')), None)
@@ -1010,6 +1040,7 @@ def place_game(data: Dict[str, Any], *, title: str, week: Optional[int], region:
         event = {
             'id': event_id, 'title': title, 'week': week, 'region': region,
             'ban_pattern': bk.ban_pattern(latest) if latest else bk.DEFAULT_BAN_PATTERN,
+            'bans_per_team': bk.bans_per_team(latest) if latest else bk.DEFAULT_BANS_PER_TEAM,
             'created_at': int(time.time()),
             'format': 'single_elim',
             'rounds': [{'round': 1, 'name': set_title or 'Matches', 'best_of': 3}],

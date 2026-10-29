@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><script src="./support.js"></script></head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/dlns-stats-design-system-2f87dc62-951a-4b42-84e0-b9033dad7333/styles.css">
+<script src="_ds/dlns-stats-design-system-2f87dc62-951a-4b42-84e0-b9033dad7333/_ds_bundle.js"></script>
+<meta name="design_doc_mode" content="canvas">
+<style>*{box-sizing:border-box}body{margin:0;background:oklch(0.15 0.018 279.82);font-family:var(--font-body);color:var(--color-secondary)}a{color:var(--color-accent-light)}a:hover{color:var(--color-accent)}</style>
+</helmet>
+<div style="padding:40px; display:flex; flex-direction:column; gap:40px;">
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <span style="font:600 13px var(--font-body); color:var(--color-muted);">Final · Stats page, Overview · desktop 1280 + mobile 390 · headline = Strip</span>
+    <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+      <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" layout="tabs" device="desktop" tab="overview" hint-size="1280px,1400px"></dc-import></div>
+      <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" layout="tabs" device="mobile" tab="overview" hint-size="390px,2400px"></dc-import></div>
+    </div>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <span style="font:600 13px var(--font-body); color:var(--color-muted);">Headline states · desktop All / EU · mobile All / EU</span>
+    <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+      <div style="flex:none; display:flex; flex-direction:column; gap:12px;">
+        <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" headline-only="{{ true }}" region="All" hint-size="1280px,300px"></dc-import></div>
+        <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" headline-only="{{ true }}" region="EU" hint-size="1280px,200px"></dc-import></div>
+      </div>
+      <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" headline-only="{{ true }}" device="mobile" region="All" hint-size="390px,520px"></dc-import></div>
+      <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" headline-only="{{ true }}" device="mobile" region="EU" hint-size="390px,480px"></dc-import></div>
+    </div>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <span style="font:600 13px var(--font-body); color:var(--color-muted);">Period picker open · weeks 60–61, and a cross-patch range 55–61</span>
+    <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+      <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" layout="tabs" device="desktop" picker="{{ true }}" hint-size="1280px,1400px"></dc-import></div>
+      <div style="flex:none; border:1px solid rgba(255,255,255,.1); border-radius:8px; overflow:hidden;"><dc-import name="Stats Page" layout="tabs" device="desktop" picker="{{ true }}" period="span" hint-size="1280px,1400px"></dc-import></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body></html>

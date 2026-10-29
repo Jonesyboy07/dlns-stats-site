@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/dlns-stats-design-system-2f87dc62-951a-4b42-84e0-b9033dad7333/styles.css">
+<script src="_ds/dlns-stats-design-system-2f87dc62-951a-4b42-84e0-b9033dad7333/_ds_bundle.js"></script>
+<style>*{box-sizing:border-box}body{margin:0;background:var(--color-base)}a{color:var(--color-accent-light)}a:hover{color:var(--color-accent)}</style>
+</helmet>
+<div style="position:relative; width:{{ frameW }}; height:{{ frameH }}; overflow:hidden; background:var(--color-base); font-family:var(--font-body); font-size:14px; color:var(--color-secondary);">
+  <div aria-hidden="true" style="position:absolute; top:0; left:0; right:0; height:520px; background-image:url('assets/brand/background_gothic.jpeg'); background-size:cover; background-position:top; filter:grayscale(1); opacity:0.12; mask-image:linear-gradient(to bottom, black 0%, black 30%, transparent 100%); pointer-events:none;"></div>
+  <div style="position:relative; z-index:1;">
+    <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+        <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.NavBar" items="{{ navItems }}" active-path="/stats" on-login="{{ noop }}" hint-size="100%,56px"></x-import>
+      </sc-if>
+      <sc-if value="{{ isMobile }}">
+        <header style="height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:var(--color-panel); box-shadow:var(--shadow-panel);">
+          <span style="display:flex; align-items:center; gap:8px; font-family:var(--font-heading); font-weight:700; font-size:17px; color:var(--color-primary);"><span style="width:8px; height:8px; border-radius:50%; background:var(--color-accent);"></span>DLNS Stats</span>
+          <span style="font-size:13px; color:var(--color-muted);">Menu</span>
+        </header>
+      </sc-if>
+    </sc-if>
+
+    <div style="max-width:1280px; margin:0 auto; padding:{{ pagePad }}; display:flex; gap:28px; align-items:flex-start;">
+      <sc-if value="{{ showRail }}">
+        <aside style="width:216px; flex:none; position:sticky; top:16px; display:flex; flex-direction:column; gap:6px; padding-top:6px;">
+          <span style="font-family:var(--font-display); font-size:30px; color:var(--color-primary); padding:0 14px 10px;">Statistics</span>
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.onClick }}" style="all:unset; cursor:pointer; display:flex; flex-direction:column; gap:3px; padding:10px 14px; border-radius:var(--radius-lg); background:{{ t.bg }}; border:1px solid {{ t.bd }}; transition:background 0.2s;">
+              <span style="font-family:var(--font-heading); font-weight:600; font-size:16px; color:{{ t.fg }};">{{ t.label }}</span>
+              <span style="font-size:12px; color:var(--color-dim);">{{ t.desc }}</span>
+            </button>
+          </sc-for>
+          <div style="margin-top:14px; padding:12px 14px; border-top:1px solid var(--color-border); font-size:12px; line-height:1.5; color:var(--color-dim);">Night Shift only. Every filter is kept in the link, so you can share this exact view.</div>
+        </aside>
+      </sc-if>
+
+      <main style="flex:1; min-width:0; display:flex; flex-direction:column; gap:20px;">
+        <sc-if value="{{ showTitle }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <h1 style="margin:0; font-family:var(--font-display); font-size:{{ titleSize }}; line-height:1.05; color:var(--color-primary);">Statistics</h1>
+            <p style="margin:0; font-size:14px; color:var(--color-muted);">{{ pageSub }}</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+          <div style="position:sticky; top:8px; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; padding:10px 14px; background:color-mix(in oklch, var(--color-panel) 82%, transparent); backdrop-filter:blur(10px); border:1px solid var(--color-border-light); border-radius:var(--radius-xl); box-shadow:var(--shadow-panel);">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);">Period</span>
+              <button onClick="{{ togglePicker }}" style="all:unset; cursor:pointer; display:flex; align-items:center; gap:10px; padding:7px 12px; background:{{ trigBg }}; border:1px solid {{ trigBd }}; border-radius:var(--radius-md); font-size:13px; color:var(--color-primary);">
+                <span style="font-weight:600;">{{ weeksLabel }}</span>
+                <span style="width:1px; height:14px; background:var(--color-border-lighter);"></span>
+                <span style="color:var(--color-secondary);">{{ patchLabel }}</span>
+                <span style="color:var(--color-dim);">▾</span>
+              </button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);">Region</span>
+              <div style="display:flex; padding:3px; gap:2px; background:var(--color-input); border:1px solid var(--color-border-light); border-radius:var(--radius-pill);">
+                <sc-for list="{{ regions }}" as="r" hint-placeholder-count="3">
+                  <button onClick="{{ r.onClick }}" style="all:unset; cursor:pointer; padding:5px 14px; border-radius:var(--radius-pill); font-size:13px; font-weight:600; background:{{ r.bg }}; color:{{ r.fg }};">{{ r.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+              <span style="font-size:13px; color:var(--color-dim);">{{ matchCountLabel }}</span>
+              <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" size="sm" onClick="{{ copyLink }}" hint-size="96px,30px">{{ copyLabel }}</x-import>
+            </div>
+            <sc-if value="{{ pickerOpen }}">
+              <div style="position:absolute; top:calc(100% + 8px); left:0; width:min(900px, 100%); z-index:30; background:var(--color-panel); border:1px solid var(--color-border-lighter); border-radius:var(--radius-xl); box-shadow:var(--shadow-dropdown); padding:18px 20px; display:flex; flex-direction:column; gap:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                  <div style="display:flex; flex-direction:column; gap:2px;">
+                    <span style="font-family:var(--font-heading); font-weight:600; font-size:18px; color:var(--color-primary);">Period</span>
+                    <span style="font-size:12px; color:var(--color-dim);">Pick a patch to select its weeks, or click two weeks to set a range.</span>
+                  </div>
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <sc-for list="{{ presets }}" as="pr" hint-placeholder-count="4">
+                      <button onClick="{{ pr.onClick }}" style="all:unset; cursor:pointer; padding:5px 12px; border-radius:var(--radius-pill); font-size:12px; font-weight:600; background:{{ pr.bg }}; border:1px solid {{ pr.bd }}; color:{{ pr.fg }};">{{ pr.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);">Patches · dates are Gameplay Updates</span>
+                  <div style="display:flex; gap:3px;">
+                    <sc-for list="{{ patchBands }}" as="pb" hint-placeholder-count="9">
+                      <button onClick="{{ pb.onClick }}" title="{{ pb.tip }}" style="all:unset; box-sizing:border-box; cursor:pointer; flex:{{ pb.flex }}; min-width:{{ pb.minW }}; padding:6px 7px; border-radius:var(--radius-sm); background:{{ pb.bg }}; border:1px solid {{ pb.bd }}; display:flex; flex-direction:column; gap:1px; transition:background 0.2s;" style-hover="background:var(--color-hover);">
+                        <span style="font-size:11px; font-weight:600; color:{{ pb.fg }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ pb.label }}</span>
+                        <span style="font-size:10px; color:var(--color-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ pb.sub }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim); margin-top:6px;">Weeks · bar height = matches played</span>
+                  <div style="display:flex; gap:3px;">
+                    <sc-for list="{{ patchBands }}" as="pb" hint-placeholder-count="9">
+                      <div style="flex:{{ pb.flex }}; min-width:{{ pb.minW }}; display:flex; gap:1px; height:48px;">
+                        <sc-for list="{{ pb.weeks }}" as="w" hint-placeholder-count="6">
+                          <button onClick="{{ w.onClick }}" title="{{ w.tip }}" style="all:unset; cursor:pointer; flex:1; min-width:0; height:100%; display:flex; align-items:flex-end; border-radius:2px; background:{{ w.track }};" style-hover="background:var(--color-hover);">
+                            <span style="display:block; width:100%; height:{{ w.h }}; background:{{ w.bg }}; border-radius:2px;"></span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; gap:3px;">
+                    <sc-for list="{{ patchBands }}" as="pb" hint-placeholder-count="9">
+                      <span style="flex:{{ pb.flex }}; min-width:{{ pb.minW }}; font-size:10px; color:var(--color-dim);">{{ pb.first }}</span>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding-top:14px; border-top:1px solid var(--color-border);">
+                  <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                    <span style="font-weight:600; color:var(--color-primary);">{{ rangeSummary }}</span>
+                    <span style="font-size:12px; color:var(--color-muted);">{{ rangeDetail }}</span>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" size="sm" variant="ghost" onClick="{{ closePicker }}" hint-size="70px,30px">Cancel</x-import>
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" size="sm" variant="primary" onClick="{{ closePicker }}" hint-size="140px,30px">{{ applyLabel }}</x-import>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isMobile }}">
+          <div style="position:sticky; top:8px; z-index:5; display:flex; align-items:center; gap:10px; padding:8px; background:color-mix(in oklch, var(--color-panel) 82%, transparent); backdrop-filter:blur(10px); border:1px solid var(--color-border-light); border-radius:var(--radius-xl);">
+            <button onClick="{{ openSheet }}" style="all:unset; cursor:pointer; flex:none; display:flex; align-items:center; gap:8px; min-height:40px; padding:0 14px; background:var(--color-accent-bg-strong); border:1px solid var(--color-accent-border); border-radius:var(--radius-pill); font-size:14px; font-weight:600; color:var(--color-accent-light);">Filters <span style="min-width:20px; height:20px; padding:0 6px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; background:var(--color-accent); color:#170a26; font-size:12px; font-weight:700;">3</span></button>
+            <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--color-muted);">{{ filterSummary }}</span>
+          </div>
+        </sc-if>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-heading); font-weight:600; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-muted);">Headline</span>
+            <span style="font-size:12px; color:var(--color-dim);">{{ headlineNote }}</span>
+          </div>
+          <sc-if value="{{ tilesLoading }}">
+            <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.LoadingSkeleton" variant="card" count="{{ tileSkelCount }}" hint-size="100%,80px"></x-import>
+          </sc-if>
+          <sc-if value="{{ hlCards }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ tileRows }}" as="row" hint-placeholder-count="2">
+              <div style="display:flex; gap:10px; align-items:stretch; flex-direction:{{ rowDir }};">
+                <div style="flex:none; width:{{ regionLabelW }}; display:flex; flex-direction:{{ regionLabelDir }}; justify-content:center; gap:2px 8px; align-items:baseline;">
+                  <span style="font-family:var(--font-heading); font-weight:600; font-size:20px; color:var(--color-primary);">{{ row.region }}</span>
+                  <span style="font-size:12px; color:var(--color-dim);">{{ row.sub }}</span>
+                </div>
+                <div style="flex:1; min-width:0; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(148px,1fr); gap:10px; overflow-x:auto;">
+                  <sc-for list="{{ row.tiles }}" as="t" hint-placeholder-count="5">
+                    <div style="min-width:0; background:var(--color-card); border:1px {{ t.bstyle }} var(--color-border-light); border-radius:var(--radius-xl); padding:14px 16px; display:flex; flex-direction:column; gap:6px;">
+                      <span style="font-size:12px; color:var(--color-muted); text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ t.label }}</span>
+                      <sc-if value="{{ t.isSplit }}">
+                        <div style="display:flex; align-items:baseline; gap:6px; font-family:var(--font-heading); font-weight:700; font-size:24px; line-height:1.1;">
+                          <span style="color:var(--color-team-amber);">{{ t.a }}</span><span style="font-size:16px; color:var(--color-dim);">–</span><span style="color:oklch(0.7 0.17 261.44);">{{ t.s }}</span>
+                        </div>
+                        <div style="display:flex; height:4px; gap:2px; border-radius:999px; overflow:hidden;"><div style="width:{{ t.aw }}; background:var(--color-team-amber);"></div><div style="flex:1; background:var(--color-team-sapphire);"></div></div>
+                      </sc-if>
+                      <sc-if value="{{ t.notSplit }}" hint-placeholder-val="{{ true }}">
+                        <span style="font-family:var(--font-heading); font-weight:700; font-size:24px; line-height:1.1; color:var(--color-primary);">{{ t.v }}</span>
+                      </sc-if>
+                      <span style="font-size:12px; color:{{ t.dc }}; font-style:{{ t.dfs }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ t.d }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ hlStripD }}">
+            <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,190px">
+              <div style="overflow-x:auto; margin:-6px -10px;">
+                <div style="min-width:680px; display:grid; grid-template-columns:130px repeat(5, minmax(0,1fr));">
+                  <span></span>
+                  <sc-for list="{{ metricLabels }}" as="ml" hint-placeholder-count="5">
+                    <span style="padding:4px 16px 10px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim); border-left:1px solid var(--color-border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ ml }}</span>
+                  </sc-for>
+                  <sc-for list="{{ tileRows }}" as="row" hint-placeholder-count="2">
+                    <div style="padding:14px 10px; border-top:1px solid var(--color-border); display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:4px;">
+                      <span style="font-family:var(--font-heading); font-weight:600; font-size:22px; line-height:1; color:var(--color-primary);">{{ row.region }}</span>
+                      <span style="font-size:12px; color:var(--color-dim);">{{ row.sub }}</span>
+                      <sc-if value="{{ row.badge }}"><x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Badge" variant="warning" hint-size="100px,22px">None in wk 61</x-import></sc-if>
+                    </div>
+                    <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="5">
+                      <div style="padding:14px 16px; border-top:1px solid var(--color-border); border-left:1px solid var(--color-border); display:flex; flex-direction:column; justify-content:center; gap:5px; min-width:0; background:{{ c.bg }};">
+                        <sc-if value="{{ c.isSplit }}"><div style="display:flex; align-items:baseline; gap:6px; font-family:var(--font-heading); font-weight:700; font-size:30px; line-height:1.1;"><span style="color:var(--color-team-amber);">{{ c.a }}</span><span style="font-size:16px; color:var(--color-dim);">–</span><span style="color:oklch(0.7 0.17 261.44);">{{ c.s }}</span></div></sc-if>
+                        <sc-if value="{{ c.notSplit }}" hint-placeholder-val="{{ true }}"><span style="font-family:var(--font-display); font-size:32px; line-height:1; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ c.v }}</span></sc-if>
+                        <span style="font-size:12px; color:{{ c.dc }}; font-style:{{ c.dfs }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ c.d }}</span>
+                      </div>
+                    </sc-for>
+                  </sc-for>
+                </div>
+              </div>
+            </x-import>
+          </sc-if>
+          <sc-if value="{{ hlStripM }}">
+            <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,320px">
+              <div style="display:grid; grid-template-columns:{{ stripMCols }}; margin:-6px -6px;">
+                <span></span>
+                <sc-for list="{{ tileRows }}" as="row" hint-placeholder-count="2">
+                  <div style="padding:2px 10px 10px; border-left:1px solid var(--color-border); display:flex; flex-direction:column; gap:3px; min-width:0;">
+                    <span style="font-family:var(--font-heading); font-weight:600; font-size:20px; line-height:1; color:var(--color-primary);">{{ row.region }}</span>
+                    <span style="font-size:12px; color:var(--color-dim);">{{ row.sub }}</span>
+                    <sc-if value="{{ row.badge }}"><x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Badge" variant="warning" hint-size="100px,22px">None in wk 61</x-import></sc-if>
+                  </div>
+                </sc-for>
+                <sc-for list="{{ stripRowsM }}" as="mr" hint-placeholder-count="5">
+                  <span style="padding:12px 10px 12px 6px; border-top:1px solid var(--color-border); font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; line-height:1.3; color:var(--color-dim); display:flex; align-items:center;">{{ mr.label }}</span>
+                  <sc-for list="{{ mr.cells }}" as="c" hint-placeholder-count="2">
+                    <div style="padding:12px 10px; border-top:1px solid var(--color-border); border-left:1px solid var(--color-border); display:flex; flex-direction:column; justify-content:center; gap:4px; min-width:0; background:{{ c.bg }};">
+                      <sc-if value="{{ c.isSplit }}"><div style="display:flex; align-items:baseline; gap:4px; font-family:var(--font-heading); font-weight:700; font-size:22px; line-height:1.1;"><span style="color:var(--color-team-amber);">{{ c.a }}</span><span style="font-size:14px; color:var(--color-dim);">–</span><span style="color:oklch(0.7 0.17 261.44);">{{ c.s }}</span></div></sc-if>
+                      <sc-if value="{{ c.notSplit }}" hint-placeholder-val="{{ true }}"><span style="font-family:var(--font-display); font-size:24px; line-height:1; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ c.v }}</span></sc-if>
+                      <span style="font-size:12px; line-height:1.3; color:{{ c.dc }}; font-style:{{ c.dfs }};">{{ c.d }}</span>
+                    </div>
+                  </sc-for>
+                </sc-for>
+              </div>
+            </x-import>
+          </sc-if>
+          <sc-if value="{{ hlVersus }}">
+            <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,330px">
+              <div style="display:flex; flex-direction:column;">
+                <div style="display:grid; grid-template-columns:minmax(0,1fr) {{ vsMidW }} minmax(0,1fr); align-items:end; padding-bottom:12px; border-bottom:1px solid var(--color-border-light);">
+                  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; text-align:right;"><span style="font-family:var(--font-heading); font-weight:600; font-size:26px; line-height:1; color:var(--color-primary);">{{ vs.left.title }}</span><span style="font-size:12px; color:var(--color-dim);">{{ vs.left.sub }}</span></div>
+                  <span style="text-align:center; font-family:var(--font-display); font-size:18px; color:var(--color-dim);">vs</span>
+                  <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;"><span style="font-family:var(--font-heading); font-weight:600; font-size:26px; line-height:1; color:var(--color-primary);">{{ vs.right.title }}</span><span style="font-size:12px; color:{{ vs.right.subC }};">{{ vs.right.sub }}</span></div>
+                </div>
+                <sc-for list="{{ vs.rows }}" as="row" hint-placeholder-count="5">
+                  <div style="display:grid; grid-template-columns:minmax(0,1fr) {{ vsMidW }} minmax(0,1fr); align-items:center; padding:10px 0; border-bottom:1px solid var(--color-border);">
+                    <div style="display:flex; align-items:center; justify-content:flex-end; flex-direction:row; gap:14px; min-width:0;">
+                        <span style="font-size:12px; color:{{ row.l.dc }}; font-style:{{ row.l.dfs }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ row.l.d }}</span>
+                        <div style="width:{{ vsBarW }}; flex:none; height:6px; display:flex; justify-content:flex-end; border-radius:999px; background:{{ row.l.track }}; overflow:hidden;"><span style="height:100%; width:{{ row.l.w }}; background:{{ row.l.bar }};"></span></div>
+                        <span style="min-width:64px; flex:none; text-align:right; font-family:var(--font-heading); font-weight:700; font-size:24px; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ row.l.v }}</span>
+                      </div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:2px; text-align:center; padding:0 8px;">
+                      <span style="font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-muted);">{{ row.label }}</span>
+                      <span style="font-size:12px; color:var(--color-accent-light);">{{ row.mid }}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:flex-start; flex-direction:row-reverse; gap:14px; min-width:0;">
+                        <span style="font-size:12px; color:{{ row.r.dc }}; font-style:{{ row.r.dfs }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ row.r.d }}</span>
+                        <div style="width:{{ vsBarW }}; flex:none; height:6px; display:flex; justify-content:flex-start; border-radius:999px; background:{{ row.r.track }}; overflow:hidden;"><span style="height:100%; width:{{ row.r.w }}; background:{{ row.r.bar }};"></span></div>
+                        <span style="min-width:64px; flex:none; text-align:left; font-family:var(--font-heading); font-weight:700; font-size:24px; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ row.r.v }}</span>
+                      </div>
+                  </div>
+                </sc-for>
+              </div>
+            </x-import>
+          </sc-if>
+          <sc-if value="{{ hlLead }}">
+            <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,240px">
+              <div style="display:grid; grid-template-columns:{{ leadCols }}; gap:24px 36px;">
+                <div style="display:flex; flex-direction:column; gap:10px; padding-right:{{ leadPadR }}; border-right:{{ leadDivider }}; min-width:0;">
+                  <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-accent-light);">{{ lead.kicker }}</span>
+                  <div style="display:flex; align-items:baseline; gap:12px;"><span style="font-family:var(--font-display); font-size:88px; line-height:0.9; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ lead.big }}</span><span style="font-family:var(--font-heading); font-weight:600; font-size:24px; color:var(--color-secondary);">matches</span></div>
+                  <span style="font-size:13px; color:var(--color-muted);">{{ lead.bigSub }}</span>
+                  <div style="display:flex; height:8px; gap:3px; border-radius:999px; overflow:hidden; margin-top:4px;">
+                    <sc-for list="{{ lead.split }}" as="sg" hint-placeholder-count="2"><span style="flex:{{ sg.flex }}; background:{{ sg.bg }};"></span></sc-for>
+                  </div>
+                  <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--color-muted);">
+                    <sc-for list="{{ lead.split }}" as="sg" hint-placeholder-count="2"><span style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:2px; background:{{ sg.bg }};"></span>{{ sg.label }}</span></sc-for>
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns:{{ leadMetricCols }}; gap:20px 28px; align-content:center;">
+                  <sc-for list="{{ lead.metrics }}" as="m" hint-placeholder-count="4">
+                    <div style="display:flex; flex-direction:column; gap:8px; min-width:0;">
+                      <span style="font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ m.label }}</span>
+                      <sc-if value="{{ m.isSplit }}"><div style="display:flex; align-items:baseline; gap:6px; font-family:var(--font-heading); font-weight:700; font-size:32px; line-height:1.1;"><span style="color:var(--color-team-amber);">{{ m.a }}</span><span style="font-size:16px; color:var(--color-dim);">–</span><span style="color:oklch(0.7 0.17 261.44);">{{ m.s }}</span></div></sc-if>
+                      <sc-if value="{{ m.notSplit }}" hint-placeholder-val="{{ true }}"><span style="font-family:var(--font-heading); font-weight:700; font-size:32px; line-height:1.1; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ m.v }}</span></sc-if>
+                      <div style="display:flex; flex-direction:column; gap:3px; padding-top:8px; border-top:1px solid var(--color-border);">
+                        <sc-for list="{{ m.lines }}" as="ln" hint-placeholder-count="2">
+                          <div style="display:flex; gap:8px; font-size:12px; min-width:0; font-variant-numeric:tabular-nums;">
+                            <span style="width:{{ leadKeyW }}; flex:none; font-weight:600; color:var(--color-muted);">{{ ln.k }}</span>
+                            <span style="color:var(--color-primary);">{{ ln.v }}</span>
+                            <span style="color:{{ ln.dc }}; font-style:{{ ln.dfs }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ ln.d }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </x-import>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ showTabBar }}">
+          <div style="display:flex; overflow-x:auto; padding-top:4px;">
+            <div style="display:inline-flex; padding:4px; gap:2px; background:var(--color-card); border:1px solid var(--color-border-light); border-radius:var(--radius-pill);">
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+                <button onClick="{{ t.onClick }}" style="all:unset; cursor:pointer; white-space:nowrap; padding:{{ tabPad }}; border-radius:var(--radius-pill); font-family:var(--font-heading); font-weight:600; font-size:15px; background:{{ t.bg }}; color:{{ t.fg }}; transition:background 0.2s;">{{ t.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showSectionSelect }}">
+          <label style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);">Section</span>
+            <select value="{{ tab }}" onChange="{{ onSectionSelect }}" style="flex:1; min-height:44px; padding:0 12px; background:var(--color-input); border:1px solid var(--color-border-light); border-radius:var(--radius-md); color:var(--color-primary); font-family:var(--font-heading); font-weight:600; font-size:16px;">
+              <option value="overview">Overview</option>
+              <option value="heroes">Heroes</option>
+              <option value="records">Records</option>
+              <option value="leaderboards">Leaderboards</option>
+            </select>
+          </label>
+        </sc-if>
+
+        <!-- OVERVIEW -->
+        <sc-if value="{{ show.overview }}" hint-placeholder-val="{{ true }}">
+          <section style="display:flex; flex-direction:column; gap:14px;">
+            <sc-if value="{{ showHeads }}">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:8px;">
+                <h2 style="margin:0; font-family:var(--font-heading); font-weight:600; font-size:24px; color:var(--color-primary);">Overview</h2>
+              </div>
+            </sc-if>
+            <div style="display:grid; grid-template-columns:{{ weekCols }}; gap:12px;">
+              <sc-for list="{{ thisWeek }}" as="c" hint-placeholder-count="4">
+                <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,140px">
+                  <div style="display:flex; flex-direction:column; gap:8px; min-width:0;">
+                    <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-accent-light);">{{ c.kicker }}</span>
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                      <sc-if value="{{ c.hasImg }}"><img src="{{ c.img }}" alt="" style="width:34px; height:34px; border-radius:6px; flex:none;"></sc-if>
+                      <span style="font-family:var(--font-display); font-size:{{ weekValSize }}; line-height:1; color:var(--color-primary); white-space:nowrap;">{{ c.value }}</span>
+                    </div>
+                    <span title="{{ c.line }}" style="font-size:13px; font-weight:500; color:var(--color-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ c.line }}</span>
+                    <span style="font-size:12px; line-height:1.4; color:var(--color-dim);">{{ c.sub }}</span>
+                  </div>
+                </x-import>
+              </sc-for>
+            </div>
+            <div style="display:grid; grid-template-columns:{{ chartCols }}; gap:14px; align-items:start;">
+              <div style="grid-row:{{ scatterRow }}; min-width:0;"><x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Pick rate vs win rate" subtitle="Each portrait is a hero. Midlines at 50%. Open Heroes for the full table." hint-size="100%,560px">
+                    <div style="display:flex; gap:8px;">
+                      <div style="writing-mode:vertical-rl; transform:rotate(180deg); text-align:center; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim);">Win %</div>
+                      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
+                        <div style="position:relative; height:{{ scatterOvH }}; background:var(--color-table); border-radius:var(--radius-md); overflow:hidden;">
+                          <div style="position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--color-border-light);"></div>
+                          <div style="position:absolute; top:50%; left:0; right:0; height:1px; background:var(--color-border-light);"></div>
+                          <span style="position:absolute; top:10px; right:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-success);">Popular &amp; winning</span>
+                          <span style="position:absolute; bottom:10px; right:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-danger-text);">Popular &amp; losing</span>
+                          <span style="position:absolute; top:10px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-muted);">Niche &amp; winning</span>
+                          <span style="position:absolute; bottom:10px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim);">Niche &amp; losing</span>
+                          <sc-for list="{{ scatter }}" as="pt" hint-placeholder-count="26">
+                            <a href="#hero" title="{{ pt.tip }}" style="position:absolute; left:{{ pt.left }}; bottom:{{ pt.bottom }}; transform:translate(-50%, 50%); width:{{ pt.size }}; height:{{ pt.size }}; border-radius:50%; border:2px solid {{ pt.ring }}; overflow:hidden; background:var(--color-card); transition:transform 0.2s;" style-hover="transform:translate(-50%, 50%) scale(1.35); z-index:3;">
+                              <img src="{{ pt.img }}" alt="{{ pt.name }}" style="width:100%; height:100%; display:block;">
+                            </a>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--color-dim);"><span>0%</span><span style="letter-spacing:0.05em; text-transform:uppercase;">Pick %</span><span>100%</span></div>
+                      </div>
+                    </div>
+                  </x-import></div>
+              <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Side balance" subtitle="{{ sideSub }}" hint-size="100%,300px">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
+                    <div style="display:flex; flex-direction:{{ sideDir }}; align-items:{{ sideAlignL }}; gap:10px; min-width:0;">
+                      <img src="assets/teams/team1_patron_logo.png" alt="Hidden King" style="height:{{ logoH }}; max-width:100%; filter:brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%);">
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <span style="font-family:var(--font-display); font-size:32px; line-height:1; color:var(--color-team-amber);">{{ side.ap }}</span>
+                        <span style="font-size:12px; color:var(--color-muted);">{{ side.a }} wins</span>
+                      </div>
+                    </div>
+                    <div style="display:flex; flex-direction:{{ sideDirR }}; align-items:{{ sideAlignR }}; gap:10px; text-align:right; min-width:0;">
+                      <div style="display:flex; flex-direction:column; gap:2px; align-items:flex-end;">
+                        <span style="font-family:var(--font-display); font-size:32px; line-height:1; color:oklch(0.7 0.17 261.44);">{{ side.sp }}</span>
+                        <span style="font-size:12px; color:var(--color-muted);">{{ side.s }} wins</span>
+                      </div>
+                      <img src="assets/teams/team2_patron_logo.png" alt="Archmother" style="height:{{ logoH }}; max-width:100%; filter:brightness(0) saturate(100%) invert(24%) sepia(96%) saturate(1698%) hue-rotate(203deg) brightness(94%) contrast(115%);">
+                    </div>
+                  </div>
+                  <div style="position:relative; display:flex; height:10px; gap:3px; border-radius:999px; overflow:hidden;">
+                    <div style="width:{{ side.aw }}; background:var(--color-team-amber);"></div>
+                    <div style="flex:1; background:var(--color-team-sapphire);"></div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--color-dim);"><span>Amber win % by week</span><span>50% line</span></div>
+                    <div style="position:relative;">
+                      <svg viewBox="0 0 300 90" style="width:100%; height:auto; display:block; overflow:visible;">
+                        <rect x="{{ trend.bandX }}" y="0" width="{{ trend.bandW }}" height="90" rx="6" style="fill:oklch(68.88% 0.187 300 / 0.1);"></rect>
+                        <line x1="0" y1="45" x2="300" y2="45" style="stroke:oklch(100% 0 none / 0.18); stroke-dasharray:3 4;"></line>
+                        <polyline points="{{ trend.points }}" style="fill:none; stroke:var(--color-team-amber); stroke-width:2; stroke-linejoin:round; stroke-linecap:round;"></polyline>
+                        <circle cx="{{ trend.lastX }}" cy="{{ trend.lastY }}" r="4" style="fill:var(--color-team-amber); stroke:var(--color-card); stroke-width:2;"></circle>
+                      </svg>
+                      <div style="position:relative; height:16px; margin-top:4px;">
+                        <sc-for list="{{ trend.labels }}" as="w" hint-placeholder-count="8">
+                          <span style="position:absolute; left:{{ w.left }}; transform:translateX(-50%); white-space:nowrap; font-size:11px; color:{{ w.fg }};">{{ w.label }}</span>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </x-import>
+
+              <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Match length" subtitle="{{ lengthSub }}" hint-size="100%,300px">
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                  <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;">
+                    <sc-for list="{{ lengthCallouts }}" as="k" hint-placeholder-count="3">
+                      <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                        <span style="font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim);">{{ k.label }}</span>
+                        <span style="font-family:var(--font-heading); font-weight:700; font-size:20px; color:{{ k.fg }};">{{ k.v }}</span>
+                        <span title="{{ k.sub }}" style="font-size:11px; color:var(--color-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ k.sub }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; align-items:flex-end; gap:8px; height:130px; border-bottom:1px solid var(--color-border-light);">
+                    <sc-for list="{{ buckets }}" as="b" hint-placeholder-count="5">
+                      <div style="flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:4px;">
+                        <span style="font-size:12px; font-weight:600; color:var(--color-secondary);">{{ b.n }}</span>
+                        <div style="width:100%; height:{{ b.h }}; background:{{ b.bg }}; border-radius:6px 6px 0 0;"></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex; gap:8px; margin-top:-10px;">
+                    <sc-for list="{{ buckets }}" as="b" hint-placeholder-count="5">
+                      <span style="flex:1; text-align:center; font-size:11px; color:var(--color-dim);">{{ b.l }}</span>
+                    </sc-for>
+                  </div>
+                </div>
+              </x-import>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- HEROES -->
+        <sc-if value="{{ show.heroes }}">
+          <section style="display:flex; flex-direction:column; gap:14px;">
+            <sc-if value="{{ showHeads }}">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:8px;">
+                <h2 style="margin:0; font-family:var(--font-heading); font-weight:600; font-size:24px; color:var(--color-primary);">Heroes</h2>
+                <sc-if value="{{ seeAll }}"><a href="#heroes" onClick="{{ goHeroes }}" style="font-size:14px; font-weight:500; text-decoration:none;">See all 26 heroes ›</a></sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ heroesLoading }}">
+              <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Hero meta" subtitle="Loading weeks 60–61…" hint-size="100%,360px">
+                <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.LoadingSkeleton" variant="table-row" count="10" hint-size="100%,260px"></x-import>
+              </x-import>
+              <div style="display:grid; grid-template-columns:{{ heroLowerCols }}; gap:14px;">
+                <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Pick rate vs win rate" hint-size="100%,220px">
+                  <div style="height:220px; border-radius:var(--radius-md); background:var(--color-table); display:flex; align-items:center; justify-content:center;">
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.LoadingSkeleton" variant="text" hint-size="200px,40px"></x-import>
+                  </div>
+                </x-import>
+                <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Risers &amp; fallers" hint-size="100%,220px">
+                  <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.LoadingSkeleton" variant="table-row" count="5" hint-size="100%,120px"></x-import>
+                </x-import>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ heroesEmpty }}">
+              <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,260px">
+                <div style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding:48px 12px;">
+                  <span style="font-family:var(--font-heading); font-weight:600; font-size:22px; color:var(--color-primary);">No matches for these filters</span>
+                  <span style="max-width:440px; line-height:1.5; color:var(--color-muted); text-wrap:pretty;">No NA games have been processed for weeks 62–63 yet. Widen the week range or switch region.</span>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px;">
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" variant="primary" size="sm" hint-size="160px,30px">Go to latest weeks</x-import>
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" size="sm" hint-size="140px,30px">Show all regions</x-import>
+                  </div>
+                </div>
+              </x-import>
+            </sc-if>
+
+            <sc-if value="{{ heroesReady }}" hint-placeholder-val="{{ true }}">
+              <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Hero meta" subtitle="{{ heroSub }}" hint-size="100%,600px">
+                <div style="display:flex; flex-direction:column; gap:2px; margin:0 -12px;">
+                  <div style="display:grid; grid-template-columns:{{ heroCols }}; gap:12px; align-items:center; padding:0 12px 8px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase;">
+                    <button onClick="{{ hd.hero.onClick }}" style="all:unset; cursor:pointer; color:{{ hd.hero.color }};">Hero {{ hd.hero.arrow }}</button>
+                    <sc-if value="{{ fullCols }}"><button onClick="{{ hd.picks.onClick }}" style="all:unset; cursor:pointer; text-align:right; color:{{ hd.picks.color }};">Picks {{ hd.picks.arrow }}</button></sc-if>
+                    <button onClick="{{ hd.pick.onClick }}" style="all:unset; cursor:pointer; text-align:right; color:{{ hd.pick.color }};">Pick % {{ hd.pick.arrow }}</button>
+                    <sc-if value="{{ fullCols }}"><button onClick="{{ hd.bans.onClick }}" style="all:unset; cursor:pointer; text-align:right; color:{{ hd.bans.color }};">Bans {{ hd.bans.arrow }}</button></sc-if>
+                    <sc-if value="{{ fullCols }}"><button onClick="{{ hd.ban.onClick }}" style="all:unset; cursor:pointer; text-align:right; color:{{ hd.ban.color }};">Ban % {{ hd.ban.arrow }}</button></sc-if>
+                    <button onClick="{{ hd.contest.onClick }}" style="all:unset; cursor:pointer; text-align:right; color:{{ hd.contest.color }};">{{ contestLabel }} {{ hd.contest.arrow }}</button>
+                    <button onClick="{{ hd.win.onClick }}" style="all:unset; cursor:pointer; text-align:right; color:{{ hd.win.color }};">Win % {{ hd.win.arrow }}</button>
+                  </div>
+                  <sc-for list="{{ heroRows }}" as="h" hint-placeholder-count="10">
+                    <a href="#hero" title="Open {{ h.name }}" style="display:grid; grid-template-columns:{{ heroCols }}; gap:12px; align-items:center; padding:7px 12px; border-radius:var(--radius-md); text-decoration:none; color:var(--color-secondary); font-variant-numeric:tabular-nums; transition:background 0.2s, transform 0.2s;" style-hover="background:var(--color-accent-bg); transform:translateX(4px);">
+                      <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <img src="{{ h.img }}" alt="" style="width:28px; height:28px; border-radius:6px; flex:none;">
+                        <span style="font-weight:500; color:var(--color-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ h.name }}</span>
+                      </span>
+                      <sc-if value="{{ fullCols }}"><span style="text-align:right;">{{ h.picks }}</span></sc-if>
+                      <span style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        <span>{{ h.pickS }}</span>
+                        <span style="width:100%; max-width:72px; height:3px; border-radius:999px; background:var(--color-hover); overflow:hidden;"><span style="display:block; height:100%; width:{{ h.pickW }}; background:var(--color-accent);"></span></span>
+                      </span>
+                      <sc-if value="{{ fullCols }}"><span style="text-align:right;">{{ h.bans }}</span></sc-if>
+                      <sc-if value="{{ fullCols }}"><span style="text-align:right; color:var(--color-muted);">{{ h.banS }}</span></sc-if>
+                      <span style="text-align:right; font-weight:600; color:var(--color-primary);">{{ h.contestS }}</span>
+                      <span style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        <span style="font-weight:600; color:{{ h.winC }};">{{ h.winS }}</span>
+                        <span style="position:relative; width:100%; max-width:72px; height:3px; border-radius:999px; background:var(--color-hover);"><span style="position:absolute; left:50%; top:-2px; width:1px; height:7px; background:var(--color-dim);"></span><span style="position:absolute; top:0; height:100%; left:{{ h.winL }}; width:{{ h.winW }}; background:{{ h.winC }}; border-radius:999px;"></span></span>
+                      </span>
+                    </a>
+                  </sc-for>
+                </div>
+              </x-import>
+
+              <sc-if value="{{ heroFull }}" hint-placeholder-val="{{ true }}">
+                <div style="display:grid; grid-template-columns:{{ heroLowerCols }}; gap:14px; align-items:start;">
+                  <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Pick rate vs win rate" subtitle="Each portrait is a hero. Midlines at 50%." hint-size="100%,460px">
+                    <div style="display:flex; gap:8px;">
+                      <div style="writing-mode:vertical-rl; transform:rotate(180deg); text-align:center; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim);">Win %</div>
+                      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
+                        <div style="position:relative; height:{{ scatterH }}; background:var(--color-table); border-radius:var(--radius-md); overflow:hidden;">
+                          <div style="position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--color-border-light);"></div>
+                          <div style="position:absolute; top:50%; left:0; right:0; height:1px; background:var(--color-border-light);"></div>
+                          <span style="position:absolute; top:10px; right:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-success);">Popular &amp; winning</span>
+                          <span style="position:absolute; bottom:10px; right:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-danger-text);">Popular &amp; losing</span>
+                          <span style="position:absolute; top:10px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-muted);">Niche &amp; winning</span>
+                          <span style="position:absolute; bottom:10px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim);">Niche &amp; losing</span>
+                          <sc-for list="{{ scatter }}" as="pt" hint-placeholder-count="26">
+                            <a href="#hero" title="{{ pt.tip }}" style="position:absolute; left:{{ pt.left }}; bottom:{{ pt.bottom }}; transform:translate(-50%, 50%); width:{{ pt.size }}; height:{{ pt.size }}; border-radius:50%; border:2px solid {{ pt.ring }}; overflow:hidden; background:var(--color-card); transition:transform 0.2s;" style-hover="transform:translate(-50%, 50%) scale(1.35); z-index:3;">
+                              <img src="{{ pt.img }}" alt="{{ pt.name }}" style="width:100%; height:100%; display:block;">
+                            </a>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--color-dim);"><span>0%</span><span style="letter-spacing:0.05em; text-transform:uppercase;">Pick %</span><span>100%</span></div>
+                      </div>
+                    </div>
+                  </x-import>
+                  <div style="display:flex; flex-direction:column; gap:14px; min-width:0;">
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Risers &amp; fallers" subtitle="Change in pick % vs week 60" hint-size="100%,240px">
+                      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px;">
+                        <div style="display:flex; flex-direction:column; gap:8px; min-width:0;">
+                          <span style="font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-success);">▲ Rising</span>
+                          <sc-for list="{{ risers }}" as="m" hint-placeholder-count="5">
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                              <img src="{{ m.img }}" alt="" style="width:24px; height:24px; border-radius:5px; flex:none;">
+                              <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; color:var(--color-primary);">{{ m.name }}</span>
+                              <span style="font-size:13px; font-weight:600; color:var(--color-success); font-variant-numeric:tabular-nums;">{{ m.d }}</span>
+                            </div>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:8px; min-width:0;">
+                          <span style="font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-danger-text);">▼ Falling</span>
+                          <sc-for list="{{ fallers }}" as="m" hint-placeholder-count="5">
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                              <img src="{{ m.img }}" alt="" style="width:24px; height:24px; border-radius:5px; flex:none;">
+                              <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; color:var(--color-primary);">{{ m.name }}</span>
+                              <span style="font-size:13px; font-weight:600; color:var(--color-danger-text); font-variant-numeric:tabular-nums;">{{ m.d }}</span>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </x-import>
+                    <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Most banned" subtitle="Placeholder ban data" hint-size="100%,220px">
+                      <div style="display:flex; flex-direction:column; gap:8px;">
+                        <sc-for list="{{ mostBanned }}" as="m" hint-placeholder-count="5">
+                          <div style="display:grid; grid-template-columns:16px 24px minmax(0,1fr) 90px 28px; gap:8px; align-items:center; font-size:13px;">
+                            <span style="color:var(--color-dim);">{{ m.rank }}</span>
+                            <img src="{{ m.img }}" alt="" style="width:24px; height:24px; border-radius:5px;">
+                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--color-primary);">{{ m.name }}</span>
+                            <span style="height:6px; border-radius:999px; background:var(--color-hover); overflow:hidden;"><span style="display:block; height:100%; width:{{ m.w }}; background:var(--color-danger);"></span></span>
+                            <span style="text-align:right; font-weight:600; font-variant-numeric:tabular-nums;">{{ m.bans }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </x-import>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ heroCompact }}">
+                <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="Risers &amp; fallers" subtitle="Change in pick % vs week 60" hint-size="100%,220px">
+                  <div style="display:grid; grid-template-columns:{{ riserCols }}; gap:8px 24px;">
+                    <sc-for list="{{ riseFallTop }}" as="m" hint-placeholder-count="6">
+                      <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                        <img src="{{ m.img }}" alt="" style="width:24px; height:24px; border-radius:5px; flex:none;">
+                        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; color:var(--color-primary);">{{ m.name }}</span>
+                        <span style="font-size:13px; font-weight:600; color:{{ m.c }}; font-variant-numeric:tabular-nums;">{{ m.d }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </x-import>
+              </sc-if>
+            </sc-if>
+          </section>
+        </sc-if>
+
+        <!-- RECORDS -->
+        <sc-if value="{{ show.records }}">
+          <section style="display:flex; flex-direction:column; gap:14px;">
+            <sc-if value="{{ showHeads }}">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:8px;">
+                <h2 style="margin:0; font-family:var(--font-heading); font-weight:600; font-size:24px; color:var(--color-primary);">Records</h2>
+                <sc-if value="{{ seeAll }}"><a href="#records" onClick="{{ goRecords }}" style="font-size:14px; font-weight:500; text-decoration:none;">See all 10 records ›</a></sc-if>
+              </div>
+            </sc-if>
+            <div style="display:grid; grid-template-columns:{{ recordCols }}; gap:14px; align-items:start;">
+              <sc-for list="{{ records }}" as="r" hint-placeholder-count="10">
+                <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" title="{{ r.label }}" hint-size="100%,210px">
+                  <div style="display:flex; flex-direction:column; gap:12px; min-width:0; margin-top:-4px;">
+                    <span style="font-family:var(--font-display); font-size:40px; line-height:1; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ r.top.vs }}</span>
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                      <sc-if value="{{ r.top.hasImg }}"><img src="{{ r.top.img }}" alt="" style="width:36px; height:36px; border-radius:6px; flex:none;"></sc-if>
+                      <sc-if value="{{ r.top.noImg }}"><span style="width:36px; height:36px; flex:none; border-radius:6px; background:var(--color-hover); border:1px solid var(--color-border-light); display:flex; align-items:center; justify-content:center; font-family:var(--font-heading); font-weight:600; font-size:12px; color:var(--color-muted);">{{ r.top.initials }}</span></sc-if>
+                      <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                        <span title="{{ r.top.player }}" style="font-weight:600; color:var(--color-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ r.top.player }}</span>
+                        <span style="font-size:12px; color:var(--color-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ r.top.meta }}</span>
+                      </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                      <a href="#match" style="font-size:13px; font-weight:500; text-decoration:none;">View match ›</a>
+                      <button onClick="{{ r.toggle }}" style="all:unset; cursor:pointer; padding:4px 10px; border-radius:var(--radius-pill); font-size:12px; font-weight:600; background:{{ r.tbg }}; border:1px solid {{ r.tbd }}; color:{{ r.tfg }};">{{ r.toggleLabel }}</button>
+                    </div>
+                    <sc-if value="{{ r.open }}">
+                      <div style="border-top:1px solid var(--color-border); padding-top:10px; display:flex; flex-direction:column; gap:4px;">
+                        <sc-for list="{{ r.rest }}" as="e" hint-placeholder-count="4">
+                          <a href="#match" style="display:grid; grid-template-columns:14px 24px minmax(0,1fr) auto; align-items:center; gap:8px; padding:5px 6px; margin:0 -6px; border-radius:var(--radius-sm); text-decoration:none; color:var(--color-secondary); font-size:13px; transition:background 0.2s;" style-hover="background:var(--color-accent-bg);">
+                            <span style="color:var(--color-dim); font-size:12px;">{{ e.rank }}</span>
+                            <sc-if value="{{ e.hasImg }}"><img src="{{ e.img }}" alt="" style="width:24px; height:24px; border-radius:5px;"></sc-if>
+                            <sc-if value="{{ e.noImg }}"><span style="width:24px; height:24px; border-radius:5px; background:var(--color-hover); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; color:var(--color-muted);">{{ e.initials }}</span></sc-if>
+                            <span style="display:flex; flex-direction:column; min-width:0;">
+                              <span title="{{ e.player }}" style="color:var(--color-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.player }}</span>
+                              <span style="font-size:11px; color:var(--color-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ e.meta }}</span>
+                            </span>
+                            <span style="font-weight:600; color:var(--color-primary); font-variant-numeric:tabular-nums;">{{ e.vs }}</span>
+                          </a>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </x-import>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- LEADERBOARDS -->
+        <sc-if value="{{ show.leaderboards }}">
+          <section style="display:flex; flex-direction:column; gap:14px;">
+            <sc-if value="{{ showHeads }}">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:8px;">
+                <h2 style="margin:0; font-family:var(--font-heading); font-weight:600; font-size:24px; color:var(--color-primary);">Leaderboards</h2>
+                <sc-if value="{{ seeAll }}"><a href="#leaderboards" onClick="{{ goLeaderboards }}" style="font-size:14px; font-weight:500; text-decoration:none;">See all stats ›</a></sc-if>
+              </div>
+            </sc-if>
+            <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Card" hint-size="100%,520px">
+              <div style="display:flex; flex-direction:column; gap:16px;">
+                <sc-if value="{{ lbFull }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                      <sc-for list="{{ lbStats }}" as="s" hint-placeholder-count="9">
+                        <button onClick="{{ s.onClick }}" style="all:unset; cursor:pointer; padding:6px 12px; border-radius:var(--radius-pill); font-size:13px; font-weight:500; background:{{ s.bg }}; border:1px solid {{ s.bd }}; color:{{ s.fg }}; transition:background 0.2s;">{{ s.label }}</button>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex; padding:3px; gap:2px; background:var(--color-input); border:1px solid var(--color-border-light); border-radius:var(--radius-pill);">
+                      <sc-for list="{{ lbModes }}" as="m" hint-placeholder-count="2">
+                        <button onClick="{{ m.onClick }}" style="all:unset; cursor:pointer; padding:5px 16px; border-radius:var(--radius-pill); font-size:13px; font-weight:600; background:{{ m.bg }}; color:{{ m.fg }};">{{ m.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ lbCompact }}">
+                  <span style="font-family:var(--font-heading); font-weight:600; font-size:18px; color:var(--color-primary);">Kills <span style="font-family:var(--font-body); font-weight:400; font-size:14px; color:var(--color-muted);">· average per game</span></span>
+                </sc-if>
+                <div style="display:flex; flex-direction:column; gap:2px; margin:0 -12px;">
+                  <div style="display:grid; grid-template-columns:{{ lbCols }}; gap:12px; align-items:center; padding:0 12px 8px; font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-dim);">
+                    <span>#</span><span>Player</span>
+                    <sc-if value="{{ fullCols }}"><span style="text-align:right;">Games</span></sc-if>
+                    <span style="text-align:right; color:var(--color-accent-light);">{{ lbPrimaryLabel }}</span>
+                    <sc-if value="{{ fullCols }}"><span style="text-align:right;">{{ lbSecondaryLabel }}</span></sc-if>
+                    <span style="text-align:{{ heroHeadAlign }};">{{ topHeroLabel }}</span>
+                  </div>
+                  <sc-for list="{{ lbRows }}" as="row" hint-placeholder-count="10">
+                    <a href="#player" style="display:grid; grid-template-columns:{{ lbCols }}; gap:12px; align-items:center; padding:8px 12px; border-radius:var(--radius-md); text-decoration:none; color:var(--color-secondary); font-variant-numeric:tabular-nums; transition:background 0.2s, transform 0.2s;" style-hover="background:var(--color-accent-bg); transform:translateX(4px);">
+                      <span style="font-family:var(--font-heading); font-weight:600; font-size:16px; color:{{ row.rankC }};">{{ row.rank }}</span>
+                      <span style="display:flex; flex-direction:column; min-width:0;">
+                        <span title="{{ row.name }}" style="font-weight:600; color:var(--color-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row.name }}</span>
+                        <sc-if value="{{ isMobile }}"><span style="font-size:12px; color:var(--color-dim);">{{ row.mobileSub }}</span></sc-if>
+                      </span>
+                      <sc-if value="{{ fullCols }}"><span style="text-align:right; color:var(--color-muted);">{{ row.games }}</span></sc-if>
+                      <span style="text-align:right; font-family:var(--font-heading); font-weight:700; font-size:20px; color:var(--color-accent-light);">{{ row.prim }}</span>
+                      <sc-if value="{{ fullCols }}"><span style="text-align:right; font-size:13px; color:var(--color-dim);">{{ row.sec }}</span></sc-if>
+                      <span style="display:flex; align-items:center; gap:8px; min-width:0; justify-content:{{ heroCellJustify }};">
+                        <img src="{{ row.heroImg }}" alt="{{ row.hero }}" title="{{ row.hero }}" style="width:26px; height:26px; border-radius:5px; flex:none;">
+                        <sc-if value="{{ fullCols }}"><span style="font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row.hero }}</span></sc-if>
+                      </span>
+                    </a>
+                  </sc-for>
+                </div>
+                <p style="margin:0; font-size:12px; color:var(--color-dim);">Only players with 5+ games in the selected weeks are ranked, in both Average and Total.</p>
+              </div>
+            </x-import>
+          </section>
+        </sc-if>
+      </main>
+    </div>
+
+    <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+      <footer style="border-top:1px solid var(--color-border); padding:20px 16px; text-align:center; font-size:12px; line-height:1.5; color:var(--color-dim);">This is a passion project made by Jonesy and not affiliated with Valve or Deadlock Night Shift. Data is presented for fun and community use.</footer>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ sheetOpen }}">
+    <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; z-index:20; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px);"></div>
+    <div style="position:absolute; left:0; right:0; bottom:0; z-index:21; background:var(--color-panel); border-top:1px solid var(--color-border-lighter); border-radius:16px 16px 0 0; box-shadow:var(--shadow-modal); padding:10px 16px 20px; display:flex; flex-direction:column; gap:18px;">
+      <div style="width:40px; height:4px; border-radius:999px; background:var(--color-border-lighter); align-self:center;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:22px; color:var(--color-primary);">Filters</span>
+        <button onClick="{{ closeSheet }}" style="all:unset; cursor:pointer; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:flex-end; font-size:14px; color:var(--color-muted);">Close</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);"><span>Weeks</span><span style="color:var(--color-accent-light);">60–61</span></div>
+        <div style="display:grid; grid-template-columns:repeat(8, minmax(0,1fr)); gap:4px;">
+          <sc-for list="{{ sheetWeeks }}" as="w" hint-placeholder-count="8">
+            <span style="min-height:44px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); font-size:14px; font-weight:600; background:{{ w.bg }}; border:1px solid {{ w.bd }}; color:{{ w.fg }};">{{ w.label }}</span>
+          </sc-for>
+        </div>
+        <span style="font-size:12px; color:var(--color-dim);">Tap a start and end week.</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);">Patch</span>
+        <div style="display:flex; flex-direction:column; border:1px solid var(--color-border-light); border-radius:var(--radius-lg); overflow:hidden;">
+          <sc-for list="{{ sheetPatches }}" as="pa" hint-placeholder-count="3">
+            <div style="min-height:52px; display:flex; align-items:center; gap:12px; padding:8px 14px; background:{{ pa.bg }}; border-bottom:1px solid var(--color-border);">
+              <span style="width:18px; height:18px; flex:none; border-radius:50%; border:2px solid {{ pa.ring }}; display:flex; align-items:center; justify-content:center;"><span style="width:8px; height:8px; border-radius:50%; background:{{ pa.dot }};"></span></span>
+              <span style="display:flex; flex-direction:column; gap:1px;"><span style="font-weight:600; color:var(--color-primary);">{{ pa.label }}</span><span style="font-size:12px; color:var(--color-dim);">{{ pa.sub }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-dim);">Region</span>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); padding:3px; gap:2px; background:var(--color-input); border:1px solid var(--color-border-light); border-radius:var(--radius-pill);">
+          <sc-for list="{{ regions }}" as="r" hint-placeholder-count="3">
+            <button onClick="{{ r.onClick }}" style="all:unset; cursor:pointer; min-height:40px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-pill); font-size:14px; font-weight:600; background:{{ r.bg }}; color:{{ r.fg }};">{{ r.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 2fr; gap:10px;">
+        <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" onClick="{{ closeSheet }}" hint-size="100%,44px">Reset</x-import>
+        <x-import component-from-global-scope="DLNSStatsDesignSystem_2f87dc.Button" variant="primary" onClick="{{ closeSheet }}" hint-size="100%,44px">Show 18 matches</x-import>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1600},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tabs&quot;,&quot;dashboard&quot;,&quot;sidenav&quot;],&quot;default&quot;:&quot;tabs&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;device&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;heroes&quot;,&quot;records&quot;,&quot;leaderboards&quot;],&quot;default&quot;:&quot;overview&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;region&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;All&quot;,&quot;EU&quot;,&quot;NA&quot;],&quot;default&quot;:&quot;All&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;headline&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cards&quot;,&quot;strip&quot;,&quot;versus&quot;,&quot;lead&quot;],&quot;default&quot;:&quot;strip&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;period&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;latest&quot;,&quot;span&quot;,&quot;all&quot;],&quot;default&quot;:&quot;latest&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;picker&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;status&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ready&quot;,&quot;empty&quot;,&quot;loading&quot;],&quot;default&quot;:&quot;ready&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lbMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;avg&quot;,&quot;total&quot;],&quot;default&quot;:&quot;avg&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;expanded&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;headlineOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null, region: null, sortK: 'contest', sortD: -1, expanded: undefined, lbStat: 'kills', lbMode: null, sheet: null, patch: 'cns', copied: false };
+
+  renderVals() {
+    const p = this.props, s = this.state;
+    const set = (o) => () => this.setState(o);
+    const layout = p.layout ?? 'tabs';
+    const isMobile = (p.device ?? 'desktop') === 'mobile';
+    const isDesktop = !isMobile;
+    const tab = s.tab ?? p.tab ?? 'overview';
+    const region = s.region ?? p.region ?? 'All';
+    const dataState = p.status ?? 'ready';
+    const headlineOnly = !!p.headlineOnly;
+    const sheetOpen = isMobile && (s.sheet ?? !!p.sheet);
+    const expanded = s.expanded !== undefined ? s.expanded : (p.expanded ?? null);
+    const lbMode = s.lbMode ?? p.lbMode ?? 'avg';
+    const isTabs = layout === 'tabs', isDash = layout === 'dashboard', isSide = layout === 'sidenav';
+    const compact = isDash;
+    const empty = dataState === 'empty', loading = dataState === 'loading';
+    const img = (n) => n ? 'assets/heroes/' + n.toLowerCase().replace(/ & /g, '_and_').replace(/ /g, '_') + '.png' : null;
+    const HAS = ['venator','celeste','yamato','shiv','mo_and_krill','mina','holliday','paige','rem','grey_talon','bebop','pocket','haze','wraith','abrams','infernus','lady_geist','seven','vindicta','kelvin','dynamo','ivy','lash','warden','mcginnis','victor'];
+    const heroImg = (n) => { const u = img(n); return u && HAS.some(h => u.endsWith('/' + h + '.png')) ? u : null; };
+    const initials = (n) => (n || '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const pct = (x) => x.toFixed(1) + '%';
+    const G = 18;
+    const LONG = 'oses/' + '`'.repeat(20);
+
+    const tabDefs = [
+      ['overview', 'Overview', 'Pick vs win, sides, length'],
+      ['heroes', 'Heroes', 'Picks, bans, win rates'],
+      ['records', 'Records', 'Single-game bests'],
+      ['leaderboards', 'Leaderboards', 'Leaders over 5+ games'],
+    ];
+    const tabs = tabDefs.map(([k, label, desc]) => {
+      const on = tab === k;
+      return { label, desc, onClick: set({ tab: k }), bg: on ? 'var(--color-accent-bg-strong)' : 'transparent', fg: on ? 'var(--color-accent-light)' : 'var(--color-secondary)', bd: on ? 'var(--color-accent-border)' : 'transparent' };
+    });
+    const regions = ['All', 'EU', 'NA'].map(r => ({ label: r, onClick: set({ region: r }), bg: region === r ? 'var(--color-accent-bg-strong)' : 'transparent', fg: region === r ? 'var(--color-accent-light)' : 'var(--color-muted)' }));
+
+    // period
+    const PATCHES = [['Gameplay Update 01-16',1,7],['Gameplay Update 02-27',8,14],['Gameplay Update 04-10',15,22],['Gameplay Update 05-22',23,30],['Gameplay Update 07-03',31,38],['Gameplay Update 08-14',39,46],['Gameplay Update 09-17',47,54],['Gameplay Update 10-02',55,59],['City Never Sleeps',60,61]];
+    const FIX = {54:10,55:12,56:11,57:13,58:9,59:12,60:11,61:7};
+    const WEEKLY = {}; for (let w = 1; w <= 61; w++) WEEKLY[w] = FIX[w] ?? ([21, 36].includes(w) ? 0 : 8 + ((w * 7) % 6));
+    const PERIODS = { latest: [60, 61], all: [1, 61], span: [55, 61] };
+    const [ra, rb] = s.range ?? PERIODS[p.period ?? 'latest'] ?? [60, 61];
+    const isAll = ra === 1 && rb === 61;
+    const weeksLabel = empty ? 'Weeks 62–63' : isAll ? 'All weeks' : ra === rb ? 'Week ' + ra : 'Weeks ' + ra + '–' + rb;
+    const inP = PATCHES.filter(([, a1, b1]) => a1 <= rb && b1 >= ra);
+    const exact = inP.length === 1 && inP[0][1] === ra && inP[0][2] === rb;
+    const patchLabel = empty ? 'No patch' : isAll ? 'All patches' : inP.length === 1 ? inP[0][0] + (exact ? '' : ' (part)') : inP.length + ' patches';
+    let rangeMatches = 0; for (let w = ra; w <= rb; w++) rangeMatches += WEEKLY[w];
+    const pickerOpen = isDesktop && !headlineOnly && (s.picker ?? !!p.picker);
+    const setRange = (a1, b1) => () => this.setState({ range: [a1, b1], pending: null });
+    const onWeek = (w) => () => this.setState(st => st.pending == null ? { range: [w, w], pending: w } : { range: [Math.min(st.pending, w), Math.max(st.pending, w)], pending: null });
+    const patchBands = PATCHES.map(([name, a1, b1]) => {
+      const inside = a1 >= ra && b1 <= rb, part = a1 <= rb && b1 >= ra;
+      const weeks = [];
+      for (let w = a1; w <= b1; w++) { const on = w >= ra && w <= rb, n = WEEKLY[w]; weeks.push({ onClick: onWeek(w), tip: 'Week ' + w + ' · ' + (n ? n + ' matches' : 'no games'), h: n ? (n / 13 * 100) + '%' : '3px', bg: n ? (on ? 'var(--color-accent)' : 'var(--color-hover)') : 'var(--color-border-lighter)', track: on ? 'var(--color-accent-bg)' : 'transparent' }); }
+      const short = name.startsWith('Gameplay Update ') ? name.slice(16) : name;
+      return { label: short, minW: short === name ? '112px' : '58px', sub: (short === name ? 'Weeks ' : 'Wk ') + a1 + '–' + b1, first: a1, tip: name + ' · weeks ' + a1 + '–' + b1, flex: (b1 - a1 + 1) + ' 1 0px', onClick: setRange(a1, b1), weeks,
+        bg: inside ? 'var(--color-accent-bg-strong)' : part ? 'var(--color-accent-bg)' : 'var(--color-input)',
+        bd: inside ? 'var(--color-accent-border-strong)' : part ? 'var(--color-accent-border)' : 'var(--color-border)',
+        fg: inside ? 'var(--color-accent-light)' : part ? 'var(--color-secondary)' : 'var(--color-muted)' };
+    });
+    const presets = [['All weeks', 1, 61], ['Latest week', 61, 61], ['Last 4 weeks', 58, 61], ['Last 8 weeks', 54, 61]].map(([label, a1, b1]) => { const on = a1 === ra && b1 === rb; return { label, onClick: setRange(a1, b1), bg: on ? 'var(--color-accent-bg-strong)' : 'var(--color-badge-bg)', bd: on ? 'var(--color-accent-border)' : 'var(--color-border-light)', fg: on ? 'var(--color-accent-light)' : 'var(--color-secondary)' }; });
+    const rangeSummary = weeksLabel + (isAll ? ' (1–61)' : '') + ' · ' + rangeMatches + ' matches';
+    const rangeDetail = (inP.length === 1 ? (exact ? 'Exactly the ' + inP[0][0] + ' patch' : 'Part of ' + inP[0][0] + ' (weeks ' + inP[0][1] + '–' + inP[0][2] + ')') : 'Spans ' + inP.length + ' patches: ' + (inP.length <= 3 ? inP.map(x => x[0]).join(', ') : inP[0][0] + ' → ' + inP[inP.length - 1][0])) + (s.pending != null ? ' · now pick an end week' : '');
+
+    // headline
+    const RD = {
+      EU: { range: { m: 13, len: '33:13', a: 7, s: 6, h: 25, p: 28 }, w60: { m: 6, len: '31:13', a: 4, s: 2, h: 22, p: 24 }, w61: { m: 7, len: '34:56', a: 3, s: 4, h: 24, p: 24 }, d: { m: '+1', len: '+3:43', split: 'Amber −1, Sapphire +2', h: '+2', p: '±0' } },
+      NA: { range: { m: 5, len: '31:41', a: 2, s: 3, h: 23, p: 24 }, w60: { m: 5, len: '31:41', a: 2, s: 3, h: 23, p: 24 }, w61: null, d: null },
+      All: { range: { m: 18, len: '32:48', a: 9, s: 9, h: 26, p: 52 }, w60: { m: 11, len: '31:25', a: 6, s: 5, h: 26, p: 48 }, w61: { m: 7, len: '34:56', a: 3, s: 4, h: 24, p: 24 }, d: { m: '−4', len: '+3:31', split: 'Amber −3, Sapphire −1', h: '−2', p: '−24' } },
+    };
+    if (isAll) {
+      const eu = Math.round(rangeMatches * 0.636), na = rangeMatches - eu, ea = Math.round(eu * 0.52), nA = Math.round(na / 2);
+      RD.EU.range = { m: eu, len: '33:02', a: ea, s: eu - ea, h: 38, p: 186 };
+      RD.NA.range = { m: na, len: '31:20', a: nA, s: na - nA, h: 37, p: 142 };
+      RD.All.range = { m: rangeMatches, len: '32:24', a: ea + nA, s: rangeMatches - ea - nA, h: 38, p: 301 };
+    } else if (!(ra === 60 && rb === 61)) {
+      const f = rangeMatches / 18;
+      ['EU', 'NA', 'All'].forEach(k => { const r = RD[k].range; const m = Math.max(1, Math.round(r.m * f)); const am = Math.round(m * r.a / (r.a + r.s)); RD[k].range = { ...r, m, a: am, s: m - am, h: Math.min(38, r.h + Math.round(Math.log2(Math.max(1, f)) * 4)), p: Math.round(r.p * Math.max(1, Math.sqrt(f))) }; });
+    }
+    const MET = [['m', 'Matches'], ['len', 'Avg match length'], ['split', 'Side win split'], ['h', 'Unique heroes'], ['p', 'Unique players']];
+    const fmtN = (v) => typeof v === 'number' ? v.toLocaleString('en-GB') : v;
+    const HATCH = 'repeating-linear-gradient(135deg, transparent 0 6px, oklch(100% 0 none / 0.03) 6px 12px)';
+    const cell = (r, k, o = {}) => {
+      const src = 'src' in o ? o.src : RD[r].range;
+      const ng = o.ng ?? (!RD[r].d || empty);
+      const d = o.d !== undefined ? o.d : (empty ? 'No games in range' : ng ? 'No games last week' : RD[r].d[k]);
+      const base = { bstyle: ng ? 'dashed' : 'solid', dc: ng ? 'var(--color-dim)' : 'var(--color-secondary)', dfs: ng ? 'italic' : 'normal', d, bg: ng ? HATCH : 'transparent', w: '0%', bar: 'var(--color-accent)', track: 'var(--color-input)' };
+      if (!src || empty) return { ...base, notSplit: true, v: '—' };
+      if (k === 'split') { const sh = src.a / (src.a + src.s) * 100; return { ...base, isSplit: true, a: fmtN(src.a), s: fmtN(src.s), aw: sh + '%', v: fmtN(src.a) + '–' + fmtN(src.s), w: sh + '%', bar: 'var(--color-team-amber)', track: 'var(--color-team-sapphire)' }; }
+      return { ...base, notSplit: true, v: fmtN(src[k]) };
+    };
+    const mkTiles = (r) => MET.map(([k, label]) => ({ label, ...cell(r, k) }));
+    const rowRegions = region === 'All' ? ['EU', 'NA'] : [region];
+    const tileRows = rowRegions.map(r => { const t = mkTiles(r); return { region: r, sub: empty ? '0 games' : fmtN(RD[r].range.m) + ' games', tiles: t, cells: t, badge: !RD[r].d && !empty }; });
+    const metricLabels = MET.map(m => m[1]);
+    const toSec = (t) => { const [m1, s1] = String(t).split(':').map(Number); return m1 * 60 + s1; };
+    const num = (src, k) => !src ? 0 : k === 'len' ? toSec(src.len) : src[k];
+    let vs;
+    if (region === 'All') {
+      vs = { left: { title: 'EU', sub: tileRows[0].sub }, right: { title: 'NA', sub: (empty ? '0 games' : fmtN(RD.NA.range.m) + ' games') + (empty ? '' : ' · no games in week 61'), subC: 'var(--color-warning)' },
+        rows: MET.map(([k, label]) => { const l = cell('EU', k), r = cell('NA', k); if (k !== 'split') { const x = num(RD.EU.range, k), y = num(RD.NA.range, k), mx = Math.max(x, y) || 1; l.w = (x / mx * 100) + '%'; r.w = (y / mx * 100) + '%'; } return { label, mid: '', l, r }; }) };
+    } else {
+      const R0 = RD[region];
+      vs = { left: { title: 'Week 60', sub: R0.w60 ? R0.w60.m + ' games' : 'No games' }, right: { title: 'Week 61', sub: R0.w61 ? R0.w61.m + ' games' : 'No games played', subC: R0.w61 ? 'var(--color-dim)' : 'var(--color-warning)' },
+        rows: MET.map(([k, label]) => { const l = cell(region, k, { src: R0.w60, ng: false, d: '' }), r = cell(region, k, { src: R0.w61, ng: !R0.w61, d: R0.w61 ? '' : 'No games' }); if (k !== 'split') { const x = num(R0.w60, k), y = num(R0.w61, k), mx = Math.max(x, y) || 1; l.w = (x / mx * 100) + '%'; r.w = (y / mx * 100) + '%'; } return { label, mid: R0.d ? R0.d[k] : 'No change yet', l, r }; }) };
+    }
+    const LR = region === 'All' ? RD.All : RD[region];
+    const leadLines = (k) => region === 'All'
+      ? ['EU', 'NA'].map(r => { const c = cell(r, k); return { k: r, v: c.v, d: c.d, dc: c.dc, dfs: c.dfs }; })
+      : [['Wk 60', LR.w60], ['Wk 61', LR.w61]].map(([lab, src]) => { const c = cell(region, k, { src, ng: !src, d: src ? '' : 'No games' }); return { k: lab, v: src ? c.v : '', d: c.d, dc: c.dc, dfs: c.dfs }; });
+    const lead = {
+      kicker: 'Night Shift · ' + weeksLabel + ' · ' + (region === 'All' ? 'All regions' : region),
+      big: empty ? '0' : fmtN(LR.range.m),
+      bigSub: empty ? 'No games in range' : LR.w61 ? LR.w61.m + ' in week 61 · ' + LR.w60.m + ' in week 60 (' + LR.d.m + ')' : 'No games in week 61 · ' + LR.w60.m + ' in week 60',
+      split: region === 'All'
+        ? [{ label: 'EU · ' + fmtN(RD.EU.range.m), flex: RD.EU.range.m, bg: 'var(--color-accent)' }, { label: 'NA · ' + fmtN(RD.NA.range.m), flex: RD.NA.range.m, bg: 'var(--color-muted)' }]
+        : [{ label: 'Week 60 · ' + (LR.w60 ? LR.w60.m : 0), flex: LR.w60 ? LR.w60.m : 0, bg: 'var(--color-muted)' }, { label: 'Week 61 · ' + (LR.w61 ? LR.w61.m : 0), flex: LR.w61 ? LR.w61.m : 0.0001, bg: 'var(--color-accent)' }],
+      metrics: MET.slice(1).map(([k, label]) => { const src = LR.range; const c = empty ? { notSplit: true, v: '—' } : k === 'split' ? { isSplit: true, a: fmtN(src.a), s: fmtN(src.s) } : { notSplit: true, v: fmtN(src[k]) }; return { label, ...c, lines: leadLines(k) }; }),
+    };
+    const hl = p.headline ?? 'strip';
+
+    // overview
+    const SIDE = [LR.range.a, LR.range.s];
+    const side = { a: SIDE[0], s: SIDE[1], ap: Math.round(SIDE[0] / (SIDE[0] + SIDE[1]) * 100) + '%', sp: Math.round(SIDE[1] / (SIDE[0] + SIDE[1]) * 100) + '%', aw: (SIDE[0] / (SIDE[0] + SIDE[1]) * 100) + '%' };
+    const WEEKS = [54, 55, 56, 57, 58, 59, 60, 61];
+    const TREND = { All: [52, 48, 55, 46, 50, 58, 55, 43], EU: [50, 57, 50, 50, 60, 57, 67, 43], NA: [50, 40, 60, 40, 50, 60, 40, null] }[region];
+    const xs = WEEKS.map((_, i) => 15 + i * (270 / 7));
+    const ty = (v) => 10 + (70 - v) * (70 / 40);
+    const pts = TREND.map((v, i) => v == null ? null : [xs[i], ty(v)]).filter(Boolean);
+    const last = pts[pts.length - 1];
+    const trend = {
+      points: pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '),
+      lastX: last[0], lastY: last[1], bandX: rb < 54 ? 0 : xs[Math.max(0, ra - 54)] - 14, bandW: rb < 54 ? 0 : xs[Math.min(7, rb - 54)] - xs[Math.max(0, ra - 54)] + 28,
+      labels: WEEKS.map((w, i) => ({ label: 'Wk ' + w, left: (xs[i] / 3) + '%', fg: w >= ra && w <= rb ? 'var(--color-accent-light)' : 'var(--color-dim)' })).filter((_, i) => isDesktop || i % 2 === 1),
+    };
+    const EUF = { 54: 6, 55: 7, 56: 6, 57: 8, 58: 5, 59: 7, 60: 6, 61: 7 };
+    const regVal = (w) => region === 'All' ? WEEKLY[w] : region === 'EU' ? (EUF[w] ?? Math.round(WEEKLY[w] * 0.64)) : WEEKLY[w] - (EUF[w] ?? Math.round(WEEKLY[w] * 0.64));
+    const barWeeks = isAll ? Array.from({ length: 61 }, (_, i) => i + 1) : Array.from({ length: Math.max(8, rb - ra + 1) }, (_, i) => Math.max(rb, 8) - Math.max(8, rb - ra + 1) + 1 + i);
+    const barMax = Math.max(...barWeeks.map(regVal), 1);
+    const dense = barWeeks.length > 16;
+    const weekBars = barWeeks.map(w => { const on = w >= ra && w <= rb, n = regVal(w); return { w: dense ? (w === 1 || w % 10 === 0 ? w : '') : w, n: dense ? '' : n, h: (n ? n / barMax * 82 : 1) + '%', bg: on ? 'var(--color-accent-gradient)' : 'var(--color-hover)', fg: on ? 'var(--color-accent-light)' : 'var(--color-dim)' }; });
+    const buckets = [['20–25', 3], ['25–30', 5], ['30–35', 4], ['35–40', 3], ['40–45', 3]].map(([l, n]) => ({ l, n, h: (n / 5 * 80) + '%', bg: l === '30–35' ? 'var(--color-accent)' : 'var(--color-hover)' }));
+    const lengthCallouts = [
+      { label: 'Average', v: '32:48', sub: 'Across 18 games', fg: 'var(--color-accent-light)' },
+      { label: 'Shortest', v: '24:10', sub: 'Leviathan vs Abrahams', fg: 'var(--color-primary)' },
+      { label: 'Longest', v: '44:27', sub: 'Buff Enjoyers vs Leviathan', fg: 'var(--color-primary)' },
+    ];
+    const thisWeek = [
+      { kicker: 'Biggest riser', hasImg: true, img: heroImg('Mo & Krill'), value: '+28.6', line: 'Mo & Krill', sub: 'Pick rate 77.8%, up from 49.2%' },
+      { kicker: 'Record set', hasImg: true, img: heroImg('Celeste'), value: '15', line: LONG, sub: 'Most kills · Celeste · Week 61' },
+      { kicker: 'Longest game', value: '44:27', line: 'Buff Enjoyers vs Leviathan', sub: 'Week 61 · EU' },
+      { kicker: 'Side swing', value: '4–3', line: 'Sapphire took EU week 61', sub: 'Amber led EU 4–2 in week 60' },
+    ];
+
+    // heroes
+    const HEROES = [['Venator',16,2,8],['Celeste',15,1,4],['Yamato',14,3,9],['Shiv',14,2,8],['Mo & Krill',14,4,10],['Mina',13,1,4],['Holliday',13,3,8],['Paige',12,0,6],['Rem',11,2,5],['Grey Talon',11,1,5],['Bebop',9,5,5],['Pocket',8,6,6],['Wraith',8,4,4],['Haze',7,3,2],['Abrams',7,0,3],['Infernus',6,2,4],['Lady Geist',6,1,2],['Seven',5,3,3],['Vindicta',5,0,1],['Kelvin',4,2,3],['Dynamo',4,1,2],['Ivy',4,0,1],['Lash',3,2,2],['Warden',3,0,1],['McGinnis',2,1,1],['Victor',2,0,0]];
+    const winC = (w) => w > 52.5 ? 'var(--color-success)' : w < 47.5 ? 'var(--color-danger-text)' : 'var(--color-secondary)';
+    const heroes = HEROES.map(([name, picks, bans, wins]) => {
+      const pk = picks / G * 100, bn = bans / G * 100, ct = Math.min(100, (picks + bans) / G * 100), w = wins / picks * 100;
+      return { name, picks, bans, img: heroImg(name), pk, bn, ct, w, pickS: pct(pk), pickW: pk + '%', banS: pct(bn), contestS: pct(ct), winS: pct(w), winC: winC(w), winL: Math.min(w, 50) + '%', winW: Math.max(Math.abs(w - 50), 1) + '%' };
+    });
+    const sv = { hero: h => h.name, picks: h => h.picks, pick: h => h.picks, bans: h => h.bans, ban: h => h.bans, contest: h => h.ct, win: h => h.w };
+    const sorted = [...heroes].sort((a, b) => {
+      const A = sv[s.sortK](a), B = sv[s.sortK](b);
+      return (typeof A === 'string' ? A.localeCompare(B) : A - B) * s.sortD || b.picks - a.picks;
+    });
+    const heroRows = compact ? sorted.slice(0, 5) : sorted;
+    const hd = {};
+    Object.keys(sv).forEach(k => {
+      const on = s.sortK === k;
+      hd[k] = { arrow: on ? (s.sortD < 0 ? '▾' : '▴') : '', color: on ? 'var(--color-accent-light)' : 'var(--color-dim)', onClick: () => this.setState(st => ({ sortK: k, sortD: st.sortK === k ? -st.sortD : (k === 'hero' ? 1 : -1) })) };
+    });
+    const sortName = { hero: 'Hero', picks: 'Picks', pick: 'Pick %', bans: 'Bans', ban: 'Ban %', contest: 'Contest %', win: 'Win %' }[s.sortK];
+    const seen = {};
+    const scatter = heroes.map(h => {
+      const key = h.pk.toFixed(1) + '|' + h.w.toFixed(1);
+      const off = (seen[key] = (seen[key] || 0) + 1) - 1;
+      const x = h.pk + off * 3.2, y = h.w;
+      return { name: h.name, img: h.img, tip: h.name + ' · pick ' + h.pickS + ' · win ' + h.winS, left: `calc(18px + (100% - 36px) * ${x / 100})`, bottom: `calc(18px + (100% - 36px) * ${y / 100})`, size: isMobile ? '22px' : '30px', ring: h.winC };
+    });
+    const RISE = [['Mo & Krill', '+28.6'], ['Pocket', '+24.2'], ['Holliday', '+21.0'], ['Kelvin', '+16.7'], ['Yamato', '+14.3']].map(([n, d]) => ({ name: n, d, img: heroImg(n), c: 'var(--color-success)' }));
+    const FALL = [['Celeste', '−19.8'], ['Haze', '−17.5'], ['Mina', '−15.1'], ['Vindicta', '−14.3'], ['Lady Geist', '−11.1']].map(([n, d]) => ({ name: n, d, img: heroImg(n), c: 'var(--color-danger-text)' }));
+    const mostBanned = [...heroes].sort((a, b) => b.bans - a.bans).slice(0, 5).map((h, i) => ({ rank: i + 1, name: h.name, img: h.img, bans: h.bans, w: (h.bans / 6 * 100) + '%' }));
+    const riseFallTop = isMobile ? [RISE[0], RISE[1], RISE[2], FALL[0], FALL[1], FALL[2]] : [RISE[0], FALL[0], RISE[1], FALL[1], RISE[2], FALL[2]];
+
+    // records
+    const R = [
+      ['kills', 'Most kills', [[15, LONG, 'Celeste', 61], [15, 'arzo', 'Venator', 61], [14, 'fool', 'Rat King', 60], [13, 'empty dreams', 'Pocket', 60], [13, 'together', 'Haze', 61]]],
+      ['assists', 'Most assists', [[28, 'saint', 'Paige', 61], [27, 'ABL', 'Yamato', 60], [27, 'Saf', 'Bebop', 61], [26, 'cosmetical', 'Yamato', 60], [25, 'obikym', 'Rem', 61]]],
+      ['pdmg', 'Most player damage', [[60681, 'no serenity', 'Grey Talon', 61], [59264, 'empty dreams', 'Pocket', 60], [57404, 'qult', 'Haze', 61], [55912, 'arzo', 'Venator', 60], [54380, 'sanya_sniper', 'Venator', 61]]],
+      ['odmg', 'Most objective damage', [[30095, 'Zerggy', 'Wraith', 61], [27731, 'Zerggy', 'Wraith', 60], [26417, 'Zerggy', 'Wraith', 60], [24880, 'ABL', 'Yamato', 61], [23145, 'together', 'Mo & Krill', 60]]],
+      ['heal', 'Most healing', [[39224, 'obikym', 'Rem', 60], [36685, 'balaclava', 'Rem', 61], [33530, 'IREZUMI', 'Rem', 60], [29775, 'obikym', 'Rem', 61], [27460, 'saint', 'Paige', 60]]],
+      ['souls', 'Highest souls', [[60553, 'empty dreams', 'Pocket', 61], [58154, 'Zerggy', 'Wraith', 60], [56731, 'arzo', 'Mina', 61], [55120, 'Zerggy', 'Wraith', 61], [54608, 'together', 'Haze', 60]]],
+      ['lh', 'Most last hits', [[384, 'empty dreams', 'Pocket', 61], [353, 'empty dreams', 'Mina', 60], [331, 'Zerggy', 'Wraith', 61], [322, 'arzo', 'Mina', 60], [318, 'Zerggy', 'Wraith', 60]]],
+      ['denies', 'Most denies', [[16, 'sanya_sniper', 'Venator', 60], [14, 'Zerggy', 'Wraith', 61], [13, 'sanya_sniper', 'Wraith', 61], [12, 'ABL', 'Yamato', 60], [12, 'cosmetical', 'Shiv', 61]]],
+      ['fast', 'Fastest game', [['24:10', 'Leviathan vs Abrahams', null, 60, 'NA'], ['24:48', 'Buff Enjoyers vs Night Owls', null, 61, 'EU'], ['26:02', 'Abrahams vs Low Ground', null, 60, 'NA'], ['27:15', 'Night Owls vs Leviathan', null, 61, 'EU'], ['27:40', 'Low Ground vs Buff Enjoyers', null, 60, 'EU']]],
+      ['long', 'Longest game', [['44:27', 'Buff Enjoyers vs Leviathan', null, 61, 'EU'], ['43:05', 'Night Owls vs Abrahams', null, 60, 'NA'], ['41:50', 'Leviathan vs Low Ground', null, 61, 'EU'], ['40:12', 'Buff Enjoyers vs Night Owls', null, 60, 'EU'], ['38:44', 'Abrahams vs Leviathan', null, 61, 'EU']]],
+    ];
+    const ent = (e, i) => {
+      const hi = e[2] ? heroImg(e[2]) : null;
+      return { rank: i + 1, vs: typeof e[0] === 'number' ? e[0].toLocaleString('en-GB') : e[0], player: e[1], img: hi, hasImg: !!hi, noImg: !hi, initials: e[2] ? initials(e[2]) : 'VS', meta: (e[2] ? e[2] + ' · ' : (e[4] ? e[4] + ' · ' : '')) + 'Week ' + e[3] };
+    };
+    let recs = R.map(([id, label, es]) => {
+      const open = expanded === id;
+      return { id, label, top: ent(es[0], 0), rest: es.slice(1).map((e, i) => ent(e, i + 1)), open, toggleLabel: open ? 'Top 5 ▴' : 'Top 5 ▾', toggle: () => this.setState(st => ({ expanded: (st.expanded !== undefined ? st.expanded : (p.expanded ?? null)) === id ? null : id })), tbg: open ? 'var(--color-accent-bg-strong)' : 'var(--color-badge-bg)', tbd: open ? 'var(--color-accent-border)' : 'var(--color-border-light)', tfg: open ? 'var(--color-accent-light)' : 'var(--color-secondary)' };
+    });
+    if (compact) recs = recs.slice(0, isMobile ? 2 : 4);
+
+    // leaderboards
+    const PL = [['empty dreams', 8, 60, 'Pocket'], ['together', 6, 41, 'Haze'], ['arzo', 6, 41, 'Venator'], ['sanya_sniper', 8, 53, 'Venator'], ['cosmetical', 6, 39, 'Yamato'], [LONG, 6, 38, 'Celeste'], ['ABL', 8, 45, 'Yamato'], ['Saf', 6, 33, 'Bebop'], ['saint', 6, 29, 'Paige'], ['Zerggy', 8, 37, 'Wraith']];
+    const STATS = [['kills', 'Kills', 0], ['assists', 'Assists', 11], ['damage', 'Damage', 31000], ['obj', 'Obj damage', 9800], ['healing', 'Healing', 8200], ['souls', 'Souls', 34000], ['lh', 'Last hits', 190], ['denies', 'Denies', 6], ['kda', 'KDA', 3.2]];
+    const hash = (str) => { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; };
+    const stat = isDash ? 'kills' : s.lbStat;
+    const mode = isDash ? 'avg' : lbMode;
+    const base = STATS.find(x => x[0] === stat)[2];
+    const big = base >= 1000;
+    const fmtA = (v) => stat === 'kda' ? v.toFixed(2) : big ? Math.round(v).toLocaleString('en-GB') : stat === 'lh' ? Math.round(v).toString() : v.toFixed(1);
+    const fmtT = (v) => stat === 'kda' ? v.toFixed(2) : Math.round(v).toLocaleString('en-GB');
+    const rowsData = PL.map(([name, games, kt, hero]) => {
+      let avg, total;
+      if (stat === 'kills') { total = kt; avg = kt / games; }
+      else { avg = base * (0.7 + 0.6 * hash(name + stat)); total = stat === 'kda' ? avg * (0.95 + 0.1 * hash(stat + name)) : avg * games; }
+      return { name, games, avg, total, hero };
+    });
+    rowsData.sort((a, b) => mode === 'avg' ? b.avg - a.avg : b.total - a.total);
+    const statLabel = STATS.find(x => x[0] === stat)[1];
+    const lbRows = rowsData.slice(0, compact ? 5 : 10).map((r, i) => {
+      const prim = mode === 'avg' ? fmtA(r.avg) : fmtT(r.total);
+      const sec = mode === 'avg' ? fmtT(r.total) : fmtA(r.avg);
+      return { rank: i + 1, rankC: i === 0 ? 'var(--color-accent-light)' : i < 3 ? 'var(--color-primary)' : 'var(--color-dim)', name: r.name, games: r.games, prim, sec, hero: r.hero, heroImg: heroImg(r.hero), mobileSub: r.games + ' games · ' + sec + (mode === 'avg' ? ' total' : ' avg') };
+    });
+    const lbStats = STATS.map(([k, label]) => ({ label, onClick: set({ lbStat: k }), bg: stat === k ? 'var(--color-accent-bg-strong)' : 'var(--color-badge-bg)', bd: stat === k ? 'var(--color-accent-border)' : 'var(--color-border-light)', fg: stat === k ? 'var(--color-accent-light)' : 'var(--color-secondary)' }));
+    const lbModes = [['avg', 'Average'], ['total', 'Total']].map(([k, label]) => ({ label, onClick: set({ lbMode: k }), bg: mode === k ? 'var(--color-accent-bg-strong)' : 'transparent', fg: mode === k ? 'var(--color-accent-light)' : 'var(--color-muted)' }));
+
+    const patchOptions = [{ value: 'cns', label: 'City Never Sleeps' }, { value: 'gu1002', label: 'Gameplay Update 10-02' }, { value: 'gu0917', label: 'Gameplay Update 09-17' }];
+    const regionLabel = region === 'All' ? 'All regions' : region;
+
+    return {
+      frameW: isMobile ? '390px' : '1280px', frameH: sheetOpen ? '844px' : 'auto',
+      pagePad: headlineOnly ? (isMobile ? '16px' : '24px') : (isMobile ? '16px 16px 40px' : '28px 24px 56px'),
+      isMobile, isDesktop, showNav: !headlineOnly, showRail: isSide && isDesktop && !headlineOnly, showTitle: !headlineOnly && !(isSide && isDesktop),
+      titleSize: isMobile ? '30px' : '40px',
+      pageSub: 'Night Shift · ' + weeksLabel + ' · ' + patchLabel + ' · ' + regionLabel,
+      navItems: [{ path: '/', label: 'Matches' }, { path: '/players', label: 'Players' }, { path: '/teams', label: 'Teams' }, { path: '/heroes', label: 'Heroes' }, { path: '/stats', label: 'Stats' }],
+      noop: () => {},
+      tabs, regions, tab, weeksLabel, patch: s.patch, patchOptions,
+      setPatch: (v) => this.setState({ patch: v }), clearPatch: set({ patch: '' }),
+      matchCountLabel: empty ? '0 matches' : fmtN(LR.range.m) + ' matches', patchLabel, pickerOpen, patchBands, presets, rangeSummary, rangeDetail, applyLabel: 'Show ' + rangeMatches + ' matches', togglePicker: () => this.setState(st => ({ picker: !(st.picker ?? !!p.picker) })), closePicker: set({ picker: false }), trigBg: pickerOpen ? 'var(--color-accent-bg)' : 'var(--color-input)', trigBd: pickerOpen ? 'var(--color-accent-border)' : 'var(--color-border-light)',
+      copyLabel: s.copied ? 'Link copied' : 'Copy link',
+      copyLink: () => { this.setState({ copied: true }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ copied: false }), 1600); },
+      openSheet: set({ sheet: true }), closeSheet: set({ sheet: false }), sheetOpen,
+      filterSummary: weeksLabel + ' · ' + patchLabel + ' · ' + regionLabel,
+      headlineNote: empty ? 'No processed games in this range' : 'Totals for ' + weeksLabel.toLowerCase() + ' · change = week 61 vs week 60',
+      tilesLoading: loading, tilesReady: !loading, hlCards: !loading && hl === 'cards', hlStripD: !loading && hl === 'strip' && isDesktop, hlStripM: !loading && hl === 'strip' && isMobile, stripMCols: 'minmax(0,0.9fr) repeat(' + rowRegions.length + ', minmax(0,1fr))', stripRowsM: MET.map(([k, label], i) => ({ label, cells: tileRows.map(r => r.cells[i]) })), leadPadR: isMobile ? '0' : '28px', hlVersus: !loading && hl === 'versus', hlLead: !loading && hl === 'lead', metricLabels, vs, lead, vsMidW: isMobile ? '92px' : '200px', vsBarW: isMobile ? '0px' : '180px', leadCols: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,2.1fr)', leadDivider: isMobile ? 'none' : '1px solid var(--color-border)', leadMetricCols: isMobile ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))', leadKeyW: region === 'All' ? '24px' : '40px', tileSkelCount: isMobile ? 2 : 5, tileRows,
+      rowDir: isMobile ? 'column' : 'row', regionLabelW: isMobile ? 'auto' : '68px', regionLabelDir: isMobile ? 'row' : 'column',
+      showTabBar: isTabs && !headlineOnly, tabPad: isMobile ? '8px 14px' : '8px 20px',
+      showSectionSelect: isSide && isMobile && !headlineOnly,
+      onSectionSelect: (e) => this.setState({ tab: e.target.value }),
+      show: {
+        overview: !headlineOnly && (isDash || tab === 'overview'),
+        heroes: !headlineOnly && (isDash || tab === 'heroes'),
+        records: !headlineOnly && (isDash || tab === 'records'),
+        leaderboards: !headlineOnly && (isDash || tab === 'leaderboards'),
+      },
+      showHeads: !isTabs, seeAll: isDash,
+      goHeroes: (e) => e.preventDefault(), goRecords: (e) => e.preventDefault(), goLeaderboards: (e) => e.preventDefault(),
+      weekCols: isMobile ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))', weekValSize: isMobile ? '24px' : '30px',
+      chartCols: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1.45fr) minmax(0,1fr)', scatterRow: isMobile ? 'auto' : 'span 2', fullSpan: isMobile ? 'auto' : '1 / -1', scatterOvH: isMobile ? '300px' : '520px', barGap: dense ? '2px' : '6px',
+      logoH: isMobile ? '18px' : '34px', sideDir: isMobile ? 'column' : 'row', sideDirR: isMobile ? 'column-reverse' : 'row', sideAlignL: isMobile ? 'flex-start' : 'center', sideAlignR: isMobile ? 'flex-end' : 'center',
+      side, sideSub: 'Hidden King vs Archmother · ' + regionLabel, trend, weekBars, buckets, lengthCallouts, lengthSub: '5-minute buckets · 18 games', thisWeek,
+      heroesLoading: loading, heroesEmpty: empty, heroesReady: !loading && !empty,
+      heroSub: compact ? 'Top 5 by ' + sortName : '26 heroes · 18 games · sorted by ' + sortName + ' · click a row to open the hero',
+      heroCols: isMobile ? 'minmax(0,1fr) 58px 62px 58px' : 'minmax(170px,1.8fr) repeat(6, minmax(56px,1fr))',
+      fullCols: isDesktop, contestLabel: isMobile ? 'Contest' : 'Contest %', hd, heroRows,
+      heroFull: !compact, heroCompact: compact,
+      heroLowerCols: isMobile ? 'minmax(0,1fr)' : 'minmax(0,1.45fr) minmax(0,1fr)',
+      scatterH: isMobile ? '300px' : '420px', scatter, risers: RISE, fallers: FALL, mostBanned, riseFallTop,
+      riserCols: isMobile ? 'minmax(0,1fr)' : 'repeat(2, minmax(0,1fr))',
+      recordCols: isMobile ? 'minmax(0,1fr)' : compact ? 'repeat(4, minmax(0,1fr))' : 'repeat(auto-fill, minmax(230px,1fr))',
+      records: recs,
+      lbFull: !compact, lbCompact: compact, lbStats, lbModes, lbRows,
+      lbCols: isMobile ? '24px minmax(0,1fr) 64px 30px' : '40px minmax(0,1.8fr) 70px 120px 110px minmax(0,1fr)',
+      lbPrimaryLabel: (mode === 'avg' ? 'Avg ' : 'Total ') + statLabel.toLowerCase(),
+      lbSecondaryLabel: mode === 'avg' ? 'Total' : 'Avg / game',
+      topHeroLabel: isMobile ? 'Hero' : 'Top hero', heroHeadAlign: isMobile ? 'right' : 'left', heroCellJustify: isMobile ? 'flex-end' : 'flex-start',
+      sheetWeeks: WEEKS.map(w => { const on = w >= 60; return { label: w, bg: on ? 'var(--color-accent-bg-strong)' : 'var(--color-input)', bd: on ? 'var(--color-accent-border)' : 'var(--color-border-light)', fg: on ? 'var(--color-accent-light)' : 'var(--color-secondary)' }; }),
+      sheetPatches: [['City Never Sleeps', 'Weeks 60–61', true], ['Gameplay Update 10-02', 'Weeks 55–59'], ['Gameplay Update 09-17', 'Weeks 47–54']].map(([label, sub, on]) => ({ label, sub, bg: on ? 'var(--color-accent-bg)' : 'transparent', ring: on ? 'var(--color-accent)' : 'var(--color-border-lighter)', dot: on ? 'var(--color-accent)' : 'transparent' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

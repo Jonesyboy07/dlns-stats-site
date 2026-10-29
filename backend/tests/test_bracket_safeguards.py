@@ -441,6 +441,47 @@ class WeekGuardRouteTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("already has an event", res.get_json()["warning"])
 
+    # -- bans per team -----------------------------------------------------
+
+    @staticmethod
+    def _bans(teams):
+        return [{"order": i + 1, "team": team, "hero_id": 10 + i} for i, team in enumerate(teams)]
+
+    def _save_with_bans(self, teams):
+        return self._save_series(
+            confirm_week=True,
+            games=[{"match_id": 900, "winner": "team_a", "bans": self._bans(teams)}],
+        )
+
+    def test_events_without_the_setting_take_two_bans_each(self):
+        with mock.patch.object(bkmod, "_start_job", return_value="job-1"):
+            ok = self._save_with_bans(["team_a", "team_b", "team_b", "team_a"])
+            rejected = self._save_with_bans(["team_a", "team_a", "team_a", "team_b"])
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(rejected.status_code, 400)
+        self.assertIn("at most 2", rejected.get_json()["error"])
+
+    def test_three_bans_each_accepts_six_slots(self):
+        with mock.patch.object(bkmod, "_start_job", return_value="job-1"):
+            edited = self._edit_event(week=WEEK, bans_per_team=3)
+            saved = self._save_with_bans(["team_a", "team_b", "team_b", "team_a", "team_a", "team_b"])
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual(edited.get_json()["event"]["bans_per_team"], 3)
+        self.assertEqual(saved.status_code, 200)
+        self.assertTrue(saved.get_json()["ok"])
+
+    def test_a_fourth_ban_for_one_team_is_rejected(self):
+        with mock.patch.object(bkmod, "_start_job", return_value="job-1"):
+            self._edit_event(week=WEEK, bans_per_team=3)
+            rejected = self._save_with_bans(["team_a"] * 4 + ["team_b"] * 2)
+        self.assertEqual(rejected.status_code, 400)
+        self.assertIn("at most 3", rejected.get_json()["error"])
+
+    def test_an_unsupported_count_is_rejected(self):
+        res = self._edit_event(week=WEEK, bans_per_team=4)
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Bans per team", res.get_json()["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

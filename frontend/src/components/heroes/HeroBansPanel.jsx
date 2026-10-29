@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import Panel from "../player/Panel";
 import { formatPercent } from "../../utils/heroPages";
 
-const BAN_SLOTS = [1, 2, 3, 4];
+const BAN_SLOT_NUMBERS = (byOrder) => {
+  const highest = Math.max(0, ...Object.keys(byOrder || {}).map((k) => Number(k) || 0));
+  return Array.from({ length: Math.max(4, highest) }, (_, i) => i + 1);
+};
 
 /**
  * Bans: how often this hero is banned in games with a recorded ban draft
@@ -42,7 +45,7 @@ function HeroBansPanel({ data, failed }) {
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-[.05em] text-dim">By ban slot</div>
             <div className="grid grid-cols-4 gap-2">
-              {BAN_SLOTS.map((slot) => (
+              {BAN_SLOT_NUMBERS(data.by_order).map((slot) => (
                 <div key={slot} className="rounded border border-border px-2 py-1.5 text-center">
                   <div className="text-[11px] text-dim">Ban {slot}</div>
                   <div className="text-[15px] font-semibold text-primary">{data.by_order?.[slot] ?? 0}</div>

@@ -101,9 +101,30 @@ function BanPatternSelect({ id, value, onChange }) {
   );
 }
 
-function CreateEvent({ onCreated, onCancel, defaultBanPattern }) {
+function BansPerTeamSelect({ id, value, onChange }) {
+  return (
+    <label className={labelCls}>
+      <span className="text-gray-300">Bans per team</span>
+      <select
+        id={id}
+        value={perTeamOf(value)}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={inputCls}
+      >
+        {Object.entries(BANS_PER_TEAM).map(([count, label]) => (
+          <option key={count} value={count}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function CreateEvent({ onCreated, onCancel, defaultBanPattern, defaultBansPerTeam }) {
   const [title, setTitle] = useState('Night Shift');
   const [banPattern, setBanPattern] = useState(defaultBanPattern || DEFAULT_BAN_PATTERN);
+  const [bansPerTeam, setBansPerTeam] = useState(perTeamOf(defaultBansPerTeam));
   const [week, setWeek] = useState('');
   const [region, setRegion] = useState('EU');
   const [format, setFormat] = useState('gauntlet');
@@ -134,7 +155,7 @@ function CreateEvent({ onCreated, onCancel, defaultBanPattern }) {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    const body = { title, week, region, format, teams, ban_pattern: banPattern };
+    const body = { title, week, region, format, teams, ban_pattern: banPattern, bans_per_team: bansPerTeam };
     if (format === 'gauntlet') {
       body.round_names = rounds.map((r) => r.name);
       body.best_of = rounds.map((r) => Number(r.best_of) || 1);
@@ -177,8 +198,9 @@ function CreateEvent({ onCreated, onCancel, defaultBanPattern }) {
           <input id="ev-region" value={region} onChange={(e) => setRegion(e.target.value)} className={inputCls} placeholder="EU" />
         </label>
       </div>
-      <div className="max-w-xs">
+      <div className="grid md:grid-cols-2 gap-3 max-w-xl">
         <BanPatternSelect id="ev-ban-pattern" value={banPattern} onChange={setBanPattern} />
+        <BansPerTeamSelect id="ev-bans-per-team" value={bansPerTeam} onChange={setBansPerTeam} />
       </div>
 
       <div className="space-y-2">
@@ -376,9 +398,13 @@ export function Board({ event, selectedId, onSelect }) {
 // Ban draft
 // ---------------------------------------------------------------------------
 
-// Bans are made outside the game. Each team bans twice; the event's ban order
-// determines each slot, or uses one ban per team in each round.
-export const BAN_SLOTS = 4;
+// Bans are made outside the game. The event sets how many each team gets and the
+// order they come in, or uses one ban per team in each round.
+export const BANS_PER_TEAM = {
+  2: 'Two per team (4 bans)',
+  3: 'Three per team (6 bans)',
+};
+export const DEFAULT_BANS_PER_TEAM = 2;
 export const BAN_PATTERNS = {
   ABBA: 'A, B, B, A',
   ABAB: 'A, B, A, B',
@@ -388,42 +414,63 @@ export const BAN_PATTERNS = {
 export const DEFAULT_BAN_PATTERN = 'ABBA';
 const otherTeam = (slot) => (slot === 'team_a' ? 'team_b' : 'team_a');
 const patternOf = (pattern) => (BAN_PATTERNS[pattern] ? pattern : DEFAULT_BAN_PATTERN);
-export const banTeam = (first, i, pattern) => {
-  const currentPattern = patternOf(pattern);
-  if (currentPattern === 'ROUND') return i % 2 === 0 ? 'team_a' : 'team_b';
-  return currentPattern[i] === 'A' ? first : otherTeam(first);
+export const perTeamOf = (value) => (BANS_PER_TEAM[Number(value)] ? Number(value) : DEFAULT_BANS_PER_TEAM);
+export const banSlots = (perTeam) => 2 * perTeamOf(perTeam);
+/**
+ * Which side ('A' = the team that bans first) takes each slot, for `perTeam` bans
+ * each. Mirrors `ban_order()` in backend/app/utils/brackets.py: ABBA mirrors every
+ * round, ABAB gives the first-ban team the opener, AABB is one team then the other.
+ */
+export const banOrderSlots = (pattern, perTeam) => {
+  const rounds = perTeamOf(perTeam);
+  const current = patternOf(pattern);
+  if (current === 'AABB') {
+    return [...Array(rounds).fill('A'), ...Array(rounds).fill('B')];
+  }
+  const slots = [];
+  for (let round = 0; round < rounds; round += 1) {
+    const mirrored = current === 'ABBA' && round % 2 === 1;
+    slots.push(...(mirrored ? ['B', 'A'] : ['A', 'B']));
+  }
+  return slots;
+};
+export const banTeam = (first, i, pattern, perTeam) => {
+  if (patternOf(pattern) === 'ROUND') return i % 2 === 0 ? 'team_a' : 'team_b';
+  return banOrderSlots(pattern, perTeam)[i] === 'A' ? first : otherTeam(first);
 };
 
-export const toBanForm = (bans, pattern) => {
+export const toBanForm = (bans, pattern, perTeam) => {
   const saved = bans || [];
+  const slots = banSlots(perTeam);
   // The first-ban team follows from any saved ban and the slot it sits in.
   const any = saved[0];
   const currentPattern = patternOf(pattern);
+  const slotTeams = banOrderSlots(currentPattern, perTeam);
   const first = !any || currentPattern === 'ROUND'
     ? 'team_a'
-    : currentPattern[any.order - 1] === 'A'
+    : slotTeams[any.order - 1] === 'A'
       ? any.team
       : otherTeam(any.team);
   return {
     first,
-    heroes: Array.from({ length: BAN_SLOTS }, (_, i) => {
+    heroes: Array.from({ length: slots }, (_, i) => {
       const b = saved.find((x) => x.order === i + 1);
       return b?.hero_id != null ? String(b.hero_id) : '';
     }),
-    teams: Array.from({ length: BAN_SLOTS }, (_, i) => {
+    teams: Array.from({ length: slots }, (_, i) => {
       const b = saved.find((x) => x.order === i + 1);
       return b?.team || '';
     }),
   };
 };
 
-export const banPayload = (draft, pattern) =>
+export const banPayload = (draft, pattern, perTeam) =>
   draft.heroes
     .map((hero_id, i) => {
       const team =
         patternOf(pattern) === 'ROUND' && draft.teams?.[i]
           ? draft.teams[i]
-          : banTeam(draft.first, i, pattern);
+          : banTeam(draft.first, i, pattern, perTeam);
       return { order: i + 1, team, hero_id };
     })
     .filter((b) => b.hero_id)
@@ -445,11 +492,13 @@ export function useHeroes() {
   return { heroes, sorted };
 }
 
-function BanDraft({ gameIndex, draft, pattern, onChange, heroes, sortedHeroes, teamA, teamB }) {
+function BanDraft({ gameIndex, draft, pattern, perTeam, onChange, heroes, sortedHeroes, teamA, teamB }) {
   const [open, setOpen] = useState(() => draft.heroes.some(Boolean));
   const filled = draft.heroes.filter(Boolean).length;
   const taken = new Set(draft.heroes.filter(Boolean));
   const names = { team_a: teamA || 'Team A', team_b: teamB || 'Team B' };
+  const slots = banSlots(perTeam);
+  const rounds = perTeamOf(perTeam);
   const setHero = (i, hero) => onChange({ ...draft, heroes: draft.heroes.map((h, idx) => (idx === i ? hero : h)) });
 
   return (
@@ -461,7 +510,7 @@ function BanDraft({ gameIndex, draft, pattern, onChange, heroes, sortedHeroes, t
         aria-expanded={open}
       >
         <span>
-          Bans ({filled}/{BAN_SLOTS})
+          Bans ({filled}/{slots})
           {patternOf(pattern) === 'ROUND' ? ' · Round-based' : filled > 0 && ` · ${names[draft.first]} first`}
         </span>
         <span className="text-gray-500">{open ? 'Hide' : 'Edit'}</span>
@@ -500,7 +549,9 @@ function BanDraft({ gameIndex, draft, pattern, onChange, heroes, sortedHeroes, t
             <React.Fragment key={i}>
               {patternOf(pattern) === 'ROUND' && i % 2 === 0 && (
                 <div className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  {i === 0 ? 'First round of bans' : 'Second round of bans'}
+                  {rounds === 2
+                    ? (i === 0 ? 'First round of bans' : 'Second round of bans')
+                    : `Round ${i / 2 + 1} of ${rounds}`}
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-2">
@@ -508,7 +559,7 @@ function BanDraft({ gameIndex, draft, pattern, onChange, heroes, sortedHeroes, t
                 {patternOf(pattern) === 'ROUND' ? `Ban ${(i % 2) + 1}` : `Ban ${i + 1}`}
               </span>
               <span className="text-xs text-gray-300 w-32 truncate">
-                {names[patternOf(pattern) === 'ROUND' && draft.teams?.[i] ? draft.teams[i] : banTeam(draft.first, i, pattern)]}
+                {names[patternOf(pattern) === 'ROUND' && draft.teams?.[i] ? draft.teams[i] : banTeam(draft.first, i, pattern, perTeam)]}
               </span>
               <HeroIcon name={heroes[hero]} size="h-6 w-6" />
               <select
@@ -533,7 +584,7 @@ function BanDraft({ gameIndex, draft, pattern, onChange, heroes, sortedHeroes, t
   );
 }
 
-const toForm = (series, pattern) => ({
+const toForm = (series, pattern, perTeam) => ({
   team_a: series.team_a || '',
   team_b: series.team_b || '',
   vod: series.vod || '',
@@ -546,7 +597,7 @@ const toForm = (series, pattern) => ({
     // Older games were saved without a pick; fall back to the result already in stats.
     winner: g.winner || g.result || '',
     vod: g.vod || '',
-    bans: toBanForm(g.bans, pattern),
+    bans: toBanForm(g.bans, pattern, perTeam),
     ingested: Boolean(g.ingested),
   })),
   dq: series.outcome?.type === 'dq'
@@ -582,7 +633,8 @@ function CheckLine({ check, teamA, teamB }) {
 }
 
 function SeriesEditor({ event, series, onSaved }) {
-  const [form, setForm] = useState(() => toForm(series, event.ban_pattern));
+  const perTeam = perTeamOf(event.bans_per_team);
+  const [form, setForm] = useState(() => toForm(series, event.ban_pattern, perTeam));
   const [checks, setChecks] = useState({});
   const { heroes, sorted: sortedHeroes } = useHeroes();
   const [saving, setSaving] = useState(false);
@@ -591,7 +643,7 @@ function SeriesEditor({ event, series, onSaved }) {
   const [weekWarning, setWeekWarning] = useState('');
 
   useEffect(() => {
-    setForm(toForm(series, event.ban_pattern));
+    setForm(toForm(series, event.ban_pattern, perTeam));
     setChecks({});
     setJob(null);
     setError('');
@@ -644,7 +696,7 @@ function SeriesEditor({ event, series, onSaved }) {
           placeholder_id: g.placeholder_id,
           winner: g.winner,
           vod: g.vod,
-          bans: banPayload(g.bans, banPattern),
+          bans: banPayload(g.bans, banPattern, perTeam),
         })),
         outcome: form.dq ? { type: 'dq', ...form.dq } : null,
         confirm_week: confirmed,
@@ -804,6 +856,7 @@ function SeriesEditor({ event, series, onSaved }) {
                   gameIndex={i}
                   draft={g.bans}
                   pattern={banPattern}
+                  perTeam={perTeam}
                   onChange={(bans) => setGame(i, { bans })}
                   heroes={heroes}
                   sortedHeroes={sortedHeroes}
@@ -815,7 +868,7 @@ function SeriesEditor({ event, series, onSaved }) {
           );
         })}
         {form.games.length < series.best_of && (
-          <button type="button" onClick={() => setForm((f) => ({ ...f, games: [...f.games, { match_id: '', forfeit: false, unavailable: false, placeholder_id: null, winner: '', vod: '', bans: toBanForm() }] }))} className={btnGhost}>
+          <button type="button" onClick={() => setForm((f) => ({ ...f, games: [...f.games, { match_id: '', forfeit: false, unavailable: false, placeholder_id: null, winner: '', vod: '', bans: toBanForm(undefined, banPattern, perTeam) }] }))} className={btnGhost}>
             + Add game
           </button>
         )}
@@ -916,6 +969,7 @@ const BEST_OF_CHOICES = [1, 3, 5, 7];
 const toEventForm = (event) => ({
   title: event.title || '',
   ban_pattern: event.ban_pattern || DEFAULT_BAN_PATTERN,
+  bans_per_team: perTeamOf(event.bans_per_team),
   week: event.week ?? '',
   region: event.region || '',
   rounds: (event.rounds || []).map((r) => ({ round: r.round, name: r.name || '', best_of: r.best_of || 1 })),
@@ -986,6 +1040,7 @@ function EventEditor({ event, onChanged, onClose }) {
             week: form.week,
             region: form.region,
             ban_pattern: form.ban_pattern,
+            bans_per_team: form.bans_per_team,
             rounds: form.rounds,
             teams,
             confirm_week: confirmed,
@@ -1047,9 +1102,19 @@ function EventEditor({ event, onChanged, onClose }) {
           <input id="edit-region" value={form.region} onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))} className={inputCls} />
         </label>
       </div>
-      <div className="max-w-xs space-y-1">
-        <BanPatternSelect id="edit-ban-pattern" value={form.ban_pattern} onChange={(v) => setForm((f) => ({ ...f, ban_pattern: v }))} />
-        <p className="text-xs text-gray-500">Default for the event; individual series can override this setting.</p>
+      <div className="grid md:grid-cols-2 gap-3 max-w-xl">
+        <div className="space-y-1">
+          <BanPatternSelect id="edit-ban-pattern" value={form.ban_pattern} onChange={(v) => setForm((f) => ({ ...f, ban_pattern: v }))} />
+          <p className="text-xs text-gray-500">Default for the event; individual series can override this setting.</p>
+        </div>
+        <div className="space-y-1">
+          <BansPerTeamSelect
+            id="edit-bans-per-team"
+            value={form.bans_per_team}
+            onChange={(v) => setForm((f) => ({ ...f, bans_per_team: v }))}
+          />
+          <p className="text-xs text-gray-500">Changing this only affects ban drafts you edit after saving.</p>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -1341,6 +1406,7 @@ export function BracketAdmin() {
       {creating ? (
         <CreateEvent
           defaultBanPattern={events[0]?.ban_pattern}
+          defaultBansPerTeam={events[0]?.bans_per_team}
           onCancel={events.length ? () => setCreating(false) : null}
           onCreated={async (ev, warning) => {
             setCreating(false);

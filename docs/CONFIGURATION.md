@@ -102,6 +102,25 @@ curl -sI https://dlns-stats.co.uk/players | grep -Ei 'HTTP/|location'
 
 The first two must be a single `301` to `https://dlns-stats.co.uk/players`; the last must be `200`. Canonical links, `og:url`, `sitemap.xml` and IndexNow already use `BASE_URL`, so set it to `https://dlns-stats.co.uk`.
 
+### Stale redirects in one browser profile
+
+A `301` is cacheable **indefinitely** when the response carries no `Cache-Control`. If the edge or origin ever emits a redirect while the proxy chain reports the wrong scheme (a `TRUSTED_PROXIES` mismatch, or a Render/Flexible-SSL slip), that profile stores the redirect and keeps replaying it after the config is fixed. Symptoms:
+
+- The page shell loads, but every `/db/*` call fails with `Failed to fetch`.
+- DevTools shows `301` responses with `Size: (disk cache)` and the console ends in `net::ERR_TOO_MANY_REDIRECTS`.
+- The same URL works in another browser profile, in incognito, or with **Disable cache** ticked.
+
+`backend/app/canonical_host.py` now sends `Cache-Control: no-store` with its `301`, but redirects issued by Cloudflare are outside Flask's control. To clear an affected profile:
+
+1. Close every Chrome window for that profile and confirm no `chrome.exe` remains in Task Manager; a redirect held in a live process is rewritten on shutdown.
+2. Delete the profile's cache directories while Chrome is closed. These hold no account data, so they are safe to remove:
+   - `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\Cache\Cache_Data`
+   - `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\Code Cache`
+3. Relaunch and load a URL that was failing. If `…/db/weeks?event_title=Night%20Shift&x=1` returns JSON while the plain URL still redirects, the redirect is keyed to that exact URL and step 2 was not applied to the profile in use.
+4. If it still redirects, reset the profile's transport state with `…\<Profile>\Network\TransportSecurity` (HSTS cache, still no logins lost). Deleting `…\<Profile>\Network\Cookies` clears the remaining state but signs the profile out of every site.
+
+Optionally add a Cloudflare **Rules → Transform Rules → Modify Response Header** entry setting `Cache-Control: no-store` when the response status is `301`, so edge redirects are not cached either.
+
 ## Search Console, Bing and IndexNow
 
 Ownership verification tags are rendered from environment variables, so no template edits are needed:

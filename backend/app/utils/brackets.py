@@ -39,6 +39,44 @@ def series_ban_pattern(event: Dict[str, Any], series: Dict[str, Any]) -> str:
     return pattern if pattern in BAN_PATTERNS else ban_pattern(event)
 
 
+# Bans are made outside the game, so a tournament can change how many each team
+# gets between nights. Set per event; events saved before it was a setting ban two.
+BANS_PER_TEAM_CHOICES = (2, 3)
+DEFAULT_BANS_PER_TEAM = 2
+
+
+def bans_per_team(event: Dict[str, Any]) -> int:
+    """Bans each team gets in a game, defaulting to two for older events."""
+    try:
+        value = int(event.get("bans_per_team"))
+    except (TypeError, ValueError):
+        return DEFAULT_BANS_PER_TEAM
+    return value if value in BANS_PER_TEAM_CHOICES else DEFAULT_BANS_PER_TEAM
+
+
+def ban_slots(event: Dict[str, Any]) -> int:
+    """Total ban slots in a game: both teams' bans, in order."""
+    return 2 * bans_per_team(event)
+
+
+def ban_order(pattern: str, per_team: int) -> List[str]:
+    """Which side ('A' = first-ban team) bans in each slot, for ``per_team`` bans each.
+
+    The names keep meaning the same as with two bans a team:
+    ``ABBA`` mirrors every round, ``ABAB`` gives the first-ban team the opener
+    every round, ``AABB`` is the first team's bans then the other's, and
+    ``ROUND`` is one ban each per round.
+    """
+    pattern = pattern if pattern in BAN_PATTERNS else DEFAULT_BAN_PATTERN
+    if pattern == "AABB":
+        return ["A"] * per_team + ["B"] * per_team
+    slots: List[str] = []
+    for round_no in range(max(1, per_team)):
+        mirrored = pattern == "ABBA" and round_no % 2 == 1
+        slots.extend(["B", "A"] if mirrored else ["A", "B"])
+    return slots
+
+
 def _other(slot: str) -> str:
     return "team_b" if slot == "team_a" else "team_a"
 

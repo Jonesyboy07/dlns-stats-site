@@ -1,0 +1,37 @@
+{# Shared embed + favicon tags (Discord, Slack, Twitter/X, Facebook, LinkedIn, Telegram, etc).
+   Included by base.html and react.html. Per-route values come from backend/app/seo.py:
+   meta_title, meta_desc, meta_url, meta_image, meta_og_type.
+   Uses the compact "summary" card with the 192x192 icon so embeds stay small;
+   a page-specific meta_image (not the default og.png) is used as the thumbnail instead. #}
+{% set _cdn = 'https://cdn.dlns-stats.co.uk/static/' %}
+{% set _title = meta_title or 'DLNS Stats' %}
+{% set _desc = meta_desc or 'Fan made site for DLNS (Deadlock Night Shift). Stats and history for DLNS + Fight Night games.' %}
+{% set _url = meta_url or ((BASE_URL or '') ~ request.path) %}
+{% set _custom = meta_image and not meta_image.endswith('/og.png') %}
+{% set _img = (meta_image if meta_image.startswith('http') else ((BASE_URL or '') ~ meta_image)) if _custom else (_cdn ~ 'android-chrome-192x192.png') %}
+
+<link rel="canonical" href="{{ _url }}">
+<meta name="description" content="{{ _desc }}">
+<meta property="og:type" content="{{ meta_og_type or 'website' }}">
+<meta property="og:site_name" content="DLNS Stats">
+<meta property="og:title" content="{{ _title }}">
+<meta property="og:description" content="{{ _desc }}">
+<meta property="og:url" content="{{ _url }}">
+<meta property="og:image" content="{{ _img }}">
+{% if not _custom %}
+<meta property="og:image:width" content="192">
+<meta property="og:image:height" content="192">
+{% endif %}
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{ _title }}">
+<meta name="twitter:description" content="{{ _desc }}">
+<meta name="twitter:image" content="{{ _img }}">
+<meta name="theme-color" content="#0f172a">
+
+<link rel="icon" href="{{ _cdn }}favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ _cdn }}favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ _cdn }}favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ _cdn }}android-chrome-192x192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="{{ _cdn }}android-chrome-512x512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ _cdn }}apple-touch-icon.png">
+<link rel="manifest" href="{{ _cdn }}site.webmanifest" crossorigin="anonymous">

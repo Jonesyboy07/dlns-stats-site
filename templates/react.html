@@ -13,8 +13,6 @@
   {% set __seo_image_abs = __seo_image if __seo_image.startswith('http') else ((BASE_URL or '') ~ __seo_image) %}
 
   <title>{{ __seo_title }}</title>
-  <link rel="canonical" href="{{ __seo_url }}">
-  <meta name="description" content="{{ __seo_desc }}">
   <meta name="robots" content="{{ meta_robots or 'index, follow' }}">
   {% for verification in meta_verifications or [] %}
   <meta name="{{ verification.name }}" content="{{ verification.content }}">
@@ -27,29 +25,11 @@
   <link rel="preload" href="/static/fonts/valveoracle-medium.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="preload" href="/static/fonts/valvepulp-bold.ttf" as="font" type="font/ttf" crossorigin>
 
-  <meta property="og:type" content="{{ meta_og_type or 'website' }}">
-  <meta property="og:title" content="{{ __seo_title }}">
-  <meta property="og:description" content="{{ __seo_desc }}">
-  <meta property="og:url" content="{{ __seo_url }}">
-  <meta property="og:image" content="{{ __seo_image_abs }}">
-  <meta property="og:site_name" content="DLNS Stats">
-
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ __seo_title }}">
-  <meta name="twitter:description" content="{{ __seo_desc }}">
-  <meta name="twitter:image" content="{{ __seo_image_abs }}">
+  {% include '_embed.html' %}
 
   {% if meta_jsonld %}
   <script type="application/ld+json">{{ meta_jsonld | safe }}</script>
   {% endif %}
-
-  <link rel="icon" href="https://cdn.dlns-stats.co.uk/static/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.dlns-stats.co.uk/static/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.dlns-stats.co.uk/static/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.dlns-stats.co.uk/static/android-chrome-192x192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.dlns-stats.co.uk/static/android-chrome-512x512.png">
-  <link rel="apple-touch-icon" href="https://cdn.dlns-stats.co.uk/static/apple-touch-icon.png">
-  <link rel="manifest" href="https://cdn.dlns-stats.co.uk/static/site.webmanifest" crossorigin="anonymous">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='react-app/assets/App.css') }}">

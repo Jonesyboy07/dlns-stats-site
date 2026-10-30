@@ -11,46 +11,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/utilities.css') }}">
 
-  <!-- Canonical -->
-  <link rel="canonical" href="{{ meta_url or (BASE_URL ~ request.path) }}">
-
-  <!-- SEO / Open Graph -->
-  {% set __meta_title = meta_title or 'DLNS Stats' %}
-  {% set __meta_desc  = meta_desc  or 'Fan made site for DLNS (Deadlock Night Shift). Stats and history for DLNS + Fight Night games.' %}
-  {% set __meta_image = meta_image or url_for('static', filename='og.png') %}
-  {% set __abs_image  = (__meta_image if __meta_image.startswith('http') else (BASE_URL ~ __meta_image)) %}
-  {% set __abs_url    = meta_url or (BASE_URL ~ request.path) %}
-
-  <meta name="description" content="{{ __meta_desc }}">
+  {% include '_embed.html' %}
 
   {% for verification in meta_verifications or [] %}
   <meta name="{{ verification.name }}" content="{{ verification.content }}">
   {% endfor %}
-
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="{{ __meta_title }}">
-  <meta property="og:description" content="{{ __meta_desc }}">
-  <meta property="og:image" content="{{ __abs_image }}">
-  <meta property="og:url" content="{{ __abs_url }}">
-  <meta property="og:site_name" content="DLNS Stats">
-
-  <meta name="twitter:card" content="summary_large_image">
-  <meta property="og:title" content="{{ __meta_title }}">
-  <meta property="og:description" content="{{ __meta_desc }}">
-  <meta property="og:image" content="{{ __abs_image }}">
-
-  <!-- Optional theme colors -->
-  <meta name="theme-color" content="#0f172a">
   <meta name="color-scheme" content="dark light">
-
-  <!-- Favicon(s) -->
-  <link rel="icon" href="https://cdn.dlns-stats.co.uk/static/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.dlns-stats.co.uk/static/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.dlns-stats.co.uk/static/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.dlns-stats.co.uk/static/android-chrome-192x192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.dlns-stats.co.uk/static/android-chrome-512x512.png">
-  <link rel="apple-touch-icon" href="https://cdn.dlns-stats.co.uk/static/apple-touch-icon.png">
-  <link rel="manifest" href="https://cdn.dlns-stats.co.uk/static/site.webmanifest" crossorigin="anonymous">
 </head>
 <body>
   <!-- Sidebar overlay -->

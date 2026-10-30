@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { formatDuration, roundName } from "../../utils/weekData";
+import Spoiler from "../../spoilers/Spoiler";
 
 /**
  * MatchResultsPanel — every game in scope as a pill linking to its match page.
@@ -34,7 +35,15 @@ export default function MatchResultsPanel({ brackets, subline }) {
           </span>
 
           {bracket.series.map((series) => (
-            <div key={series.key} className="flex min-w-0 flex-col gap-1.5">
+            <Spoiler
+              key={series.key}
+              id={`series:${
+                series.games.find((game) => game.match?.match_id)?.match?.match_id ?? series.key
+              }`}
+              inline={false}
+              replace="Match results hidden — click to reveal"
+            >
+            <div className="flex min-w-0 flex-col gap-1.5">
               <span className="font-semibold text-[11px] tracking-[.06em] text-dim uppercase">
                 {roundName(series)}
               </span>
@@ -47,6 +56,7 @@ export default function MatchResultsPanel({ brackets, subline }) {
                 ))}
               </div>
             </div>
+            </Spoiler>
           ))}
         </div>
       ))}

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import HeroIcon from "../HeroIcon";
 import { WEEK_STATS, formatDuration } from "../../utils/weekData";
+import Spoiler from "../../spoilers/Spoiler";
 
 /**
  * PlayerLeaderboard — best single-game value per player across the week scope.
@@ -58,54 +59,57 @@ export default function PlayerLeaderboard({
       )}
 
       {rows.map((row) => (
-        <div
+        <Spoiler
           key={row.accountId}
+          id={`match:${row.matchId}`}
+          inline={false}
           className="relative grid min-h-[52px] grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-border bg-table px-4 text-[14px] transition-colors hover:bg-accent-bg md:min-h-0 md:grid-cols-[40px_minmax(0,1.4fr)_90px_minmax(0,1fr)] md:gap-0 md:px-5 md:py-2.5"
+          replace={<span className="col-span-full text-center">Player stats hidden — click to reveal</span>}
         >
-          <span
-            className={`font-valve-pulp text-[14px] font-bold md:text-[15px] ${
-              row.rank <= 3 ? "text-accent-light" : "text-dim"
-            }`}
-          >
-            {row.rank}
-          </span>
-          <span className="flex min-w-0 items-center gap-2.5">
-            <HeroIcon
-              name={row.hero}
-              size="h-[32px] w-[32px] md:h-[26px] md:w-[26px]"
-              className="shrink-0 rounded-md"
-            />
-            <span className="flex min-w-0 flex-col">
-              <Link
-                to={`/player/${row.accountId}`}
-                className="truncate font-semibold text-primary hover:text-accent-light after:absolute after:inset-0 after:content-[''] md:after:hidden"
-              >
-                {row.name}
-              </Link>
-              <span className="truncate text-[12px] text-dim" title={row.team || undefined}>
-                {row.team || "—"}
+            <span
+              className={`font-valve-pulp text-[14px] font-bold md:text-[15px] ${
+                row.rank <= 3 ? "text-accent-light" : "text-dim"
+              }`}
+            >
+              {row.rank}
+            </span>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <HeroIcon
+                name={row.hero}
+                size="h-[32px] w-[32px] md:h-[26px] md:w-[26px]"
+                className="shrink-0 rounded-md"
+              />
+              <span className="flex min-w-0 flex-col">
+                <Link
+                  to={`/player/${row.accountId}`}
+                  className="truncate font-semibold text-primary hover:text-accent-light after:absolute after:inset-0 after:content-[''] md:after:hidden"
+                >
+                  {row.name}
+                </Link>
+                <span className="truncate text-[12px] text-dim" title={row.team || undefined}>
+                  {row.team || "—"}
+                </span>
               </span>
             </span>
-          </span>
-          <span className="text-right font-valve-oracle text-[17px] font-bold text-primary tabular-nums">
-            {row.value.toLocaleString()}
-          </span>
-          {/* 13b drops the context column; the team above already says which side. */}
-          <span className="hidden min-w-0 items-center gap-2 pl-6 text-[12px] leading-tight text-muted md:flex">
-            <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{
-                background: row.side === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)",
-              }}
-            />
-            {/* Two lines rather than one: a 9-digit match id plus a duration does
-                not fit this column, and truncating the id hid which game it was. */}
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate">Game #{row.matchId}</span>
-              <span className="truncate text-dim">{formatDuration(row.durationS)}</span>
+            <span className="text-right font-valve-oracle text-[17px] font-bold text-primary tabular-nums">
+              {row.value.toLocaleString()}
             </span>
-          </span>
-        </div>
+            {/* 13b drops the context column; the team above already says which side. */}
+            <span className="hidden min-w-0 items-center gap-2 pl-6 text-[12px] leading-tight text-muted md:flex">
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{
+                  background: row.side === 1 ? "var(--color-team-sapphire)" : "var(--color-team-amber)",
+                }}
+              />
+              {/* Two lines rather than one: a 9-digit match id plus a duration does
+                  not fit this column, and truncating the id hid which game it was. */}
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">Game #{row.matchId}</span>
+                <span className="truncate text-dim">{formatDuration(row.durationS)}</span>
+              </span>
+            </span>
+        </Spoiler>
       ))}
 
       {rows.length > 0 && (

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { cdnImage } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
+import Spoiler from "../spoilers/Spoiler";
 
 // Helper to get hero icon path
 // Filenames are lowercase, underscores, & → and (e.g. "Mo & Krill" → "mo_and_krill_sm_psd.png")
@@ -642,7 +643,11 @@ function MatchList() {
                           {formatDate(match.start_time)}
                         </div>
                       </td>
-                      <td className="p-4">{teamName(match.winning_team)}</td>
+                      <td className="p-4">
+                        <Spoiler id={`match:${match.match_id}`} inline={false} replace="Winner hidden">
+                          {teamName(match.winning_team)}
+                        </Spoiler>
+                      </td>
                       <td className="p-4">{renderTeamHeroes(match, 0)}</td>
                       <td className="p-4">{renderTeamHeroes(match, 1)}</td>
                     </tr>

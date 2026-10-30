@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import StreamStatusStrip from './StreamStatusStrip';
 import { getStreamStatus } from '../utils/api';
+import SettingsMenu from './SettingsMenu';
+import SpoilerToggle from '../spoilers/SpoilerToggle';
 
 /**
  * DLNS Header — responsive navigation with hamburger menu for mobile.
@@ -119,44 +121,8 @@ function DLNS_Header({ className = "" }) {
 
           {/* Auth + Hamburger */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMatchDarkMode((current) => !current)}
-              className="hidden sm:inline-flex items-center rounded-full border border-border-light bg-white/5 p-0.5 text-xs font-semibold text-secondary transition-colors hover:bg-hover"
-              aria-pressed={matchDarkMode}
-              title="Toggle dark mode"
-              style={{ width: '62px', height: '28px', position: 'relative' }}
-            >
-              <span style={{
-                position: 'absolute',
-                left: matchDarkMode ? '2px' : undefined,
-                right: matchDarkMode ? undefined : '2px',
-                width: '22px',
-                height: '22px',
-                borderRadius: '50%',
-                background: matchDarkMode ? '#1e293b' : '#fbbf24',
-                transition: 'all 0.25s ease',
-                zIndex: 1,
-                boxShadow: matchDarkMode ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.2)',
-              }} />
-              <span style={{ position: 'relative', zIndex: 2, width: '100%', display: 'flex', justifyContent: 'space-around', alignItems: 'center', lineHeight: 1 }}>
-                <span style={{ opacity: matchDarkMode ? 1 : 0.4, transition: 'opacity 0.2s' }}>🌙</span>
-                <span style={{ opacity: matchDarkMode ? 0.4 : 1, transition: 'opacity 0.2s' }}>☀️</span>
-              </span>
-            </button>
-
-            {/* Auth desktop */}
-            <div className="hidden sm:flex items-center gap-3">
-              {user === undefined ? null : user ? (
-                <>
-                  <span className="text-secondary text-sm truncate max-w-[120px]">{user.username}</span>
-                  <a href="/auth/logout" className="text-dim hover:text-primary text-xs transition-colors">Logout</a>
-                </>
-              ) : (
-                <a href="/auth/login" className="bg-accent hover:opacity-90 text-[#170a26] text-[13px] font-bold px-3 py-1.5 rounded-xl transition-opacity">
-                  Login
-                </a>
-              )}
+            <div className="hidden sm:block">
+              <SettingsMenu user={user} darkMode={matchDarkMode} onToggleDark={() => setMatchDarkMode((current) => !current)} />
             </div>
 
             {/* Hamburger button */}
@@ -227,6 +193,7 @@ function DLNS_Header({ className = "" }) {
                 <span style={{ opacity: matchDarkMode ? 0.4 : 1 }}>☀️</span>
               </span>
             </button>
+            <div className="px-3 py-2"><SpoilerToggle /></div>
             {/* Auth mobile */}
             {user === undefined ? null : user ? (
               <div className="flex items-center justify-between px-3 py-2">

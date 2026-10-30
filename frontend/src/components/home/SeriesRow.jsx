@@ -1,5 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import Spoiler from "../../spoilers/Spoiler";
+import { useSpoilerState } from "../../spoilers/spoilerStore";
 
 const FOCUS_RING =
   "rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-secondary-light";
@@ -16,6 +18,9 @@ export default function SeriesRow({ entry }) {
   const totalGames = maxWins > 1 ? maxWins * 2 - 1 : 1;
   const aWon = entry.wins_a > entry.wins_b;
   const bWon = entry.wins_b > entry.wins_a;
+  const { enabled, revealed } = useSpoilerState();
+  const spoilerId = `series:${entry.firstMatchId}`;
+  const hidden = enabled && !revealed.includes(spoilerId);
 
   const gamePills = (
     <div className="flex items-center justify-center gap-1">
@@ -46,8 +51,8 @@ export default function SeriesRow({ entry }) {
 
   /* The winner is full opacity and the loser is dimmed -- the design no longer
      uses the success green for a win, so a draw leaves both at 1. */
-  const aOpacity = bWon ? " opacity-50" : "";
-  const bOpacity = aWon ? " opacity-50" : "";
+  const aOpacity = bWon && !hidden ? " opacity-50" : "";
+  const bOpacity = aWon && !hidden ? " opacity-50" : "";
 
   const meta = (
     <div className="flex shrink-0 flex-col gap-[3px]">
@@ -63,6 +68,7 @@ export default function SeriesRow({ entry }) {
   );
 
   const score = (
+    <Spoiler id={spoilerId} replace="? – ?" className="font-valve-pulp text-[24px] leading-none">
     <div className="flex shrink-0 items-center gap-2.5">
       <span className={`font-valve-pulp text-[24px] leading-none text-primary${aOpacity}`}>
         {entry.wins_a}
@@ -72,6 +78,7 @@ export default function SeriesRow({ entry }) {
         {entry.wins_b}
       </span>
     </div>
+    </Spoiler>
   );
 
   const actions = (
@@ -105,7 +112,7 @@ export default function SeriesRow({ entry }) {
       to={`/team/${encodeURIComponent(entry.team_a)}`}
       className={`min-w-0 flex-1 truncate text-[15px] font-semibold text-primary hover:underline sm:text-right ${FOCUS_RING}${aOpacity}`}
     >
-      {entry.team_a}
+      <Spoiler id={spoilerId} replace="Team ?">{entry.team_a}</Spoiler>
     </Link>
   );
 
@@ -114,7 +121,7 @@ export default function SeriesRow({ entry }) {
       to={`/team/${encodeURIComponent(entry.team_b)}`}
       className={`min-w-0 flex-1 truncate text-[15px] font-semibold text-primary hover:underline ${FOCUS_RING}${bOpacity}`}
     >
-      {entry.team_b}
+      <Spoiler id={spoilerId} replace="Team ?">{entry.team_b}</Spoiler>
     </Link>
   );
 

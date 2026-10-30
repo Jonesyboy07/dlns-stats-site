@@ -114,6 +114,7 @@ export default function MatchHeader({
       </div>
 
       {/* Team row: amber | series games | sapphire */}
+      <Spoiler id={`match:${matchId}`} inline={false} replace="Match results hidden — click to reveal">
       <div className="flex items-stretch justify-between gap-4 px-5 py-4 bg-gradient-to-r from-amber-950/40 via-gray-900/60 to-blue-950/40">
         {/* Team A (amber / left) */}
         <div className="flex-1 flex items-center gap-4 min-w-0">
@@ -218,8 +219,9 @@ export default function MatchHeader({
               <span className="text-orange-400">{sapphireKda.a}</span>
             </div>
           </div>
-        </div>
       </div>
+      </div>
+      </Spoiler>
       </div>
 
       {/* ===== Mobile header (matches attached design) ===== */}
@@ -257,6 +259,7 @@ export default function MatchHeader({
         </div>
 
         {/* Teams stacked */}
+        <Spoiler id={`match:${matchId}`} inline={false} replace="Match results hidden — click to reveal">
         <div className="px-5 py-5 bg-gradient-to-b from-amber-950/40 via-gray-900/60 to-blue-950/40 space-y-5">
           {/* Team A (amber / left) */}
           <div className="min-w-0">
@@ -316,6 +319,7 @@ export default function MatchHeader({
               </div>
           </div>
         </div>
+        </Spoiler>
 
         {/* Game pills */}
         <div className="flex items-center justify-center gap-2 px-5 py-3 border-t border-border-dashed">

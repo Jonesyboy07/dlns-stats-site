@@ -9,7 +9,7 @@ export default function SpoilerToggle({ className = "" }) {
       type="button"
       onClick={() => setSpoilerFree(!enabled)}
       aria-pressed={enabled}
-      title={enabled ? "Spoiler-free mode is on" : "Hide winners, scores and team names"}
+      title={enabled ? "Spoiler-free mode is on" : "Hide match details, player stats and results"}
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
         enabled
           ? "border-accent-border bg-accent-bg-strong text-accent-light"

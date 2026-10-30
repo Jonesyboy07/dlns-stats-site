@@ -5,6 +5,7 @@ import { cdnImage, staticImagePathToCdn } from "../utils/cdn";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
+import Spoiler from "../spoilers/Spoiler";
 import { heroIconUrl } from "../components/HeroIcon";
 import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
 import { buildTimelineRows, clock, objectiveLabel, parseMatchTime, matchTimeParam } from "../utils/matchTimeline";
@@ -997,6 +998,12 @@ function MatchDetail() {
         sapphireBans={bans.filter((b) => b.side === 1).map((b) => ({ ...b, name: getHeroName(b.hero_id) }))}
       />
 
+      <Spoiler
+        id={`match:${matchId}`}
+        inline={false}
+        className="mb-6"
+        replace="Match details hidden — click to reveal"
+      >
       {/* Scoreboard */}
       <div className="mb-6 w-full max-w-[1300px] mx-auto">
         {/* Mirrored scoreboard (desktop only) */}
@@ -2093,6 +2100,7 @@ function MatchDetail() {
           </div>
         );
       })()}
+      </Spoiler>
     </div>
   );
 }

@@ -85,3 +85,6 @@ data/help_config.json
 data/user_cache.json
 
 /data/avatar_cache.json
+
+data/brackets.json.bak-*
+data/guesstherank.json

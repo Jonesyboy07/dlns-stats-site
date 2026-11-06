@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allWeeksRange,
   clampRange,
   defaultRange,
   formatSignedDuration,
@@ -42,6 +43,8 @@ describe("week param", () => {
 
   it("defaults to the latest two weeks and clamps to the weeks that exist", () => {
     expect(defaultRange(weeks)).toEqual([60, 61]);
+    expect(allWeeksRange(weeks)).toEqual([54, 61]);
+    expect(allWeeksRange([])).toBeNull();
     expect(clampRange([1, 99], weeks)).toEqual([54, 61]);
     expect(clampRange(null, weeks)).toEqual([60, 61]);
   });

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Button from "../Button";
 import MobileFilterSheet from "./MobileFilterSheet";
 import PeriodPicker from "./PeriodPicker";
-import { defaultRange, matchesInRange, patchLabel, weeksLabel } from "../../utils/statsPeriod";
+import { allWeeksRange, defaultRange, matchesInRange, patchLabel, weeksLabel } from "../../utils/statsPeriod";
 
 const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-dim";
 const GLASS =
@@ -16,6 +16,7 @@ function RegionControl({ regions, value, onChange }) {
         <button
           key={option}
           type="button"
+          aria-label={option === "All" ? "All regions" : option}
           aria-pressed={value === option}
           onClick={() => onChange(option)}
           className={`rounded-full px-3.5 py-[5px] text-[13px] font-semibold transition-colors duration-200 active:scale-[.97] ${
@@ -126,6 +127,13 @@ export default function StatsFilterBar({
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          <Button
+            variant="ghost"
+            disabled={!ready}
+            onClick={() => onFilters(allWeeksRange(weeks), "All")}
+          >
+            Everything
+          </Button>
           <span className="text-[13px] text-dim">{ready ? `${count} matches` : ""}</span>
           <Button onClick={copyLink} disabled={!ready}>
             {copied ? "Link copied" : "Copy link"}
@@ -164,6 +172,15 @@ export default function StatsFilterBar({
         <span className="min-w-0 truncate text-[13px] text-muted">
           {[weeksText, patchText, regionText].filter(Boolean).join(" · ")}
         </span>
+        <button
+          type="button"
+          disabled={!ready}
+          aria-label="Show everything: all weeks and all regions"
+          onClick={() => onFilters(allWeeksRange(weeks), "All")}
+          className="min-h-10 shrink-0 rounded-full border border-border-light bg-input px-3 text-[13px] font-semibold text-secondary disabled:opacity-50"
+        >
+          Everything
+        </button>
       </div>
 
       {sheetOpen && ready && (

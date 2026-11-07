@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import ReplayButton from "./ReplayButton";
 import TeamLogo from "./TeamLogo";
 import HeroIcon from "./HeroIcon";
+import Spoiler from "../spoilers/Spoiler";
 
 /** A team's hero bans: small greyed portraits with the ban number, in ban order. */
 function BanStrip({ bans, align = "left" }) {
@@ -113,6 +114,7 @@ export default function MatchHeader({
       </div>
 
       {/* Team row: amber | series games | sapphire */}
+      <Spoiler id={`match:${matchId}`} inline={false} replace="Match results hidden — click to reveal">
       <div className="flex items-stretch justify-between gap-4 px-5 py-4 bg-gradient-to-r from-amber-950/40 via-gray-900/60 to-blue-950/40">
         {/* Team A (amber / left) */}
         <div className="flex-1 flex items-center gap-4 min-w-0">
@@ -126,18 +128,18 @@ export default function MatchHeader({
                   to={`/team/${encodeURIComponent(amberTeamName)}`}
                   className="block text-amber-50 text-2xl font-bold uppercase hover:underline truncate"
                 >
-                  {amberTeamName}
+                  <Spoiler id={`match:${matchId}`} replace="Team ?">{amberTeamName}</Spoiler>
                 </Link>
               ) : (
                 <span className="block text-amber-300 text-2xl font-bold uppercase">
                   Amber
                 </span>
               )}
-              {winner === "amber" && <WinBadge />}
+              {winner === "amber" && <Spoiler id={`match:${matchId}`} replace="" reveal={false}><WinBadge /></Spoiler>}
             </div>
             <div className="text-sm text-amber-100/80 mt-0.5 whitespace-nowrap">
               <span className="text-amber-300 font-semibold">
-                {amberSouls.toLocaleString()} souls
+                <Spoiler id={`match:${matchId}`} replace="? souls">{amberSouls.toLocaleString()} souls</Spoiler>
               </span>
               <span className="text-gray-500 mx-2">·</span>
               <span className="text-green-400 font-semibold">{amberKda.k}</span>
@@ -186,13 +188,13 @@ export default function MatchHeader({
           </div>
           <div className="min-w-0 text-right">
             <div className="flex items-center justify-end gap-2">
-              {winner === "sapphire" && <WinBadge />}
+              {winner === "sapphire" && <Spoiler id={`match:${matchId}`} replace="" reveal={false}><WinBadge /></Spoiler>}
               {sapphireTeamName ? (
                 <Link
                   to={`/team/${encodeURIComponent(sapphireTeamName)}`}
                   className="block text-blue-200 text-2xl font-bold uppercase hover:underline truncate"
                 >
-                  {sapphireTeamName}
+                  <Spoiler id={`match:${matchId}`} replace="Team ?">{sapphireTeamName}</Spoiler>
                 </Link>
               ) : (
                 <span className="block text-blue-200 text-2xl font-bold uppercase">
@@ -205,7 +207,7 @@ export default function MatchHeader({
             </div>
             <div className="text-sm text-blue-100/80 mt-0.5 whitespace-nowrap">
               <span className="text-blue-400 font-semibold">
-                {sapphireSouls.toLocaleString()} souls
+                <Spoiler id={`match:${matchId}`} replace="? souls">{sapphireSouls.toLocaleString()} souls</Spoiler>
               </span>
               <span className="text-gray-500 mx-2">·</span>
               <span className="text-green-400 font-semibold">
@@ -217,8 +219,9 @@ export default function MatchHeader({
               <span className="text-orange-400">{sapphireKda.a}</span>
             </div>
           </div>
-        </div>
       </div>
+      </div>
+      </Spoiler>
       </div>
 
       {/* ===== Mobile header (matches attached design) ===== */}
@@ -256,6 +259,7 @@ export default function MatchHeader({
         </div>
 
         {/* Teams stacked */}
+        <Spoiler id={`match:${matchId}`} inline={false} replace="Match results hidden — click to reveal">
         <div className="px-5 py-5 bg-gradient-to-b from-amber-950/40 via-gray-900/60 to-blue-950/40 space-y-5">
           {/* Team A (amber / left) */}
           <div className="min-w-0">
@@ -268,15 +272,15 @@ export default function MatchHeader({
                   to={`/team/${encodeURIComponent(amberTeamName)}`}
                   className="block text-amber-50 text-xl font-bold uppercase hover:underline truncate"
                 >
-                  {amberTeamName}
+                  <Spoiler id={`match:${matchId}`} replace="Team ?">{amberTeamName}</Spoiler>
                 </Link>
               ) : (
                 <span className="block text-amber-300 text-xl font-bold uppercase">Amber</span>
               )}
-              {winner === "amber" && <WinBadge />}
+              {winner === "amber" && <Spoiler id={`match:${matchId}`} replace="" reveal={false}><WinBadge /></Spoiler>}
             </div>
             <div className="text-[13px] text-amber-100/80 mt-0.5 whitespace-nowrap">
-                <span className="text-amber-300 font-semibold">{amberSouls.toLocaleString()} souls</span>
+                <span className="text-amber-300 font-semibold"><Spoiler id={`match:${matchId}`} replace="? souls">{amberSouls.toLocaleString()} souls</Spoiler></span>
                 <span className="text-gray-500 mx-1.5">·</span>
                 <span className="text-green-400 font-semibold">{amberKda.k}</span>
                 <span className="text-gray-500"> / </span>
@@ -289,13 +293,13 @@ export default function MatchHeader({
           {/* Team B (sapphire / right) */}
           <div className="min-w-0 text-right">
             <div className="flex items-center justify-end gap-2">
-              {winner === "sapphire" && <WinBadge />}
+              {winner === "sapphire" && <Spoiler id={`match:${matchId}`} replace="" reveal={false}><WinBadge /></Spoiler>}
               {sapphireTeamName ? (
                 <Link
                   to={`/team/${encodeURIComponent(sapphireTeamName)}`}
                   className="block text-blue-200 text-xl font-bold uppercase hover:underline truncate"
                 >
-                  {sapphireTeamName}
+                  <Spoiler id={`match:${matchId}`} replace="Team ?">{sapphireTeamName}</Spoiler>
                 </Link>
               ) : (
                 <span className="block text-blue-200 text-xl font-bold uppercase">Sapphire</span>
@@ -305,7 +309,7 @@ export default function MatchHeader({
               ) : null}
             </div>
             <div className="text-[13px] text-blue-100/80 mt-0.5 whitespace-nowrap">
-                <span className="text-blue-400 font-semibold">{sapphireSouls.toLocaleString()} souls</span>
+                <span className="text-blue-400 font-semibold"><Spoiler id={`match:${matchId}`} replace="? souls">{sapphireSouls.toLocaleString()} souls</Spoiler></span>
                 <span className="text-gray-500 mx-1.5">·</span>
                 <span className="text-green-400 font-semibold">{sapphireKda.k}</span>
                 <span className="text-gray-500"> / </span>
@@ -315,6 +319,7 @@ export default function MatchHeader({
               </div>
           </div>
         </div>
+        </Spoiler>
 
         {/* Game pills */}
         <div className="flex items-center justify-center gap-2 px-5 py-3 border-t border-border-dashed">

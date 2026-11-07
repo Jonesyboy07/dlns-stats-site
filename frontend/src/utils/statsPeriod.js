@@ -31,6 +31,12 @@ export function lastWeek(weeks) {
   return weeks?.length ? weeks[weeks.length - 1].week : null;
 }
 
+export function allWeeksRange(weeks) {
+  const first = firstWeek(weeks);
+  const last = lastWeek(weeks);
+  return first == null ? null : [first, last];
+}
+
 /** The page's default period: the latest two weeks. */
 export function defaultRange(weeks) {
   const last = lastWeek(weeks);

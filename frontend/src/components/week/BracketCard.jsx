@@ -1,6 +1,7 @@
 import React from "react";
 import { BRACKET_SIZES, bracketLayout, roundColumns } from "../../utils/weekData";
 import BracketBoard from "./BracketBoard";
+import Spoiler from "../../spoilers/Spoiler";
 
 const CARD_WIDTH = BRACKET_SIZES.desktop.card;
 
@@ -124,7 +125,12 @@ export default function BracketCard({
                 </span>
                 <span className="text-[12px] text-muted">
                   Won by{" "}
-                  <span className="font-semibold text-primary">{bracket.champ || "—"}</span>
+                  <Spoiler
+                    id={`bracket:${week}:${bracket.name}:champion`}
+                    replace="?"
+                  >
+                    <span className="font-semibold text-primary">{bracket.champ || "—"}</span>
+                  </Spoiler>
                 </span>
                 <span className="text-[12px] font-semibold text-accent-light">
                   {regionActive ? "Show both" : `Only ${bracket.name}`} →

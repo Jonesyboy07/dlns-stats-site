@@ -1,4 +1,5 @@
 // API client for Flask backend
+import { spoilerHeaders } from '../spoilers/spoilerStore';
 const API_BASE = import.meta.env.DEV 
   ? 'http://localhost:5050'  // Flask dev server
   : '';  // Production uses same origin
@@ -16,14 +17,14 @@ export const matchesApi = {
     if (game_mode) params.append('game_mode', game_mode);
     if (match_mode) params.append('match_mode', match_mode);
     
-    const response = await fetch(`${API_BASE}/db/matches/latest/paged?${params}`);
+    const response = await fetch(`${API_BASE}/db/matches/latest/paged?${params}`, { headers: spoilerHeaders() });
     if (!response.ok) throw new Error('Failed to fetch matches');
     return response.json();
   },
   
   // Get players for a specific match
   async getMatchPlayers(matchId) {
-    const response = await fetch(`${API_BASE}/db/matches/${matchId}/players`);
+    const response = await fetch(`${API_BASE}/db/matches/${matchId}/players`, { headers: spoilerHeaders() });
     if (!response.ok) throw new Error('Failed to fetch match players');
     return response.json();
   },

@@ -89,3 +89,6 @@ docs/stats-redesign/design-brief.md
 docs/stats-redesign/README-design.md
 docs/stats-redesign/README.md
 scripts/seed_mock_event.py
+
+data/brackets.json.bak-*
+data/guesstherank.json

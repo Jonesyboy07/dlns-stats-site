@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Button from "../Button";
-import { defaultRange, matchesInRange, weeksLabel } from "../../utils/statsPeriod";
+import { allWeeksRange, defaultRange, matchesInRange, weeksLabel } from "../../utils/statsPeriod";
 
 const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-dim";
 const CHIP_WEEKS = 8;
@@ -60,6 +60,18 @@ export default function MobileFilterSheet({ weeks, patches, range, region, regio
             Close
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(allWeeksRange(weeks));
+            setDraftRegion("All");
+            setPendingWeek(null);
+          }}
+          className="min-h-11 rounded-xl border border-accent-border bg-accent-bg px-3 text-left text-[14px] font-semibold text-accent-light"
+        >
+          Everything <span className="font-normal text-secondary">· all weeks and all regions</span>
+        </button>
 
         <div className="flex flex-col gap-2">
           <div className={`flex justify-between ${GROUP_LABEL}`}>
@@ -142,13 +154,14 @@ export default function MobileFilterSheet({ weeks, patches, range, region, regio
               <button
                 key={option}
                 type="button"
+                aria-label={option === "All" ? "All regions" : option}
                 aria-pressed={draftRegion === option}
                 onClick={() => setDraftRegion(option)}
                 className={`flex min-h-10 items-center justify-center rounded-full text-[14px] font-semibold ${
                   draftRegion === option ? "bg-accent-bg-strong text-accent-light" : "text-muted"
                 }`}
               >
-                {option}
+                {option === "All" ? "All regions" : option}
               </button>
             ))}
           </div>

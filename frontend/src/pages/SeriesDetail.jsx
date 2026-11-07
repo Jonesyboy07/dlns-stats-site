@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import { heroIconUrl } from "../components/HeroIcon";
+import Spoiler from "../spoilers/Spoiler";
 import { absoluteUrl, usePageMeta } from "../utils/seo";
 
 function SeriesDetail() {
@@ -101,6 +102,7 @@ function SeriesDetail() {
 
   const { event_title, event_week, event_team_a, event_team_b, series_title, matches } =
     series;
+  const spoilerId = `series:${matches[0]?.match_id ?? matchId}`;
 
   // Series score: count wins per event team using team_a_ingame_side
   let wins_a = 0, wins_b = 0;
@@ -115,6 +117,7 @@ function SeriesDetail() {
 
 
   return (
+    <Spoiler id={spoilerId} inline={false} replace="Series results hidden — click to reveal">
     <div className="w-full px-4 py-8">
       {/* Series header */}
       <div className="mb-8">
@@ -274,6 +277,7 @@ function SeriesDetail() {
         })}
       </div>
     </div>
+    </Spoiler>
   );
 }
 

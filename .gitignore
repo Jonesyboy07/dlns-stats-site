@@ -85,3 +85,7 @@ data/help_config.json
 data/user_cache.json
 
 /data/avatar_cache.json
+docs/stats-redesign/design-brief.md
+docs/stats-redesign/README-design.md
+docs/stats-redesign/README.md
+scripts/seed_mock_event.py

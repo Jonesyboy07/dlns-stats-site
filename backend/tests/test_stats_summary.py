@@ -84,6 +84,67 @@ class SideTrendTests(unittest.TestCase):
         self.assertEqual([t["amber_pct"] for t in trend], [None, 50.0, 100.0])
 
 
+class HeroMetaTests(unittest.TestCase):
+    def test_contested_counts_each_game_once(self):
+        matches = [match(1, 60), match(2, 60), match(3, 60)]
+        players = {
+            1: [player(1, 1, 7, win=True), player(1, 2, 8, win=False)],
+            2: [player(2, 1, 7, win=False)],
+            3: [player(3, 1, 9)],
+        }
+        bans = {
+            # Hero 7 banned by both sides in game 1 and picked there too: one contested game.
+            1: [{"hero_id": 7}, {"hero_id": 7}],
+            3: [{"hero_id": 7}, {"hero_id": 10}, {"hero_id": None}],
+        }
+        meta = {h["hero_id"]: h for h in ss.hero_meta(matches, players, bans)}
+        self.assertEqual(meta[7], {"hero_id": 7, "picks": 2, "wins": 1, "bans": 3, "contested": 3})
+        self.assertEqual(meta[10], {"hero_id": 10, "picks": 0, "wins": 0, "bans": 1, "contested": 1})
+        self.assertEqual(meta[8]["contested"], 1)
+        self.assertTrue(all(h["contested"] <= len(matches) for h in meta.values()))
+
+    def test_sorted_by_contested_then_picks(self):
+        matches = [match(1, 60), match(2, 60)]
+        players = {1: [player(1, 1, 7), player(1, 2, 8)], 2: [player(2, 1, 8)]}
+        bans = {2: [{"hero_id": 7}, {"hero_id": 9}]}
+        order = [h["hero_id"] for h in ss.hero_meta(matches, players, bans)]
+        # 7 and 8 both contested twice; 8 has more picks.
+        self.assertEqual(order, [8, 7, 9])
+
+    def test_no_bans_still_counts_picks(self):
+        meta = ss.hero_meta([match(1, 60)], {1: [player(1, 1, 7)]}, {})
+        self.assertEqual(meta[0]["contested"], 1)
+        self.assertEqual(meta[0]["bans"], 0)
+
+
+class PickMoversTests(unittest.TestCase):
+    def test_rising_and_falling_by_pick_delta(self):
+        previous = [match(1, 60), match(2, 60)]
+        latest = [match(3, 61), match(4, 61)]
+        players = {
+            1: [player(1, 1, 7), player(1, 2, 8)],
+            2: [player(2, 1, 7), player(2, 2, 10)],
+            3: [player(3, 1, 9), player(3, 2, 8)],
+            4: [player(4, 1, 9), player(4, 2, 8)],
+        }
+        movers = ss.pick_movers(latest, previous, players)
+        # 9: 0 -> 100, 8: 50 -> 100, 10: 50 -> 0, 7: 100 -> 0.
+        self.assertEqual([(m["hero_id"], m["delta"]) for m in movers["rising"]], [(9, 100.0), (8, 50.0)])
+        self.assertEqual([(m["hero_id"], m["delta"]) for m in movers["falling"]], [(7, -100.0), (10, -50.0)])
+
+    def test_limit_and_unchanged_heroes_left_out(self):
+        previous = [match(1, 60)]
+        latest = [match(2, 61)]
+        players = {1: [player(1, 1, 7)], 2: [player(2, 1, 7)] + [player(2, i, 20 + i) for i in range(8)]}
+        movers = ss.pick_movers(latest, previous, players, limit=5)
+        self.assertEqual(len(movers["rising"]), 5)
+        self.assertNotIn(7, [m["hero_id"] for m in movers["rising"] + movers["falling"]])
+
+    def test_needs_both_weeks(self):
+        self.assertIsNone(ss.pick_movers([match(1, 61)], [], {}))
+        self.assertIsNone(ss.pick_movers([], [match(1, 60)], {}))
+
+
 class ThisWeekTests(unittest.TestCase):
     def test_biggest_riser_compares_pick_rates(self):
         latest = [match(3, 61), match(4, 61)]

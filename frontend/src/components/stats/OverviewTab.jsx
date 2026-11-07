@@ -1,7 +1,7 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import HeroIcon from "../HeroIcon";
 import SectionCard from "../SectionCard";
+import MetaScatter from "./MetaScatter";
 import { cdnImage } from "../../utils/cdn";
 import { formatDuration } from "../../utils/format";
 
@@ -109,86 +109,6 @@ function ThisWeekCards({ thisWeek }) {
         <WeekCard key={card.kicker} {...card} />
       ))}
     </div>
-  );
-}
-
-/* ── Pick rate vs win rate ── */
-
-function ringColor(win) {
-  if (win > 52.5) return "var(--color-success)";
-  if (win < 47.5) return "var(--color-danger-text)";
-  return "var(--color-secondary)";
-}
-
-const QUADRANTS = [
-  { label: "Popular & winning", className: "top-2.5 right-3 text-success" },
-  { label: "Popular & losing", className: "bottom-2.5 right-3 text-danger-text" },
-  { label: "Niche & winning", className: "top-2.5 left-3 text-muted" },
-  { label: "Niche & losing", className: "bottom-2.5 left-3 text-dim" },
-];
-
-function PickWinScatter({ heroes }) {
-  const total = heroes?.matches ?? 0;
-  const seen = {};
-  const points = (heroes?.list ?? []).map((hero) => {
-    const pick = total ? (hero.picks / total) * 100 : 0;
-    const win = hero.picks ? (hero.wins / hero.picks) * 100 : 0;
-    // Heroes on the same spot fan out to the right instead of hiding each other.
-    const key = `${pick.toFixed(1)}|${win.toFixed(1)}`;
-    const offset = (seen[key] = (seen[key] || 0) + 1) - 1;
-    return { ...hero, pick, win, x: Math.min(100, pick + offset * 3.2) };
-  });
-
-  return (
-    <SectionCard
-      title="Pick rate vs win rate"
-      subtitle="Each portrait is a hero. Midlines at 50%. Open Heroes for the full table."
-    >
-      {points.length === 0 ? (
-        <Empty />
-      ) : (
-        <div className="flex gap-2">
-          <div className="rotate-180 text-center text-[11px] uppercase tracking-[0.05em] text-dim [writing-mode:vertical-rl]">
-            Win %
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div className="relative h-[300px] overflow-hidden rounded-lg bg-table md:h-[520px]">
-              <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border-light" />
-              <div className="absolute top-1/2 right-0 left-0 h-px bg-border-light" />
-              {QUADRANTS.map((quadrant) => (
-                <span
-                  key={quadrant.label}
-                  className={`absolute text-[11px] font-semibold uppercase tracking-[0.05em] ${quadrant.className}`}
-                >
-                  {quadrant.label}
-                </span>
-              ))}
-              {points.map((point) => (
-                <Link
-                  key={point.hero_id}
-                  to={`/hero/${point.hero_id}`}
-                  title={`${point.name} · pick ${pct(point.pick)} · win ${pct(point.win)}`}
-                  aria-label={`${point.name}, pick ${pct(point.pick)}, win ${pct(point.win)}`}
-                  className="absolute h-[22px] w-[22px] -translate-x-1/2 translate-y-1/2 overflow-hidden rounded-full border-2 bg-card transition-transform duration-200 ease-[cubic-bezier(.4,0,.2,1)] hover:z-[3] hover:scale-[1.35] motion-reduce:transition-none md:h-[30px] md:w-[30px]"
-                  style={{
-                    left: `calc(18px + (100% - 36px) * ${point.x / 100})`,
-                    bottom: `calc(18px + (100% - 36px) * ${point.win / 100})`,
-                    borderColor: ringColor(point.win),
-                  }}
-                >
-                  <HeroIcon name={point.name} size="h-full w-full" className="rounded-none" />
-                </Link>
-              ))}
-            </div>
-            <div className="flex justify-between text-[11px] text-dim">
-              <span>0%</span>
-              <span className="uppercase tracking-[0.05em]">Pick %</span>
-              <span>100%</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </SectionCard>
   );
 }
 
@@ -392,7 +312,12 @@ export default function OverviewTab({ summary, loading, range, regionText }) {
       <ThisWeekCards thisWeek={summary.this_week} />
       <div className="grid items-start gap-3.5 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <div className="min-w-0 md:row-span-2">
-          <PickWinScatter heroes={summary.heroes} />
+          <MetaScatter
+            heroes={summary.heroes?.list}
+            games={summary.heroes?.matches}
+            subtitle="Each portrait is a hero. Midlines at 50%. Open Heroes for the full table."
+            plotClassName="h-[300px] md:h-[520px]"
+          />
         </div>
         <SideBalanceCard side={summary.side} range={range} regionText={regionText} />
         <MatchLengthCard length={summary.length} />

@@ -596,13 +596,30 @@ def create_app() -> Flask:
     def favicon():  # type: ignore
         return _send_static_with_fallback('favicon.ico', mimetype='image/vnd.microsoft.icon')
 
-    @app.route('/public/react-app/<path:filename>')
-    def public_react_app_static(filename: str):  # type: ignore
+    def _send_react_bundle(filename: str):
         # Handle migrated bundle locations without breaking generated /public URLs.
         try:
-            return send_from_directory(str(Path(app.static_folder) / 'react-app'), filename)
+            response = send_from_directory(str(Path(app.static_folder) / 'react-app'), filename)
         except NotFound:
-            return send_from_directory(str(fallback_static_folder / 'react-app'), filename)
+            response = send_from_directory(str(fallback_static_folder / 'react-app'), filename)
+        # Bundle filenames carry no content hash, so any positive max-age keeps an old
+        # build alive in browsers for hours after a deploy (the admin then shows a UI
+        # that no longer matches the API). Revalidate on every load instead; the ETag
+        # makes the repeat check a small 304.
+        response.headers['Cache-Control'] = 'no-cache'
+        return response.make_conditional(request)
+
+    @app.route('/public/react-app/<path:filename>')
+    def public_react_app_static(filename: str):  # type: ignore
+        return _send_react_bundle(filename)
+
+    @app.route('/chunks/<path:filename>')
+    def react_bundle_chunks(filename: str):  # type: ignore
+        # Vite resolves lazy route chunks against the document origin, so a page
+        # served from `/week/1` asks for `/chunks/WeekPage.js`. A web server hosting
+        # the bundle at the site root answers that; locally Flask owns the root, so
+        # it has to answer too or every lazily loaded page renders blank.
+        return _send_react_bundle(f"chunks/{filename}")
 
     @app.route('/static/<path:filename>')
     def legacy_static(filename: str):  # type: ignore

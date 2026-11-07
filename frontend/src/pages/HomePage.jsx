@@ -15,16 +15,15 @@ import { buildWeekGroups } from "../utils/seriesGroups";
 const PER_PAGE = 20;
 const PAGES_PER_BATCH = 3;
 const WEEKS_PER_BATCH = 3;
-const EVENT_TITLE = "Night Shift";
 
-/** Fetch N consecutive pages of recent Night Shift matches and merge them. */
+/** Fetch N consecutive pages of recent matches, across every event, and merge them. */
 async function fetchMatchBatch(fromPage, pageCount = PAGES_PER_BATCH) {
   const pages = Array.from({ length: pageCount }, (_, index) => fromPage + index);
 
   const responses = await Promise.all(
     pages.map(async (page) => {
       const res = await fetch(
-        `/db/matches/latest/paged?page=${page}&per_page=${PER_PAGE}&event_title=${encodeURIComponent(EVENT_TITLE)}&include_players=0`,
+        `/db/matches/latest/paged?page=${page}&per_page=${PER_PAGE}&include_players=0`,
       );
       if (!res.ok) throw new Error("Failed to load recent matches");
       return res.json();
@@ -40,7 +39,6 @@ async function fetchMatchBatch(fromPage, pageCount = PAGES_PER_BATCH) {
 function HomePage() {
   const [matches, setMatches] = useState([]);
   const [details, setDetails] = useState({});
-  const [seriesTitle, setSeriesTitle] = useState(EVENT_TITLE);
   const [pagesLoaded, setPagesLoaded] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [visibleWeeks, setVisibleWeeks] = useState(WEEKS_PER_BATCH);
@@ -56,17 +54,15 @@ function HomePage() {
       setError(null);
       setLoadMoreError(null);
 
+      /* Unfiltered on purpose: the home page lists every event's recent series. */
       const [weeksData, batch] = await Promise.all([
-        fetch(`/db/weeks?event_title=${encodeURIComponent(EVENT_TITLE)}`).then(
-          (res) => {
-            if (!res.ok) throw new Error("Failed to load series metadata");
-            return res.json();
-          },
-        ),
+        fetch("/db/weeks").then((res) => {
+          if (!res.ok) throw new Error("Failed to load series metadata");
+          return res.json();
+        }),
         fetchMatchBatch(1),
       ]);
 
-      setSeriesTitle(weeksData.title || EVENT_TITLE);
       setDetails(weeksData.details || {});
       setMatches(batch.matches);
       setPagesLoaded(PAGES_PER_BATCH);
@@ -170,9 +166,9 @@ function HomePage() {
                 ) : (
                   visibleGroups.map((group) => (
                     <SeriesWeekGroup
-                      key={group.week}
+                      key={`${group.eventTitle}_${group.week}`}
                       week={group.week}
-                      seriesTitle={seriesTitle}
+                      seriesTitle={group.eventTitle}
                       entries={group.entries}
                       dateLabel={group.dateLabel}
                       totalSeries={group.totalSeries}

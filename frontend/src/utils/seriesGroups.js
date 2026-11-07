@@ -18,17 +18,22 @@ export function formatWeekDate(iso) {
   });
 }
 
+function toTime(value) {
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isNaN(time) ? 0 : time;
+}
+
 /**
- * Fold paged match rows plus /db/weeks details into per-week series groups.
+ * Fold paged match rows plus /db/weeks details into per-event week groups.
  *
  * Matches with no entry in matches.json (or no week) are skipped: they cannot
  * be attributed to a week, so showing them would invent a fixture.
  *
  * @param {Array<Object>} matches - rows from /db/matches/latest/paged
  * @param {Object} details - details map from /db/weeks, keyed by match_id
- * @returns {Array<Object>} week groups, newest week first. Each group is
- *   `{ week, totalSeries, dateLabel, entries[] }`; each entry is
- *   `{ week, series, series_title, team_a, team_b, wins_a, wins_b,
+ * @returns {Array<Object>} week groups, newest activity first. Each group is
+ *   `{ eventTitle, week, totalSeries, dateLabel, entries[] }`; each entry is
+ *   `{ eventTitle, week, series, series_title, team_a, team_b, wins_a, wins_b,
  *      games: [{ matchId, game }], firstMatchId, vod_url, start_time }`.
  */
 export function buildWeekGroups(matches, details) {
@@ -39,11 +44,15 @@ export function buildWeekGroups(matches, details) {
     const detail = detailMap[String(match.match_id)];
     if (!detail || detail.week == null) continue;
 
-    const key = `${detail.week}_${(detail.team_a || "").toLowerCase()}_${(detail.team_b || "").toLowerCase()}`;
+    const eventTitle = detail.series || "";
+    // Week numbers restart per event ("Night Shift APAC #1"), so the event has
+    // to be part of the key or two events' week 1 would collapse into one group.
+    const key = `${eventTitle.toLowerCase()}_${detail.week}_${(detail.team_a || "").toLowerCase()}_${(detail.team_b || "").toLowerCase()}`;
 
     let entry = seriesMap.get(key);
     if (!entry) {
       entry = {
+        eventTitle,
         week: detail.week,
         series: detail.series,
         series_title: detail.series_title || "",
@@ -55,6 +64,7 @@ export function buildWeekGroups(matches, details) {
         firstMatchId: match.match_id,
         vod_url: detail.match_vod || "",
         start_time: match.start_time || match.created_at || null,
+        latest_time: match.start_time || match.created_at || null,
       };
       seriesMap.set(key, entry);
     }
@@ -78,6 +88,12 @@ export function buildWeekGroups(matches, details) {
     ) {
       entry.start_time = playedAt;
     }
+    if (
+      playedAt &&
+      (!entry.latest_time || new Date(playedAt) > new Date(entry.latest_time))
+    ) {
+      entry.latest_time = playedAt;
+    }
   }
 
   const weeks = new Map();
@@ -88,10 +104,17 @@ export function buildWeekGroups(matches, details) {
       game.game = index + 1;
     });
 
-    let group = weeks.get(entry.week);
+    const groupKey = `${entry.eventTitle.toLowerCase()}_${entry.week}`;
+    let group = weeks.get(groupKey);
     if (!group) {
-      group = { week: entry.week, entries: [], earliest: null };
-      weeks.set(entry.week, group);
+      group = {
+        eventTitle: entry.eventTitle,
+        week: entry.week,
+        entries: [],
+        earliest: null,
+        latest: null,
+      };
+      weeks.set(groupKey, group);
     }
     group.entries.push(entry);
 
@@ -102,16 +125,28 @@ export function buildWeekGroups(matches, details) {
     ) {
       group.earliest = entry.start_time;
     }
+    if (
+      entry.latest_time &&
+      (!group.latest || new Date(entry.latest_time) > new Date(group.latest))
+    ) {
+      group.latest = entry.latest_time;
+    }
   }
 
   return [...weeks.values()]
+    .sort(
+      (a, b) =>
+        toTime(b.latest) - toTime(a.latest) ||
+        Number(b.week) - Number(a.week) ||
+        a.eventTitle.localeCompare(b.eventTitle),
+    )
     .map((group) => ({
+      eventTitle: group.eventTitle,
       week: group.week,
       totalSeries: group.entries.length,
       dateLabel: formatWeekDate(group.earliest),
       entries: group.entries.sort((a, b) =>
         a.firstMatchId > b.firstMatchId ? -1 : 1,
       ),
-    }))
-    .sort((a, b) => Number(b.week) - Number(a.week));
+    }));
 }

@@ -97,13 +97,50 @@ describe("buildWeekGroups", () => {
     expect(groups[0].totalSeries).toBe(1);
   });
 
-  it("orders weeks newest first", () => {
+  it("orders groups by their most recent game", () => {
     const groups = buildWeekGroups(
-      [match({ match_id: 5 }), match({ match_id: 3 })],
+      [
+        match({ match_id: 5, start_time: "2026-08-01T18:00:00+00:00" }),
+        match({ match_id: 3, start_time: "2026-09-01T18:00:00+00:00" }),
+      ],
       { 5: detail({ week: 61 }), 3: detail({ week: 60 }) },
     );
 
-    expect(groups.map((group) => group.week)).toEqual([61, 60]);
+    expect(groups.map((group) => group.week)).toEqual([60, 61]);
+  });
+
+  it("puts a new event's first week above an older event's later week", () => {
+    const groups = buildWeekGroups(
+      [
+        match({ match_id: 1, start_time: "2026-11-05T18:00:00+00:00" }),
+        match({ match_id: 2, start_time: "2026-10-28T18:00:00+00:00" }),
+      ],
+      {
+        1: detail({ series: "Night Shift APAC", week: 1 }),
+        2: detail({ series: "Night Shift", week: 63 }),
+      },
+    );
+
+    expect(groups.map((group) => `${group.eventTitle} #${group.week}`)).toEqual([
+      "Night Shift APAC #1",
+      "Night Shift #63",
+    ]);
+  });
+
+  it("keeps the same week number apart when it belongs to different events", () => {
+    const groups = buildWeekGroups(
+      [match({ match_id: 1 }), match({ match_id: 2 })],
+      {
+        1: detail({ series: "Night Shift", week: 1 }),
+        2: detail({ series: "Night Shift APAC", week: 1 }),
+      },
+    );
+
+    expect(groups).toHaveLength(2);
+    expect(groups.map((group) => group.eventTitle).sort()).toEqual([
+      "Night Shift",
+      "Night Shift APAC",
+    ]);
   });
 
   it("numbers games in match-id order whatever the input order", () => {

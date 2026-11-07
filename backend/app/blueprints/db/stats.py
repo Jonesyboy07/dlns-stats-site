@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """/db routes: stats."""
 
+import sqlite3
 from typing import Any, Dict, List
 from flask import jsonify, request
 
@@ -663,17 +664,92 @@ def stats_summary():
     )
 
 
-def _scoped_for_tab():
-    """Matches and players for one ?weeks=&region= view, or None when the event is empty."""
+def _stats_bans(conn, match_ids: List[int]) -> Dict[int, List[Dict[str, Any]]]:
+    """Hero bans of the given matches, grouped by match.
+
+    `match_bans` is absent from databases created before bans were tracked, so a
+    missing table degrades to "no bans" rather than failing the request.
+    """
+    bans_by_match: Dict[int, List[Dict[str, Any]]] = {}
+    if not match_ids:
+        return bans_by_match
+    placeholders = ",".join("?" for _ in match_ids)
+    try:
+        cur = conn.execute(
+            f"SELECT match_id, team, hero_id FROM match_bans WHERE match_id IN ({placeholders})",
+            tuple(match_ids),
+        )
+    except sqlite3.OperationalError:
+        return bans_by_match
+    for row in _rows_to_dicts(cur):
+        bans_by_match.setdefault(row["match_id"], []).append(row)
+    return bans_by_match
+
+
+def _scoped_for_tab(look_back: bool = False, with_bans: bool = False):
+    """Matches and players for one ?weeks=&region= view, or None when the event is empty.
+
+    `look_back` also loads players for the week before the range, for
+    week-on-week changes; `with_bans` adds the scoped matches' bans.
+    """
     event_title = _stats_event_title()
     with get_ro_conn() as conn:
         rows, regions = _stats_matches(conn, event_title)
         if not rows:
             return event_title, None
         (start, end), region = _stats_filters(rows, _region_order(regions))
-        players_by_match = _stats_players(conn, event_title, start, end)
-    scope = ss.scoped(rows, regions, region, (start, end))
-    return event_title, {"scope": scope, "players": players_by_match, "regions": regions, "range": [start, end], "region": region or "All"}
+        first = min(start, end - 1) if look_back else start
+        players_by_match = _stats_players(conn, event_title, first, end)
+        scope = ss.scoped(rows, regions, region, (start, end))
+        bans_by_match = _stats_bans(conn, [m["match_id"] for m in scope]) if with_bans else {}
+    return event_title, {
+        "rows": rows,
+        "scope": scope,
+        "players": players_by_match,
+        "bans": bans_by_match,
+        "regions": regions,
+        "range": [start, end],
+        "region": region or "All",
+        "region_key": region,
+    }
+
+
+@bp.get("/stats/heroes")
+@cache.cached(timeout=1800, query_string=True)
+def stats_heroes():
+    """The Heroes tab for ?weeks=a-b&region=: hero meta, pick % movers and most banned.
+
+    Movers compare the range's last week with the week before it, whether or not
+    that week is inside the range, like the headline's change lines.
+    """
+    event_title, view = _scoped_for_tab(look_back=True, with_bans=True)
+    if view is None:
+        return jsonify({"event_title": event_title, "range": None, "games": 0, "heroes": []})
+    start, end = view["range"]
+    rows, regions, region = view["rows"], view["regions"], view["region_key"]
+    scope = view["scope"]
+
+    heroes = _with_hero_names(ss.hero_meta(scope, view["players"], view["bans"]), "hero_id", "name")
+    latest = ss.scoped(rows, regions, region, (end, end))
+    previous = ss.scoped(rows, regions, region, (end - 1, end - 1))
+    movers = ss.pick_movers(latest, previous, view["players"])
+    if movers:
+        for side in movers.values():
+            _with_hero_names(side, "hero_id", "name")
+
+    return jsonify(
+        {
+            "event_title": event_title,
+            "range": view["range"],
+            "region": view["region"],
+            "games": len(scope),
+            "total_bans": sum(h["bans"] for h in heroes),
+            "latest_week": end,
+            "previous_week": end - 1,
+            "heroes": heroes,
+            "movers": movers,
+        }
+    )
 
 
 @bp.get("/stats/records-board")

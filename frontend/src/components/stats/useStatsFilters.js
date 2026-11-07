@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { formatSort, isDefaultSort, parseSort } from "../../utils/heroMeta";
 import { clampRange, formatWeeksParam, parseWeeksParam } from "../../utils/statsPeriod";
 
 export const STATS_TABS = ["overview", "heroes", "records", "leaderboards"];
@@ -30,6 +31,10 @@ export default function useStatsFilters({ weeks = [], regions = [] } = {}) {
   const tabParam = (searchParams.get("tab") || "").toLowerCase();
   const tab = STATS_TABS.includes(tabParam) ? tabParam : "overview";
 
+  /* The Heroes table's sort, `&sort=contest-desc`; the default is left out. */
+  const sortParam = searchParams.get("sort");
+  const sort = useMemo(() => parseSort(sortParam), [sortParam]);
+
   const update = useCallback(
     (patch) => {
       const next = new URLSearchParams(searchParams);
@@ -53,6 +58,7 @@ export default function useStatsFilters({ weeks = [], regions = [] } = {}) {
     [update],
   );
   const setTab = useCallback((next) => update({ tab: next === "overview" ? null : next }), [update]);
+  const setSort = useCallback((next) => update({ sort: isDefaultSort(next) ? null : formatSort(next) }), [update]);
 
   /* The shared link always spells the weeks out, so it keeps meaning the same
      weeks after newer ones are played. */
@@ -63,5 +69,5 @@ export default function useStatsFilters({ weeks = [], regions = [] } = {}) {
     return `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ""}`;
   }, [searchParams, range]);
 
-  return { range, region, tab, setRange, setRegion, setFilters, setTab, shareUrl };
+  return { range, region, tab, sort, setRange, setRegion, setFilters, setTab, setSort, shareUrl };
 }

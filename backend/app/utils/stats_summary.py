@@ -190,6 +190,72 @@ def hero_rates(matches: Sequence[Dict[str, Any]], players_by_match: Dict[int, Li
     return rates
 
 
+def hero_meta(
+    matches: Sequence[Dict[str, Any]],
+    players_by_match: Dict[int, List[Dict[str, Any]]],
+    bans_by_match: Dict[int, List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """Picks, wins, bans and games contested per hero, for the Heroes tab.
+
+    A game counts towards `contested` once if the hero was picked by either side
+    or banned in it, so contested never exceeds the number of games. Sorted by
+    contested, then picks, then hero id.
+    """
+    meta: Dict[int, Dict[str, Any]] = {}
+
+    def entry(hero: int) -> Dict[str, Any]:
+        return meta.setdefault(hero, {"hero_id": hero, "picks": 0, "wins": 0, "bans": 0, "contested": 0})
+
+    for match in matches:
+        mid = match["match_id"]
+        involved = set()
+        for player in players_by_match.get(mid, []):
+            hero = player.get("hero_id")
+            if hero is None:
+                continue
+            row = entry(hero)
+            row["picks"] += 1
+            if player.get("result") == "Win":
+                row["wins"] += 1
+            involved.add(hero)
+        for ban in bans_by_match.get(mid, []):
+            hero = ban.get("hero_id")
+            if not hero:
+                continue
+            entry(hero)["bans"] += 1
+            involved.add(hero)
+        for hero in involved:
+            meta[hero]["contested"] += 1
+    return sorted(meta.values(), key=lambda h: (-h["contested"], -h["picks"], h["hero_id"]))
+
+
+def pick_movers(
+    latest: Sequence[Dict[str, Any]],
+    previous: Sequence[Dict[str, Any]],
+    players_by_match: Dict[int, List[Dict[str, Any]]],
+    limit: int = 5,
+) -> Optional[Dict[str, List[Dict[str, Any]]]]:
+    """The heroes whose pick % rose and fell most from the previous week to the latest.
+
+    None when either week has no games. Deltas are percentage points, rounded to
+    one decimal; heroes that did not move are left out.
+    """
+    if not latest or not previous:
+        return None
+    now = hero_rates(latest, players_by_match)
+    before = hero_rates(previous, players_by_match)
+    moves = []
+    for hero in set(now) | set(before):
+        pick = now.get(hero, {}).get("picks", 0) / len(latest) * 100
+        prev = before.get(hero, {}).get("picks", 0) / len(previous) * 100
+        delta = round(pick - prev, 1)
+        if delta:
+            moves.append({"hero_id": hero, "pick_pct": round(pick, 1), "prev_pick_pct": round(prev, 1), "delta": delta})
+    rising = sorted((m for m in moves if m["delta"] > 0), key=lambda m: (-m["delta"], m["hero_id"]))
+    falling = sorted((m for m in moves if m["delta"] < 0), key=lambda m: (m["delta"], m["hero_id"]))
+    return {"rising": rising[:limit], "falling": falling[:limit]}
+
+
 def biggest_riser(
     latest: Sequence[Dict[str, Any]],
     previous: Sequence[Dict[str, Any]],

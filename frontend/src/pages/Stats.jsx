@@ -2,8 +2,8 @@ import React from "react";
 import ErrorMessage from "../components/ErrorMessage";
 import usePanelData from "../components/player/usePanelData";
 import HeadlineStrip from "../components/stats/HeadlineStrip";
+import HeroesTab from "../components/stats/HeroesTab";
 import LeaderboardsTab from "../components/stats/LeaderboardsTab";
-import LegacyStatsTab from "../components/stats/LegacyStatsTab";
 import OverviewTab from "../components/stats/OverviewTab";
 import RecordsTab from "../components/stats/RecordsTab";
 import StatsFilterBar from "../components/stats/StatsFilterBar";
@@ -132,7 +132,17 @@ function Stats() {
               {tabBar}
             </>
           )}
-          {tab === "heroes" && <LegacyStatsTab />}
+          {ready && tab === "heroes" && (
+            <HeroesTab
+              query={query}
+              region={region}
+              weeksText={weeksText}
+              sort={filters.sort}
+              onSort={filters.setSort}
+              onLatest={() => filters.setRange(null)}
+              onAllRegions={() => filters.setRegion("All")}
+            />
+          )}
           {ready && tab === "records" && <RecordsTab query={query} />}
           {ready && tab === "leaderboards" && <LeaderboardsTab query={query} />}
         </>

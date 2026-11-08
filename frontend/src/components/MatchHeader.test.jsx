@@ -156,6 +156,15 @@ describe("MatchHeader spoiler-free results", () => {
     expect(markup).not.toContain("999");
   });
 
+  it("keeps the leaderboard profile link on the player name", () => {
+    spoilerState.current = { enabled: false, revealed: [] };
+    const markup = renderLeaderboard();
+
+    expect(markup).toContain('href="/player/7"');
+    expect(markup).not.toContain("after:absolute");
+    expect(markup).not.toContain("after:inset-0");
+  });
+
   it("hides team names on the weekly match results panel", () => {
     const markup = renderMatchResults();
 

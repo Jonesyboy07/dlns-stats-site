@@ -79,7 +79,7 @@ python backend/main.py -dmgbackfill true
 python backend/main.py -itembackfill true
 ```
 
-Normal ingestion tracks processed IDs in `data/matches_status.json` and skips those already checked. `-recheckall true` bypasses that skip. The maintenance flags run their task and exit; lane inference fills `players.lane_real`, while lane backfill fills the game-reported `players.lane`.
+Normal ingestion tracks processed IDs in `data/matches_status.json` and skips those already checked. `-recheckall true` bypasses that skip. Forfeit and unavailable games are filed under negative placeholder IDs; the match API rejects those, so the fetcher skips them instead of spending request quota on them, and they are never marked checked. `-metasync` still applies the metadata authored for those rows. The maintenance flags run their task and exit; lane inference fills `players.lane_real`, while lane backfill fills the game-reported `players.lane`.
 
 ## CLI options
 

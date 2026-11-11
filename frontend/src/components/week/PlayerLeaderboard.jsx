@@ -59,13 +59,18 @@ export default function PlayerLeaderboard({
       )}
 
       {rows.map((row) => (
-        <Spoiler
+        <div
           key={row.accountId}
-          id={`match:${row.matchId}`}
-          inline={false}
           className="relative grid min-h-[52px] grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-2.5 border-t border-border bg-table px-4 text-[14px] transition-colors hover:bg-accent-bg md:min-h-0 md:grid-cols-[40px_minmax(0,1.4fr)_90px_minmax(0,1fr)] md:gap-0 md:px-5 md:py-2.5"
-          replace={<span className="col-span-full text-center">Player stats hidden — click to reveal</span>}
         >
+          {/* The row wrapper owns the layout: Spoiler renders its className on the
+              hidden placeholder only, so it cannot carry the grid cells. */}
+          <Spoiler
+            id={`match:${row.matchId}`}
+            inline={false}
+            className="col-span-full text-center"
+            replace="Player stats hidden — click to reveal"
+          >
             <span
               className={`font-valve-pulp text-[14px] font-bold md:text-[15px] ${
                 row.rank <= 3 ? "text-accent-light" : "text-dim"
@@ -109,7 +114,8 @@ export default function PlayerLeaderboard({
                 <span className="truncate text-dim">{formatDuration(row.durationS)}</span>
               </span>
             </span>
-        </Spoiler>
+          </Spoiler>
+        </div>
       ))}
 
       {rows.length > 0 && (

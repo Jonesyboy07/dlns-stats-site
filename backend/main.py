@@ -3023,6 +3023,26 @@ def read_match_ids_file(path: Path) -> List[int]:
 	return ids
 
 
+def split_placeholder_ids(match_ids: Iterable[int]) -> Tuple[List[int], List[int]]:
+	"""Split a plan into fetchable ids and placeholder ids.
+
+	Forfeit and unavailable games are filed in the feed under negative placeholder
+	ids (see `brackets.stats_id`). The match API rejects them with a 400, so a fetch
+	only spends request quota that real matches need. Placeholder rows still receive
+	their authored metadata through `-metasync`, which reads the plan directly.
+	"""
+	fetchable: List[int] = []
+	placeholders: List[int] = []
+	seen_placeholders: set[int] = set()
+	for mid in match_ids:
+		if mid > 0:
+			fetchable.append(mid)
+		elif mid not in seen_placeholders:
+			seen_placeholders.add(mid)
+			placeholders.append(mid)
+	return fetchable, placeholders
+
+
 def process_match_into_db(
 	conn: sqlite3.Connection,
 	match_id: int,
@@ -3783,6 +3803,16 @@ def main(argv: Optional[List[str]] = None) -> int:
 	match_ids, match_context_by_id = read_match_plan_file(matchfile)
 	if not match_ids:
 		print("No match IDs found in match JSON.")
+		return 0
+
+	# Forfeit/unavailable games are filed under negative placeholder ids that the match
+	# API rejects. Fetching them wastes quota, so only real ids are ingested; their feed
+	# metadata still reaches the DB through -metasync.
+	match_ids, placeholder_ids = split_placeholder_ids(match_ids)
+	if placeholder_ids:
+		print(f"Skipping {len(placeholder_ids)} placeholder match id(s) (forfeit/unavailable games).")
+	if not match_ids:
+		print("No fetchable match IDs found in match JSON.")
 		return 0
 
 	status = update_matches_status(status_path, match_ids)

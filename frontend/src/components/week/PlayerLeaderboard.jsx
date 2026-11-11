@@ -87,7 +87,7 @@ export default function PlayerLeaderboard({
               <span className="flex min-w-0 flex-col">
                 <Link
                   to={`/player/${row.accountId}`}
-                  className="truncate font-semibold text-primary hover:text-accent-light after:absolute after:inset-0 after:content-[''] md:after:hidden"
+                  className="truncate font-semibold text-primary hover:text-accent-light"
                 >
                   {row.name}
                 </Link>

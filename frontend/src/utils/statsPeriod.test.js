@@ -11,6 +11,7 @@ import {
   patchLabel,
   periodPresets,
   rangeDetail,
+  revealScrollLeft,
   shortPatchName,
   weeksLabel,
 } from "./statsPeriod";
@@ -94,6 +95,18 @@ describe("counts and presets", () => {
       ["Latest week", [61, 61]],
       ["Last 4 weeks", [58, 61]],
     ]);
+  });
+
+  it("scrolls the week strip onto the end of the range", () => {
+    const strip = { clientWidth: 800, scrollWidth: 2000 };
+    // Week 1 is already in view, so nothing scrolls.
+    expect(revealScrollLeft(400, strip)).toBe(0);
+    // A middle range lands at the right edge, plus the 8px pad.
+    expect(revealScrollLeft(1000, strip)).toBe(208);
+    // The latest weeks sit at the end, so the strip stops at its max scroll.
+    expect(revealScrollLeft(2000, strip)).toBe(1200);
+    // A strip that fits needs no scroll at all.
+    expect(revealScrollLeft(800, { clientWidth: 900, scrollWidth: 900 })).toBe(0);
   });
 });
 

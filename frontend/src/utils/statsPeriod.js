@@ -133,6 +133,16 @@ export function periodPresets(weeks) {
   });
 }
 
+/**
+ * The `scrollLeft` that brings an element ending at `anchorRight` (an offset in
+ * the strip's content) to the strip's right edge, clamped to what it can scroll.
+ * Used to open the Period picker on the weeks it is showing rather than on week 1.
+ */
+export function revealScrollLeft(anchorRight, { clientWidth, scrollWidth, pad = 8 }) {
+  const max = Math.max(0, scrollWidth - clientWidth);
+  return Math.min(Math.max(0, anchorRight - clientWidth + pad), max);
+}
+
 /** Patch band label: "Gameplay Update " is dropped so the band reads "10-02". */
 export function shortPatchName(name = "") {
   return name.startsWith("Gameplay Update ") ? name.slice("Gameplay Update ".length) : name;

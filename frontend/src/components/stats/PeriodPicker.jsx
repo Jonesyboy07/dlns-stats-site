@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Button from "../Button";
 import {
   matchesInRange,
   periodPresets,
   rangeDetail,
+  revealScrollLeft,
   shortPatchName,
   weeksLabel,
 } from "../../utils/statsPeriod";
@@ -37,6 +38,21 @@ function bandTone(patch, range) {
 export default function PeriodPicker({ weeks, patches, range, region, onApply, onCancel }) {
   const [draft, setDraft] = useState(range);
   const [pendingWeek, setPendingWeek] = useState(null);
+  const stripRef = useRef(null);
+
+  /* Mount-only: the strip spans every week played, so it would open on week 1
+     with the current range scrolled out of sight past the right edge. Open on
+     the end of the range the picker was opened with instead. */
+  useEffect(() => {
+    const strip = stripRef.current;
+    const anchor = strip?.querySelector(`[data-week="${range[1]}"]`);
+    if (!strip || !anchor) return;
+    strip.scrollLeft = revealScrollLeft(
+      anchor.getBoundingClientRect().right - strip.getBoundingClientRect().left + strip.scrollLeft,
+      strip,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const byWeek = new Map(weeks.map((entry) => [entry.week, entry]));
   const maxMatches = Math.max(1, ...weeks.map((entry) => entry.matches));
@@ -92,7 +108,7 @@ export default function PeriodPicker({ weeks, patches, range, region, onApply, o
         </div>
       </div>
 
-      <div className="scroll-thin overflow-x-auto">
+      <div ref={stripRef} className="scroll-thin overflow-x-auto">
         <div className="flex min-w-max flex-col gap-1.5 sm:min-w-0">
           <span className={GROUP_LABEL}>Patches · dates are Gameplay Updates</span>
           <div className="flex gap-[3px]">
@@ -133,6 +149,7 @@ export default function PeriodPicker({ weeks, patches, range, region, onApply, o
                     <button
                       key={week}
                       type="button"
+                      data-week={week}
                       title={`Week ${week} · ${matches ? `${matches} matches` : "no games"}`}
                       aria-label={label}
                       aria-pressed={on}

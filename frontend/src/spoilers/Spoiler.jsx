@@ -11,9 +11,11 @@ import { useSpoilerState, revealSpoiler, hideSpoiler } from "./spoilerStore";
  * one item and persists that choice. Use `inline={false}` for block content.
  *
  * Props:
- *   id      – stable key for per-item reveal (same id = revealed together).
- *   replace – placeholder node.
- *   reveal  – false to disable click-to-reveal (only the global toggle shows it).
+ *   id        – stable key for per-item reveal (same id = revealed together).
+ *   replace   – placeholder node.
+ *   reveal    – false to disable click-to-reveal (only the global toggle shows it).
+ *   className – styles the hidden placeholder only. Visible children render
+ *               without a wrapper, so layout classes belong on the parent.
  */
 export default function Spoiler({
   id,

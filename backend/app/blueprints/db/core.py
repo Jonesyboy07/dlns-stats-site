@@ -427,7 +427,7 @@ def _shared_catalog(key: str, url: str, label: str, ttl: int) -> List[Any]:
 
 
 def _item_catalog() -> Dict[int, Dict[str, Any]]:
-    """Shop item id -> {name, slot, tier, type, image, icon} (cached)."""
+    """Shop item id -> {name, class_name, slot, tier, cost, shopable, type, icon, image} (cached)."""
     cached = cache.get("dlns_item_catalog")
     if cached is not None:
         return cached
@@ -449,8 +449,11 @@ def _item_catalog() -> Dict[int, Dict[str, Any]]:
         shipped = resolve_icon(item, icons)
         catalog[int(item_id)] = {
             "name": name,
+            "class_name": item.get("class_name") or "",
             "slot": item.get("item_slot_type") or "",
             "tier": item.get("item_tier"),
+            "cost": item.get("cost"),
+            "shopable": bool(item.get("shopable")),
             "type": item.get("type") or "",
             "icon": f"items/{shipped}" if shipped else None,
             # The upstream art, for the items whose file was never cut; the client

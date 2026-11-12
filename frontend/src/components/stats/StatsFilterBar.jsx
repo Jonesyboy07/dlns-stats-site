@@ -34,6 +34,10 @@ function RegionControl({ regions, value, onChange }) {
  * The sticky filter bar: one Period control (weeks and patches merged), the
  * region, the match count and Copy link. On phones it is a single Filters pill
  * that opens the filter sheet.
+ *
+ * `children` is a page's own controls (the Items index's slot, tier, search and
+ * min games). On desktop they get a second row inside the sticky bar; on phones
+ * they sit under the Filters pill, outside it, so the pill stays one line.
  */
 export default function StatsFilterBar({
   weeks,
@@ -45,6 +49,7 @@ export default function StatsFilterBar({
   onRegion,
   onFilters,
   shareUrl,
+  children = null,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -140,6 +145,8 @@ export default function StatsFilterBar({
           </Button>
         </div>
 
+        {children && <div className="basis-full border-t border-border pt-2.5">{children}</div>}
+
         {pickerOpen && ready && (
           <PeriodPicker
             weeks={weeks}
@@ -182,6 +189,8 @@ export default function StatsFilterBar({
           Everything
         </button>
       </div>
+
+      {children && <div className="md:hidden">{children}</div>}
 
       {sheetOpen && ready && (
         <MobileFilterSheet

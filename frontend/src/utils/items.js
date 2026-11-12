@@ -175,3 +175,90 @@ export function parseChoice(value, choices) {
   const choice = String(value ?? "").toLowerCase();
   return choices.includes(choice) ? choice : choices[0];
 }
+
+/* ── Item page ── */
+
+const BUCKET_MINUTES = 5;
+const CHART_WIN_RANGE = [20, 80]; // the buy-timing chart's fixed y axis, in win %
+const EARLY_BEFORE_S = 15 * 60;
+const LATE_FROM_S = 25 * 60;
+export const SIGNATURE_SHARE = 0.5;
+
+/** "0–5", "5–10" … and "30+" for the last, open-ended bucket. */
+export function bucketLabel(startS, isLast) {
+  const from = Math.round(startS / 60);
+  return isLast ? `${from}+` : `${from}–${from + BUCKET_MINUTES}`;
+}
+
+/**
+ * The buy-timing chart's bars and points. Bars scale so the busiest bucket is
+ * 78% of the chart; points sit on a fixed 20–80% win axis. A bucket with some
+ * purchases but fewer than `minGames` is `low` (hatched bar, hollow point).
+ */
+export function buyTimingBars(buckets = [], minGames = DEFAULT_MIN_GAMES) {
+  const busiest = Math.max(1, ...buckets.map((b) => b.purchases));
+  const total = buckets.reduce((sum, b) => sum + b.purchases, 0);
+  const [floor, ceiling] = CHART_WIN_RANGE;
+  return buckets.map((bucket, index) => {
+    const { purchases, wins } = bucket;
+    const win = purchases ? (wins / purchases) * 100 : null;
+    return {
+      label: bucketLabel(bucket.start_s, index === buckets.length - 1),
+      purchases,
+      wins,
+      win,
+      share: total ? (purchases / total) * 100 : 0,
+      low: purchases > 0 && purchases < minGames,
+      height: purchases ? Math.max(3, (purchases / busiest) * 78) : 0,
+      y: win == null ? null : Math.min(100, Math.max(0, ((win - floor) / (ceiling - floor)) * 100)),
+    };
+  });
+}
+
+/** Win rate when first bought before 15:00 and from 25:00 on. */
+export function earlyLateSplit(buckets = []) {
+  const sum = (list) => list.reduce((acc, b) => ({ games: acc.games + b.purchases, wins: acc.wins + b.wins }), { games: 0, wins: 0 });
+  const withWin = ({ games, wins }) => ({ games, wins, win: games ? (wins / games) * 100 : null });
+  return {
+    early: withWin(sum(buckets.filter((b) => b.start_s < EARLY_BEFORE_S))),
+    late: withWin(sum(buckets.filter((b) => b.start_s >= LATE_FROM_S))),
+  };
+}
+
+/** Built in at least half of the player's games, with at least `minGames` games on it. */
+export function isSignature(player, minGames = DEFAULT_MIN_GAMES) {
+  return player.games >= minGames && player.player_games > 0 && player.games / player.player_games >= SIGNATURE_SHARE;
+}
+
+export const HERO_SORTS = ["games", "pick", "win"];
+
+/** Heroes who build it, with pick (share of the hero's games) and win %, low samples last. */
+export function heroBuildRows(heroes = [], sortKey = "games", minGames = DEFAULT_MIN_GAMES) {
+  const value = {
+    games: (row) => row.games,
+    pick: (row) => row.pick,
+    win: (row) => row.win,
+  }[sortKey] ?? ((row) => row.games);
+  return heroes
+    .map((hero) => ({
+      ...hero,
+      pick: rate(hero.games, hero.hero_games),
+      win: rate(hero.wins, hero.games),
+      low: isLowSample(hero.games, minGames),
+    }))
+    .sort((a, b) => a.low - b.low || value(b) - value(a) || b.games - a.games || String(a.name ?? "").localeCompare(String(b.name ?? "")));
+}
+
+/** Players who build it most, ranked; low samples last and unranked. */
+export function playerBuildRows(players = [], minGames = DEFAULT_MIN_GAMES) {
+  const rows = players
+    .map((player) => ({
+      ...player,
+      win: rate(player.wins, player.games),
+      low: isLowSample(player.games, minGames),
+      signature: isSignature(player, minGames),
+    }))
+    .sort((a, b) => a.low - b.low || b.games - a.games || b.wins - a.wins);
+  let rank = 0;
+  return rows.map((row) => ({ ...row, rank: row.low ? null : ++rank }));
+}

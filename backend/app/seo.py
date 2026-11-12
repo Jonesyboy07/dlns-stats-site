@@ -37,6 +37,7 @@ _SERIES_RE = re.compile(r"^/series/(\d+)$")
 _PLAYER_RE = re.compile(r"^/player/(\d+)$")
 _PLAYER_HERO_RE = re.compile(r"^/player/(\d+)/hero/(\d+)$")
 _HERO_RE = re.compile(r"^/hero/(\d+)$")
+_ITEM_RE = re.compile(r"^/item/(\d+)$")
 _TEAM_RE = re.compile(r"^/team/(.+)$")
 _WEEK_RE = re.compile(r"^/week/(\d+)$")
 _INTERVIEW_RE = re.compile(r"^/interviews/([^/]+)$")
@@ -131,6 +132,7 @@ _NOT_FOUND_TITLES = {
     "player": "Player not found",
     "player-hero": "Player hero page not found",
     "hero": "Hero not found",
+    "item": "Item not found",
     "team": "Team not found",
     "week": "Week not found",
 }
@@ -508,6 +510,27 @@ def _hero_page(hero_id: int, canonical: str) -> dict[str, Any]:
     }
 
 
+def _item_page(item_id: int, canonical: str) -> dict[str, Any] | None:
+    """Item page metadata; {} for an unknown item, None when the catalogue is unavailable."""
+    from .blueprints.db.core import _item_catalog  # local: the db package imports the app's modules
+
+    catalog = _item_catalog()
+    if not catalog:
+        return None
+    item = catalog.get(item_id)
+    if not item or item.get("type") != "upgrade":
+        return {}
+    name = item.get("name")
+    return {
+        "title": _with_brand(f"{name} Stats — Deadlock Night Shift"),
+        "description": (
+            f"{name} win rate, pick rate, buy timing and the heroes and players who build it "
+            "in the Deadlock Night Shift league."
+        ),
+        "breadcrumbs": [("Home", "/"), ("Items", "/items"), (name, canonical)],
+    }
+
+
 def _home_jsonld() -> dict[str, Any]:
     base = _base_url()
     return {
@@ -584,6 +607,7 @@ def build_seo_context() -> dict[str, Any]:
         player = _PLAYER_RE.match(canonical)
         player_hero = _PLAYER_HERO_RE.match(canonical)
         hero = _HERO_RE.match(canonical)
+        item = _ITEM_RE.match(canonical)
         team = _TEAM_RE.match(canonical)
         week = _WEEK_RE.match(canonical)
         interview = _INTERVIEW_RE.match(canonical)
@@ -643,6 +667,11 @@ def build_seo_context() -> dict[str, Any]:
             page = _hero_page(int(hero.group(1)), canonical)
             if not page:
                 not_found_kind = "hero"
+        elif item:
+            item_page = _item_page(int(item.group(1)), canonical)
+            page = item_page or {}
+            if item_page == {}:
+                not_found_kind = "item"
         elif team:
             team_name = unquote(team.group(1)).strip()
             canonical_team = _fetch_team(team_name) if team_name else None

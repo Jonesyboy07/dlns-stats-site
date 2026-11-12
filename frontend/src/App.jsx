@@ -21,6 +21,7 @@ const PlayerDetail = lazy(() => import("./pages/PlayerDetail"));
 const HeroesList = lazy(() => import("./pages/HeroesList"));
 const HeroDetail = lazy(() => import("./pages/HeroDetail"));
 const ItemsList = lazy(() => import("./pages/ItemsList"));
+const ItemDetail = lazy(() => import("./pages/ItemDetail"));
 const PlayerHeroDetail = lazy(() => import("./pages/PlayerHeroDetail"));
 const Stats = lazy(() => import("./pages/Stats"));
 const TeamsList = lazy(() => import("./pages/TeamsList"));
@@ -146,6 +147,7 @@ function App() {
               <Route path="/heroes" element={<HeroesList />} />
               <Route path="/hero/:heroId" element={<HeroDetail />} />
               <Route path="/items" element={<ItemsList />} />
+              <Route path="/item/:itemId" element={<ItemDetail />} />
               <Route
                 path="/player/:accountId/hero/:heroId"
                 element={<PlayerHeroDetail />}

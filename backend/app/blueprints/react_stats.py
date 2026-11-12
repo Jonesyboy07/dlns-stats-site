@@ -69,6 +69,12 @@ def items_page():
     return render_template('react.html', page='items')
 
 
+@react_stats_bp.get('/item/<int:item_id>')
+def item_detail(item_id):
+    """Serve the React item page (same bundle as /items; the router picks the page)."""
+    return render_template('react.html', page='items')
+
+
 @react_stats_bp.get('/teams')
 def teams_list():
     """Serve the React teams list page."""

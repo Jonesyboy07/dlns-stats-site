@@ -169,6 +169,33 @@ class SeoMetadataTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 200)
 
+    def test_item_pages_use_the_catalogue(self):
+        from backend.app.cache import cache
+
+        with self.app.app_context():
+            cache.set(
+                "dlns_item_catalog",
+                {
+                    7: {"name": "Toxic Bullets", "type": "upgrade"},
+                    8: {"name": "Some Ability", "type": "ability"},
+                },
+            )
+        response = self.client.get("/item/7")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<title>Toxic Bullets Stats", response.get_data(as_text=True))
+        for path in ("/item/8", "/item/999"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("<title>Item not found", response.get_data(as_text=True))
+
+    def test_item_page_without_catalogue_is_not_a_404(self):
+        from unittest import mock
+
+        with mock.patch("backend.app.blueprints.db.core._item_catalog", return_value={}):
+            response = self.client.get("/item/7")
+        self.assertEqual(response.status_code, 200)
+
     def test_player_without_games_is_still_indexable(self):
         response = self.client.get("/player/43")
         html = response.get_data(as_text=True)

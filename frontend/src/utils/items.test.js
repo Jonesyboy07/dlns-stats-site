@@ -16,6 +16,11 @@ import {
   summaryPicks,
   winRateColor,
   ITEM_VIEWS,
+  buyTimingBars,
+  earlyLateSplit,
+  heroBuildRows,
+  isSignature,
+  playerBuildRows,
 } from "./items";
 
 const ITEMS = [
@@ -114,5 +119,61 @@ describe("URL params", () => {
     expect(parseSlot("nope")).toBe("all");
     expect(parseChoice("GRID", ITEM_VIEWS)).toBe("grid");
     expect(parseChoice(undefined, ITEM_VIEWS)).toBe("table");
+  });
+});
+
+describe("item page", () => {
+  const BUCKETS = [0, 300, 600, 900, 1200, 1500, 1800].map((start_s, i) => ({
+    start_s,
+    purchases: [0, 2, 10, 20, 8, 4, 1][i],
+    wins: [0, 2, 6, 12, 4, 1, 1][i],
+  }));
+
+  it("labels buckets, scales bars and flags thin ones", () => {
+    const bars = buyTimingBars(BUCKETS, 5);
+    expect(bars.map((b) => b.label)).toEqual(["0–5", "5–10", "10–15", "15–20", "20–25", "25–30", "30+"]);
+    expect(bars[0]).toMatchObject({ height: 0, win: null, y: null, low: false });
+    expect(bars[3]).toMatchObject({ height: 78, win: 60, low: false });
+    expect(bars[3].y).toBeCloseTo(66.67, 1);
+    expect(bars[1]).toMatchObject({ low: true, win: 100, y: 100 });
+    expect(bars[3].share).toBeCloseTo((20 / 45) * 100);
+  });
+
+  it("splits early and late buys", () => {
+    const { early, late } = earlyLateSplit(BUCKETS);
+    expect(early).toEqual({ games: 12, wins: 8, win: (8 / 12) * 100 });
+    expect(late).toEqual({ games: 5, wins: 2, win: 40 });
+    expect(earlyLateSplit([]).early.win).toBeNull();
+  });
+
+  it("marks signature players: half their games and enough of them", () => {
+    expect(isSignature({ games: 6, player_games: 12 }, 5)).toBe(true);
+    expect(isSignature({ games: 6, player_games: 13 }, 5)).toBe(false);
+    expect(isSignature({ games: 4, player_games: 4 }, 5)).toBe(false);
+  });
+
+  it("sorts heroes by the chosen column with low samples last", () => {
+    const heroes = [
+      { hero_id: 1, name: "A", games: 10, wins: 4, hero_games: 40 },
+      { hero_id: 2, name: "B", games: 6, wins: 5, hero_games: 6 },
+      { hero_id: 3, name: "C", games: 2, wins: 2, hero_games: 2 },
+    ];
+    expect(heroBuildRows(heroes, "games", 5).map((h) => h.hero_id)).toEqual([1, 2, 3]);
+    expect(heroBuildRows(heroes, "pick", 5).map((h) => h.hero_id)).toEqual([2, 1, 3]);
+    expect(heroBuildRows(heroes, "win", 5)[0]).toMatchObject({ hero_id: 2, pick: 100 });
+  });
+
+  it("ranks players, leaving low samples unranked", () => {
+    const rows = playerBuildRows(
+      [
+        { account_id: 1, games: 3, wins: 1, player_games: 3 },
+        { account_id: 2, games: 8, wins: 5, player_games: 10 },
+      ],
+      5,
+    );
+    expect(rows.map((r) => [r.account_id, r.rank, r.signature])).toEqual([
+      [2, 1, true],
+      [1, null, false],
+    ]);
   });
 });

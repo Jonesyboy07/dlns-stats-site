@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Button from "../Button";
-import { allWeeksRange, defaultRange, matchesInRange, weeksLabel } from "../../utils/statsPeriod";
+import { allWeeksRange, defaultRange as latestWeeksRange, matchesInRange, weeksLabel } from "../../utils/statsPeriod";
 
 const GROUP_LABEL = "text-[11px] font-semibold uppercase tracking-[0.08em] text-dim";
 const CHIP_WEEKS = 8;
@@ -9,9 +9,18 @@ const CHIP_WEEKS = 8;
  * The phone's filter sheet: the latest weeks as chips (tap a start and an end
  * week), the patches as a radio list, and the region. Weeks and Patch edit one
  * draft range, the same state the desktop Period picker edits, and nothing is
- * applied until "Show n matches".
+ * applied until "Show n matches". Reset returns to the page's `defaultRange`.
  */
-export default function MobileFilterSheet({ weeks, patches, range, region, regions, onApply, onClose }) {
+export default function MobileFilterSheet({
+  weeks,
+  patches,
+  range,
+  region,
+  regions,
+  onApply,
+  onClose,
+  defaultRange = latestWeeksRange,
+}) {
   const [draft, setDraft] = useState(range);
   const [draftRegion, setDraftRegion] = useState(region);
   const [pendingWeek, setPendingWeek] = useState(null);

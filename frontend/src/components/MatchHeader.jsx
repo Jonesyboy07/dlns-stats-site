@@ -32,7 +32,7 @@ export default function MatchHeader({
   winner = null, // "amber" | "sapphire" | null
   games = [1, 2, 3],
   activeGame = 2,
-  seriesUrl = "#",
+  seriesUrl,
   weekUrl,
   setTitle,
   vodUrl = "",
@@ -104,12 +104,15 @@ export default function MatchHeader({
             </a>
           ) : null}
           <ReplayButton matchId={matchId} />
-          <a
-            href={seriesUrl}
-            className="text-[13px] font-heading font-semibold tracking-[.02em] flex items-center gap-1 text-accent-light hover:text-accent transition-colors"
-          >
-            View Full Series →
-          </a>
+          {/* Opens the series on its week page; hidden when the match has no week. */}
+          {seriesUrl && (
+            <Link
+              to={seriesUrl}
+              className="text-[13px] font-heading font-semibold tracking-[.02em] flex items-center gap-1 text-accent-light hover:text-accent transition-colors"
+            >
+              View Full Series →
+            </Link>
+          )}
         </div>
       </div>
 

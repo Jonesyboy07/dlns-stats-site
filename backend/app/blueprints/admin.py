@@ -22,6 +22,7 @@ from ...main import (
     db_connect,
     db_init,
     fetch_match_metadata,
+    ingest_match_extras,
     load_json,
     parse_time_to_iso,
     recompute_user_stats_bulk,
@@ -161,6 +162,7 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
 
                 account_ids: set[int] = set()
                 matches_for_json: List[Dict[str, Any]] = []
+                timeline_failures: List[int] = []
 
                 for set_item in sets:
                     team_a = set_item["team_a"]
@@ -318,6 +320,17 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
                                 except Exception:
                                     pass
                             upsert_player(conn, match_id, player, winning_team, name_by_id)
+
+                        # The timeline, map replay and damage pages read rows that only
+                        # this ingest writes; without it a game saved here looks empty
+                        # there. The metadata was already fetched, so it costs nothing.
+                        # A failure is reported in the job message rather than losing
+                        # the submission, and -timelinebackfill repairs it later.
+                        try:
+                            ingest_match_extras(conn, match_id, mi)
+                        except Exception:
+                            timeline_failures.append(match_id)
+                            app_obj.logger.exception("Timeline ingest failed for match %s", match_id)
     
                         # Persist user rows (including avatar_url) to DB
                         for aid in account_ids:
@@ -357,6 +370,13 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
             if skipped:
                 msg += f", skipped {skipped} N/A"
             msg += "."
+            if timeline_failures:
+                listed = ", ".join(str(m) for m in timeline_failures[:10])
+                more = f" (+{len(timeline_failures) - 10} more)" if len(timeline_failures) > 10 else ""
+                msg += (
+                    f" Timeline data failed for {len(timeline_failures)} match(es): {listed}{more}."
+                    " Run -timelinebackfill to fill them."
+                )
             _set_job(job_id, status="done", message=msg)
     except Exception as e:
         app_obj.logger.exception("Bulk match submit failed")
@@ -1232,6 +1252,7 @@ _SYSTEM_FILE_PATHS = (
     'backend/app/blueprints/db/heroes.py',
     'backend/app/blueprints/db/teams.py',
     'backend/app/blueprints/db/stats.py',
+    'backend/app/blueprints/db/items.py',
     'backend/app/blueprints/db/nightshift.py',
     'backend/app/blueprints/db/site.py',
     'frontend/src/pages/SystemAdmin.jsx',

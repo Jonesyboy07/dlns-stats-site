@@ -4,100 +4,40 @@ Welcome to the updates page! Here you'll find the latest changes and improvement
 
 ## Recent Updates
 
-### October 6, 2025 - Discord Auth
+### November 12, 2026 - New navigation, item pages and more
 
-Added in discord auth! 
+The site has a new header, a new home for items, match timeline improvements, and a handful of quality-of-life fixes.
 
-This is for some backend things, but also to add possible future things.
+**New navigation**
 
-## Old Updates
+- The top bar is grouped into **Night Shift**, **Teams**, **Stats** and **Community**, so every page has a place to live.
+- Search lives in the header on every page. It finds players, teams, heroes and match IDs as you type. Press `/` from anywhere to jump to it.
+- The settings menu (gear icon) holds your account, the darker theme, spoiler-free mode, and links to this page and Help.
+- On phones, menus open in place under the header instead of in a side drawer.
 
-### October 3, 2025 - Another set of HTML / CSS Changes
+**Items**
 
-Coming today, user `jevd322` has gone through and changed the HTML for the Footer and Header. 
+- New **Items** page listing item usage across matches.
+- Each item has its own stats page.
 
-This will be the first set of possible changes on the HTML/CSS front, in hopefully a nicer design for any user.
+**Match timeline**
 
-Some more features are being worked on, so do keep an eye out!
+- The timeline map now uses the reworked **City Never Sleeps** map for matches played after that update.
+- Player markers on the map are smaller with softer team colours, so busy fights are easier to read.
+- Matches added by admins now get the full timeline (kills, objectives, mid boss and map movement), the same as every other match.
 
+**Series and matches**
 
+- The separate series page is gone. **View Full Series** on a match now opens that series on its Night Shift week page.
+- On the home page, each series links straight to game 1.
 
-### October 1, 2025 - HTML Overhaul!
+**Smaller changes**
 
-Redid the entire frontend just as it sucked... Thats it
-
-### September 30, 2025 - Small UI Changes
-
-Just some smaller changes currently. 
-
-- Fixed the search bar being cut off ( can still use /search page as intended)
-- Nicer padding on the buttons ( base.html seen on all screens)
-
-20:11 PM - Fixed the installer, didnt put it in the right directory ( placed one folder to high )
-
-Some Later Time... - Started work on API documentation
-
-### September 28, 2025 - Made it open source!
-
-Due to some friends and people in the community asking, i have made the project open source!
-
-What does this mean?
-
-- The community can better help with adding features
-- People can add issues onto the github page
-- People can see the amount of chaos behind the scenes!
-
-This does also mean people can run the website entirely themselves, which i hope they dont but i do hope they take inspiration!
-
-### September 27, 2025 - Added Statistics Page
-
-Its here! A nice statistics page with details on:
-
-- Total Matches
-- Total Players
-- Total Kills
-And More!
-
-I was silly and forgot to push the stats page. Added now! - 1:37pm UK Time.
-
-3:38 PM :
-
-Added in hero names to all pages it was broken. Took me a while but we *should* now be working!
-
-18:32 PM:
-
-Fixed the next/prev buttons, User page not properly registering the multiple pages, Other backend changes.
-
-20:40 PM:
-
-Added a cache to the match search. Helps with preventing needing to research the same match multiple times.
-
-21:20 PM:
-
-Added a Community Tab - If you feel you fit in to the community as a creator or provider of something key to the game, reach out on discord! My username is `j0nesy_`, where I can be found in the Deadlock, Deadlock Modding, and DLNS servers.
-
-
-
-### September 26, 2025 - Shot Statistics Added
-Added shot hit/missed data to all matches from DLNS games. This data is now visible on:
-- Match detail pages
-- Player profile pages 
-- Match history tables
-
-Shot accuracy percentages are calculated and displayed on user profiles.
-
-**Note**: Shot data is currently only available for DLNS matches. It may eventually be added to custom search functionality.
-
-### Plans:
-- Adding in Item buy progression throughout the match
-- Showing final build in a match
-- Better UX over whole site!
-
+- The heroes page shows four cards per row on phones.
+- Team names on the home page are only clickable on the name itself.
+- The home page search box was removed now that search is in the header.
+- This updates page got a fresh look.
 
 ## Feedback & Suggestions
 
 Have ideas for new features or improvements? Reach out to me on **Discord** ( j0nesy_ ) with the idea and I will see what i can do!
-
----
-
-*More updates will be posted here as new features are added.*

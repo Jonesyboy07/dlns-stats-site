@@ -50,6 +50,13 @@ write to the runtime files beside `DB_PATH` (`dlns.sqlite3` and `brackets.json`)
   `brackets.json` first, then runs the same ingest job with `bracket_saved` set so
   the bracket is not rewritten.
 
+Both jobs also write the rows derived from the match metadata — objectives, mid boss
+kills, death details, damage by source and the per-player position trails — through
+the same `ingest_match_extras()` the feed ingest uses. Nothing extra is fetched for
+it: the metadata the job already holds is enough. If that step fails for a game, the
+job still saves the submission and names the affected match IDs in its message, and
+`-timelinebackfill` fills them afterwards.
+
 `brackets.json` is the schedule the home page and `/db/weeks` read, so a submission
 that only reaches the database (for example because the bracket write failed) shows
 on `/matches` but not in the home page's week groups. Keep `data/brackets.json`
@@ -94,8 +101,9 @@ Normal ingestion tracks processed IDs in `data/matches_status.json` and skips th
 | `-laneinfer true` | Infer real lanes from match paths. `-laneinfer force` re-infers matches that already have `lane_real` (needed after a change to the lane geometry or to the position transform) |
 | `-goldbackfill true` | Backfill player soul-income sources |
 | `-dmgbackfill true` | Backfill player damage sources |
-| `-timelinebackfill true` | Backfill `match_objectives`, `match_mid_boss` and the `player_deaths` detail columns for matches missing them |
+| `-timelinebackfill true` | Backfill `match_objectives`, `match_mid_boss` and the `player_deaths` detail columns for matches missing them. Pass a match id instead of `true` to backfill only that match |
 | `-pathsbackfill true` | Backfill `match_player_paths` (per-player position trails for the map replay) for matches missing them. Pass a match id instead of `true` to backfill only that match |
+| `-sinceweek N` | Limit the `-timelinebackfill` and `-pathsbackfill` sweeps to matches from event week N onwards |
 | `-metasync true` | Reapply feed metadata to existing matches without API requests |
 | `-timelineprobe MATCH_ID` | Fetch one match's metadata, print a timeline summary, and dump the raw JSON under `-probedir`; read-only, never touches the DB or feed |
 | `-probedir PATH` | Output directory for `-timelineprobe` raw dumps (default `data/_probe`) |
@@ -128,6 +136,14 @@ instead. That is the practical way to populate one match for local work:
 
 ```
 python3 backend/main.py -pathsbackfill 38787362
+```
+
+`-sinceweek N` keeps either sweep to the matches played from week N onwards, which is
+what a repair after a broken night usually wants:
+
+```
+python3 backend/main.py -timelinebackfill true -sinceweek 60
+python3 backend/main.py -pathsbackfill true -sinceweek 60
 ```
 
 ### Which database the CLI uses

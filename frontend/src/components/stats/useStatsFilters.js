@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { formatSort, isDefaultSort, parseSort } from "../../utils/heroMeta";
-import { clampRange, formatWeeksParam, parseWeeksParam } from "../../utils/statsPeriod";
+import { clampRange, defaultRange as latestWeeksRange, formatWeeksParam, parseWeeksParam } from "../../utils/statsPeriod";
 
 export const STATS_TABS = ["overview", "heroes", "records", "leaderboards"];
 
@@ -9,21 +9,29 @@ export const STATS_TABS = ["overview", "heroes", "records", "leaderboards"];
  * The stats page's one filter state, kept in the URL so a pasted link lands on
  * the same view: `?weeks=60-61&region=eu&tab=overview`.
  *
- * The patch is derived from the weeks, never stored. Defaults (latest two weeks,
- * all regions, Overview) are left out of the URL, as `useUrlParam` does for the
- * other pages' tabs, and `replace` keeps filter changes out of the back button.
+ * The patch is derived from the weeks, never stored. Defaults (the page's default
+ * weeks, all regions, Overview) are left out of the URL, as `useUrlParam` does
+ * for the other pages' tabs, and `replace` keeps filter changes out of the back
+ * button.
+ *
+ * `defaultRange` picks the weeks when the URL has none: the latest two weeks
+ * everywhere, `allWeeksRange` on the items pages, which want every match.
  *
  * `weeks` and `regions` come from `/db/stats/periods`; until they load the range
  * is whatever the URL asked for, or null.
  */
-export default function useStatsFilters({ weeks = [], regions = [] } = {}) {
+export default function useStatsFilters({
+  weeks = [],
+  regions = [],
+  defaultRange = latestWeeksRange,
+} = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const weeksParam = searchParams.get("weeks");
   const range = useMemo(() => {
     const requested = parseWeeksParam(weeksParam);
-    return weeks.length ? clampRange(requested, weeks) : requested;
-  }, [weeks, weeksParam]);
+    return weeks.length ? clampRange(requested, weeks, defaultRange) : requested;
+  }, [weeks, weeksParam, defaultRange]);
 
   const regionParam = (searchParams.get("region") || "").toUpperCase();
   const region = regions.includes(regionParam) ? regionParam : "All";

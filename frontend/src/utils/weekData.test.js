@@ -7,6 +7,7 @@ import {
   buildLeaderboard,
   buildRegionBrackets,
   buildSeries,
+  findSeriesKeyForMatch,
   formatDuration,
   groupIndexWeeks,
   newsLabel,
@@ -702,6 +703,25 @@ describe("regionOutcome", () => {
 
   it("returns null for a team that did not play", () => {
     expect(regionOutcome(bracket, "Nobody")).toBeNull();
+  });
+});
+
+describe("findSeriesKeyForMatch", () => {
+  const list = [
+    { key: "EU-0", games: [{ match: { match_id: 10 } }, { match: { match_id: 11 } }] },
+    { key: "EU-1", games: [{ match: { match_id: 20 } }, { match: { match_id: null } }] },
+  ];
+
+  it("returns the key of the series holding the match", () => {
+    expect(findSeriesKeyForMatch(list, 11)).toBe("EU-0");
+    expect(findSeriesKeyForMatch(list, "20")).toBe("EU-1");
+  });
+
+  it("returns null for unknown or invalid ids", () => {
+    expect(findSeriesKeyForMatch(list, 99)).toBeNull();
+    expect(findSeriesKeyForMatch(list, null)).toBeNull();
+    expect(findSeriesKeyForMatch(list, 0)).toBeNull();
+    expect(findSeriesKeyForMatch(null, 10)).toBeNull();
   });
 });
 

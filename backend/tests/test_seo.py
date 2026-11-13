@@ -146,7 +146,6 @@ class SeoMetadataTests(unittest.TestCase):
         cases = {
             "/matches/999999": "Match not found",
             "/match/999999": "Match not found",
-            "/series/999999": "Series not found",
             "/player/999999": "Player not found",
             "/users/999999": "Player not found",
             "/player/42/hero/999999": "Player hero page not found",
@@ -163,11 +162,43 @@ class SeoMetadataTests(unittest.TestCase):
                 self.assertIn(f"<title>{expected_title}", html)
                 self.assertIn('<meta name="robots" content="noindex, follow">', html)
 
+    def test_retired_series_page_redirects_to_the_match(self):
+        response = self.client.get("/series/900002")
+        self.assertEqual(response.status_code, 301)
+        self.assertTrue(response.headers["Location"].endswith("/matches/900002"))
+
     def test_valid_pages_keep_their_200_status(self):
         cases = ["/matches/900002", "/player/42", "/hero/1", "/team/Alpha", "/week/7"]
         for path in cases:
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 200)
+
+    def test_item_pages_use_the_catalogue(self):
+        from backend.app.cache import cache
+
+        with self.app.app_context():
+            cache.set(
+                "dlns_item_catalog",
+                {
+                    7: {"name": "Toxic Bullets", "type": "upgrade"},
+                    8: {"name": "Some Ability", "type": "ability"},
+                },
+            )
+        response = self.client.get("/item/7")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<title>Toxic Bullets Stats", response.get_data(as_text=True))
+        for path in ("/item/8", "/item/999"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("<title>Item not found", response.get_data(as_text=True))
+
+    def test_item_page_without_catalogue_is_not_a_404(self):
+        from unittest import mock
+
+        with mock.patch("backend.app.blueprints.db.core._item_catalog", return_value={}):
+            response = self.client.get("/item/7")
+        self.assertEqual(response.status_code, 200)
 
     def test_player_without_games_is_still_indexable(self):
         response = self.client.get("/player/43")

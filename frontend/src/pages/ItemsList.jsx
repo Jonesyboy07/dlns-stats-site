@@ -1,229 +1,229 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { staticImagePathToCdn } from "../utils/cdn";
-import ItemIcon from "../components/ItemIcon";
-import LoadingSkeleton from "../components/LoadingSkeleton";
+import React, { useMemo } from "react";
+import ErrorMessage from "../components/ErrorMessage";
+import ItemControls from "../components/items/ItemControls";
+import ItemSummaryStrip from "../components/items/ItemSummaryStrip";
+import ItemsGrid from "../components/items/ItemsGrid";
+import ItemsTable from "../components/items/ItemsTable";
+import useItemsView from "../components/items/useItemsView";
+import usePanelData from "../components/player/usePanelData";
+import StatsFilterBar from "../components/stats/StatsFilterBar";
+import useStatsFilters from "../components/stats/useStatsFilters";
+import { formatInteger } from "../utils/format";
+import { filterItems, itemRows, itemSections, summaryPicks } from "../utils/items";
+import { allWeeksRange, formatWeeksParam, patchLabel, weeksLabel } from "../utils/statsPeriod";
 
-export default function ItemsList() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("all"); // all, weapon, vitality, spirit
-  const [searchTerm, setSearchTerm] = useState("");
+const EVENT_TITLE = "Night Shift";
+const NONE = [];
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
+function Toggle({ value, options, onChange, label }) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-0.5 rounded-full border border-border-light bg-input p-[3px]">
+      {options.map(([key, text]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+          className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors duration-200 ${
+            value === key ? "bg-hover text-primary" : "text-muted hover:text-secondary"
+          }`}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  const fetchItems = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/dlns/items");
-      if (!response.ok) throw new Error("Failed to fetch items");
-      const data = await response.json();
-      setItems(data);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-      console.error("Error fetching items:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredItems = items
-    .filter((item) => {
-      // Only show shopable items
-      if (!item.shopable && !(item.cost && item.cost > 0)) return false;
-
-      // Filter by slot type
-      if (filter !== "all" && item.item_slot_type !== filter) return false;
-
-      // Filter by search term
-      if (
-        searchTerm &&
-        !item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      ) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((a, b) => (a.item_tier ?? 0) - (b.item_tier ?? 0));
-
-  const itemTypes = [
-    { value: "all", label: "All" },
-    { value: "weapon", label: "Weapon" },
-    { value: "vitality", label: "Vitality" },
-    { value: "spirit", label: "Spirit" },
-  ];
-
-  if (loading) {
-    return <LoadingSkeleton variant="list-item" />;
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-500/20 border border-red-500 rounded-lg p-6">
-            <h2 className="text-xl font-bold mb-2">Error Loading Items</h2>
-            <p>{error}</p>
-            <button
-              onClick={fetchItems}
-              className="mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 rounded"
-            >
-              Retry
-            </button>
-          </div>
+function TableSkeleton() {
+  const widths = ["34%", "26%", "40%", "22%", "30%", "36%", "24%", "32%"];
+  return (
+    <div aria-hidden="true" className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="h-10 bg-table" />
+      {widths.map((width, index) => (
+        <div
+          key={width + index}
+          className="flex animate-pulse items-center gap-3.5 border-t border-border px-4 py-3"
+          style={{ opacity: 1 - index * 0.09 }}
+        >
+          <div className="h-[34px] w-[34px] rounded-md bg-hover" />
+          <div className="h-[11px] rounded bg-hover" style={{ width }} />
+          <span className="flex-1" />
+          <div className="h-[11px] w-[60px] rounded bg-hover" />
+          <div className="h-[11px] w-[60px] rounded bg-hover" />
+          <div className="h-[11px] w-10 rounded bg-hover" />
         </div>
-      </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ title, body, action, onAction }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-6 py-14 text-center">
+      <span className="font-valve-oracle text-[20px] text-primary">{title}</span>
+      <span className="max-w-[420px] text-muted">{body}</span>
+      {action && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-2.5 rounded-full bg-primary px-4 py-2 text-[14px] font-semibold text-[var(--color-base)] transition-opacity hover:opacity-90"
+        >
+          {action}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Everything under the filter bar, once the week range is known. */
+function ItemsResults({ query, view, filters, weeks, regionText, weeksText }) {
+  const { data, loading, error, reload } = usePanelData(`/db/items/stats?${query}`, {
+    errorMessage: "Could not load item stats",
+  });
+  const { minGames, sort, group, layout } = view;
+
+  const rows = useMemo(() => itemRows(data?.items ?? NONE, data?.player_games ?? 0), [data]);
+  const visible = useMemo(
+    () => filterItems(rows, { slot: view.slot, tiers: view.tiers, q: view.q }),
+    [rows, view.slot, view.tiers, view.q],
+  );
+  const sections = useMemo(() => itemSections(visible, { group, sort, minGames }), [visible, group, sort, minGames]);
+  const picks = useMemo(() => summaryPicks(rows, minGames), [rows, minGames]);
+
+  if (error && !data) return <ErrorMessage message={error} onRetry={reload} />;
+
+  const firstLoad = loading && !data;
+  const matches = data?.matches ?? 0;
+  const searching = view.q.trim();
+  const countLabel = firstLoad
+    ? "Loading…"
+    : `${visible.length} items · ${formatInteger(matches)} matches · ${formatInteger(data?.player_games ?? 0)} player-games`;
+
+  let body;
+  if (firstLoad) {
+    body = <TableSkeleton />;
+  } else if (matches === 0) {
+    body = (
+      <EmptyState
+        title="No matches for these filters"
+        body={`No ${EVENT_TITLE} matches were played in ${weeksText}${regionText === "All regions" ? "" : ` in ${regionText}`}.`}
+        action="Show everything"
+        onAction={() => filters.setFilters([weeks[0].week, weeks[weeks.length - 1].week], "All")}
+      />
     );
+  } else if (visible.length === 0) {
+    body = (
+      <EmptyState
+        title="No items match"
+        body={
+          searching
+            ? `Nothing matches “${searching}” with the current slot and tier filters.`
+            : "No items were bought under these filters."
+        }
+        action="Reset filters"
+        onAction={view.resetView}
+      />
+    );
+  } else if (layout === "grid") {
+    body = <ItemsGrid sections={sections} minGames={minGames} />;
+  } else {
+    body = <ItemsTable sections={sections} sort={sort} onSort={view.setSort} minGames={minGames} />;
   }
 
   return (
-    <div className="min-h-screen bg-panel text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Deadlock Items</h1>
-          <p className="text-gray-300">
-            Browse {filteredItems.length} items from the Deadlock API
-          </p>
+    <>
+      {!firstLoad && matches > 0 && <ItemSummaryStrip picks={picks} minGames={minGames} />}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[13px] text-muted">{countLabel}</span>
+        <div className="flex items-center gap-2.5">
+          <Toggle label="Grouping" value={group} options={[["flat", "Flat"], ["slot", "By slot"]]} onChange={view.setGroup} />
+          <Toggle label="Layout" value={layout} options={[["table", "Table"], ["grid", "Grid"]]} onChange={view.setLayout} />
         </div>
-
-        {/* Filters */}
-        <div className="mb-6 flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="Search items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg 
-                     focus:outline-none focus:border-purple-500"
-          />
-
-          {/* Type filter */}
-          <div className="flex gap-2">
-            {itemTypes.map((type) => (
-              <button
-                key={type.value}
-                onClick={() => setFilter(type.value)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  filter === type.value
-                    ? "bg-purple-600 text-white"
-                    : "bg-slate-800/50 text-gray-300 hover:bg-slate-700/50"
-                }`}
-              >
-                {type.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Total Items</div>
-            <div className="text-2xl font-bold">{items.length}</div>
-          </div>
-          <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Weapon</div>
-            <div className="text-2xl font-bold text-orange-400">
-              {
-                items.filter((i) => i.item_slot_type === "weapon" && i.shopable)
-                  .length
-              }
-            </div>
-          </div>
-          <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Vitality</div>
-            <div className="text-2xl font-bold text-green-400">
-              {
-                items.filter(
-                  (i) => i.item_slot_type === "vitality" && i.shopable,
-                ).length
-              }
-            </div>
-          </div>
-          <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Spirit</div>
-            <div className="text-2xl font-bold text-purple-400">
-              {
-                items.filter((i) => i.item_slot_type === "spirit" && i.shopable)
-                  .length
-              }
-            </div>
-          </div>
-        </div>
-
-        {/* Items Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50 
-                       hover:border-purple-500/50 transition-all hover:scale-105 cursor-pointer"
-            >
-              {/* Item Image — the backend resolves the shipped art; fall back to the
-                  upstream image only when no local file matches. */}
-              <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
-                <ItemIcon
-                  icon={item.icon}
-                  fallback={staticImagePathToCdn(item.image)}
-                  name={item.name}
-                  size="h-full w-full"
-                  fit="object-contain"
-                  className="rounded-none p-1"
-                />
-              </div>
-
-              {/* Item Info */}
-              <div className="space-y-1">
-                <h3 className="font-medium text-sm truncate" title={item.name}>
-                  {item.name.replace(/_/g, " ")}
-                </h3>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span
-                    className={`px-2 py-0.5 rounded ${
-                      item.item_slot_type === "weapon"
-                        ? "bg-orange-500/20 text-orange-300"
-                        : item.item_slot_type === "vitality"
-                          ? "bg-green-500/20 text-green-300"
-                          : item.item_slot_type === "spirit"
-                            ? "bg-purple-500/20 text-purple-300"
-                            : "bg-gray-500/20 text-gray-300"
-                    }`}
-                  >
-                    {item.item_slot_type}
-                  </span>
-
-                  {item.cost && (
-                    <span className="text-yellow-400 font-bold">
-                      ${item.cost}
-                    </span>
-                  )}
-                </div>
-
-                {item.item_tier && (
-                  <div className="text-xs text-gray-400">
-                    Tier {item.item_tier}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredItems.length === 0 && (
-          <div className="text-center py-20 text-gray-400">
-            <p className="text-xl">No items found</p>
-            <p className="text-sm mt-2">Try adjusting your filters</p>
-          </div>
-        )}
       </div>
+
+      {body}
+
+      {loading && data && (
+        <div className="fixed top-3 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border-lighter bg-panel px-3.5 py-2 text-[13px] text-muted shadow-heavy">
+          Updating…
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * /items: every shop item's pick rate, win rate, buy time and sell rate for a
+ * Night Shift week range and region. The Period and Region filter is the stats
+ * page's own (same URL params), but it opens on every match rather than on the
+ * latest two weeks; slot, tier, search, min games, sort and layout are applied
+ * in the browser.
+ */
+export default function ItemsList() {
+  const periods = usePanelData(`/db/stats/periods?event_title=${encodeURIComponent(EVENT_TITLE)}`, {
+    errorMessage: "Could not load the Night Shift weeks",
+  });
+  const weeks = periods.data?.weeks ?? NONE;
+  const patches = periods.data?.patches ?? NONE;
+  const regions = periods.data?.regions ?? NONE;
+  const filters = useStatsFilters({ weeks, regions, defaultRange: allWeeksRange });
+  const view = useItemsView();
+  const { range, region } = filters;
+
+  const ready = Boolean(range && weeks.length);
+  const query = ready
+    ? `event_title=${encodeURIComponent(EVENT_TITLE)}&weeks=${formatWeeksParam(range)}&region=${region}`
+    : "";
+  const weeksText = ready ? weeksLabel(range, weeks) : "";
+  const regionText = region === "All" ? "All regions" : region;
+  const subtitle = ready
+    ? `Which items get bought and which items win · ${[EVENT_TITLE, weeksText, patchLabel(range, weeks, patches), regionText].join(" · ")}`
+    : periods.loading
+      ? "Loading…"
+      : `No ${EVENT_TITLE} games yet`;
+
+  return (
+    <div className="flex w-full flex-col gap-4 px-4 pt-4 pb-10 md:px-6 md:pt-7 md:pb-14">
+      <header className="flex flex-col gap-1">
+        <h1 className="font-valve-pulp text-[30px] leading-[1.05] text-primary md:text-[40px]">Items</h1>
+        <p className="text-[14px] text-muted">{subtitle}</p>
+      </header>
+
+      {periods.error ? (
+        <ErrorMessage message={periods.error} onRetry={periods.reload} />
+      ) : (
+        <>
+          <StatsFilterBar
+            weeks={weeks}
+            patches={patches}
+            regions={regions}
+            range={range}
+            region={region}
+            onRange={filters.setRange}
+            onRegion={filters.setRegion}
+            onFilters={filters.setFilters}
+            shareUrl={filters.shareUrl}
+            defaultRange={allWeeksRange}
+          >
+            <ItemControls view={view} />
+          </StatsFilterBar>
+
+          {ready ? (
+            <ItemsResults
+              query={query}
+              view={view}
+              filters={filters}
+              weeks={weeks}
+              regionText={regionText}
+              weeksText={weeksText}
+            />
+          ) : (
+            periods.loading && <TableSkeleton />
+          )}
+        </>
+      )}
     </div>
   );
 }

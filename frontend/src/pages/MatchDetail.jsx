@@ -985,7 +985,11 @@ function MatchDetail() {
         winner={winningTeam === 0 ? "amber" : winningTeam === 1 ? "sapphire" : null}
         games={seriesGames || (adjacentMatches.event_game ? [{ game: adjacentMatches.event_game, matchId }] : [])}
         activeGame={adjacentMatches.event_game}
-        seriesUrl={`/series/${matchId}`}
+        seriesUrl={
+          displayEventTitle && displayEventWeek != null
+            ? `/week/${displayEventWeek}?event_title=${encodeURIComponent(displayEventTitle)}&match=${matchId}`
+            : undefined
+        }
         setTitle={seriesTitle}
         vodUrl={adjacentMatches.match_vod || ""}
         amberTeamName={amberTeamName}

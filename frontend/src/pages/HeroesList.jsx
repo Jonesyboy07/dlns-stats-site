@@ -212,10 +212,8 @@ function HeroesList() {
           </button>
         </div>
       ) : (
-        <div
-          className="grid gap-3.5"
-          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
-        >
+        /* Four compact cards per row below 540px; auto-fill 160px cards above. */
+        <div className="grid grid-cols-4 gap-2 min-[540px]:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] min-[540px]:gap-3.5">
           {filtered.map((hero) => (
             <HeroGridCard key={hero.id} hero={hero} sortKey={sort} />
           ))}

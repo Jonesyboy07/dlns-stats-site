@@ -4,7 +4,9 @@ import {
   Routes,
   Route,
   Link,
+  Navigate,
   useLocation,
+  useParams,
 } from "react-router-dom";
 import MatchList from "./pages/MatchList";
 import HomePage from "./pages/HomePage";
@@ -15,12 +17,12 @@ import { applyPageMeta, routeMetaFor } from "./utils/seo";
 import "./App.css";
 
 const MatchDetail = lazy(() => import("./pages/MatchDetail"));
-const SeriesDetail = lazy(() => import("./pages/SeriesDetail"));
 const PlayersList = lazy(() => import("./pages/PlayersList"));
 const PlayerDetail = lazy(() => import("./pages/PlayerDetail"));
 const HeroesList = lazy(() => import("./pages/HeroesList"));
 const HeroDetail = lazy(() => import("./pages/HeroDetail"));
 const ItemsList = lazy(() => import("./pages/ItemsList"));
+const ItemDetail = lazy(() => import("./pages/ItemDetail"));
 const PlayerHeroDetail = lazy(() => import("./pages/PlayerHeroDetail"));
 const Stats = lazy(() => import("./pages/Stats"));
 const TeamsList = lazy(() => import("./pages/TeamsList"));
@@ -36,6 +38,12 @@ const Updates = lazy(() => import("./pages/Updates"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const AnalyticsAdmin = lazy(() => import("./pages/AnalyticsAdmin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
+/** The series page was retired; send old `/series/:id` links to the match. */
+function SeriesRedirect() {
+  const { matchId } = useParams();
+  return <Navigate to={`/matches/${matchId}`} replace />;
+}
 
 function Navigation() {
   const location = useLocation();
@@ -139,13 +147,15 @@ function App() {
               <Route path="/matchlist" element={<MatchList />} />
               <Route path="/match/:matchId" element={<MatchDetail />} />
               <Route path="/matches/:matchId" element={<MatchDetail />} />
-              <Route path="/series/:matchId" element={<SeriesDetail />} />
+              {/* Retired series page: old links land on the match. */}
+              <Route path="/series/:matchId" element={<SeriesRedirect />} />
               <Route path="/players" element={<PlayersList />} />
               <Route path="/player/:accountId" element={<PlayerDetail />} />
               <Route path="/users/:accountId" element={<PlayerDetail />} />
               <Route path="/heroes" element={<HeroesList />} />
               <Route path="/hero/:heroId" element={<HeroDetail />} />
               <Route path="/items" element={<ItemsList />} />
+              <Route path="/item/:itemId" element={<ItemDetail />} />
               <Route
                 path="/player/:accountId/hero/:heroId"
                 element={<PlayerHeroDetail />}

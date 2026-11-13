@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, redirect, render_template
 
 react_stats_bp = Blueprint('react_stats', __name__)
 
@@ -24,8 +24,9 @@ def match_detail(match_id):
 
 @react_stats_bp.get('/series/<int:match_id>')
 def series_detail(match_id):
-    """Serve the React series detail page."""
-    return render_template('react.html', page='match_detail')
+    """The series page was retired: send old links to the match page, whose
+    "View Full Series" link opens the series on its week page."""
+    return redirect(f'/matches/{match_id}', code=301)
 
 
 @react_stats_bp.get('/players')
@@ -66,6 +67,12 @@ def hero_detail(hero_id):
 @react_stats_bp.get('/items')
 def items_page():
     """Serve the React items page."""
+    return render_template('react.html', page='items')
+
+
+@react_stats_bp.get('/item/<int:item_id>')
+def item_detail(item_id):
+    """Serve the React item page (same bundle as /items; the router picks the page)."""
     return render_template('react.html', page='items')
 
 

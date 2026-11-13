@@ -260,7 +260,6 @@ def _match_page(match_id: int) -> str:
         footer_links.append(
             _link(f"/week/{match['event_week']}", f"Week {match['event_week']} results")
         )
-    footer_links.append(_link(f"/series/{match_id}", "Series overview"))
     for name in (team_a, team_b):
         if name:
             footer_links.append(_link(_team_href(str(name)), f"{name} team page"))
@@ -315,17 +314,12 @@ def _recent_matches_table(
         ]
         if account_id is not None or team_name:
             values.append(_esc(opponent or "—"))
-        values.extend(
-            [
-                _esc(_winner_name(row) or "—"),
-                _link(f"/series/{row['match_id']}", "Series"),
-            ]
-        )
+        values.append(_esc(_winner_name(row) or "—"))
         table_rows.append(values)
     headers = ["Date", "Match", "Game"]
     if account_id is not None or team_name:
         headers.append("Opponent")
-    headers.extend(["Winner", "Series"])
+    headers.append("Winner")
     return _table(headers, table_rows)
 
 
@@ -642,10 +636,9 @@ def _week_page(week: int) -> str:
                 _esc(match.get("event_game") or "—"),
                 _esc(_winner_name(match) or "—"),
                 _esc(_fmt_date(match.get("start_time") or match.get("created_at"))),
-                _link(f"/series/{match['match_id']}", "Series"),
             ]
         )
-    table = _table(["Match", "Game", "Winner", "Date", "Series"], rows)
+    table = _table(["Match", "Game", "Winner", "Date"], rows)
     teams = sorted(
         {
             str(name)

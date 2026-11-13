@@ -45,7 +45,8 @@ export const MAP_ART_FILTER = "invert(1) hue-rotate(180deg) contrast(1.05) brigh
 /**
  * City Never Sleeps reworked the map, so matches either side of it need a different
  * image. Release time comes from the update post the site already tracks; matches
- * that started before it use the old map.
+ * that started before it use the old map. Every week from 58 on (the reworked map
+ * persists into the later updates) therefore draws the new art.
  */
 export const CNS_RELEASED_AT = "2026-09-29T20:00:00Z";
 
@@ -64,16 +65,19 @@ export const MAP_VERSIONS = {
   post_cns: {
     id: "post_cns",
     label: "City Never Sleeps",
-    // The post-update minimap has not been added yet; drop it beside the old one
-    // and correct this path if the file name differs.
-    overlay: "mapHud/minimap_city_never_sleeps.png",
-    background: "mapHud/minimap_city_never_sleeps_bg.png",
+    overlay: "mapHud/cns_minimap.png",
+    background: "mapHud/cns_minimap_bg.png",
     radius: MAP_RADIUS,
   },
 };
 
-/** The layout most matches use today, for callers that must pick one. */
-export const DEFAULT_MAP_VERSION = "pre_cns";
+/**
+ * The layout used when a match's start time is unknown. Every row with a real
+ * match ID carries one (the pre-CNS rows included), so the fallback is reached
+ * only by data whose layout cannot be determined -- and the map in play today is
+ * the safer guess there.
+ */
+export const DEFAULT_MAP_VERSION = "post_cns";
 
 /**
  * Which layout a match was played on, or null when its start time is unknown.

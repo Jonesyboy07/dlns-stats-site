@@ -7,7 +7,7 @@
  *   detail     – Large header + content blocks (MatchDetail, PlayerDetail, HeroDetail)
  *   list-item  – Single-column list items (PlayersList, ItemsList)
  *   series-list – Week panels containing series rows (HomePage)
- *   text       – Simple centered text block (SeriesDetail, Community)
+ *   text       – Simple centered text block (Community)
  *
  * Props:
  *   variant   – one of "card" | "table-row" | "detail" | "list-item" | "text"

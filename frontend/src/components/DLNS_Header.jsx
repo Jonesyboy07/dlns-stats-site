@@ -1,27 +1,95 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import StreamStatusStrip from './StreamStatusStrip';
 import { getStreamStatus } from '../utils/api';
-import SettingsMenu from './SettingsMenu';
-import SpoilerToggle from '../spoilers/SpoilerToggle';
+import SettingsMenu, { SettingsButton } from './SettingsMenu';
+import { NAV, isSectionActive } from './nav/navConfig';
+import NavMenuButton from './nav/NavMenuButton';
+import NavDropdown from './nav/NavDropdown';
+import NavPanel from './nav/NavPanel';
+import NavLink from './nav/NavLink';
+import HeaderSearch from './nav/HeaderSearch';
+import { FOCUS_RING } from './nav/navStyles';
+
+const DESKTOP_QUERY = '(min-width: 1024px)';
+const darkModeStorageKey = 'dlns.matchlist.darkMode';
+
+/** Stored darker-theme choice. Read before the first paint, so the theme does
+ *  not flash light for a frame on reload. */
+function readDarkMode() {
+  try {
+    return localStorage.getItem(darkModeStorageKey) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(DESKTOP_QUERY);
+    const onChange = () => setIsDesktop(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isDesktop;
+}
+
+function Wordmark({ onClick }) {
+  return (
+    <Link to="/home" onClick={onClick} className={`flex shrink-0 items-center gap-2.5 rounded-md ${FOCUS_RING}`} title="Home">
+      <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+      <span className="font-valve-pulp text-[20px] font-bold text-primary">DLNS Stats</span>
+    </Link>
+  );
+}
 
 /**
- * DLNS Header — responsive navigation with hamburger menu for mobile.
+ * DLNS Header — Night Shift and Stats menus, a Community link, search and
+ * settings. One row from `lg` up; three stacked rows with inline panels below.
+ * Nav content comes from nav/navConfig.js so both layouts stay in sync.
  */
-function DLNS_Header({ className = "" }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+function DLNS_Header({ className = '' }) {
+  /* null | 'nightShift' | 'stats' | 'search' | 'settings' — one at a time. */
+  const [openMenu, setOpenMenu] = useState(null);
   const [user, setUser] = useState(undefined);
-  const [matchDarkMode, setMatchDarkMode] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [matchDarkMode, setMatchDarkMode] = useState(readDarkMode);
   const [stream, setStream] = useState(undefined);
   const location = useLocation();
-  const darkModeStorageKey = 'dlns.matchlist.darkMode';
+  const isDesktop = useIsDesktop();
+  const triggerRefs = useRef({});
 
   useEffect(() => {
     fetch('/auth/api/me', { credentials: 'include' })
-      .then(r => r.json())
-      .then(data => setUser(data.ok ? data.user : null))
+      .then((r) => r.json())
+      .then((data) => setUser(data.ok ? data.user : null))
       .catch(() => setUser(null));
   }, []);
+
+  /* /auth/api/me has no admin flag; /admin/api/access does. Only asked once
+     someone is signed in. */
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return undefined;
+    }
+    let cancelled = false;
+    fetch('/admin/api/access', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled) setIsAdmin(Boolean(data?.is_admin));
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   /* Twitch state for the strip: undefined = loading, null = request failed. */
   useEffect(() => {
@@ -41,14 +109,6 @@ function DLNS_Header({ className = "" }) {
   }, []);
 
   useEffect(() => {
-    try {
-      setMatchDarkMode(localStorage.getItem(darkModeStorageKey) === '1');
-    } catch {
-      setMatchDarkMode(false);
-    }
-  }, []);
-
-  useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('matchlist-theme-dark', matchDarkMode);
 
@@ -63,151 +123,179 @@ function DLNS_Header({ className = "" }) {
     };
   }, [matchDarkMode]);
 
-  // Close menu on navigation
+  // Close any open menu on navigation.
   useEffect(() => {
-    setMenuOpen(false);
+    setOpenMenu(null);
   }, [location.pathname]);
 
-  /* No "Home" item: the wordmark beside the nav already links to /home, so a
-     nav entry next to it would be a duplicate affordance. */
-  const primaryNav = [
-    { path: "/matchlist", label: "Matches" },
-    { path: "/players", label: "Players" },
-    { path: "/teams", label: "Teams" },
-    { path: "/heroes", label: "Heroes" },
-    { path: "/week", label: "Night Shift" },
-    { path: "/stats", label: "Stats" },
-    { path: "/community", label: "Community" },
-  ];
+  /* Esc closes the open menu and returns focus to its trigger. The search
+     field handles its own Esc (it keeps focus in the field). */
+  useEffect(() => {
+    if (!openMenu || openMenu === 'search') return undefined;
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      const menu = openMenu;
+      setOpenMenu(null);
+      const variant = isDesktop ? 'desktop' : 'mobile';
+      triggerRefs.current[`${variant}-${menu}`]?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [openMenu, isDesktop]);
 
-  /* `/week/:n` is the same nav destination as `/week`, so the Night Shift item
-     has to match on the prefix rather than the exact path. */
-  const isActive = (path) =>
-    location.pathname === path || location.pathname.startsWith(`${path}/`);
+  /* Desktop only: a click outside the open menu closes it. Mobile panels sit
+     in the page flow and close from their trigger instead. */
+  useEffect(() => {
+    if (!openMenu || !isDesktop) return undefined;
+    const onDown = (event) => {
+      const root = event.target.closest?.('[data-menu-root]');
+      if (root?.dataset.menuRoot !== openMenu) setOpenMenu(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [openMenu, isDesktop]);
+
+  const toggle = (id) => setOpenMenu((current) => (current === id ? null : id));
+  const close = () => setOpenMenu(null);
+  const setTrigger = (key) => (el) => {
+    triggerRefs.current[key] = el;
+  };
+
+  const { pathname } = location;
+  const menuGroups = NAV.filter((group) => group.columns);
+
+  const settingsProps = {
+    user,
+    isAdmin,
+    darkMode: matchDarkMode,
+    onToggleDark: () => setMatchDarkMode((current) => !current),
+    onNavigate: close,
+  };
+
+  const searchProps = {
+    isOpen: openMenu === 'search',
+    onOpen: () => setOpenMenu('search'),
+    onClose: () => setOpenMenu((current) => (current === 'search' ? null : current)),
+  };
 
   return (
-    <header className={`sticky top-0 z-30 w-full border-b border-border bg-base-glass text-primary shadow-panel backdrop-blur-[10px] ${className}`}>
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center h-16">
-          {/* Brand + Desktop nav together on the left */}
-          <div className="flex items-center gap-4">
-            <Link to="/home" className="flex shrink-0 items-center gap-2.5" title="Home">
-              <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
-              <span className="font-valve-pulp text-[20px] font-bold text-primary">
-                DLNS Stats
-              </span>
-            </Link>
+    <header
+      className={`sticky top-0 z-30 w-full border-b border-border bg-base-glass text-primary shadow-panel backdrop-blur-[10px] ${className}`}
+    >
+      {/* ── Desktop (lg and up) ── */}
+      <div className="hidden lg:block">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
+          <Wordmark onClick={close} />
 
-            {/* Desktop nav */}
-            <nav className="hidden sm:flex items-center gap-0.5">
-              {primaryNav.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`rounded-full px-3.5 py-[7px] font-valve-oracle text-[15px] font-medium tracking-[.02em] transition-colors ${
-                    isActive(item.path)
-                      ? 'bg-accent-bg-strong text-accent-light'
-                      : 'text-secondary hover:bg-hover hover:text-primary'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
+          <nav aria-label="Main" className="flex items-center gap-0.5">
+            {NAV.map((group) => {
+              const active = isSectionActive(group, pathname);
+              if (!group.columns) {
+                return (
+                  <NavLink key={group.id} to={group.to} label={group.label} isActive={active} onClick={close} />
+                );
+              }
+              const menuId = `nav-desktop-${group.id}`;
+              const isOpen = openMenu === group.id;
+              return (
+                <div key={group.id} data-menu-root={group.id} className="relative">
+                  <NavMenuButton
+                    ref={setTrigger(`desktop-${group.id}`)}
+                    label={group.label}
+                    isOpen={isOpen}
+                    isSectionActive={active}
+                    onToggle={() => toggle(group.id)}
+                    controlsId={menuId}
+                  />
+                  <NavDropdown
+                    id={menuId}
+                    group={group}
+                    variant={group.columns.length > 1 ? 'columns' : 'list'}
+                    isOpen={isOpen}
+                    onNavigate={close}
+                  />
+                </div>
+              );
+            })}
+          </nav>
 
-          {/* Spacer pushes auth/toggle to the right */}
           <div className="flex-1" />
 
-          {/* Auth + Hamburger */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block">
-              <SettingsMenu user={user} darkMode={matchDarkMode} onToggleDark={() => setMatchDarkMode((current) => !current)} />
-            </div>
-
-            {/* Hamburger button */}
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="sm:hidden p-2 text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors"
-              aria-label="Toggle menu"
-            >
-              {menuOpen ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-              )}
-            </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <HeaderSearch variant="desktop" {...searchProps} />
+            <SettingsMenu
+              {...settingsProps}
+              variant="desktop"
+              isOpen={openMenu === 'settings'}
+              onToggle={() => toggle('settings')}
+              buttonRef={setTrigger('desktop-settings')}
+            />
           </div>
         </div>
       </div>
 
-      {/* Mobile menu drawer */}
-      {menuOpen && (
-        <div className="sm:hidden border-t border-border bg-base">
-          <nav className="max-w-7xl mx-auto px-4 py-3 space-y-1">
-            {primaryNav.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`block px-3 py-2 text-sm font-medium rounded-full transition-colors ${
-                  isActive(item.path)
-                    ? 'bg-accent-bg-strong text-accent-light'
-                    : 'text-secondary hover:bg-hover hover:text-primary'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <hr className="border-border my-2" />
-            <button
-              type="button"
-              onClick={() => setMatchDarkMode((current) => !current)}
-              className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-full transition-colors text-secondary hover:text-primary hover:bg-hover"
-              aria-pressed={matchDarkMode}
-            >
-              <span className="text-sm">Appearance</span>
-              <span className="flex items-center gap-1.5 text-xs">
-                <span style={{ opacity: matchDarkMode ? 1 : 0.4 }}>🌙</span>
-                <span style={{
-                  display: 'inline-block',
-                  width: '36px',
-                  height: '20px',
-                  borderRadius: '10px',
-                  background: matchDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
-                  position: 'relative',
-                  transition: 'background 0.25s',
-                  verticalAlign: 'middle',
-                }}>
-                  <span style={{
-                    position: 'absolute',
-                    top: '2px',
-                    left: matchDarkMode ? '16px' : '2px',
-                    width: '16px',
-                    height: '16px',
-                    borderRadius: '50%',
-                    background: matchDarkMode ? '#1e293b' : '#fbbf24',
-                    transition: 'all 0.25s ease',
-                    boxShadow: matchDarkMode ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.2)',
-                  }} />
-                </span>
-                <span style={{ opacity: matchDarkMode ? 0.4 : 1 }}>☀️</span>
-              </span>
-            </button>
-            <div className="px-3 py-2"><SpoilerToggle /></div>
-            {/* Auth mobile */}
-            {user === undefined ? null : user ? (
-              <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-secondary text-sm">{user.username}</span>
-                <a href="/auth/logout" className="text-dim hover:text-primary text-xs transition-colors">Logout</a>
-              </div>
-            ) : (
-              <a href="/auth/login" className="block px-3 py-2 text-sm font-medium text-accent-light hover:text-primary transition-colors">
-                Login
-              </a>
-            )}
-          </nav>
+      {/* ── Tablet and phone (below lg) ── */}
+      <div className="lg:hidden">
+        <div className="flex h-14 items-center justify-between px-4">
+          <Wordmark onClick={close} />
+          <SettingsButton
+            ref={setTrigger('mobile-settings')}
+            isOpen={openMenu === 'settings'}
+            onToggle={() => toggle('settings')}
+            controlsId="settings-mobile"
+          />
         </div>
-      )}
+
+        {/* Settings opens inline, directly under the top bar. */}
+        <div className="px-4">
+          <SettingsMenu {...settingsProps} variant="mobile" isOpen={openMenu === 'settings'} />
+        </div>
+
+        <div className="px-4 pt-3">
+          <HeaderSearch variant="mobile" {...searchProps} />
+        </div>
+
+        <nav aria-label="Main" className="flex flex-wrap gap-1.5 p-3">
+          {NAV.map((group) => {
+            const active = isSectionActive(group, pathname);
+            if (!group.columns) {
+              return (
+                <NavLink
+                  key={group.id}
+                  variant="mobile"
+                  to={group.to}
+                  label={group.label}
+                  isActive={active}
+                  onClick={close}
+                />
+              );
+            }
+            return (
+              <NavMenuButton
+                key={group.id}
+                ref={setTrigger(`mobile-${group.id}`)}
+                variant="mobile"
+                label={group.label}
+                isOpen={openMenu === group.id}
+                isSectionActive={active}
+                onToggle={() => toggle(group.id)}
+                controlsId={`nav-mobile-${group.id}`}
+              />
+            );
+          })}
+
+          {/* Inline panel for the open menu, on its own row under the chips. */}
+          {menuGroups.map((group) => (
+            <NavPanel
+              key={group.id}
+              id={`nav-mobile-${group.id}`}
+              group={group}
+              isOpen={openMenu === group.id}
+              onNavigate={close}
+            />
+          ))}
+        </nav>
+      </div>
 
       {/* Stream status — rendered on every page. Skipped entirely when the
           status request failed so it never claims an unknown state. */}

@@ -22,6 +22,7 @@ import {
   newsLabel,
   scopeGames,
   scopeSeries,
+  findSeriesKeyForMatch,
   summarizeIndexWeek,
 } from "../utils/weekData";
 import { usePageMeta } from "../utils/seo";
@@ -46,6 +47,9 @@ export default function WeekPage() {
   const eventTitle = (searchParams.get("event_title") || "").trim() || DEFAULT_EVENT;
   const region = (searchParams.get("region") || "").toLowerCase() || "all";
   const seriesKey = searchParams.get("series") || null;
+  /* `?match=<id>` comes from a match page's "View Full Series" link; it is
+     swapped for that series' `?series=` key once the week has loaded. */
+  const matchParam = searchParams.get("match") || null;
 
   const [index, setIndex] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -223,6 +227,11 @@ export default function WeekPage() {
     },
     [searchParams, setSearchParams],
   );
+
+  useEffect(() => {
+    if (!matchParam || loading || !detail) return;
+    patchParams({ match: null, series: findSeriesKeyForMatch(bracketSeries, matchParam) });
+  }, [matchParam, loading, detail, bracketSeries, patchParams]);
 
   const openWeek = useCallback(
     (next) => {

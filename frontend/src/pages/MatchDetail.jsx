@@ -12,6 +12,7 @@ import { buildTimelineRows, clock, objectiveLabel, parseMatchTime, matchTimePara
 import { buildObjectives, buildTimelineModel } from "../utils/matchTimelineModel";
 import { buildFeedRows } from "../utils/matchTimelineFeed";
 import { buildLaneView } from "../utils/matchTimelineLanes";
+import ItemTooltip from "../components/items/ItemTooltip";
 import { killInvolves, trailMarkers } from "../utils/matchTimelineMap";
 import { decodeTrail, nextTime } from "../utils/replay";
 import { buildRoster, teamScores } from "../utils/matchTimelineRoster";
@@ -1911,8 +1912,12 @@ function MatchDetail() {
                 }
                 const src = getLocalItemImage(item);
                 const title = item.game_time_s != null ? `${item.name} – ${formatGameTime(item.game_time_s)}` : item.name;
-                return (
-                  <div key={i} className={`${box} bg-panel border border-border-light overflow-hidden`} title={title}>
+                const slot = (
+                  <div
+                    className={`${box} bg-panel border border-border-light overflow-hidden`}
+                    // The in-game tooltip replaces the browser's when the item has an id.
+                    title={item.id ? undefined : title}
+                  >
                     {src ? (
                       <img
                         src={src}
@@ -1931,6 +1936,16 @@ function MatchDetail() {
                       </span>
                     )}
                   </div>
+                );
+                return (
+                  <ItemTooltip
+                    key={i}
+                    itemId={item.id}
+                    title={title}
+                    className={`inline-flex ${compact ? "w-[30px] h-[30px]" : "w-16 h-16"}`}
+                  >
+                    {slot}
+                  </ItemTooltip>
                 );
               })}
             </div>

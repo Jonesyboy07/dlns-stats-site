@@ -11,7 +11,7 @@ function SummaryTile({ label, item, value, sub, valueColor }) {
       to={`/item/${item.id}`}
       className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-4 py-3.5 text-secondary shadow transition-colors duration-200 hover:bg-panel"
     >
-      <ItemThumb item={item} size="h-12 w-12" rounded="rounded-lg" />
+      <ItemThumb item={item} size="h-12 w-12" rounded="rounded-lg" inLink />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-[11px] tracking-[0.07em] text-dim uppercase">{label}</span>
         <span className="truncate font-semibold text-primary">{item.name}</span>

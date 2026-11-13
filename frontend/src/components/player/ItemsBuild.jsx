@@ -56,7 +56,7 @@ export default function ItemsBuild({ accountId }) {
                   key={item.item_id}
                   className="flex min-w-0 flex-col items-center gap-1 text-center"
                 >
-                  <ItemIcon icon={item.icon} name={item.item_name} size="h-11 w-11" />
+                  <ItemIcon icon={item.icon} name={item.item_name} itemId={item.item_id} size="h-11 w-11" />
                   <span
                     className="w-full truncate text-[12px] text-secondary"
                     title={`${item.item_name} · tier ${item.tier}`}
@@ -90,7 +90,7 @@ export default function ItemsBuild({ accountId }) {
                     className="absolute flex -translate-x-1/2 flex-col items-center gap-0.5"
                     style={{ left: `${placedLeft[index]}%`, top: index % 2 ? "18px" : "0px" }}
                   >
-                    <ItemIcon icon={item.icon} name={item.item_name} size="h-6 w-6" className="rounded-[5px]" />
+                    <ItemIcon icon={item.icon} name={item.item_name} itemId={item.item_id} size="h-6 w-6" className="rounded-[5px]" />
                     <span className="whitespace-nowrap text-[10px] tabular-nums text-muted">
                       {formatDuration(item.median_time_s)}
                     </span>

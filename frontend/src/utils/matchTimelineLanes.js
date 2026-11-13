@@ -190,6 +190,7 @@ export function playerLane({ kills = [], keyPurchases = [], accountId = null, du
         key: `item-${purchase.itemId}-${index}`,
         left,
         timeS: purchase.timeS,
+        itemId: purchase.itemId,
         item: purchase.item,
         icon: purchase.icon,
         image: purchase.image,

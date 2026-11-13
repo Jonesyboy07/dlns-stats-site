@@ -18,7 +18,7 @@ function matchPath(matchId) {
 
 /**
  * SeriesRow — one series line inside a week group: format badge, stage label,
- * both teams, the score, one pill per game and a link to game 1.
+ * both teams, the score, one pill per game and a link into the series (game 1).
  *
  * Props:
  *   entry – series group built by HomePage from /db/weeks + /db/matches.
@@ -134,7 +134,7 @@ export default function SeriesRow({ entry }) {
         to={seriesHref}
         className={`shrink-0 text-[12px] font-semibold tracking-[.02em] text-accent-light transition-colors hover:text-accent ${FOCUS_RING}`}
       >
-        {gameOneMatch ? "View game 1 →" : "View week →"}
+        {gameOneMatch ? "View series →" : "View week →"}
       </Link>
     </div>
   );

@@ -200,6 +200,7 @@ export default function TimelineLanes({
                   <ItemIcon
                     icon={mark.icon}
                     name={mark.item}
+                    itemId={mark.itemId}
                     size="h-[18px] w-[18px]"
                     fallback={staticImagePathToCdn(mark.image || null)}
                   />

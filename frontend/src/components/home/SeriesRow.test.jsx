@@ -35,9 +35,10 @@ const render = (value) =>
   );
 
 describe("SeriesRow links", () => {
-  it("points 'View game 1' at the first game", () => {
+  it("labels the series link 'View series' and points it at the first game", () => {
     const html = render(entry());
-    expect(html).toContain("View game 1");
+    expect(html).toContain("View series");
+    expect(html).not.toContain("View game 1");
     expect(html).toContain('href="/match/900001"');
   });
 

@@ -23,7 +23,7 @@ Review the comments in `.env.example` and replace placeholders for the features 
 | Discord authentication and permissions | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `DISCORD_OWNER_ID`, `DISCORD_ADMIN_IDS`, `DISCORD_CO_OWNER_ID`, `MATCH_SUBMITTER` |
 | Twitch stream status | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL`, `TWITCH_URL` |
 | Image/asset hosting | `IMAGE_CDN_BASE`, `VITE_IMAGE_CDN_BASE`, `TEAM_LOGO_CDN_BASE`, `VITE_TEAM_LOGO_BASE` |
-| Python CDN and uploads | `CDN_ROOT`, `CDN_PUBLIC_BASE_URL`, `CDN_MANIFEST_BASE_URL`, `CDN_UPLOAD_MAX_BYTES` (see [CDN operations](CDN.md)) |
+| Python CDN and uploads | `CDN_ROOT`, `CDN_PUBLIC_BASE_URL`, `CDN_MANIFEST_BASE_URL`, `CDN_UPLOAD_MAX_BYTES`, `LOG_DIR` (see [CDN operations](CDN.md)) |
 | External links and CORS | `YOUTUBE_URL`, `TWITCH_URL`, `DEADLOCK_URL`, `KOFI_URL`, `PATREON_URL`, `FRONTEND_URL` |
 | DLNS exporter | `HERO_CLIENT_VERSION`, `ITEM_CLIENT_VERSION`, `ITEM_REQUEST_TIMEOUT_S`, `EXPO_JOB_RETENTION_SECONDS`, `EXPO_JOB_MAX_LOG_LINES`, `STEAM_API_KEY` |
 

@@ -43,10 +43,9 @@ separately. Restarting the CDN does not restart the website, and vice versa.
    the built `public/react-app/assets/App.css` if present. Where the same
    relative asset exists in both trees, the `public/` copy takes precedence.
    The original website files are **not renamed or removed**.
-4. Each published copy is named with the full SHA-256 hash of its contents.
-   For example, `css/styles.css` becomes
-   `__site_assets/css/styles.<full-sha256>.css` in the CDN folder. The hash
-   shown here is a placeholder for 64 hexadecimal characters.
+4. Each published copy is normally named with the first eight hexadecimal
+   characters of its SHA-256 hash. For example, `css/styles.css` might become
+   `__site_assets/css/styles.a1b2c3d4.css` in the CDN folder.
 5. Fonts and images are published before CSS. Recognized CSS `url(...)`
    references to those local assets are rewritten to their published paths;
    the rewritten CSS is then hashed. An image or font change can therefore
@@ -99,13 +98,22 @@ For example, after a stylesheet is edited or the frontend is rebuilt:
 4. The previous hashed file remains on disk for existing pages. Its cached
    response can still be reused; the system does not purge it automatically.
 
-Hashed site files and valid `?v=<full-sha256>` file requests receive
+Hashed site files and valid `?v=<hash>` file requests receive
 `public, max-age=31536000, immutable` after the origin verifies the hash.
 Unversioned files instead receive `public, no-cache`, allowing storage but
 requiring revalidation; ETag and Last-Modified support conditional requests.
 The generic manifest and site manifest are not cacheable, and errors use
 `no-store`. The example nginx cache caches eligible versioned URLs; it does
 not cache the manifests or ordinary unversioned URLs.
+
+New versions normally use eight hexadecimal characters (32 bits), not the
+entire SHA-256 digest. These are cache identifiers, not security checksums.
+If a site asset's short name already exists with different content, the
+publisher uses the full hash for the new file instead of overwriting the old
+one. Upload replacement is rejected if the old and new contents have the same
+short hash. Since upload history is not retained, an eight-character hash can
+still collide with an older replaced upload; use a different filename when
+long-term uniqueness of upload links is important.
 
 The publisher does not automatically clean up old hashed files. Plan backups
 and monitor disk usage. Do not remove historical versions without accounting
@@ -116,7 +124,7 @@ for old pages and external references that may still use them.
 An owner or co-owner signs into the website with Discord and uses
 `/admin/cdn/`. The website validates the upload and writes it to the shared
 CDN folder; the public Python CDN only reads and serves it. The page returns
-a URL such as `https://cdn.example/images/example.png?v=<full-sha256>`.
+a URL such as `https://cdn.example/images/example.png?v=a1b2c3d4`.
 
 These uploads **do not** become hash-named site assets and are not added to
 the site asset manifest. Replacing an upload changes its hash and the newly
@@ -195,7 +203,7 @@ bash scripts/hash_cdn_assets.sh
 
 On Windows use `scripts\hash_cdn_assets.bat`. These scripts use the shared
 `CDN_ROOT` and leave local files unchanged. They publish site CSS, fonts, and
-images as `__site_assets/.../name.<full-sha256>.ext` and atomically update a
+images as `__site_assets/.../name.<8-character-hash>.ext` and atomically update a
 manifest. CSS references to known local fonts and images are rewritten to their
 hashed CDN paths. Website templates and image helpers use the current manifest;
 custom team-logo hosts and CDN-only images retain their existing URLs. Vite
@@ -222,8 +230,8 @@ Check with `sudo nginx -t`, then reload nginx. The optional nginx cache only
 caches hash-versioned URLs and includes the query string in its key. Configure
 any Cloudflare/other edge cache to include the `v` query parameter in its cache
 key, respect origin cache headers, and never cache the manifest or errors.
-Update an existing proxy to use the new filename-aware cache map; the old
-query-only map will serve hashed paths but will not cache them in nginx.
+Update an existing proxy to use the new cache map before expecting nginx to
+cache eight-character versions; older maps only recognize longer hashes.
 
 ```bash
 curl -i 'https://cdn.dlns-stats.co.uk/__cdn/site-assets'
@@ -233,14 +241,43 @@ The site manifest maps original paths to current hashed CDN paths. Hashed
 site files receive one-year `immutable` caching only when their filename hash
 matches their contents. Historical versions remain available on the origin.
 The original generic manifest still accepts one to 32 repeated `path` query parameters and returns
-`{"files":{"path":"sha256..."}}` with `no-store`. Append the complete hash as
+`{"files":{"path":"a1b2c3d4"}}` with `no-store`. Append the returned hash as
 `?v=<hash>` to obtain a URL with one-year `immutable` caching. A stale or
 malformed hash returns a non-cacheable 404, never current bytes under the old
 hash. Unversioned URLs continue to work but use `no-cache` with ETag and
 Last-Modified revalidation. File responses support HEAD and range requests.
 The service hashes and snapshots each origin response to ensure a versioned
-response contains the bytes named by its hash; nginx caching reduces repeated
+response matches the hash prefix in its URL; nginx caching reduces repeated
 origin work. Ensure sufficient temporary disk space for concurrent downloads.
+
+Existing 16- and 64-character hash URLs remain valid and cacheable. The next
+sync publishes short-named copies and updates the manifest; it retains the
+older hashed files. During an upgrade, update and restart the Python CDN first
+so it accepts short hashes, then restart the main site to publish short-named
+assets. Apply the updated nginx map and run `nginx -t` before reloading nginx
+so the short URLs are cached there as well.
+
+## Logs
+
+The Python CDN and asset synchronizer each write a separate rotating log:
+
+| Log | Contents |
+| --- | --- |
+| `logs/cdn.log` | CDN origin startup, file requests and response status/cache policy, failed manifest requests, and server errors. Successful manifest requests are omitted to avoid noise. |
+| `logs/cdn_sync.log` | Sync startup, published and removed managed files, manifest updates, hash collisions, and sync failures with tracebacks. Unchanged watch cycles are not logged. |
+
+Both use the same format and rotation policy as the main site's logs: 5 MiB
+per file, with up to five backups. Set `LOG_DIR` in `.env` to override the
+directory for the website and both CDN logs. The website and CDN service
+users need permission to create and write files in that directory. Failure to
+initialize logging prevents the affected process from starting.
+
+`cdn.log` records requests that actually reach the Python origin, not nginx or
+Cloudflare cache hits. For cache hits and misses, use nginx access logs with an
+appropriate `$upstream_cache_status` log format. CDN request logs omit query
+strings and client IP addresses. Process supervisor output (including Waitress
+startup and the sync's console progress) remains available separately through
+systemd/journal or the console.
 
 An already cached response from the old nginx configuration cannot be
 retroactively invalidated: purge upstream caches if possible, otherwise wait

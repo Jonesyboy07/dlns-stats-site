@@ -10,6 +10,11 @@ BLOCKED_SUFFIXES = {
     '.env', '.db', '.sqlite', '.sqlite3', '.log', '.bak', '.backup',
     '.ini', '.conf', '.py', '.sh', '.pem', '.key',
 }
+VERSION_HASH_LENGTH = 8
+
+
+def short_hash(digest: str) -> str:
+    return digest[:VERSION_HASH_LENGTH]
 
 
 def cdn_root() -> Path:

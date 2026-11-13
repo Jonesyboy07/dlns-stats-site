@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 
-from ..cdn_storage import cdn_root, file_hash, resolve_path, versioned_url
+from ..cdn_storage import cdn_root, file_hash, resolve_path, short_hash, versioned_url
 from ..utils.auth import get_current_user, require_owners
 
 cdn_admin_bp = Blueprint('cdn_admin', __name__, url_prefix='/admin/cdn')
@@ -62,6 +63,11 @@ def upload():
                         return jsonify(ok=False, error='File exceeds the upload limit'), 413
                     temp.write(chunk)
             os.chmod(temp_name, 0o644)
+            digest = file_hash(Path(temp_name))
+            if replace and destination.is_file():
+                previous = file_hash(destination)
+                if previous != digest and short_hash(previous) == short_hash(digest):
+                    return jsonify(ok=False, error='Hash collision with existing file; choose a different filename'), 409
             if replace:
                 os.replace(temp_name, destination)
                 temp_name = None
@@ -70,7 +76,7 @@ def upload():
                     os.link(temp_name, destination)
                 except FileExistsError:
                     return jsonify(ok=False, error='File exists; confirm replacement to overwrite it'), 409
-            digest = file_hash(destination)
+            digest = short_hash(digest)
         finally:
             if temp_name is not None:
                 os.unlink(temp_name)

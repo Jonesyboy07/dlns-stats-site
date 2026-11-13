@@ -20,6 +20,15 @@ from backend.app.cdn_logging import configure_cdn_logging
 
 PROJECT = Path(__file__).resolve().parents[1]
 MANIFEST = '.site-assets-manifest.json'
+CDN_MANAGED_STATIC_FILES = frozenset({
+    'android-chrome-192x192.png',
+    'android-chrome-512x512.png',
+    'apple-touch-icon.png',
+    'favicon-16x16.png',
+    'favicon-32x32.png',
+    'favicon.ico',
+    'site.webmanifest',
+})
 URL_RE = re.compile(r'url\(\s*(["\']?)([^)"\']+)\1\s*\)', re.IGNORECASE)
 logger = logging.getLogger('dlns.cdn_sync')
 
@@ -74,12 +83,48 @@ def _rewrite_css(data: bytes, name: str, assets: dict[str, str]) -> bytes:
     return URL_RE.sub(replace, text).encode('utf-8')
 
 
+def _mirror_file(root: Path, name: str, source: Path) -> None:
+    try:
+        target = resolve_path(root, name)
+    except ValueError as error:
+        logger.warning('Skipping protected CDN mirror path %s: %s', name, error)
+        return
+
+    source_stat = source.stat()
+    if target.is_file():
+        target_stat = target.stat()
+        if target_stat.st_size == source_stat.st_size and target_stat.st_mtime_ns == source_stat.st_mtime_ns:
+            return
+    elif target.exists():
+        raise RuntimeError(f'CDN mirror target is not a file: {name}')
+
+    _atomic_write(target, source.read_bytes())
+    os.utime(target, ns=(source_stat.st_atime_ns, source_stat.st_mtime_ns))
+    logger.info('Mirrored %s', name)
+
+
 def sync():
     root = cdn_root()
     sources = {}
+    mirror_sources = {}
     for folder in ('static', 'public'):
+        folder_root = PROJECT / folder
+        for source in folder_root.rglob('*'):
+            if not source.is_file() or source.is_symlink():
+                continue
+            relative = source.relative_to(folder_root).as_posix()
+            if folder == 'static' and relative in CDN_MANAGED_STATIC_FILES:
+                continue
+            mirror_sources[f'{folder}/{relative}'] = source
+            static_name = f'static/{relative}'
+            if folder == 'public':
+                if relative not in CDN_MANAGED_STATIC_FILES:
+                    mirror_sources[static_name] = source
+            else:
+                mirror_sources.setdefault(static_name, source)
+
         for kind in ('css', 'fonts', 'images'):
-            source_root = PROJECT / folder / kind
+            source_root = folder_root / kind
             for source in source_root.rglob('*'):
                 if source.is_file() and not source.is_symlink():
                     relative = source.relative_to(PROJECT / folder).as_posix()
@@ -88,6 +133,9 @@ def sync():
     app_css = PROJECT / 'public' / 'react-app' / 'assets' / 'App.css'
     if app_css.is_file():
         sources['react-app/assets/App.css'] = app_css
+
+    for name, source in mirror_sources.items():
+        _mirror_file(root, name, source)
 
     assets = {}
 

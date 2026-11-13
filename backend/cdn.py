@@ -28,7 +28,7 @@ ASSET_MIME_TYPES = {
 
 
 def create_cdn_app(root: Path | None = None) -> Flask:
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=None)
     configure_cdn_logging(app.logger, 'cdn.log')
     try:
         app.config['CDN_ROOT'] = Path(root).resolve() if root else cdn_root()

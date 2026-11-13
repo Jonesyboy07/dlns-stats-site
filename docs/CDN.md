@@ -12,8 +12,8 @@ testing; this repository cannot configure or restart your server remotely.
 | Component | Responsibility |
 | --- | --- |
 | Main website | Renders pages, looks up the current asset manifest, and handles authenticated uploads. |
-| Asset synchronizer | Runs alongside the main website when enabled. Publishes hashed copies of local site assets and updates their manifest. |
-| Shared CDN folder | Stores the published copies, the manifest, existing CDN files and uploads. The website and CDN must access the same folder. |
+| Asset synchronizer | Runs alongside the main website when enabled. Mirrors `/public` and `/static` paths and publishes hashed site assets with a manifest. |
+| Shared CDN folder | Stores the direct mirrors, hashed copies, manifest, existing CDN files and uploads. The website and CDN must access the same folder. |
 | Python CDN | Runs separately on `127.0.0.1:5051`; reads the shared folder and serves files and manifests. |
 | nginx | Terminates HTTPS and proxies CDN requests to Python. The example configuration can also cache versioned responses. |
 | Browser | Loads the HTML from the website, then requests the asset URLs in that HTML or the React application. It may cache versioned assets. |
@@ -40,19 +40,30 @@ The origin app is [`backend/cdn.py`](../backend/cdn.py); the website-side asset 
    before starting the website, then starts a watcher that repeats the sync
    roughly every five seconds. The interval is measured after each sync
    completes, so large syncs take longer.
-3. The sync reads CSS, fonts and images under `static/` and `public/`, plus
-   the built `public/react-app/assets/App.css` if present. Where the same
-   relative asset exists in both trees, the `public/` copy takes precedence.
-   The original website files are **not renamed or removed**.
-4. Each published copy is normally named with the first eight hexadecimal
+3. The sync mirrors files under `public/` and `static/` into matching
+   `CDN_ROOT/public/` and `CDN_ROOT/static/` paths. This makes URLs such as
+   `https://cdn.example/public/...` and `https://cdn.example/static/...`
+   available without a site-assets manifest. For `/static/<path>`, the mirror
+   follows Flask's serving order: `public/<path>` wins, with `static/<path>` as
+   the fallback. Symlinks and paths rejected by the CDN's protected-path rules
+   are not copied. The favicon files referenced by
+   [`templates/_embed.html`](../templates/_embed.html) are CDN-managed in
+   `static/`; the sync intentionally leaves those filenames untouched even if
+   the website's `static/` tree contains older copies. Local website files are
+   **not renamed or removed**.
+4. Separately, CSS, fonts and images under `static/` and `public/`, plus the
+   built `public/react-app/assets/App.css` if present, are published as hashed
+   site assets. Where the same relative asset exists in both trees, the
+   `public/` copy takes precedence.
+5. Each hashed site asset is normally named with the first eight hexadecimal
    characters of its SHA-256 hash. For example, `css/styles.css` might become
    `__site_assets/css/styles.a1b2c3d4.css` in the CDN folder.
-5. Fonts and images are published before CSS. Recognized CSS `url(...)`
+6. Fonts and images are published before CSS. Recognized CSS `url(...)`
    references to those local assets are rewritten to their published paths;
    the rewritten CSS is then hashed. An image or font change can therefore
    produce a new CSS filename as well. External URLs, unknown paths and
    other references are left as they are.
-6. After publishing, the sync atomically updates
+7. After publishing, the sync atomically updates
    `.site-assets-manifest.json` in the CDN root. It maps original site paths
    to their current hashed paths. The old unversioned copies of currently
    managed assets in `__site_assets/` are removed, while previously published
@@ -60,10 +71,14 @@ The origin app is [`backend/cdn.py`](../backend/cdn.py); the website-side asset 
 
 The [hash scripts](../scripts/) can run a one-off sync or a watcher manually.
 Do not run an additional watcher alongside the one managed by the site.
-Existing CDN files outside `__site_assets/` are not renamed or deleted.
-The sync does not automatically publish JavaScript or HTML. Files that exist
-only in the CDN, rather than in the website asset folders, are not brought
-into the site asset manifest.
+Only matching paths in `public/` and `static/` are overwritten by the direct
+mirror. Mirrored files removed from the website are not automatically deleted,
+and unrelated CDN files are left untouched. Direct mirrors use unversioned
+URLs; only CSS, fonts and images in `__site_assets/` are hashed and listed in
+the site-assets manifest. JavaScript, HTML and other files are mirrored for
+direct `/public/...` and `/static/...` URLs but are not added to that manifest.
+The mirror makes those paths available on the CDN host; it does not rewrite
+URLs that still point at the main website origin.
 
 ### 2. Loading a page
 
@@ -71,9 +86,11 @@ into the site asset manifest.
    website requests `GET /__cdn/site-assets` from `CDN_MANIFEST_BASE_URL`,
    normally the loopback CDN address. This is a server-to-server request, not
    a browser polling the manifest.
-2. The CDN returns the current mapping with `Cache-Control: no-store`. The
-   website reuses the result within that request and constructs public asset
-   URLs using `CDN_PUBLIC_BASE_URL`.
+2. The CDN returns the current hashed-asset mapping with `Cache-Control:
+   no-store`. The website reuses the result within that request and constructs
+   those asset URLs using `CDN_PUBLIC_BASE_URL`. Direct mirror URLs use the
+   same CDN base with their original `/public/` or `/static/` path and do not
+   need the manifest.
 3. The rendered page includes the current hashed CSS and font URLs and passes
    the image mapping to React. Supported image helpers use the mapping when a
    local published image exists; other images retain their existing CDN URLs.
@@ -144,7 +161,8 @@ unversioned upload URLs still work and revalidate.
 | CDN manifest cannot be fetched during rendering | The website logs a warning, uses local stylesheet/font URLs, and falls back to existing image URL behavior. Those existing image URLs may themselves point at the CDN. |
 | A CDN stylesheet fails in the browser | The stylesheet link falls back to the corresponding local website URL. |
 | CDN process is down | nginx cannot proxy uncached files; previously cached versioned responses may still be available depending on cache configuration. Restart the CDN independently. |
-| Old unversioned managed assets are removed during migration | An already open page using those old `__site_assets/` paths may need a reload. Old hashed assets and files outside the managed directory are not removed by the sync. |
+| A local `/public` or `/static` file is absent from the mirror | Check that the source file is not a symlink or protected path, then run the sync and inspect `logs/cdn_sync.log`. |
+| Old unversioned managed site assets are removed during migration | An already open page using those old `__site_assets/` paths may need a reload. Old hashed assets and unrelated CDN files are not removed by the sync. |
 
 The fallback does not make every image available locally: CDN-only files and
 custom external asset hosts remain dependent on their respective services.

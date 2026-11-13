@@ -169,6 +169,44 @@ class CdnAdminTests(unittest.TestCase):
 
 
 class CdnSiteTests(unittest.TestCase):
+    def test_sync_mirrors_public_files_and_static_fallback_urls(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            source = Path(source)
+            cdn_only_icons = Path(target) / 'static'
+            cdn_only_icons.mkdir(parents=True)
+            icon_names = (
+                'android-chrome-192x192.png',
+                'android-chrome-512x512.png',
+                'apple-touch-icon.png',
+                'favicon-16x16.png',
+                'favicon-32x32.png',
+                'favicon.ico',
+                'site.webmanifest',
+            )
+            for name in icon_names:
+                (cdn_only_icons / name).write_bytes(('cdn:' + name).encode())
+            (source / 'public' / 'react-app').mkdir(parents=True)
+            (source / 'public' / 'css').mkdir()
+            (source / 'static' / 'css').mkdir(parents=True)
+            (source / 'public' / 'react-app' / 'module.js').write_text('export default 1;')
+            (source / 'public' / 'css' / 'shared.css').write_text('public version')
+            (source / 'static' / 'css' / 'shared.css').write_text('static version')
+            (source / 'static' / 'css' / 'fallback.css').write_text('fallback version')
+            (source / 'static' / 'favicon.ico').write_bytes(b'favicon')
+            (source / 'static' / 'apple-touch-icon.png').write_bytes(b'apple icon')
+
+            with patch.object(sync_cdn_assets, 'PROJECT', source), \
+                    patch.dict(os.environ, {'CDN_ROOT': target}):
+                sync_cdn_assets.sync()
+
+            client = create_cdn_app(Path(target)).test_client()
+            self.assertEqual(client.get('/public/react-app/module.js').data, b'export default 1;')
+            self.assertEqual(client.get('/static/react-app/module.js').data, b'export default 1;')
+            self.assertEqual(client.get('/static/css/shared.css').data, b'public version')
+            self.assertEqual(client.get('/static/css/fallback.css').data, b'fallback version')
+            for name in icon_names:
+                self.assertEqual(client.get('/static/' + name).data, ('cdn:' + name).encode())
+
     def test_sync_and_manifest_url(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
             source = Path(source)

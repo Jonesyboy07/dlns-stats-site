@@ -28,6 +28,7 @@ Website source files --sync--> shared CDN folder <--read-- Python CDN <-- nginx 
 The Python CDN is the origin service, not a geographically distributed CDN.
 An external cache such as Cloudflare is optional and must be configured
 separately. Restarting the CDN does not restart the website, and vice versa.
+The origin app is [`backend/cdn.py`](../backend/cdn.py); the website-side asset publisher is [`scripts/sync_cdn_assets.py`](../scripts/sync_cdn_assets.py).
 
 ### 1. Starting and publishing assets
 
@@ -172,14 +173,14 @@ slightly above `CDN_UPLOAD_MAX_BYTES` to allow for multipart overhead.
 
 ## Run and synchronize
 
-After installing `backend/requirements.txt` and building the frontend, start
+After installing [`backend/requirements.txt`](../backend/requirements.txt) and building the frontend, start
 the CDN independently:
 
 ```bash
 bash scripts/start_cdn.sh
 ```
 
-On Windows use `scripts\start_cdn.bat`. Both use `PYTHON_EXE` when supplied,
+On Windows use [`scripts\start_cdn.bat`](../scripts/start_cdn.bat). Both use `PYTHON_EXE` when supplied,
 otherwise prefer a local virtual environment and then system Python.
 The CDN script runs in the foreground; supervise it in production. For systemd,
 adapt [dlns-cdn.service](dlns-cdn.service), copy it to `/etc/systemd/system/`,
@@ -201,7 +202,7 @@ You can publish manually (or supply `--watch`) using:
 bash scripts/hash_cdn_assets.sh
 ```
 
-On Windows use `scripts\hash_cdn_assets.bat`. These scripts use the shared
+On Windows use [`scripts\hash_cdn_assets.bat`](../scripts/hash_cdn_assets.bat). These scripts use the shared
 `CDN_ROOT` and leave local files unchanged. They publish site CSS, fonts, and
 images as `__site_assets/.../name.<8-character-hash>.ext` and atomically update a
 manifest. CSS references to known local fonts and images are rewritten to their

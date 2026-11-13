@@ -62,6 +62,41 @@
     }
   ],
   "components": {
+    "parameters": {
+      "EventTitle": {
+        "name": "event_title",
+        "in": "query",
+        "description": "Event title; defaults to Night Shift.",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Weeks": {
+        "name": "weeks",
+        "in": "query",
+        "description": "Inclusive event-week range in `first-last` form; defaults to the last two weeks.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d+-\\d+$"
+        }
+      },
+      "Region": {
+        "name": "region",
+        "in": "query",
+        "description": "Region filter; defaults to all regions.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "All",
+            "EU",
+            "NA"
+          ]
+        }
+      }
+    },
     "schemas": {
       "Error": {
         "type": "object",
@@ -7797,6 +7832,373 @@
           }
         },
         "description": "Everyone the player has shared a side with, most games first.\n\nA teammate is another row in the same match with the same `players.team`, which\nis the in-game side and therefore carries no name of its own — the team shown\ncomes from the match metadata, so a side-less qualifier game contributes to the\ngames and the win rate but not to the name."
+      }
+    },
+    "/db/items/{item_id}/stats": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "The item page for ?weeks=a-b&region=: totals, buy timing, heroes, players, recent games, damage",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "description": "Item id.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          },
+          {
+            "$ref": "#/components/parameters/Weeks"
+          },
+          {
+            "$ref": "#/components/parameters/Region"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Item catalog unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The item page for ?weeks=a-b&region=: totals, buy timing, heroes, players, recent games, damage."
+      }
+    },
+    "/db/items/cards": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "`?ids=1,2,3` -> {\"items\": {id: {item, components, parents}}}",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated item IDs; up to 200 IDs are returned.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Item catalog unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "`?ids=1,2,3` -> {\"items\": {id: {item, components, parents}}}.\n\nLets the client render deadlock-api item cards and tooltips from our cached\ncatalogue instead of each visitor downloading the full ~6 MB item list.\nAt most MAX_CARD_IDS ids per request."
+      }
+    },
+    "/db/items/stats": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "The Items index for ?weeks=a-b&region=: per-item games, wins, sales, buy time",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          },
+          {
+            "$ref": "#/components/parameters/Weeks"
+          },
+          {
+            "$ref": "#/components/parameters/Region"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The Items index for ?weeks=a-b&region=: per-item games, wins, sales, buy time."
+      }
+    },
+    "/db/stats/heroes": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "The Heroes tab for ?weeks=a-b&region=: hero meta, pick % movers and most banned",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          },
+          {
+            "$ref": "#/components/parameters/Weeks"
+          },
+          {
+            "$ref": "#/components/parameters/Region"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The Heroes tab for ?weeks=a-b&region=: hero meta, pick % movers and most banned.\n\nMovers compare the range's last week with the week before it, whether or not\nthat week is inside the range, like the headline's change lines."
+      }
+    },
+    "/db/stats/leaderboards": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "The Leaderboards tab for ?weeks=a-b&region=: every stat, by Average and Total",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          },
+          {
+            "$ref": "#/components/parameters/Weeks"
+          },
+          {
+            "$ref": "#/components/parameters/Region"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The Leaderboards tab for ?weeks=a-b&region=: every stat, by Average and Total."
+      }
+    },
+    "/db/stats/periods": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Every week of the event with its match count, and the patches over them",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Every week of the event with its match count, and the patches over them."
+      }
+    },
+    "/db/stats/records-board": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "The Records tab for ?weeks=a-b&region=: the top five games for each record",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          },
+          {
+            "$ref": "#/components/parameters/Weeks"
+          },
+          {
+            "$ref": "#/components/parameters/Region"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The Records tab for ?weeks=a-b&region=: the top five games for each record."
+      }
+    },
+    "/db/stats/summary": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Headline and Overview aggregates for ?weeks=a-b&region=All|EU|NA",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EventTitle"
+          },
+          {
+            "$ref": "#/components/parameters/Weeks"
+          },
+          {
+            "$ref": "#/components/parameters/Region"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Headline and Overview aggregates for ?weeks=a-b&region=All|EU|NA.\n\n`weeks` defaults to the event's last two weeks. The headline's change lines\ncompare the range's last week with the week before it, whether or not that\nweek is inside the range."
       }
     }
   }

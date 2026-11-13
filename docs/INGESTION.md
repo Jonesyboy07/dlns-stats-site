@@ -1,10 +1,10 @@
 # Data ingestion and maintenance
 
-The batch ingester is `backend/main.py`. Run it from the repository root so default relative paths resolve as expected. `STEAM_API_KEY` is used for external match data requests; set it in `.env` before ingesting.
+The batch ingester is [`backend/main.py`](../backend/main.py). Run it from the repository root so default relative paths resolve as expected. `STEAM_API_KEY` is used for external match data requests; set it in your local `.env` before ingesting.
 
 ## Match feed
 
-The `-matchfile` input is JSON organized into series, weeks, games, and match records. The tracked feed at `data/matches.json` is the reference for the supported structure:
+The `-matchfile` input is JSON organized into series, weeks, games, and match records. The tracked feed at [`data/matches.json`](../data/matches.json) is the reference for the supported structure:
 
 ```json
 {
@@ -39,15 +39,16 @@ Each game may contain multiple match records. The match feed carries event/team 
 
 ## Submitting from the live admin
 
-The web admin can ingest a night without committing data to Git. Both entry points
+The web admin can ingest a night without committing data to Git. The [MatchAdmin](../frontend/src/pages/MatchAdmin.jsx) and [BracketAdmin](../frontend/src/pages/BracketAdmin.jsx) entry points
 write to the runtime files beside `DB_PATH` (`dlns.sqlite3` and `brackets.json`):
 
 - **MatchAdmin** (`/admin/matches`) posts the `title` / `week` / `sets` form to
-  `POST /admin/match/bulk-submit`. The background job fetches each match from the
+  `POST /admin/match/bulk-submit`, implemented in [`backend/app/blueprints/admin.py`](../backend/app/blueprints/admin.py). The background job fetches each match from the
   match API, writes the match and player rows, commits, then calls
-  `brackets.record_items()` to add the games to `brackets.json`.
+  [`record_items()`](../backend/app/blueprints/brackets.py) to add the games to
+  [`data/brackets.json`](../data/brackets.json).
 - **BracketAdmin** (`/admin/brackets`) saves the event and each series to
-  `brackets.json` first, then runs the same ingest job with `bracket_saved` set so
+  [`data/brackets.json`](../data/brackets.json) first, then runs the same ingest job with `bracket_saved` set so
   the bracket is not rewritten.
 
 Both jobs also write the rows derived from the match metadata — objectives, mid boss
@@ -57,7 +58,7 @@ it: the metadata the job already holds is enough. If that step fails for a game,
 job still saves the submission and names the affected match IDs in its message, and
 `-timelinebackfill` fills them afterwards.
 
-`brackets.json` is the schedule the home page and `/db/weeks` read, so a submission
+[`data/brackets.json`](../data/brackets.json) is the schedule the home page and `/db/weeks` read, so a submission
 that only reaches the database (for example because the bracket write failed) shows
 on `/matches` but not in the home page's week groups. Keep `data/brackets.json`
 writable by the service user and avoid resetting it to the Git version on deploys.
@@ -86,7 +87,7 @@ python backend/main.py -dmgbackfill true
 python backend/main.py -itembackfill true
 ```
 
-Normal ingestion tracks processed IDs in `data/matches_status.json` and skips those already checked. `-recheckall true` bypasses that skip. Forfeit and unavailable games are filed under negative placeholder IDs; the match API rejects those, so the fetcher skips them instead of spending request quota on them, and they are never marked checked. `-metasync` still applies the metadata authored for those rows. The maintenance flags run their task and exit; lane inference fills `players.lane_real`, while lane backfill fills the game-reported `players.lane`.
+Normal ingestion tracks processed IDs in [`data/matches_status.json`](../data/matches_status.json) and skips those already checked. `-recheckall true` bypasses that skip. Forfeit and unavailable games are filed under negative placeholder IDs; the match API rejects those, so the fetcher skips them instead of spending request quota on them, and they are never marked checked. `-metasync` still applies the metadata authored for those rows. The maintenance flags run their task and exit; lane inference fills `players.lane_real`, while lane backfill fills the game-reported `players.lane`.
 
 ## CLI options
 
@@ -129,7 +130,7 @@ progress survives an interruption.
 
 Normal ingest writes trails at the same time as the rest of a match, so a backfill is
 only needed for matches ingested before `match_player_paths` existed. See
-`docs/db_schema.md` for how the raw grid coordinates become world coordinates.
+[the database schema](db_schema.md) for how the raw grid coordinates become world coordinates.
 
 A full sweep is expensive, so `-pathsbackfill <match_id>` fetches a single match
 instead. That is the practical way to populate one match for local work:
@@ -159,11 +160,11 @@ a job that had already finished.
 
 | Script | Purpose |
 | --- | --- |
-| `scripts/build_frontend.sh` | Install frontend dependencies if needed and run the Vite production build |
-| `scripts/build_replay_index.py` | Build the replay index immediately |
-| `scripts/start_web.sh` / `.bat` | Build frontend, then start Waitress |
-| `scripts/start_forced.sh` / `.bat` | Start Waitress with frontend watch mode; refresh replay index first |
-| `scripts/update_db_from_matches.sh` / `.bat` | Ingest `data/matches.json` and run metadata, username, lane, gold, and damage maintenance passes |
-| `scripts/update_if_remote_changed.sh` | Server-side updater for a fixed deployment path/service; inspect its constants before use |
+| [`scripts/build_frontend.sh`](../scripts/build_frontend.sh) | Install frontend dependencies if needed and run the Vite production build |
+| [`scripts/build_replay_index.py`](../scripts/build_replay_index.py) | Build the replay index immediately |
+| [`scripts/start_web.sh`](../scripts/start_web.sh) / [`scripts/start_web.bat`](../scripts/start_web.bat) | Build frontend, then start Waitress |
+| [`scripts/start_forced.sh`](../scripts/start_forced.sh) / [`scripts/start_forced.bat`](../scripts/start_forced.bat) | Start Waitress with frontend watch mode; refresh replay index first |
+| [`scripts/update_db_from_matches.sh`](../scripts/update_db_from_matches.sh) / [`scripts/update_db_from_matches.bat`](../scripts/update_db_from_matches.bat) | Ingest `data/matches.json` and run metadata, username, lane, gold, and damage maintenance passes |
+| [`scripts/update_if_remote_changed.sh`](../scripts/update_if_remote_changed.sh) | Server-side updater for a fixed deployment path/service; inspect its constants before use |
 
 The updater script is deployment-specific (`/opt/dlns-stats-site`, `main`, and systemd service `dlns-stats`) and should not be run as a generic local update command.

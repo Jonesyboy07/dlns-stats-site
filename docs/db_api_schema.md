@@ -1,6 +1,6 @@
 # DB API Schema
 
-The `db_api` Flask blueprint exposes the site's JSON API, primarily under `/db`.
+The [`db_api` blueprint](../backend/app/blueprints/db_api.py) exposes the site's JSON API, primarily under `/db`.
 Most endpoints are read/query endpoints; `/db/help-config` also accepts `POST`
 and `PUT` requests to update help-page configuration.
 
@@ -11,12 +11,12 @@ Notes:
 - Responses are JSON.
 - Most read endpoints are cached server-side; cache durations vary by endpoint.
 - The API reads from the SQLite database at `data/dlns.sqlite3` unless `DB_PATH` overrides it.
-- `/api/docs` serves the interactive API reference; `/api/openapi.json` serves the tracked OpenAPI document.
+- `/api/docs` serves the interactive API reference; `/api/openapi.json` serves the tracked [OpenAPI document](openapi_spec.json), generated from [`backend/app/openapi_spec.py`](../backend/app/openapi_spec.py).
 
 ## Overview
 
 Main route groups:
-- `weeks` for event/week mapping loaded from `matches.json`
+- `weeks` for event/week mapping loaded from [`data/matches.json`](../data/matches.json)
 - `stats` for global and event-level aggregates
 - `matches` for recent match lists and per-match detail
 - `users` for user info, aggregates, and match history
@@ -71,10 +71,10 @@ Response:
 | `stats` | object | `total_matches`, `amber_wins`, `sapphire_wins`, `avg_duration_s`, `first_match_time` |
 | `matches` | array of objects | Matches ordered by start time, each with its `players` |
 | `all_weeks` | array of integers | Every week number recorded for the event |
-| `vod_link`, `vod_links`, `series_vods`, `game_vods` | mixed | VOD links from `matches.json` |
+| `vod_link`, `vod_links`, `series_vods`, `game_vods` | mixed | VOD links from [`data/matches.json`](../data/matches.json) |
 
 `stream_vod` is the whole broadcast, normalised from whichever shape
-`matches.json` recorded it in — early weeks carry a single `vod_link` string,
+[`data/matches.json`](../data/matches.json) recorded it in — early weeks carry a single `vod_link` string,
 later ones a `vod_links` list. It is `null` for the weeks that recorded neither
 (week 38 at the time of writing).
 
@@ -116,7 +116,7 @@ costs Steam a lookup for the two posts it displays rather than the whole feed.
 ## Route: `/db/weeks`
 
 Returns match-to-week mapping plus event metadata. Entries come from the authored
-schedule (`data/brackets.json`, plus legacy `data/matches.json` weeks it does not
+schedule ([`data/brackets.json`](../data/brackets.json), plus legacy [`data/matches.json`](../data/matches.json) weeks it does not
 cover); matches already in the database but missing from that schedule are filled
 in from the `matches` table, so a newly ingested week still groups on the home
 page.
@@ -428,7 +428,7 @@ Response:
 | `filters` | object | The normalized `team` and `account_id` filter values, or null |
 | `deaths` | array | Death events ordered by time, then player and death index |
 
-Each death event contains the `player_deaths` fields from `docs/db_schema.md`
+Each death event contains the `player_deaths` fields from [the database schema](db_schema.md)
 plus `player_slot`, `team`, `hero_id`, and `persona_name`. Position and time
 fields can be null when the source match data did not include them. Invalid
 filter values return `400` with `invalid_team` or `invalid_account_id`.
@@ -506,7 +506,7 @@ included as stored — the API records the pre-game waiting area and players ret
 at the end of a match — so a renderer should skip positions beyond
 `±MAP_RADIUS` rather than clamping them to the edge.
 
-See `docs/db_schema.md` for how the trail's grid coordinates become world coordinates.
+See [the database schema](db_schema.md) for how the trail's grid coordinates become world coordinates.
 
 An answer with `available: false` is deliberately not cached: that is the normal state
 before a backfill, and caching it would leave the page reporting no trails for the whole
@@ -533,7 +533,7 @@ Each item object contains:
 
 Notes:
 - Data is resolved against `https://api.deadlock-api.com/v1/assets/items`
-  (see `backend/constants.py`).
+  (see [`backend/constants.py`](../backend/constants.py)).
 - If the external item catalog is unavailable, the route returns `{}`.
 
 ## Route: `/db/matches/<match_id>/users/<account_id>`
@@ -596,7 +596,7 @@ Response:
 | --- | --- | --- |
 | `stats` | object or null | Raw row from `user_stats` |
 
-When present, `stats` contains all fields documented in `docs/db_schema.md` for the `user_stats` table.
+When present, `stats` contains all fields documented in [the database schema](db_schema.md) for the `user_stats` table.
 
 ## Route: `/db/users/<account_id>/matches`
 
@@ -870,13 +870,13 @@ Each row contains:
 
 ## Route: `/db/heroes/<hero_id>/meta`
 
-Returns curated hero metadata from `data/hero_meta.json`.
+Returns curated hero metadata from [`data/hero_meta.json`](../data/hero_meta.json).
 
 Path parameters:
 - `hero_id`: integer hero ID
 
 Success response:
-- Returns the raw JSON object stored for that hero in `data/hero_meta.json`
+- Returns the raw JSON object stored for that hero in [`data/hero_meta.json`](../data/hero_meta.json)
 
 Error responses:
 - `404`: `{ "error": "not found" }`
@@ -902,3 +902,41 @@ Each row contains:
 
 Notes:
 - Limited to the top 500 players.
+
+## Statistics page routes
+
+These routes back the current statistics tabs. `event_title` is optional and
+defaults to `Night Shift`. The periods route returns all event weeks; the other
+tab routes also accept `weeks` (`a-b`, defaults to the last two weeks) and
+`region` (`All`, `EU`, or `NA`; defaults to all regions). The handlers are in
+[`backend/app/blueprints/db/stats.py`](../backend/app/blueprints/db/stats.py).
+
+| Route | Response overview |
+| --- | --- |
+| `/db/stats/periods` | `event_title`, available `regions`, `weeks` with per-region match counts, and grouped `patches` |
+| `/db/stats/summary` | `range`, `headline`, `side`, `length`, `heroes`, and `this_week` summary blocks |
+| `/db/stats/heroes` | `range`, `region`, `games`, `total_bans`, hero meta, and week-over-week `movers` |
+| `/db/stats/records-board` | `range`, `region`, and the top-five `records` cards |
+| `/db/stats/leaderboards` | `range`, `region`, `min_games`, and `stats` grouped by stat and Average/Total |
+
+An empty event returns an empty result for the selected route rather than a
+missing-route error. The
+[OpenAPI specification](openapi_spec.json) is the machine-readable reference.
+
+## Item routes
+
+The item endpoints are implemented in
+[`backend/app/blueprints/db/items.py`](../backend/app/blueprints/db/items.py).
+The index and detail routes use the same `event_title`, `weeks`, and `region`
+filters described above.
+
+| Route | Response overview |
+| --- | --- |
+| `/db/items/stats` | `event_title`, `range`, `region`, match and player-game counts, and per-item usage rows |
+| `/db/items/<item_id>/stats` | Item metadata, totals, buy timing, buys, heroes, players, recent matches, and damage |
+| `/db/items/cards?ids=1,2,3` | `items` map keyed by ID; each value includes the upstream item and its component/parent references |
+
+`ids` is a comma-separated list; invalid IDs are ignored, duplicates are
+removed, and at most 200 IDs are returned. The item-detail route returns `404`
+for an unknown item and `503` when the external item catalog is unavailable.
+The cards route also returns `503` when its catalog is unavailable.

@@ -1,80 +1,89 @@
-# Match entry and brackets: handoff
+# Bracket administration
 
-Status (2026-10-05): **in progress on branch `matchsubmit`.** The dev build from draft PR #3 (fork branch `claude/project-thread-kto8n1`) was cherry-picked here.
+The bracket editor is available to admins at `/admin/brackets/`. Its UI is
+[`frontend/src/pages/BracketAdmin.jsx`](../../frontend/src/pages/BracketAdmin.jsx);
+the Flask routes and save jobs are in
+[`backend/app/blueprints/brackets.py`](../../backend/app/blueprints/brackets.py),
+and the format/advancement helpers are in
+[`backend/app/utils/brackets.py`](../../backend/app/utils/brackets.py).
+Focused backend coverage is in
+[`backend/tests/test_brackets.py`](../../backend/tests/test_brackets.py).
 
-## Files in this folder
+## Supported workflows
 
-| File | What it is |
-|---|---|
-| `mockup.html` | Lo-fi clickable mockup. Open it in a browser (or VS Code's Live Preview / Live Server). Tabs: create event, enter match IDs per format, fix a typo, weekly paste box. Gauntlet has a Qualifiers toggle; the series editor has a "Disqualify a team" option. |
-| `data-shape.md` | Proposed data model: event → stages (format) → series (`R1M1`, `winner_to`/`loser_to`) → games (match IDs). Scales to 64-team single elim (6 rounds, 63 series). |
-| `options.md` | Research: how other esports sites auto-fetch matches, and the options for Night Shift (smarter form, "find matches" via deadlock-api, lobby bot, Discord `/report`). |
+- Create and edit events, rounds and series; supported formats are Gauntlet and
+  single elimination.
+- Enter teams and match IDs, choose each game's winner, and optionally record
+  forfeits, unavailable matches, VODs and hero bans.
+- Save a series to fetch match data and update the database. Scores and
+  advancement are computed from game results rather than stored separately.
+- Read the current event schedule from `brackets.json` beside the configured
+  database. With the default `DB_PATH`, that file is [`data/brackets.json`](../../data/brackets.json).
 
-## Dev build (branch `matchsubmit`)
+The legacy MatchAdmin bulk-submit workflow also records submitted games in the
+bracket schedule. Its route and ingestion logic are in
+[`backend/app/blueprints/admin.py`](../../backend/app/blueprints/admin.py).
+See [data ingestion](../INGESTION.md) for its input shape and maintenance tasks.
 
-- Page: `/admin/brackets/` → `frontend/src/pages/BracketAdmin.jsx` (entry `frontend/src/entries/bracket_admin.entry.jsx`)
-- API: `backend/app/blueprints/brackets.py` (stores `data/brackets.json`, saves series through MatchAdmin's bulk-submit job)
-- Logic: `backend/app/utils/brackets.py` (generators + `compute()`), tests in `backend/tests/test_brackets.py`
-- Formats built: Gauntlet (+ Qualifiers), single elimination with byes. Not built: double elim, round robin, swiss.
-- **Edit event** (editor page): title, week, region, round names/best-of and seeded teams. Saving re-imports every series with games; a changed title/week moves the games in matches.json. Gauntlets can gain an opening round (e.g. Qualifiers) or drop an unplayed one. Any edit or series save marks the event as editor-made, so re-running the migration no longer replaces it.
-- Also fixes `db_init` missing `self_healing`/`teammate_healing` columns on a fresh DB.
+## Week safeguards and backups
 
-Run locally:
+Every bracket save keeps a backup of the previous schedule as
+`brackets.json.bak-<utc stamp>`; the 10 most recent are retained. Before a
+series save or an event week change, the backend compares the affected matches'
+play dates with the matches already assigned to that week. If their date
+windows differ by at least three days, it returns a confirmation warning
+instead of changing data. The editor's **Save anyway** action explicitly
+confirms the update. A new event can share a week with an existing event,
+because regional events can run on different nights.
+
+## Local development
+
+Run the app against an isolated copy of the database and related data files:
 
 ```bash
-git checkout matchsubmit
-pip install -r backend/requirements.txt
-cd frontend && npm install && npm run build && cd ..
-python run_debug.py --sandbox   # http://localhost:5050/admin/brackets/
+python run_debug.py --sandbox
 ```
 
-`--sandbox` points the app at `data/sandbox/` (git-ignored), seeded on first run with copies of `data/dlns.sqlite3`, `matches.json`, `brackets.json` and the user/avatar caches. Saving a series there never touches the real files. `--sandbox --reset` starts again from a fresh copy. Without `--sandbox`, saves write to the real `data/dlns.sqlite3` and `data/matches.json`.
+The first run seeds `data/sandbox/`; subsequent runs reuse it. To discard that
+sandbox and copy the current real data again, run:
 
-## What a wrong week does, and the guards against it
+```bash
+python run_debug.py --sandbox --reset
+```
 
-An event's week (and title, region, round names) is copied onto every match row when a series is saved, so stats pages and the week tree read them from there. A series saved with the wrong week therefore *relabels* games that were already in stats — there is no undo, only the backups below.
+`--reset` deletes only the sandbox directory. Without `--sandbox`, writes go to
+the configured database and its adjacent `brackets.json`. Build the frontend
+with `cd frontend && npm install && npm run build` if the page bundle is not
+available. To run the focused backend tests:
 
-Two guards run before anything is written:
+```bash
+python -m unittest backend.tests.test_brackets
+```
 
-- **Backups.** Every save of `brackets.json` first copies the file it is replacing to `brackets.json.bak-<utc stamp>`. The last 10 are kept. A bad save is then a file restore, not a reconstruction. (`scripts/migrate_brackets.py` writes its own `brackets.json.bak-<time>` too.)
-- **Week check.** Saving a series (or changing an event's week) compares the nights the games would be filed under with the games already on that week. If the two date windows are 3 or more days apart, the save is refused with a 409 and nothing is written; the editor shows the reason and a **Save anyway** button that resends with `confirm_week: true`. The rules that keep it quiet otherwise: only games that would actually change week are judged (a first-time id has no stored date, so its night is fetched from the API; a re-save of a series already on that week is a no-op and is not checked), an event's own games are never its own peers, and a week with no dated games has nothing to compare against. Creating an event for a week another event already uses only warns (it is not refused — an EU and an NA run share a week).
+## Migrating legacy match schedules
 
-## Migrating existing weeks
+[`scripts/migrate_brackets.py`](../../scripts/migrate_brackets.py) converts
+weeks and regions in [`data/matches.json`](../../data/matches.json) into
+bracket events. It reads match results from SQLite, writes only
+`brackets.json`, and backs up that file before each write. By default it runs
+as a dry run against sandbox data:
 
-`scripts/migrate_brackets.py` turns each week + region of `matches.json` into a gauntlet event in `brackets.json`. It only ever writes `brackets.json`: `matches.json` is read as-is and the DB is opened read-only. Without `--write` it writes nothing.
+```bash
+python scripts/migrate_brackets.py
+python scripts/migrate_brackets.py --week 58
+python scripts/migrate_brackets.py --write
+```
 
-### Commands
+To write the real schedule, explicitly select the data directory:
 
-| Step | Command |
-|---|---|
-| Start the site on the sandbox | `python run_debug.py --sandbox` then open http://localhost:5050/admin/brackets/view |
-| Fresh sandbox copy of the real data | `python run_debug.py --sandbox --reset` |
-| Dry run (sandbox, writes nothing) | `python scripts/migrate_brackets.py` |
-| One week, every game | `python scripts/migrate_brackets.py --week 43` |
-| Every week, every game | `python scripts/migrate_brackets.py --detail` |
-| Write the sandbox `brackets.json` | `python scripts/migrate_brackets.py --write` |
-| Dry run on the real data | `python scripts/migrate_brackets.py --target data` |
-| Write the real `data/brackets.json` | `python scripts/migrate_brackets.py --target data --write` |
+```bash
+python scripts/migrate_brackets.py --target data --write
+```
 
-Every write backs up the previous file as `brackets.json.bak-<time>`. Re-running replaces earlier migrated events (`"source": "matches.json"`) and keeps events made in the editor.
+Hand corrections are read from
+[`scripts/migrate_fixes.json`](../../scripts/migrate_fixes.json). Review the
+script's `--help` output before using less common migration options.
 
-### Fixing weeks by hand
-
-Weeks the script can't order are listed under "Needs review". Fix them in `scripts/migrate_fixes.json` (it applies to both the sandbox and the real data, so a fix made once carries over):
-
-- `region`: move a set to another region
-- `dq`: disqualify a team in a set (the other team advances)
-- `winner`: who won a game the DB has no result for
-- `order`: the ladder order when the results fit more than one
-
-Set `"disabled": true` to keep a fix without using it. Each run lists every fix as `applied`, `disabled` or `not matched`. Fixes only change how brackets are built; to correct stats (e.g. a set's region in `matches.json`), edit the match in MatchAdmin.
-
-Rounds otherwise come from results, not file order: a set's winner must play in the next set, and untitled sets next to a Challenger are the Finals.
-
-## Decisions and feedback to carry forward
-
-- **Winner is picked by hand (done).** Jev enters the winner from the results; checking which team was Hidden King / Archmother takes too long. Each game (forfeit or not) has a required team A / team B "who won" pick, stored as `games[].winner`. The roster check on the match ID only pre-fills an empty pick. At ingest, MatchAdmin's job places team A's side from that pick plus the API's `winning_team`. Games saved before this change fall back to the result already in the DB.
-- Disqualification after a game: `outcome: { type: "dq", team, after_game, reason, played_games: "keep" | "void" }` on the series, overriding the score.
-- Replacing a wrong match ID must refetch stats. Today's `PATCH /admin/match/edit` renames the row and keeps the old match's stats (`backend/app/blueprints/admin.py`, the `UPDATE matches SET match_id = ?` block).
-- Unverified: week 57 has match ID `1073892640` (10 digits), probably a typo for `107389264`.
-- Unverified: whether private lobby matches are searchable in deadlock-api bulk metadata / player match history. Needed before a "find matches" button.
+For the earlier tournament data-shape proposal and match-submission research,
+see [data-shape notes](data-shape.md) and [match-entry options](options.md);
+they are historical references, not the current implementation specification.

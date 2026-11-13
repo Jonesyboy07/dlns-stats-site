@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-10-13. Owner: site operator (Jonesy). Review yearly or when the data collected changes.
 
+Implementation references: [`backend/app/blueprints/analytics.py`](../backend/app/blueprints/analytics.py), the opt-out page in [`frontend/src/pages/Privacy.jsx`](../frontend/src/pages/Privacy.jsx), and the shared site footer in [`templates/base.html`](../templates/base.html).
+
 ## Purpose
 Understand which pages are used and where visitors come from, so the site can be improved and capacity planned.
 

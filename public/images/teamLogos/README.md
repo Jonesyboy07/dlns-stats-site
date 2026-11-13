@@ -28,7 +28,7 @@ resolve to `abrahams.png`, and both `SLICE N DICE` and `SLICE 'N DICE` to
 
 It does **not** cover word drift. A team that has been misspelt or reworded
 (`BUFF ENJOYER` vs `BUFF ENJOYERS`) needs the feed corrected, or an entry in
-`ALIASES` in `frontend/src/utils/teamLogos.js`.
+`ALIASES` in [`frontend/src/utils/teamLogos.js`](../../../frontend/src/utils/teamLogos.js).
 
 Keep filenames **lowercase**. Windows and macOS are case-insensitive so a
 mis-cased name works locally, but the CDN is not — `Abrahams.PNG` would 404

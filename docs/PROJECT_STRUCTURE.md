@@ -1,6 +1,6 @@
 # Project structure
 
-The repository root contains the runnable entry points and the site assets. The Python application and batch ingester are grouped under `backend/`; the React source and Vite configuration are under `frontend/`.
+The repository root contains the runnable entry points and the site assets. The Python application and batch ingester are grouped under [`backend/`](../backend/); the React source and Vite configuration are under [`frontend/`](../frontend/).
 
 ```text
 .
@@ -38,11 +38,11 @@ The repository root contains the runnable entry points and the site assets. The 
 
 ## Application layout
 
-- `backend/app/main_web.py` creates the Flask app, configures shared services, and registers blueprints.
-- `backend/app/blueprints/registry.json` is the source of truth for registered blueprints. Their implementations are in the adjacent Python modules.
-- The Flask app renders Jinja templates from `templates/`, serves public assets from `public/`, and falls back to `static/` for migrated assets.
-- `frontend/src/entries/` contains multiple Vite entry points; built bundles are written to `public/react-app/` and are ignored by Git.
-- `backend/main.py` is a separate CLI for ingesting and maintaining match data.
+- [`backend/app/main_web.py`](../backend/app/main_web.py) creates the Flask app, configures shared services, and registers blueprints.
+- [`backend/app/blueprints/registry.json`](../backend/app/blueprints/registry.json) is the source of truth for registered blueprints. Their implementations are in the adjacent Python modules.
+- The Flask app renders Jinja templates from [`templates/`](../templates/), serves public assets from [`public/`](../public/), and falls back to [`static/`](../static/) for migrated assets.
+- [`frontend/src/entries/`](../frontend/src/entries/) contains multiple Vite entry points; built bundles are written to [`public/react-app/`](../public/react-app/) and are ignored by Git.
+- [`backend/main.py`](../backend/main.py) is a separate CLI for ingesting and maintaining match data.
 - The SQLite schema is initialized/upgraded by the web application and the ingester. See [database schema](db_schema.md).
 
-For local setup, see the [README](../README.md). For development and testing commands, see [development guide](AGENTS.md).
+For local setup, see the [README](../README.md). For development and testing commands, see [development guide](AGENTS.md). The root also contains [`extras/`](../extras/) for supplementary utilities.

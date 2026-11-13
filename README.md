@@ -25,19 +25,19 @@ python -m pip install -r backend/requirements.txt
 cp .env.example .env             # Windows: copy .env.example .env
 ```
 
-Edit `.env` as needed. A Steam API key is needed for match ingestion, not for simply starting the site. See [configuration and operations](docs/CONFIGURATION.md) before enabling external integrations or deploying.
+The [`.env.example`](.env.example) file documents the available settings. Edit your local `.env` as needed; a Steam API key is needed for match ingestion, not for simply starting the site. See [configuration and operations](docs/CONFIGURATION.md) before enabling external integrations or deploying.
 
-Start the Flask app:
+That command installs backend dependencies from [`backend/requirements.txt`](backend/requirements.txt). Start the Flask app with [`run.py`](run.py):
 
 ```bash
 python run.py
 ```
 
-Open <http://127.0.0.1:5050>. For the Flask debug server, use `python run_debug.py` instead.
+Open <http://127.0.0.1:5050>. For the Flask debug server, use `python run_debug.py` instead; its entry point is [`run_debug.py`](run_debug.py).
 
 ### Frontend development
 
-In a second terminal, install the frontend dependencies and start Vite:
+In a second terminal, install the dependencies declared in [`frontend/package.json`](frontend/package.json) and start Vite:
 
 ```bash
 cd frontend
@@ -45,17 +45,17 @@ npm install
 npm run dev
 ```
 
-Vite serves the frontend on port 5173 and proxies backend requests to the Flask server on port 5050. To produce deployable React bundles instead, run `npm run build`; Vite writes them to `public/react-app/`.
+Vite serves the frontend on port 5173 and proxies backend requests to the Flask server on port 5050. Its entries and build settings are in [`frontend/vite.config.js`](frontend/vite.config.js). To produce deployable React bundles instead, run `npm run build`; Vite writes them to [`public/react-app/`](public/react-app/).
 
 ## Data ingestion
 
-Match ingestion is a separate command from running the website. Given a match feed in the supported JSON format:
+Match ingestion is separate from running the website. The ingester in [`backend/main.py`](backend/main.py) reads [`data/matches.json`](data/matches.json) and records checked IDs in [`data/matches_status.json`](data/matches_status.json). Given a match feed in the supported JSON format:
 
 ```bash
 python backend/main.py -matchfile data/matches.json
 ```
 
-The ingester tracks checked match IDs in `data/matches_status.json` and skips them by default. To reprocess every match in the feed:
+It skips checked IDs by default. To reprocess every match in the feed:
 
 ```bash
 python backend/main.py -matchfile data/matches.json -recheckall true
@@ -65,21 +65,20 @@ For the full option reference, input format, and repository scripts, see [data i
 
 ## Project map
 
-```text
-backend/             Flask application, API blueprints, and data ingester
-data/                Tracked source data and runtime database/cache files
-docs/                Project, API, schema, setup, and operations documentation
-frontend/            React source, Vite configuration, and frontend tests
-public/              Public assets and generated React bundles
-scripts/             Build, server-start, data-update, and replay-index scripts
-static/              Legacy/static site assets
-templates/           Flask/Jinja templates
-run.py               Local Flask entry point
-run_debug.py         Flask debug entry point
-wsgi.py              WSGI application entry point
-```
+| Area | Contents |
+| --- | --- |
+| [`backend/`](backend/) | Flask application, API blueprints, and data ingester |
+| [`data/`](data/) | Tracked source data and runtime database/cache files |
+| [`docs/`](docs/) | Project, API, schema, setup, and operations documentation |
+| [`frontend/`](frontend/) | React source, Vite configuration, and frontend tests |
+| [`public/`](public/) | Public assets and generated React bundles |
+| [`scripts/`](scripts/) | Build, server-start, data-update, and replay-index scripts |
+| [`static/`](static/) | Legacy/static site assets |
+| [`templates/`](templates/) | Flask/Jinja templates |
+| [`extras/`](extras/) | Supplementary utilities |
+| [`run.py`](run.py), [`run_debug.py`](run_debug.py), [`wsgi.py`](wsgi.py) | Local, debug, and WSGI entry points |
 
-The application factory is `backend/app/main_web.py`; blueprint registration is defined by `backend/app/blueprints/registry.json`. See the [project structure](docs/PROJECT_STRUCTURE.md) and [development guide](docs/AGENTS.md) for more detail.
+The application factory is [`backend/app/main_web.py`](backend/app/main_web.py); registered blueprints are listed in [`backend/app/blueprints/registry.json`](backend/app/blueprints/registry.json). See the [project structure](docs/PROJECT_STRUCTURE.md) and [development guide](docs/AGENTS.md) for more detail.
 
 ## Routes and API
 
@@ -89,16 +88,17 @@ The primary JSON API is under `/db`. Site pages include `/`, `/search`, `/matche
 - OpenAPI JSON: <http://localhost:5050/api/openapi.json> or [`docs/openapi_spec.json`](docs/openapi_spec.json)
 - Endpoint notes: [`docs/db_api_schema.md`](docs/db_api_schema.md)
 - Database tables: [`docs/db_schema.md`](docs/db_schema.md)
+- API specification source and sync command: [`backend/app/openapi_spec.py`](backend/app/openapi_spec.py), [`scripts/sync_openapi.py`](scripts/sync_openapi.py)
 
 ## Tests
 
-Run backend tests from the repository root:
+Backend tests live in [`backend/tests/`](backend/tests/). Run them from the repository root:
 
 ```bash
 python -m unittest discover -s backend/tests
 ```
 
-Run frontend tests from `frontend/`:
+Frontend tests live alongside the source in [`frontend/src/`](frontend/src/). Run them from `frontend/`:
 
 ```bash
 npm test

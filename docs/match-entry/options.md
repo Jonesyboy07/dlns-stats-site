@@ -1,16 +1,28 @@
-# Faster Night Shift match submission: how others do it, and options for DLNS
+# Faster Night Shift match submission: historical research
 
-Written 2026-10-01. Research only, no code changed.
+Written 2026-10-01. This records the options considered at that time; verify
+current behavior in the
+[MatchAdmin page](../../frontend/src/pages/MatchAdmin.jsx),
+[admin routes](../../backend/app/blueprints/admin.py), and
+[bracket administration guide](README.md) before relying on any status described
+below.
 
-## How submission works today
+**Current status:** the bulk-submit route still requires a winner for each
+match, including forfeits; see the validation in
+[`backend/app/blueprints/admin.py`](../../backend/app/blueprints/admin.py).
+The options below are research notes, not an implementation plan.
 
-MatchAdmin (`frontend/src/pages/MatchAdmin.jsx`, `backend/app/blueprints/admin.py`) asks for, per week:
+## How submission worked when this was written
+
+MatchAdmin ([`frontend/src/pages/MatchAdmin.jsx`](../../frontend/src/pages/MatchAdmin.jsx), [`backend/app/blueprints/admin.py`](../../backend/app/blueprints/admin.py)) asks for, per week:
 
 - series title and week number
 - per set: set title, team A, team B, region, VOD link
-- per match: match ID, **winner** (required, `MatchAdmin.jsx:166`), game label
+- per match: match ID, winner (required at the time), and game label
 
-The backend then fetches each ID from `api.deadlock-api.com/v1/matches/{id}/metadata`, works out which in-game side team A was on from the winner you typed, and falls back to roster history (`_detect_team_a_side_from_history`, `admin.py:319`) only if the winner is missing. The frontend blocks that fallback because winner is mandatory.
+The backend fetches each ID from `api.deadlock-api.com/v1/matches/{id}/metadata`
+and works out which in-game side team A was on from the winner you typed. The
+route implementation is in [`backend/app/blueprints/admin.py`](../../backend/app/blueprints/admin.py).
 
 Every value the API already knows (winner, start time, order of games) is still typed by hand. Only the pairing of "this match ID belongs to this set" is genuinely new information.
 
@@ -39,12 +51,15 @@ From deadlock-api's docs (I couldn't call the API from this sandbox, the network
 
 ## Options
 
-### A. Smarter form (no new API, smallest change). Recommended first.
+### A. Smarter form (no new API, smallest change). Historical recommendation.
 
 - Make **winner optional**. Read `winning_team` from the API and work out team A's side from roster history, which the backend already does. Only ask when the roster is unknown (new team, mostly subs).
 - **Paste box**: one line per set, e.g. `EU FINALS ABRAHAMS vs LEVIATHAN 107356285 107363657`, parsed into the form.
 - **Pre-fill** week (last + 1) and series title; autocomplete team names from existing ones.
-- **Validate IDs as you type** with the existing preview endpoint, showing teams' players, start time and winner. This would catch typos; week 57 has `1073892640`, ten digits where every other ID is nine (`data/matches.json`), which looks like a typo for `107389264`. I inferred that and haven't checked it against the API.
+- **Validate IDs as you type** with the existing preview endpoint, showing teams' players, start time and winner. This would catch typos; at the time, week 57 in
+[`data/matches.json`](../../data/matches.json) had `1073892640`, ten digits
+where every other ID was nine. It looked like a typo for `107389264`, but that
+inference was not checked against the API.
 
 Result: you'd enter team names and match IDs only.
 

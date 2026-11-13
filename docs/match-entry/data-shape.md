@@ -1,10 +1,13 @@
-# Bracket data shape (sketch)
+# Bracket data shape (historical sketch)
 
-Written 2026-10-01. A proposal only; nothing in the repo uses it yet.
+Written 2026-10-01. This proposal predates the current bracket editor and does
+not describe the stored format. The live implementation is maintained in
+[`backend/app/utils/brackets.py`](../../backend/app/utils/brackets.py), with
+editor workflows documented in [Bracket administration](README.md).
 
 ## Idea
 
-The model is close to what Liquipedia, start.gg and Challonge use: **event → stages → series → games**.
+The proposal was close to what Liquipedia, start.gg and Challonge use: **event → stages → series → games**.
 
 - A **stage** has a `format`. The format is the only thing that knows how series link together.
 - A **series** is one Team A vs Team B set. It has a slot id, a round, and links saying where its winner (and loser) go next.

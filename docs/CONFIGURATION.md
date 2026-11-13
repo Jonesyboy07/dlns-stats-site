@@ -2,7 +2,7 @@
 
 ## Environment setup
 
-The Flask app loads `.env` at startup. Start from the root template:
+The Flask app loads `.env` at startup. Start from the root [`.env.example`](../.env.example) template:
 
 ```bash
 cp .env.example .env
@@ -31,28 +31,28 @@ Review the comments in `.env.example` and replace placeholders for the features 
 
 ## Local and production servers
 
-- `python run.py` starts the standard Flask app on `127.0.0.1:5050`.
-- `python run_debug.py` starts the debug app on the same address and port; use only for local development.
-- `wsgi.py` exports the standard app as `wsgi:app` for WSGI servers.
+- [`run.py`](../run.py) starts the standard Flask app on `127.0.0.1:5050`.
+- [`run_debug.py`](../run_debug.py) starts the debug app on the same address and port; use only for local development.
+- [`wsgi.py`](../wsgi.py) exports the standard app as `wsgi:app` for WSGI servers.
 - The main startup scripts run Waitress on `127.0.0.1:5050` and, when configured, supervise the CDN asset sync; see [CDN operations](CDN.md). `start_web.sh` also watches frontend builds; the other startup scripts build once.
 
 For public deployment, use a production WSGI server behind a reverse proxy, set `BASE_URL` to the public origin, set secure cookies when served over HTTPS, and use a strong private `SECRET_KEY`. Configure the proxy, TLS, process supervision, logging, and backups for your deployment environment. The start scripts bind to loopback, not a public network interface.
 
 ## Search metadata
 
-Every React page is served by `templates/react.html`, whose title, description, canonical link and Open Graph/Twitter tags are filled in by `backend/app/seo.py`. Because the tags are rendered by Flask before any JavaScript runs, crawlers and link-preview bots see the same values as a visitor.
+Every React page is served by [`templates/react.html`](../templates/react.html), whose title, description, canonical link and Open Graph/Twitter tags are filled in by [`backend/app/seo.py`](../backend/app/seo.py). Because the tags are rendered by Flask before any JavaScript runs, crawlers and link-preview bots see the same values as a visitor.
 
 - `BASE_URL` must be the public origin; it is the prefix for canonical URLs, `og:url`, `sitemap.xml` and `robots.txt`.
 - Canonical URLs prefer `/matches/<id>` (not `/match/<id>`) and `/player/<accountId>` (not `/users/<accountId>`). `/home` canonicalises to `/`, interview aliases to `/interviews/<short_id>`, and `/stats` to `/stats/` (the trailing slash is required because the slash-less form redirects).
 - `/search`, `/admin/*`, `/react-admin*` and `/interviews/upload` are `noindex`.
-- Detail routes for entities that do not exist (match, series, player, player×hero, hero, team or week) render the app shell with a “not found” title, `noindex, follow`, and a real **404** status. Existing profiles with no games yet stay indexable.
-- `/sitemap.xml` lists the same canonical URLs. It is cached for 15 minutes; append `?flush=1` after a data refresh to rebuild it immediately.
+- Detail routes for entities that do not exist (match, series, player, player×hero, hero, team or week) render the app shell with a “not found” title, `noindex, follow`, and a real **404** status. Existing profiles with no games yet stay indexable. [`backend/tests/test_seo.py`](../backend/tests/test_seo.py) covers sitemap URL status.
+- `/sitemap.xml` lists the same canonical URLs. It is cached for 15 minutes; append `?flush=1` after a data refresh to rebuild it immediately. [`backend/app/blueprints/sitemap.py`](../backend/app/blueprints/sitemap.py) owns sitemap generation.
 - Sitemap quality rules: placeholder/negative match IDs and matches without a duration are excluded; player profiles with no recorded games are excluded; heroes with zero appearances are excluded; teams and weeks use the newest spelling/date from real matches. `lastmod` comes from the newest matching data rather than the build date. Row caps (15k matches + 15k players + 63 heroes + 500 teams + 300 weeks) keep the file under the 50,000-URL limit, so no sitemap index is needed. `test_every_sitemap_url_returns_200` in `backend/tests/test_seo.py` guards this.
 - Match and player pages also emit JSON-LD (`SportsEvent` / `ProfilePage`); interview detail pages emit `Article`. Every indexable page adds a `BreadcrumbList`, combined with the page schema through `@graph`.
 - The prerendered snapshot includes a visible, crawlable breadcrumb trail (`nav[aria-label="Breadcrumb"]`) before the React-managed content. Client-side navigation rebuilds the trail and JSON-LD from the route, then page components replace it with data-backed names once loaded.
-- `backend/app/prerender.py` renders a compact content snapshot into `#root` for the home/match list, match, player, player×hero, hero, team, week and index pages. It contains real headings, player/team names, tables and internal links, so crawlers and no-JS visitors see content before the React bundle runs; React replaces it on mount. Snapshots are cached for five minutes and capped in memory. Set `SEO_PRERENDER=0` to disable it.
+- [`backend/app/prerender.py`](../backend/app/prerender.py) renders a compact content snapshot into `#root` for the home/match list, match, player, player×hero, hero, team, week and index pages. It contains real headings, player/team names, tables and internal links, so crawlers and no-JS visitors see content before the React bundle runs; React replaces it on mount. Snapshots are cached for five minutes and capped in memory. Set `SEO_PRERENDER=0` to disable it.
 
-When adding a page to the React app, add its route metadata to `STATIC_ROUTES` in `frontend/src/utils/seo.js` (client-side navigation) and to `_STATIC_PAGES` in `backend/app/seo.py` (server-rendered shell). Add a `_build` branch in `backend/app/prerender.py` if the page needs crawlable content. Add its canonical URL to `backend/app/blueprints/sitemap.py` only when it is a public landing page worth indexing.
+When adding a page to the React app, add its route metadata to `STATIC_ROUTES` in [`frontend/src/utils/seo.js`](../frontend/src/utils/seo.js) (client-side navigation) and to `_STATIC_PAGES` in [`backend/app/seo.py`](../backend/app/seo.py) (server-rendered shell). Add a `_build` branch in [`backend/app/prerender.py`](../backend/app/prerender.py) if the page needs crawlable content. Add its canonical URL to [`backend/app/blueprints/sitemap.py`](../backend/app/blueprints/sitemap.py) only when it is a public landing page worth indexing.
 
 ## Canonical host and redirects
 
@@ -82,7 +82,7 @@ Expected result:
 
 ### Flask guard (fallback)
 
-`backend/app/canonical_host.py` redirects `GET`/`HEAD` requests that reach Flask with a non-canonical host or without HTTPS. It is disabled automatically for local `BASE_URL` values and skips `127.0.0.1`, `localhost` and `::1` so health checks never loop.
+[`backend/app/canonical_host.py`](../backend/app/canonical_host.py) redirects `GET`/`HEAD` requests that reach Flask with a non-canonical host or without HTTPS. It is disabled automatically for local `BASE_URL` values and skips `127.0.0.1`, `localhost` and `::1` so health checks never loop.
 
 - `CANONICAL_HOST` — optional; derived from `BASE_URL` when empty.
 - `FORCE_HTTPS` — optional; derived from whether `BASE_URL` starts with `https://`.
@@ -110,7 +110,7 @@ A `301` is cacheable **indefinitely** when the response carries no `Cache-Contro
 - DevTools shows `301` responses with `Size: (disk cache)` and the console ends in `net::ERR_TOO_MANY_REDIRECTS`.
 - The same URL works in another browser profile, in incognito, or with **Disable cache** ticked.
 
-`backend/app/canonical_host.py` now sends `Cache-Control: no-store` with its `301`, but redirects issued by Cloudflare are outside Flask's control. To clear an affected profile:
+[`backend/app/canonical_host.py`](../backend/app/canonical_host.py) sends `Cache-Control: no-store` with its `301`, but redirects issued by Cloudflare are outside Flask's control. To clear an affected profile:
 
 1. Close every Chrome window for that profile and confirm no `chrome.exe` remains in Task Manager; a redirect held in a live process is rewritten on shutdown.
 2. Delete the profile's cache directories while Chrome is closed. These hold no account data, so they are safe to remove:
@@ -157,7 +157,7 @@ Operational checklist after deploying these SEO changes:
 
 - The decorative gothic backdrop is ~3.6 MB. It is now requested only after the first paint (`requestIdleCallback`, with a timeout fallback), so it no longer competes with LCP text/fonts. Compressing that source image to WebP/AVIF is still worthwhile; the current file is the largest asset on the site.
 - Match detail's timeline and laning tabs are lazy-loaded with `React.lazy`/`Suspense`. The initial `MatchDetail` chunk dropped from ~139 kB (37 kB gzip) to ~91 kB (24 kB gzip); the tabs load only when opened.
-- `react.html` preconnects to `IMAGE_CDN_BASE` and preloads the two fonts used above the fold (`valveoracle-medium.ttf`, `valvepulp-bold.ttf`).
+- [`templates/react.html`](../templates/react.html) preconnects to `IMAGE_CDN_BASE` and preloads the two fonts used above the fold (`valveoracle-medium.ttf`, `valvepulp-bold.ttf`).
 - Hero icons, avatars, crests and hero art use `loading="lazy" decoding="async"` by default. Above-the-fold identity images pass `priority`, which switches them to eager loading.
 - `font-display: swap` is already set for every `@font-face`.
 
@@ -165,19 +165,19 @@ Operational checklist after deploying these SEO changes:
 
 `data/dlns.sqlite3` is ignored by git and holds every match, week and player row, so a copy of it is the only way back from a bad write or an accidental ingest.
 
-- `python scripts/backup_db.py` writes a verified snapshot to `_cache/dlns.auto_<utc stamp>.sqlite3` (`scripts/backup_db.bat` is the same thing for Windows callers). Options: `--db` (default `DB_PATH` or `./data/dlns.sqlite3`), `--dir` (default `_cache` beside the data directory), `--keep` (default 7 copies), `--quiet`.
+- [`scripts/backup_db.py`](../scripts/backup_db.py) writes a verified snapshot to `_cache/dlns.auto_<utc stamp>.sqlite3` ([`scripts/backup_db.bat`](../scripts/backup_db.bat) is the same thing for Windows callers). Options: `--db` (default `DB_PATH` or `./data/dlns.sqlite3`), `--dir` (default `_cache` beside the data directory), `--keep` (default 7 copies), `--quiet`.
 - The snapshot is taken with SQLite's backup API, so it is consistent while the site is serving and the site does not need stopping.
 - Each copy is checked (`PRAGMA quick_check` plus a `matches` row count against the source) before it replaces the temporary file; if the check fails, the temporary file is deleted and the command exits non-zero, so a failed run cannot leave behind something that looks like a backup.
 - Only files matching `dlns.auto_*.sqlite3` are pruned, so hand-made copies such as `dlns.backup_before_<label>.sqlite3` are never deleted.
 - To make it automatic on Windows, schedule the batch file daily (Task Scheduler → run `scripts\backup_db.bat`, or `schtasks /create /tn "DLNS DB backup" /tr "<repo>\scripts\backup_db.bat --keep 7" /sc daily /st 05:30`). On Linux use the same script from cron.
 
-`data/brackets.json` has its own protection: every admin save keeps the file it replaced as `brackets.json.bak-<utc stamp>` (the last 10 are kept).
+[`data/brackets.json`](../data/brackets.json) has its own protection: every admin save keeps the file it replaced as `brackets.json.bak-<utc stamp>` (the last 10 are kept).
 
 ## Cache and replay behavior
 
 Flask caching defaults to a filesystem cache under `_cache/flask_cache`; settings can be overridden with `CACHE_*`. Startup cache warmup is enabled by default and can be disabled with `CACHE_WARMUP_ON_STARTUP=false`.
 
-Replay lookup requires both replay storage settings in `.env.example`. Lookup results persist in `_cache/replay_urls.json` (including negative results) and expire after `REPLAY_URL_CACHE_TTL_SECONDS` (48 hours by default). The replay index is stored separately, refreshed in the background at the configured interval (6 hours by default), or rebuilt manually:
+Replay lookup requires both replay storage settings in [`.env.example`](../.env.example). Lookup results persist in `_cache/replay_urls.json` (including negative results) and expire after `REPLAY_URL_CACHE_TTL_SECONDS` (48 hours by default). The replay index is stored separately, refreshed in the background at the configured interval (6 hours by default), or rebuilt manually with [`scripts/build_replay_index.py`](../scripts/build_replay_index.py):
 
 ```bash
 python scripts/build_replay_index.py

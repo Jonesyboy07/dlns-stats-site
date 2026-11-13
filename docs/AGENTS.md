@@ -15,7 +15,7 @@ python run_debug.py           # Debug server at 127.0.0.1:5050
 python -m unittest discover -s backend/tests
 ```
 
-For production, `wsgi.py` exposes the Flask app as `wsgi:app`. `scripts/start_web.sh` and `scripts/start_web.bat` build the frontend and run Waitress. See [configuration and operations](CONFIGURATION.md).
+For production, [`wsgi.py`](../wsgi.py) exposes the Flask app as `wsgi:app`. [`scripts/start_web.sh`](../scripts/start_web.sh) and [`scripts/start_web.bat`](../scripts/start_web.bat) build the frontend and run Waitress. See [configuration and operations](CONFIGURATION.md).
 
 ### Frontend
 
@@ -28,7 +28,7 @@ npm run build:watch  # Rebuild on source changes
 npm test             # Run Vitest tests
 ```
 
-The Vite development server proxies backend paths such as `/db`, `/auth`, `/admin`, `/interviews`, `/dlns`, `/public`, and `/static` to port 5050.
+The proxy entries are configured in [`frontend/vite.config.js`](../frontend/vite.config.js); they forward backend paths such as `/db`, `/auth`, `/admin`, `/interviews`, `/dlns`, `/public`, and `/static` to port 5050.
 
 ### Data ingestion
 
@@ -43,31 +43,31 @@ See [data ingestion](INGESTION.md) for the supported input shape, all maintenanc
 
 ## Architecture
 
-- **Flask/Jinja:** shared site layout and server-rendered pages use templates in `templates/`.
-- **React:** interactive pages use separate entry points in `frontend/src/entries/`; page components live in `frontend/src/pages/`.
-- **Routes:** Flask blueprints are listed in `backend/app/blueprints/registry.json` and loaded by `backend/app/blueprints/loader.py`.
+- **Flask/Jinja:** shared site layout and server-rendered pages use templates in [`templates/`](../templates/).
+- **React:** interactive pages use separate entry points in [`frontend/src/entries/`](../frontend/src/entries/); page components live in [`frontend/src/pages/`](../frontend/src/pages/).
+- **Routes:** Flask blueprints are listed in [`backend/app/blueprints/registry.json`](../backend/app/blueprints/registry.json) and loaded by [`backend/app/blueprints/loader.py`](../backend/app/blueprints/loader.py).
 - **Database:** SQLite is initialized by the application/ingester. The `/db` API uses read-only connections for query endpoints. Schema details are in [db_schema.md](db_schema.md).
-- **API:** the primary JSON API lives in the `backend/app/blueprints/db/` package, split by area (`matches`, `users`, `heroes`, `teams`, `stats`, `nightshift`, `site`) with shared helpers in `core.py`. All modules attach routes to one blueprint mounted at `/db`; `db_api.py` imports them and re-exports their names. Its OpenAPI reference is available at `/api/docs`.
+- **API:** the primary JSON API lives in the [`backend/app/blueprints/db/`](../backend/app/blueprints/db/) package, split by area (`matches`, `users`, `heroes`, `teams`, `stats`, `nightshift`, `site`) with shared helpers in [`core.py`](../backend/app/blueprints/db/core.py). All modules attach routes to one blueprint mounted at `/db`; [`db_api.py`](../backend/app/blueprints/db_api.py) imports them and re-exports their names. Its OpenAPI reference is available at `/api/docs`.
 
-When adding a React page, follow an existing page's pattern: add the entry under `frontend/src/entries/`, include it in `frontend/vite.config.js`, and add or update the matching Flask page route/template as appropriate.
+When adding a React page, follow an existing page's pattern: add the entry under [`frontend/src/entries/`](../frontend/src/entries/), include it in [`frontend/vite.config.js`](../frontend/vite.config.js), and add or update the matching Flask page route/template as appropriate.
 
 ## Test locations
 
-- Backend: `backend/tests/` (Python `unittest`).
-- Frontend: `frontend/src/**/*.test.js` and `frontend/src/**/*.test.jsx` (Vitest).
+- Backend: [`backend/tests/`](../backend/tests/) (Python `unittest`).
+- Frontend: Vitest tests live under [`frontend/src/`](../frontend/src/) and use the `*.test.js` / `*.test.jsx` naming convention.
 
 ## Key files
 
 | File | Purpose |
 | --- | --- |
-| `run.py` | Local Flask entry point |
-| `run_debug.py` | Debug Flask entry point |
-| `wsgi.py` | WSGI application object |
-| `backend/app/main_web.py` | Flask app factory and configuration |
-| `backend/app/blueprints/registry.json` | Registered blueprint list |
-| `backend/app/blueprints/db_api.py` | Entry point for the `/db` JSON API (imports the `db/` modules) |
-| `backend/app/blueprints/db/` | `/db` route modules by area; shared helpers in `core.py` |
-| `frontend/vite.config.js` | Vite entries, build output, dev proxies, and Vitest config |
-| `docs/openapi_spec.json` | Tracked OpenAPI specification |
-| `docs/db_schema.md` | SQLite schema reference |
-| `docs/db_api_schema.md` | `/db` endpoint notes |
+| [`run.py`](../run.py) | Local Flask entry point |
+| [`run_debug.py`](../run_debug.py) | Debug Flask entry point |
+| [`wsgi.py`](../wsgi.py) | WSGI application object |
+| [`backend/app/main_web.py`](../backend/app/main_web.py) | Flask app factory and configuration |
+| [`backend/app/blueprints/registry.json`](../backend/app/blueprints/registry.json) | Registered blueprint list |
+| [`backend/app/blueprints/db_api.py`](../backend/app/blueprints/db_api.py) | Entry point for the `/db` JSON API (imports the `db/` modules) |
+| [`backend/app/blueprints/db/`](../backend/app/blueprints/db/) | `/db` route modules by area; shared helpers in `core.py` |
+| [`frontend/vite.config.js`](../frontend/vite.config.js) | Vite entries, build output, dev proxies, and Vitest config |
+| [`docs/openapi_spec.json`](openapi_spec.json) | Tracked OpenAPI specification |
+| [`docs/db_schema.md`](db_schema.md) | SQLite schema reference |
+| [`docs/db_api_schema.md`](db_api_schema.md) | `/db` endpoint notes |

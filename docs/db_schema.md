@@ -1,6 +1,6 @@
 # Database Schema (SQLite)
 
-This project uses a single SQLite database. The schema is created by the `SCHEMA_SQL` block in `backend/main.py` and initialized/upgraded when the web app starts.
+This project uses a single SQLite database. The schema is created by the `SCHEMA_SQL` block in [`backend/main.py`](../backend/main.py) and initialized/upgraded when the web app starts.
 
 ## Overview
 
@@ -61,7 +61,7 @@ Stores per-match metadata.
 | `created_at` | TEXT | Yes | ISO-8601 UTC (scrape time) |
 
 Notes:
-- `game_version` is resolved by `backend/game_version.py`. It pulls the full GameTracking-Deadlock commit history once (commits-only `git fetch`, under 1 MB, no API rate limit; requires `git` on the host) and stores a timestamp -> version table in `data/_cache/game_versions.json` (git-ignored, as is the clone beside it). It only re-syncs when a timestamp is newer than the last sync, at most every 10 minutes. Existing DBs are filled with `python backend/main.py -versionbackfill true` (`force` recomputes all); `update_db_from_matches` runs it.
+- `game_version` is resolved by [`backend/game_version.py`](../backend/game_version.py). It pulls the full GameTracking-Deadlock commit history once (commits-only `git fetch`, under 1 MB, no API rate limit; requires `git` on the host) and stores a timestamp -> version table in `data/_cache/game_versions.json` (git-ignored, as is the clone beside it). It only re-syncs when a timestamp is newer than the last sync, at most every 10 minutes. Existing DBs are filled with `python backend/main.py -versionbackfill true` (`force` recomputes all); `update_db_from_matches` runs it.
 - `start_time` may be derived from multiple API fields and normalized to ISO-8601 UTC.
 - Migrations add `start_time`, `event_title`, `event_week`, `event_team_a`, `event_team_b`, `event_game`, and `event_team_a_ingame_side` if they do not exist.
 
@@ -172,7 +172,7 @@ Stores each player's hero-damage breakdown by source (ability/weapon/item/melee)
 | `source` | TEXT | No | Internal source name (e.g. `synth_pulse`, `upgrade_magic_shock`, `Bullet`, `Ability`) |
 | `damage` | INTEGER | Yes | Hero damage from this source. deadlock-api reports `damage_matrix` at 2x the snapshot `player_damage`, so values are halved on ingest (verified ratio == 2.0 for every player) — sum(source damage) == `players.player_damage`. |
 
-Sources are filtered to damage stat_type (0) and hero targets (slots 1-12, excluding the slot-0 non-hero aggregate). Labels are resolved in the frontend: hero abilities via `data/hero_meta.json` image keys, items via the `/db/items/names` catalog (class_name -> display name), plus Weapon/Melee pattern matching.
+Sources are filtered to damage stat_type (0) and hero targets (slots 1-12, excluding the slot-0 non-hero aggregate). Labels are resolved in the frontend: hero abilities via [`data/hero_meta.json`](../data/hero_meta.json) image keys, items via the `/db/items/names` catalog (class_name -> display name), plus Weapon/Melee pattern matching.
 
 Primary Key:
 - (`match_id`, `account_id`, `source`)
@@ -200,12 +200,12 @@ Titan (base guardian), the Titan shield generators, barrack bosses and the Core
 
 Objective ids: 0=Core (Patron), 1-4=Tier 1 walkers (lane slots 1-4), 5-8=Tier 2 walkers,
 9=Titan (base guardian), 10-11=Titan shield generators, 12-15=barrack bosses. Labels come
-from `TEAM_OBJECTIVE_NAMES` in `backend/main.py`.
+from `TEAM_OBJECTIVE_NAMES` in [`backend/main.py`](../backend/main.py).
 
 The enum's lane slots are **not** the lane ids used elsewhere (`players.lane`): Valve's map
 data pairs slot 1 with lane 1, slot 3 with lane 4 and slot 4 with lane 6, so a match only
 ever reports slots 1, 3 and 4. `TEAM_OBJECTIVE_LANES` / `objective_lane()` in
-`backend/main.py` hold that mapping; Titan, the shield generators and the Core belong to no
+[`backend/main.py`](../backend/main.py) hold that mapping; Titan, the shield generators and the Core belong to no
 single lane.
 
 Primary Key:
@@ -243,7 +243,7 @@ blobs rather than ~25,000 rows. Populated during ingest or via `-pathsbackfill`.
 The API sends `x_pos`/`y_pos` on a `0..x_resolution` grid that each player's **own**
 bounding box was normalised into, so ingest converts to world coordinates once using
 `x_min`/`x_max`/`y_min`/`y_max` from the same entry (see `_path_world_samples` in
-`backend/main.py`). Everything else on the site, including the map, works in world
+[`backend/main.py`](../backend/main.py)). Everything else on the site, including the map, works in world
 units, so the conversion cannot be deferred to read time.
 
 Samples are one second apart, so sample `i` is match second `i`. Positions outside the

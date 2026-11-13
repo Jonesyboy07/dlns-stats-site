@@ -74,6 +74,7 @@ function PlayerPanel({ player, span }) {
             key={item.item_id}
             icon={item.icon}
             name={item.item_name}
+            itemId={item.item_id}
             size="h-10 w-10"
           />
         )}

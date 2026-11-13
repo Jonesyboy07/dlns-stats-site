@@ -25,7 +25,7 @@ import re
 import statistics
 from typing import Any, Dict, Iterable, List, Optional
 
-from flask import jsonify
+from flask import jsonify, request
 
 from ...cache import cache
 from ...heroes import get_hero_name
@@ -448,3 +448,82 @@ def item_stats(item_id: int):  # type: ignore
 
     response.update(breakdown, range=[start, end], region=region or "All", matches=len(scope), damage=damage)
     return jsonify(response)
+
+
+# ── Item cards (data for @deadlock-api/ui `dl-item-card`) ─────────────────────
+
+MAX_CARD_IDS = 200
+
+
+def _card_image(item: Dict[str, Any]) -> Optional[str]:
+    """The art dl-item-card picks for a build-path icon (its `getImageSrc`)."""
+    for key in ("shop_image_webp", "shop_image", "image_webp", "image"):
+        value = item.get(key)
+        if value:
+            return value
+    return None
+
+
+def _card_ref(item: Dict[str, Any]) -> Dict[str, Any]:
+    return {"name": item.get("name") or item.get("class_name") or "", "image": _card_image(item)}
+
+
+def item_cards(raw_items: Iterable[Any], ids: Iterable[int]) -> Dict[str, Dict[str, Any]]:
+    """Everything a dl-item-card needs to render without fetching the catalogue.
+
+    Keyed by item id (as a string, for JSON): the upstream item verbatim, plus
+    what it is built from (`components`) and what it builds into (`parents`) in
+    the `{name, image}` shape the card's `componentItemsData` /
+    `parentItemsData` props take. Unknown ids are left out.
+    """
+    items = [item for item in raw_items if isinstance(item, dict)]
+    by_id = {item.get("id"): item for item in items if isinstance(item.get("id"), int)}
+    by_class = {item.get("class_name"): item for item in items if item.get("class_name")}
+
+    cards: Dict[str, Dict[str, Any]] = {}
+    for item_id in ids:
+        item = by_id.get(item_id)
+        if item is None:
+            continue
+        class_name = item.get("class_name")
+        components = [
+            _card_ref(by_class[name])
+            for name in (item.get("component_items") or [])
+            if name in by_class
+        ]
+        parents = [
+            _card_ref(other)
+            for other in items
+            if class_name and class_name in (other.get("component_items") or [])
+        ]
+        cards[str(item_id)] = {"item": item, "components": components, "parents": parents}
+    return cards
+
+
+def _parse_ids(raw: Optional[str]) -> List[int]:
+    ids: List[int] = []
+    for part in (raw or "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            value = int(part)
+            if value > 0 and value not in ids:
+                ids.append(value)
+    return ids[:MAX_CARD_IDS]
+
+
+@bp.get("/items/cards")
+@cache.cached(timeout=1800, query_string=True)
+def items_cards():  # type: ignore
+    """`?ids=1,2,3` -> {"items": {id: {item, components, parents}}}.
+
+    Lets the client render deadlock-api item cards and tooltips from our cached
+    catalogue instead of each visitor downloading the full ~6 MB item list.
+    At most MAX_CARD_IDS ids per request.
+    """
+    ids = _parse_ids(request.args.get("ids"))
+    if not ids:
+        return jsonify({"items": {}})
+    raw = _items_raw()
+    if not raw:
+        return uncacheable(jsonify({"items": {}, "error": "Item catalogue unavailable"})), 503
+    return jsonify({"items": item_cards(raw, ids)})

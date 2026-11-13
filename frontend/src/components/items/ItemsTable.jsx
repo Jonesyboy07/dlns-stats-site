@@ -112,7 +112,7 @@ function ItemRow({ row, minGames }) {
     >
       <span className="text-dim">{row.rank ?? "–"}</span>
       <span className="flex min-w-0 items-center gap-3">
-        <ItemThumb item={row} size="h-8 w-8 md:h-9 md:w-9" />
+        <ItemThumb item={row} size="h-8 w-8 md:h-9 md:w-9" inLink />
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate font-medium text-primary">{row.name}</span>
           <span className="text-[12px] text-dim lg:hidden">

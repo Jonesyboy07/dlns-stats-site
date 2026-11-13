@@ -1274,6 +1274,7 @@ def match_build(match_id: int):  # type: ignore
             # from the display name (which the game does not match).
             shipped = resolve_icon(item, icons)
             item_lookup[iid_int] = {
+                "id": iid_int,
                 "name": item.get("name", ""),
                 "image": item.get("image", ""),
                 "item_slot_type": item.get("item_slot_type", ""),

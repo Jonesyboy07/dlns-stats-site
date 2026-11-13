@@ -29,7 +29,7 @@ export default function HeroItemBuildBody({ items, heroName }) {
       {build.map((item, index) => (
         <div key={item.item_id} className={`${COLUMNS} min-h-9 border-b border-border text-[13px]`}>
           <span className="text-right text-[11px] tabular-nums text-dim">{index + 1}</span>
-          <ItemIcon icon={item.icon} name={item.item_name} size="h-[30px] w-[30px]" />
+          <ItemIcon icon={item.icon} name={item.item_name} itemId={item.item_id} size="h-[30px] w-[30px]" />
           <span
             className="truncate text-primary"
             title={`${item.item_name} · tier ${item.tier ?? DASH}`}

@@ -54,6 +54,7 @@ function RowIcon({ row, heroName }) {
       <ItemIcon
         icon={row.purchase.icon}
         name={row.purchase.item}
+        itemId={row.purchase.itemId}
         size="h-5 w-5"
         fallback={staticImagePathToCdn(row.purchase.image || null)}
       />

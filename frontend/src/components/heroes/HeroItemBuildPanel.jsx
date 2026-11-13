@@ -52,7 +52,7 @@ function HeroItemBuildPanel({ slots }) {
                       : Math.min(item.median_time_s / RAIL_SECONDS, 1) * 100;
                   return (
                     <div key={item.item_id} className="flex min-w-0 items-center gap-2.5">
-                      <ItemIcon icon={item.icon} name={item.item_name} size="h-[34px] w-[34px]" />
+                      <ItemIcon icon={item.icon} name={item.item_name} itemId={item.item_id} size="h-[34px] w-[34px]" />
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-baseline justify-between gap-2 text-[13px]">
                           <span title={item.item_name} className="truncate text-primary">

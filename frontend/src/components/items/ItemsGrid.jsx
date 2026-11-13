@@ -20,7 +20,7 @@ function ItemCard({ row, minGames }) {
       }`}
     >
       <span className="relative">
-        <ItemThumb item={row} size="aspect-square w-full" rounded="rounded-lg" />
+        <ItemThumb item={row} size="aspect-square w-full" rounded="rounded-lg" inLink />
         {row.low && (
           <span className="absolute top-1.5 left-1.5 rounded-full border border-warning-border bg-table/90 px-[7px] py-0.5 text-[10px] text-warning">
             Low sample

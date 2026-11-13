@@ -14,6 +14,8 @@ export const IMAGE_CDN_BASE = resolveImageBase();
 
 export function cdnImage(path = "") {
   const cleanPath = String(path || "").replace(/^\/+/, "");
+  const published = typeof window !== "undefined" ? window.DLNS_SITE_ASSETS?.[`images/${cleanPath}`] : null;
+  if (published) return published;
   return cleanPath ? `${IMAGE_CDN_BASE}/${cleanPath}` : IMAGE_CDN_BASE;
 }
 

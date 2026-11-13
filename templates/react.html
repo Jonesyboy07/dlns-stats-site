@@ -22,8 +22,8 @@
   {% if IMAGE_CDN_BASE %}
   <link rel="preconnect" href="{{ IMAGE_CDN_BASE }}" crossorigin>
   {% endif %}
-  <link rel="preload" href="/static/fonts/valveoracle-medium.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="preload" href="/static/fonts/valvepulp-bold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="{{ site_asset_url('fonts/valveoracle-medium.ttf') }}" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="{{ site_asset_url('fonts/valvepulp-bold.ttf') }}" as="font" type="font/ttf" crossorigin>
 
   {% include '_embed.html' %}
 
@@ -31,8 +31,9 @@
   <script type="application/ld+json">{{ meta_jsonld | safe }}</script>
   {% endif %}
 
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='react-app/assets/App.css') }}">
+  {% for css in ['css/styles.css', 'react-app/assets/App.css'] %}
+  <link rel="stylesheet" href="{{ stylesheet_url(css) }}" onerror='this.onerror=null;this.href={{ url_for("static", filename=css) | tojson }}'>
+  {% endfor %}
   <style>
     :root {
       --primary: #1db954;
@@ -106,6 +107,7 @@
   <div id="root">{{ prerender_html | safe }}</div>
   <script>
     window.__DLNS_HELP_CONFIG__ = {{ help_config | default({}, true) | tojson }};
+    window.DLNS_SITE_ASSETS = {{ site_asset_urls() | tojson }};
     // Lets the crest folder be repointed without rebuilding the frontend bundle.
     // Empty falls through to VITE_TEAM_LOGO_BASE, then the built-in default.
     window.DLNS_TEAM_LOGO_BASE = {{ TEAM_LOGO_BASE | default("", true) | tojson }};

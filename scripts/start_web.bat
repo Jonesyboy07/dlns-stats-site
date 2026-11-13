@@ -52,7 +52,7 @@ echo [2/4] Refreshing replay index...
 echo [3/4] Starting Waitress...
 
 echo Listening on http://127.0.0.1:5050
-%PYTHON_EXE% -m waitress --listen=127.0.0.1:5050 --threads=12 --channel-timeout=180 wsgi:app
+%PYTHON_EXE% -m scripts.run_site
 
 if errorlevel 1 (
 	echo.

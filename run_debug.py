@@ -55,6 +55,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # The reloader re-runs this file with the same argv; only the first process may reset.
     if args.sandbox:
+        os.environ['DLNS_SANDBOX'] = '1'
         os.environ['DB_PATH'] = str(prepare_sandbox(args.reset and not os.environ.get('WERKZEUG_RUN_MAIN')))
         print(f"Sandbox mode: using {os.environ['DB_PATH']}")
 

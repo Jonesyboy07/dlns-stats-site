@@ -23,6 +23,7 @@ Review the comments in `.env.example` and replace placeholders for the features 
 | Discord authentication and permissions | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `DISCORD_OWNER_ID`, `DISCORD_ADMIN_IDS`, `DISCORD_CO_OWNER_ID`, `MATCH_SUBMITTER` |
 | Twitch stream status | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL`, `TWITCH_URL` |
 | Image/asset hosting | `IMAGE_CDN_BASE`, `VITE_IMAGE_CDN_BASE`, `TEAM_LOGO_CDN_BASE`, `VITE_TEAM_LOGO_BASE` |
+| Python CDN and uploads | `CDN_ROOT`, `CDN_PUBLIC_BASE_URL`, `CDN_MANIFEST_BASE_URL`, `CDN_UPLOAD_MAX_BYTES` (see [CDN operations](CDN.md)) |
 | External links and CORS | `YOUTUBE_URL`, `TWITCH_URL`, `DEADLOCK_URL`, `KOFI_URL`, `PATREON_URL`, `FRONTEND_URL` |
 | DLNS exporter | `HERO_CLIENT_VERSION`, `ITEM_CLIENT_VERSION`, `ITEM_REQUEST_TIMEOUT_S`, `EXPO_JOB_RETENTION_SECONDS`, `EXPO_JOB_MAX_LOG_LINES`, `STEAM_API_KEY` |
 
@@ -33,8 +34,7 @@ Review the comments in `.env.example` and replace placeholders for the features 
 - `python run.py` starts the standard Flask app on `127.0.0.1:5050`.
 - `python run_debug.py` starts the debug app on the same address and port; use only for local development.
 - `wsgi.py` exports the standard app as `wsgi:app` for WSGI servers.
-- `scripts/start_web.sh` and `scripts/start_web.bat` build the frontend and start Waitress on `127.0.0.1:5050`.
-- `scripts/start_forced.sh` and `scripts/start_forced.bat` start Waitress with a frontend watcher and attempt a replay-index refresh first.
+- The main startup scripts run Waitress on `127.0.0.1:5050` and, when configured, supervise the CDN asset sync; see [CDN operations](CDN.md). `start_web.sh` also watches frontend builds; the other startup scripts build once.
 
 For public deployment, use a production WSGI server behind a reverse proxy, set `BASE_URL` to the public origin, set secure cookies when served over HTTPS, and use a strong private `SECRET_KEY`. Configure the proxy, TLS, process supervision, logging, and backups for your deployment environment. The start scripts bind to loopback, not a public network interface.
 

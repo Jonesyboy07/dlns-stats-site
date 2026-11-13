@@ -59,6 +59,7 @@ export default function ReactAdmin() {
           setAccess({
             logged_in: Boolean(data.logged_in),
             is_admin: Boolean(data.is_admin),
+            is_owner: Boolean(data.is_owner),
             user: data.user || null,
           });
         }
@@ -102,7 +103,7 @@ export default function ReactAdmin() {
     );
   }
 
-  if (!access.is_admin) {
+  if (!access.is_admin && !access.is_owner) {
     return (
       <div className="w-full p-8 max-w-3xl">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -138,7 +139,11 @@ export default function ReactAdmin() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {adminCards.map((card) => (
+        {[...(access.is_admin ? adminCards : adminCards.filter((card) => card.href === '/admin/system')), ...(access.is_owner ? [{
+          title: 'CDN Uploads',
+          description: 'Upload and replace public CDN files. Owner and co-owner only.',
+          href: '/admin/cdn/',
+        }] : [])].map((card) => (
           <a
             key={card.href}
             href={card.href}

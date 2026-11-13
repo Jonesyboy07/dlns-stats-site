@@ -13,13 +13,15 @@ else
     PYTHON_EXE="${PYTHON_EXE:-python3}"
 fi
 
-# Start frontend build watcher in the background (auto-rebuild on changes)
-echo "Starting frontend build watcher..."
+# Build once before syncing assets, then keep watching for changes.
+echo "Preparing frontend build..."
 cd frontend
 if [ ! -d "node_modules" ]; then
     echo "Installing frontend dependencies..."
     npm install
 fi
+npm run build
+echo "Starting frontend build watcher..."
 npm run build:watch &
 VITE_WATCH_PID=$!
 cd "$SCRIPT_DIR/.."
@@ -38,8 +40,4 @@ echo "Refreshing replay index..."
 
 echo "Starting Waitress on http://127.0.0.1:5050"
 
-"$PYTHON_EXE" -m waitress \
-    --listen=127.0.0.1:5050 \
-    --threads=12 \
-    --channel-timeout=180 \
-    wsgi:app
+"$PYTHON_EXE" -m scripts.run_site

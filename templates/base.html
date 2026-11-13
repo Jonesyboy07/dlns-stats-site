@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Home{% endblock %}</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/utilities.css') }}">
+  {% for css in ['css/style.css', 'css/components.css', 'css/responsive.css', 'css/animations.css', 'css/utilities.css'] %}
+  <link rel="stylesheet" href="{{ stylesheet_url(css) }}" onerror='this.onerror=null;this.href={{ url_for("static", filename=css) | tojson }}'>
+  {% endfor %}
 
   {% include '_embed.html' %}
 

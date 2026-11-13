@@ -2,6 +2,7 @@
   {"module": "db_api", "attr": "bp"},
   {"module": "auth", "attr": "auth_bp"},
   {"module": "admin", "attr": "admin_bp"},
+  {"module": "cdn_admin", "attr": "cdn_admin_bp"},
   {"module": "expo", "attr": "expo_bp"},
   {"module": "stats_bp", "attr": "stats_bp"},
   {"module": "sitemap", "attr": "sitemap_bp"},

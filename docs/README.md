@@ -4,6 +4,7 @@
 | --- | --- |
 | [Project README](../README.md) | Overview, quick start, common commands, and test commands |
 | [Configuration and operations](CONFIGURATION.md) | Environment variables, integrations, cache/replay settings, and serving the app |
+| [Python CDN](CDN.md) | File serving, caching, site CSS sync, uploads, and nginx deployment |
 | [Data ingestion](INGESTION.md) | Match-feed format, ingester options, and update scripts |
 | [Development guide](AGENTS.md) | Source conventions, frontend/backend workflows, and tests |
 | [Project structure](PROJECT_STRUCTURE.md) | Current repository layout and application organization |

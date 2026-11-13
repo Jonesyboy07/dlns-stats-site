@@ -4,7 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
-PYTHON_EXE="${PYTHON_EXE:-python3}"
+if [ -z "${PYTHON_EXE:-}" ]; then
+    if [ -f ".venv/bin/python" ]; then PYTHON_EXE=".venv/bin/python"
+    elif [ -f "venv/bin/python" ]; then PYTHON_EXE="venv/bin/python"
+    else PYTHON_EXE="python3"
+    fi
+fi
 
 echo
 echo "========================================"
@@ -18,8 +23,4 @@ echo "[1/3] Preparing frontend build..."
 echo "[2/3] Starting Waitress..."
 echo "Listening on http://127.0.0.1:5050"
 
-exec "$PYTHON_EXE" -m waitress \
-    --listen=127.0.0.1:5050 \
-    --threads=12 \
-    --channel-timeout=180 \
-    wsgi:app
+exec "$PYTHON_EXE" -m scripts.run_site

@@ -462,6 +462,11 @@ def create_app() -> Flask:
         clean_path = str(path or "").lstrip("/")
         if clean_path.lower().startswith("images/"):
             clean_path = clean_path[7:]
+        if clean_path:
+            from .cdn_site_assets import site_asset_urls
+            published = site_asset_urls().get(f'images/{clean_path}')
+            if published:
+                return published
         if base:
             return f"{base}/{clean_path}" if clean_path else base
         if not clean_path:
@@ -514,7 +519,10 @@ def create_app() -> Flask:
     # If templates call get_hero_name, expose it:
     @app.context_processor
     def inject_helpers():
-        return dict(get_hero_name=get_hero_name, cdn_image=cdn_image)
+        from .cdn_site_assets import site_asset_url, site_asset_urls, stylesheet_url
+        return dict(get_hero_name=get_hero_name, cdn_image=cdn_image,
+                    stylesheet_url=stylesheet_url, site_asset_url=site_asset_url,
+                    site_asset_urls=site_asset_urls)
 
     @app.context_processor
     def inject_help_config():

@@ -1,0 +1,16 @@
+[Unit]
+Description=DLNS Python CDN
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/dlns-stats-site
+ExecStart=/bin/bash /opt/dlns-stats-site/scripts/start_cdn.sh
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

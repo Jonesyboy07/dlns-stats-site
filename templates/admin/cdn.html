@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}CDN uploads{% endblock %}
+{% block content %}
+<h1>CDN uploads</h1>
+<p>Owner and co-owner only. Uploaded files are public. Protected extensions and hidden paths are not allowed.</p>
+<p>Use an existing folder or enter a new folder, relative to the CDN root. Leave blank for the root.</p>
+<form id="cdn-upload">
+  <label>Folder <input name="folder" placeholder="images/events"></label>
+  <label>File <input name="file" type="file" required></label>
+  <label><input name="replace" type="checkbox"> Replace an existing file with the same name</label>
+  <button type="submit">Upload</button>
+</form>
+<p id="cdn-result" role="status"></p>
+<script>
+document.getElementById('cdn-upload').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const result = document.getElementById('cdn-result');
+  if (form.elements.replace.checked && !window.confirm('Replace the existing public file?')) return;
+  const data = new FormData(form);
+  data.set('replace', form.elements.replace.checked ? 'true' : 'false');
+  result.textContent = 'Uploading...';
+  try {
+    const response = await fetch('/admin/cdn/upload', {
+      method: 'POST', credentials: 'same-origin', headers: {Accept: 'application/json'}, body: data,
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Upload failed');
+    result.textContent = payload.url ? `Uploaded. Versioned URL: ${payload.url}` : `Uploaded: ${payload.path}. ${payload.warning}`;
+  } catch (error) {
+    result.textContent = error.message || 'Upload failed';
+  }
+});
+</script>
+{% endblock %}

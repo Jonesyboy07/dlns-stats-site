@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}DLNS Exporter{% endblock %}</title>
     {% include '_embed.html' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dlns-style.css') }}">
+    <link rel="stylesheet" href="{{ stylesheet_url('css/dlns-style.css') }}" onerror='this.onerror=null;this.href={{ url_for("static", filename="css/dlns-style.css") | tojson }}'>
     {% block head %}{% endblock %}
   </head>
   <body class="dlns-body">

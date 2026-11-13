@@ -429,6 +429,7 @@ def admin_panel():
         'admin/panel.html',
         privileged_users=privileged_users,
         user=user,
+        can_manage_cdn=is_owner_or_co_owner(user.get('id')) if user else False,
         stats=stats
     )
 
@@ -1158,6 +1159,7 @@ def admin_api_access():
             'ok': True,
             'logged_in': True,
             'is_admin': bool(is_admin(user.get('id'))),
+            'is_owner': bool(is_owner_or_co_owner(user.get('id'))),
             'can_submit': bool(has_submit_perms(user.get('id'))),
             'user': user,
         }

@@ -1,5 +1,8 @@
 import { IMAGE_CDN_BASE } from "./cdn";
 
+const publishedLogo = (name) =>
+  typeof window !== "undefined" ? window.DLNS_SITE_ASSETS?.[`images/teamLogos/${name}`] : null;
+
 /**
  * Team crest URLs.
  *
@@ -42,7 +45,9 @@ const resolveBase = () => {
 export const TEAM_LOGO_BASE = resolveBase();
 
 /** Filename used for a team with no crest of its own. Not a `.png`, unlike the rest. */
-export const TEAM_LOGO_FALLBACK = `${TEAM_LOGO_BASE}/default.jpg`;
+export const TEAM_LOGO_FALLBACK =
+  (TEAM_LOGO_BASE === `${IMAGE_CDN_BASE}/teamLogos` && publishedLogo("default.jpg")) ||
+  `${TEAM_LOGO_BASE}/default.jpg`;
 
 /**
  * Normalised team name -> normalised canonical name, for teams whose feed
@@ -62,5 +67,7 @@ export const teamLogoKey = (teamName) =>
 export const teamLogoUrl = (teamName) => {
   const normalized = teamLogoKey(teamName);
   if (!normalized) return TEAM_LOGO_FALLBACK;
-  return `${TEAM_LOGO_BASE}/${ALIASES[normalized] || normalized}.png`;
+  const filename = `${ALIASES[normalized] || normalized}.png`;
+  const defaultBase = `${IMAGE_CDN_BASE}/teamLogos`;
+  return (TEAM_LOGO_BASE === defaultBase && publishedLogo(filename)) || `${TEAM_LOGO_BASE}/${filename}`;
 };

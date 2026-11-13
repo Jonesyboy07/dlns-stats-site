@@ -18,7 +18,7 @@
 | [Team crest guide](../public/images/teamLogos/README.md) | Naming, fallback, and artwork requirements for team logos |
 
 ## Operational references
-
+ 
 - [nginx CDN example](cdn-nginx.conf) and [CDN systemd unit](dlns-cdn.service), used with the [Python CDN guide](CDN.md).
 - [Stats page design](stats-redesign/Stats%20Page.dc.html) and its [preview](stats-redesign/Preview.dc.html).
 - The OpenAPI document is generated from [`backend/app/openapi_spec.py`](../backend/app/openapi_spec.py) by [`scripts/sync_openapi.py`](../scripts/sync_openapi.py).

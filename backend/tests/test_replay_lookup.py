@@ -1,8 +1,9 @@
+import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from flask import Flask
 
@@ -43,6 +44,7 @@ class ReplayRetryRouteTests(unittest.TestCase):
             REPLAY_SHARE_API_URL="https://files.example/api/public/share",
             REPLAY_DOWNLOAD_BASE_URL="https://files.example/api/public/dl",
             REPLAY_URL_FILE_CACHE_PATH=str(Path(self.tmpdir.name) / "replay_urls.json"),
+            REPLAY_INDEX_FILE_CACHE_PATH=str(Path(self.tmpdir.name) / "replay_index.json"),
         )
         self.client = self.app.test_client()
 
@@ -61,12 +63,35 @@ class ReplayRetryRouteTests(unittest.TestCase):
         with patch(
             "backend.app.blueprints.db.matches._get_persisted_replay_lookup",
             return_value={"found": False, "replay": None, "searched_dirs": 9},
-        ), patch("backend.app.blueprints.db.matches._replay_match_item") as replay_match_item:
+        ), patch(
+            "backend.app.blueprints.db.matches._schedule_index_refresh"
+        ) as refresh, patch("backend.app.blueprints.db.matches._replay_match_item") as replay_match_item:
             response = self.client.get("/db/matches/123456/replay")
 
         self.assertEqual(response.status_code, 404)
         self.assertTrue(response.get_json()["cached"])
         replay_match_item.assert_not_called()
+        refresh.assert_called_once_with(missing_match=True)
+
+    def test_new_index_entry_overrides_cached_negative(self):
+        index = {
+            "built_at": 1,
+            "replays": {"121085991": {
+                "name": "121085991_55861512.zip",
+                "path": "/week-61/eu/121085991 - teams/121085991_55861512.zip",
+            }},
+        }
+        Path(self.app.config["REPLAY_INDEX_FILE_CACHE_PATH"]).write_text(json.dumps(index))
+        with patch("backend.app.blueprints.db.matches.cache.get", return_value=None), patch(
+            "backend.app.blueprints.db.matches._get_persisted_replay_lookup",
+            return_value={"found": False, "replay": None, "searched_dirs": 41},
+        ):
+            response = self.client.get("/db/matches/121085991/replay")
+
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["replay"]["name"], "121085991_55861512.zip")
+        self.assertIn("week-61/eu/121085991%20-%20teams/", payload["replay"]["download_url"])
 
     def test_retry_bypasses_cached_not_found_and_rescans(self):
         with patch(
@@ -248,6 +273,113 @@ class ReplayScanBoundsTests(unittest.TestCase):
         self.assertEqual(item["name"], "123456.zip")
         self.assertEqual(visited, 1)
         self.assertTrue(complete)
+
+    def test_scan_prioritizes_newer_weeks_and_exact_match_folder(self):
+        from backend.app.blueprints.db.matches import _replay_match_item
+
+        listings = {
+            None: [{"isDir": True, "path": "/week-9"}, {"isDir": True, "path": "/week-61"}],
+            "/week-61": [{"isDir": True, "path": "/week-61/eu"}],
+            "/week-61/eu": [
+                {"isDir": True, "path": "/week-61/eu/999999999 - other"},
+                {"isDir": True, "path": "/week-61/eu/121085991 - teams"},
+            ],
+            "/week-61/eu/121085991 - teams": [
+                {"name": "1210859910_wrong.zip", "path": "/wrong.zip"},
+                {"name": "121085991_55861512.zip", "path": "/correct.zip"},
+            ],
+        }
+        with self.app.app_context(), patch(
+            "backend.app.blueprints.db.matches._load_replay_index", return_value={"replays": {}}
+        ), patch("backend.app.blueprints.db.matches._schedule_index_refresh"), patch(
+            "backend.app.blueprints.db.matches._save_replay_index"
+        ), patch(
+            "backend.app.blueprints.db.matches._fetch_replay_listing",
+            side_effect=lambda path=None, timeout=None: listings[path],
+        ):
+            item, visited, complete = _replay_match_item(121085991, max_dirs=4, deadline_seconds=30)
+
+        self.assertEqual(item["path"], "/correct.zip")
+        self.assertEqual(visited, 4)
+        self.assertTrue(complete)
+
+
+class ReplayIndexTests(unittest.TestCase):
+    def test_build_indexes_match_in_nested_share(self):
+        from backend.app.blueprints.db.core import _build_replay_index_sync
+
+        def response(items):
+            result = Mock()
+            result.json.return_value = {"items": items}
+            return result
+
+        match_dir = "/week-61/eu/121085991 - teams"
+        responses = [
+            response([{"isDir": True, "path": "/week-61"}]),
+            response([{"isDir": True, "path": "/week-61/eu"}]),
+            response([{"isDir": True, "path": match_dir}]),
+            response([{
+                "name": "121085991_55861512.zip",
+                "path": match_dir + "/121085991_55861512.zip",
+            }]),
+        ]
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "backend.app.blueprints.db.core.requests.get", side_effect=responses
+        ) as get:
+            path = Path(tmp) / "index.json"
+            count = _build_replay_index_sync("https://files.example/share", str(path))
+            index = json.loads(path.read_text())
+
+        self.assertEqual(count, 1)
+        self.assertEqual(index["replays"]["121085991"]["path"], match_dir + "/121085991_55861512.zip")
+        self.assertEqual(get.call_args_list[-1].args[0], "https://files.example/share/week-61/eu/121085991%20-%20teams")
+
+    def test_failed_or_capped_crawl_does_not_replace_index(self):
+        from backend.app.blueprints.db.core import _build_replay_index_sync
+
+        def response(items):
+            result = Mock()
+            result.json.return_value = {"items": items}
+            return result
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "index.json"
+            original = '{"built_at": 1, "replays": {"7": {"name": "7.zip"}}}'
+            path.write_text(original)
+            root = response([
+                {"name": "123.zip", "path": "/123.zip"},
+                {"isDir": True, "path": "/child"},
+            ])
+            with patch("backend.app.blueprints.db.core.requests.get", side_effect=[root, OSError("offline")]):
+                with self.assertRaises(OSError):
+                    _build_replay_index_sync("https://files.example/share", str(path))
+            self.assertEqual(path.read_text(), original)
+            with patch("backend.app.blueprints.db.core.requests.get", return_value=root):
+                with self.assertRaisesRegex(RuntimeError, "directory limit"):
+                    _build_replay_index_sync("https://files.example/share", str(path), max_dirs=1)
+            self.assertEqual(path.read_text(), original)
+
+    def test_miss_refreshes_recent_index_and_throttles_retries(self):
+        from backend.app.blueprints.db.matches import _schedule_index_refresh
+
+        app = Flask(__name__)
+        app.config.update(
+            REPLAY_SHARE_API_URL="https://files.example/share",
+            REPLAY_INDEX_REFRESH_HOURS=6,
+            REPLAY_SCAN_PARTIAL_TTL_SECONDS=300,
+        )
+        with app.app_context(), patch(
+            "backend.app.blueprints.db.matches._load_replay_index",
+            return_value={"built_at": 900, "replays": {}},
+        ), patch("backend.app.blueprints.db.matches.time.time", return_value=1300), patch(
+            "backend.app.blueprints.db.matches.time.monotonic", return_value=1000
+        ), patch("backend.app.blueprints.db.matches._replay_index_last_attempt", 0), patch(
+            "backend.app.blueprints.db.matches._build_replay_index_sync"
+        ) as build, patch("backend.app.blueprints.db.matches.threading.Thread") as thread:
+            thread.side_effect = lambda target, **kwargs: Mock(start=target)
+            self.assertTrue(_schedule_index_refresh(missing_match=True))
+            self.assertFalse(_schedule_index_refresh(missing_match=True))
+            build.assert_called_once()
 
 
 if __name__ == "__main__":

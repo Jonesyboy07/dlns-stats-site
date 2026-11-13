@@ -223,7 +223,7 @@ def _build_replay_share_url(item_path: str) -> str:
 
 
 # Serializes writes to the index file (background refresh vs. per-match append).
-_replay_index_write_lock = threading.Lock()
+_replay_index_write_lock = threading.RLock()
 
 
 def _crawl_share_replays(
@@ -234,24 +234,23 @@ def _crawl_share_replays(
     seen_dirs: set[str] = set()
     frontier: list[str] = [""]
 
-    def listing(path: str | None) -> list[Dict[str, Any]] | None:
+    def listing(path: str | None) -> list[Dict[str, Any]]:
         url = share_api_url.rstrip("/")
         if path:
             url = f"{url}/{quote(str(path).lstrip('/'), safe='/')}"
-        try:
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            items = resp.json().get("items")
-            if isinstance(items, list):
-                return [it for it in items if isinstance(it, dict)]
-            return []
-        except Exception:
-            return None
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        items = resp.json().get("items")
+        if not isinstance(items, list):
+            raise ValueError("Replay share listing has no items list")
+        return [it for it in items if isinstance(it, dict)]
 
-    while frontier and len(seen_dirs) < max_dirs:
-        batch = [p for p in frontier if p not in seen_dirs]
+    while frontier:
+        batch = list(dict.fromkeys(p for p in frontier if p not in seen_dirs))
         if not batch:
             break
+        if len(seen_dirs) + len(batch) > max_dirs:
+            raise RuntimeError("Replay share crawl exceeded its directory limit")
         seen_dirs.update(batch)
         frontier = []
 
@@ -268,7 +267,7 @@ def _crawl_share_replays(
                 name = str(it.get("name") or "")
                 item_path = str(it.get("path") or "")
                 if it.get("isDir"):
-                    if item_path and item_path not in seen_dirs and len(seen_dirs) < max_dirs:
+                    if item_path and item_path not in seen_dirs:
                         frontier.append(item_path)
                     continue
                 if not name.lower().endswith(".zip"):
@@ -297,16 +296,7 @@ def _build_replay_index_sync(share_api_url: str, index_path: str, max_dirs: int 
     """Blocking full index build; runs outside any request/app context."""
     replays = _crawl_share_replays(share_api_url, max_dirs=max_dirs)
     if not replays:
-        # A failed/empty crawl (share unreachable or no uploads yet) must never
-        # clobber a good index or mark a fresh-but-empty one. Keep what exists.
-        path = Path(index_path)
-        if path.exists():
-            try:
-                existing = json.loads(path.read_text(encoding="utf-8"))
-                return int(existing.get("count") or 0)
-            except Exception:
-                pass
-        return 0
+        raise RuntimeError("Replay share crawl found no replay ZIPs; index not replaced")
     payload = {
         "version": 2,
         "built_at": int(time.time()),

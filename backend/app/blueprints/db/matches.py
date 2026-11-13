@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import sqlite3
 import threading
 import time
@@ -89,7 +90,7 @@ def _fetch_replay_listing(
     items = payload.get("items")
     if isinstance(items, list):
         return [item for item in items if isinstance(item, dict)]
-    return []
+    raise ValueError("Replay share listing has no items list")
 
 
 def _build_replay_download_url(item_path: str) -> str:
@@ -221,6 +222,7 @@ def _set_persisted_replay_lookup(
 # A full crawl of the Filebrowser share, mapping match_id -> replay file, stored
 # as JSON so match lookups are instant instead of walking the share per request.
 _replay_index_refresh_lock = threading.Lock()
+_replay_index_last_attempt = 0.0
 
 
 def _replay_index_refresh_hours() -> float:
@@ -255,33 +257,47 @@ def _save_replay_index(payload: Dict[str, Any]) -> None:
         tmp_path.replace(path)
 
 
-def _schedule_index_refresh() -> bool:
-    """Kick off a background full-index rebuild if the index is missing or stale."""
+def _schedule_index_refresh(*, missing_match: bool = False) -> bool:
+    """Kick off a background rebuild when the index is stale or a miss needs refreshing."""
+    global _replay_index_last_attempt
     if not _replay_index_refresh_lock.acquire(blocking=False):
         return False  # a rebuild is already running
     try:
         api_url = _replay_share_api_url()
         index_path = str(_replay_index_path())
         refresh_hours = _replay_index_refresh_hours()
+        retry_interval = max(
+            1, int(current_app.config.get("REPLAY_SCAN_PARTIAL_TTL_SECONDS", 300))
+        )
+        if missing_match:
+            refresh_hours = min(refresh_hours, retry_interval / 3600)
+        logger = current_app.logger
+        payload = _load_replay_index()
+        age_hours = (time.time() - int(payload.get("built_at") or 0)) / 3600.0
+        if (
+            (payload.get("built_at") and age_hours < refresh_hours)
+            or (
+                _replay_index_last_attempt
+                and time.monotonic() - _replay_index_last_attempt < retry_interval
+            )
+        ):
+            _replay_index_refresh_lock.release()
+            return False
+
+        _replay_index_last_attempt = time.monotonic()
+
+        def worker() -> None:
+            try:
+                _build_replay_index_sync(api_url, index_path)
+            except Exception:
+                logger.exception("Replay index refresh failed; retaining the existing index")
+            finally:
+                _replay_index_refresh_lock.release()
+
+        threading.Thread(target=worker, name="replay-index-refresh", daemon=True).start()
     except Exception:
         _replay_index_refresh_lock.release()
-        return False
-
-    payload = _load_replay_index()
-    age_hours = (time.time() - int(payload.get("built_at") or 0)) / 3600.0
-    if payload.get("built_at") and age_hours < refresh_hours:
-        _replay_index_refresh_lock.release()
-        return False
-
-    def worker() -> None:
-        try:
-            _build_replay_index_sync(api_url, index_path)
-        except Exception:
-            pass
-        finally:
-            _replay_index_refresh_lock.release()
-
-    threading.Thread(target=worker, name="replay-index-refresh", daemon=True).start()
+        raise
     return True
 
 
@@ -312,11 +328,11 @@ def _replay_match_item(
     deadline = time.monotonic() + max(0.0, float(deadline_seconds))
 
     try:
-        _schedule_index_refresh()
+        _schedule_index_refresh(missing_match=True)
     except Exception:
-        pass
+        current_app.logger.exception("Could not schedule replay index refresh")
 
-    target_prefix = f"{match_id}"
+    target_pattern = re.compile(rf"^{match_id}(?:\D|$)")
     visited_dirs = 0
     seen_dirs: set[str] = set()
     stack: list[str] = [""]
@@ -344,6 +360,9 @@ def _replay_match_item(
             # Ignore unreadable directories and continue scan, but remember that
             # the result is inconclusive so the negative cache stays short-lived.
             complete = False
+            current_app.logger.warning(
+                "Could not read replay share directory %r", norm_path, exc_info=True
+            )
             continue
 
         # Prefer deterministic traversal order.
@@ -361,7 +380,7 @@ def _replay_match_item(
             lower_name = name.lower()
             if not lower_name.endswith(".zip"):
                 continue
-            if not name.startswith(target_prefix):
+            if not target_pattern.match(name):
                 continue
 
             # Remember it in the index so the next lookup is instant.
@@ -372,15 +391,24 @@ def _replay_match_item(
                     "size": item.get("size"),
                     "modified": item.get("modified"),
                 }
-                refreshed = _load_replay_index()
-                refreshed.setdefault("replays", {})[str(match_id)] = entry
-                refreshed["count"] = len(refreshed["replays"])
-                _save_replay_index(refreshed)
+                with _replay_index_write_lock:
+                    refreshed = _load_replay_index()
+                    refreshed.setdefault("replays", {})[str(match_id)] = entry
+                    refreshed["count"] = len(refreshed["replays"])
+                    _save_replay_index(refreshed)
             except Exception:
-                pass
+                current_app.logger.exception("Could not update replay index for match %s", match_id)
             return item, visited_dirs, True
 
-        for next_dir in sorted(dir_paths, reverse=True):
+        def directory_priority(path: str):
+            name = path.rstrip("/").rsplit("/", 1)[-1]
+            natural_name = [
+                (1, int(part)) if part.isdigit() else (0, part.lower())
+                for part in re.split(r"(\d+)", name)
+            ]
+            return bool(target_pattern.match(name)), natural_name
+
+        for next_dir in sorted(dir_paths, key=directory_priority):
             if next_dir not in seen_dirs:
                 stack.append(next_dir)
 
@@ -680,20 +708,26 @@ def match_replay(match_id: int):
                 }
             )
         if persisted_lookup.get("found") is False and not retry_requested:
-            return jsonify(
-                {
-                    "ok": False,
-                    "match_id": match_id,
-                    "found": False,
-                    "cached": True,
-                    "cache_source": "file",
-                    "cache_ttl_seconds": ttl_seconds,
-                    "searched_dirs": int(persisted_lookup.get("searched_dirs") or 0),
-                    "retry_after_seconds": int(persisted_lookup.get("retry_after_seconds") or 0),
-                    "error": "replay_not_found",
-                    "message": "Replay was not found in replay_storage for this match ID.",
-                }
-            ), 404
+            indexed = (_load_replay_index().get("replays") or {}).get(str(match_id))
+            if not isinstance(indexed, dict):
+                try:
+                    _schedule_index_refresh(missing_match=True)
+                except Exception:
+                    current_app.logger.exception("Could not schedule replay index refresh")
+                return jsonify(
+                    {
+                        "ok": False,
+                        "match_id": match_id,
+                        "found": False,
+                        "cached": True,
+                        "cache_source": "file",
+                        "cache_ttl_seconds": ttl_seconds,
+                        "searched_dirs": int(persisted_lookup.get("searched_dirs") or 0),
+                        "retry_after_seconds": int(persisted_lookup.get("retry_after_seconds") or 0),
+                        "error": "replay_not_found",
+                        "message": "Replay was not found in replay_storage for this match ID.",
+                    }
+                ), 404
 
     item, visited_dirs, scan_complete = _replay_match_item(match_id)
     if not item:

@@ -366,10 +366,91 @@ html.matchlist-theme-dark body {
   background: rgb(75 85 99);
 }
 
-/* The only animation the app ships is the loading skeleton's pulse; honour a
-   reduced-motion preference by stopping it rather than hiding the loading state. */
+/* Updates page: markdown bodies rendered from data/update.md. */
+.updates-body {
+  color: var(--color-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.updates-body > * + * {
+  margin-top: 0.75em;
+}
+.updates-body ul,
+.updates-body ol {
+  padding-left: 1.25em;
+}
+.updates-body ul {
+  list-style: disc;
+}
+.updates-body ol {
+  list-style: decimal;
+}
+.updates-body li + li {
+  margin-top: 0.25em;
+}
+.updates-body li::marker {
+  color: var(--color-muted);
+}
+.updates-body strong {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.updates-body a {
+  color: var(--color-accent-secondary-light);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.updates-body code {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-input);
+  padding: 0.1em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  color: var(--color-primary);
+}
+.updates-body h4 {
+  color: var(--color-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Header menus: fade + 4px slide down on open, plain fade on close. */
+@keyframes nav-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nav-pop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.nav-pop-in {
+  animation: nav-pop-in 150ms ease-out both;
+}
+
+.nav-pop-out {
+  animation: nav-pop-out 100ms ease-in both;
+}
+
+/* Honour a reduced-motion preference: stop the loading skeleton's pulse
+   (rather than hiding the loading state), and open/close header menus
+   instantly with no slide, fade or chevron rotation. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-pulse {
+  .animate-pulse,
+  .nav-pop-in,
+  .nav-pop-out {
     animation: none;
   }
 }

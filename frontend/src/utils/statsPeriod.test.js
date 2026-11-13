@@ -49,6 +49,13 @@ describe("week param", () => {
     expect(clampRange([1, 99], weeks)).toEqual([54, 61]);
     expect(clampRange(null, weeks)).toEqual([60, 61]);
   });
+
+  it("falls back to the page's own default range", () => {
+    expect(clampRange(null, weeks, allWeeksRange)).toEqual([54, 61]);
+    expect(clampRange([1, 99], weeks, allWeeksRange)).toEqual([54, 61]);
+    expect(clampRange([60, 61], weeks, allWeeksRange)).toEqual([60, 61]);
+    expect(clampRange(null, [], allWeeksRange)).toBeNull();
+  });
 });
 
 describe("labels", () => {

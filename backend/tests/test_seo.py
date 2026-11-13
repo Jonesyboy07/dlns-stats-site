@@ -146,7 +146,6 @@ class SeoMetadataTests(unittest.TestCase):
         cases = {
             "/matches/999999": "Match not found",
             "/match/999999": "Match not found",
-            "/series/999999": "Series not found",
             "/player/999999": "Player not found",
             "/users/999999": "Player not found",
             "/player/42/hero/999999": "Player hero page not found",
@@ -162,6 +161,11 @@ class SeoMetadataTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 404)
                 self.assertIn(f"<title>{expected_title}", html)
                 self.assertIn('<meta name="robots" content="noindex, follow">', html)
+
+    def test_retired_series_page_redirects_to_the_match(self):
+        response = self.client.get("/series/900002")
+        self.assertEqual(response.status_code, 301)
+        self.assertTrue(response.headers["Location"].endswith("/matches/900002"))
 
     def test_valid_pages_keep_their_200_status(self):
         cases = ["/matches/900002", "/player/42", "/hero/1", "/team/Alpha", "/week/7"]

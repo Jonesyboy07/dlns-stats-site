@@ -7,8 +7,18 @@ const FOCUS_RING =
   "rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-secondary-light";
 
 /**
+ * N/A and forfeit games are filed under negative placeholder IDs, which the match
+ * routes cannot serve, so a series whose first game is one of those links to its
+ * week instead of a page that would 404.
+ */
+function matchPath(matchId) {
+  const id = Number(matchId);
+  return Number.isFinite(id) && id > 0 ? `/match/${id}` : null;
+}
+
+/**
  * SeriesRow — one series line inside a week group: format badge, stage label,
- * both teams, the score, one pill per game and the series link.
+ * both teams, the score, one pill per game and a link to game 1.
  *
  * Props:
  *   entry – series group built by HomePage from /db/weeks + /db/matches.
@@ -22,15 +32,36 @@ export default function SeriesRow({ entry }) {
   const spoilerId = `series:${entry.firstMatchId}`;
   const hidden = enabled && !revealed.includes(spoilerId);
 
+  /* Game 1 of the series; when it is a placeholder with no match page, the
+     series' week is the useful destination instead. */
+  const gameOneMatch = matchPath((entry.games[0] || {}).matchId ?? entry.firstMatchId);
+  const seriesHref =
+    gameOneMatch ?? `/week/${entry.week}?event_title=${encodeURIComponent(entry.eventTitle || "")}`;
+
   const gamePills = (
     <div className="flex items-center justify-center gap-1">
       {Array.from({ length: totalGames }, (_, idx) => {
         const played = entry.games[idx];
+        const href = played ? matchPath(played.matchId) : null;
 
-        return played ? (
+        if (!played) {
+          return (
+            <span
+              key={`ghost-${idx}`}
+              aria-hidden="true"
+              className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-transparent font-mono text-[10px] font-bold text-dim"
+            >
+              {idx + 1}
+            </span>
+          );
+        }
+
+        /* A game with no match page (N/A, forfeit placeholder) still counts in the
+           score, but reads as a score rather than a link. */
+        return href ? (
           <Link
             key={played.game}
-            to={`/match/${played.matchId}`}
+            to={href}
             title={`Open game ${played.game}`}
             className={`flex h-5 w-5 items-center justify-center rounded-md border border-accent-border bg-accent-bg-strong font-mono text-[10px] font-bold text-accent-light transition-colors hover:bg-accent-bg ${FOCUS_RING}`}
           >
@@ -38,11 +69,11 @@ export default function SeriesRow({ entry }) {
           </Link>
         ) : (
           <span
-            key={`ghost-${idx}`}
-            aria-hidden="true"
+            key={played.game}
+            title={`Game ${played.game} has no match page`}
             className="flex h-5 w-5 items-center justify-center rounded-md border border-border bg-transparent font-mono text-[10px] font-bold text-dim"
           >
-            {idx + 1}
+            {played.game}
           </span>
         );
       })}
@@ -98,31 +129,38 @@ export default function SeriesRow({ entry }) {
         </a>
       )}
 
+      {/* Game 1 of the series, or the week when that game has no match page. */}
       <Link
-        to={`/series/${entry.firstMatchId}`}
+        to={seriesHref}
         className={`shrink-0 text-[12px] font-semibold tracking-[.02em] text-accent-light transition-colors hover:text-accent ${FOCUS_RING}`}
       >
-        View series →
+        {gameOneMatch ? "View game 1 →" : "View week →"}
       </Link>
     </div>
   );
 
+  /* The wrapper takes the column's space and truncates; the link itself only
+     covers the team name, so the click and hover target is just the text. */
   const teamA = (
-    <Link
-      to={`/team/${encodeURIComponent(entry.team_a)}`}
-      className={`min-w-0 flex-1 truncate text-[15px] font-semibold text-primary hover:underline sm:text-right ${FOCUS_RING}${aOpacity}`}
-    >
-      <Spoiler id={spoilerId} replace="Team ?">{entry.team_a}</Spoiler>
-    </Link>
+    <div className="min-w-0 flex-1 truncate sm:text-right">
+      <Link
+        to={`/team/${encodeURIComponent(entry.team_a)}`}
+        className={`text-[15px] font-semibold text-primary hover:underline ${FOCUS_RING}${aOpacity}`}
+      >
+        <Spoiler id={spoilerId} replace="Team ?">{entry.team_a}</Spoiler>
+      </Link>
+    </div>
   );
 
   const teamB = (
-    <Link
-      to={`/team/${encodeURIComponent(entry.team_b)}`}
-      className={`min-w-0 flex-1 truncate text-[15px] font-semibold text-primary hover:underline ${FOCUS_RING}${bOpacity}`}
-    >
-      <Spoiler id={spoilerId} replace="Team ?">{entry.team_b}</Spoiler>
-    </Link>
+    <div className="min-w-0 flex-1 truncate">
+      <Link
+        to={`/team/${encodeURIComponent(entry.team_b)}`}
+        className={`text-[15px] font-semibold text-primary hover:underline ${FOCUS_RING}${bOpacity}`}
+      >
+        <Spoiler id={spoilerId} replace="Team ?">{entry.team_b}</Spoiler>
+      </Link>
+    </div>
   );
 
   const CARD =

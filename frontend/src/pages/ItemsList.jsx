@@ -10,7 +10,7 @@ import StatsFilterBar from "../components/stats/StatsFilterBar";
 import useStatsFilters from "../components/stats/useStatsFilters";
 import { formatInteger } from "../utils/format";
 import { filterItems, itemRows, itemSections, summaryPicks } from "../utils/items";
-import { formatWeeksParam, patchLabel, weeksLabel } from "../utils/statsPeriod";
+import { allWeeksRange, formatWeeksParam, patchLabel, weeksLabel } from "../utils/statsPeriod";
 
 const EVENT_TITLE = "Night Shift";
 const NONE = [];
@@ -157,8 +157,9 @@ function ItemsResults({ query, view, filters, weeks, regionText, weeksText }) {
 /**
  * /items: every shop item's pick rate, win rate, buy time and sell rate for a
  * Night Shift week range and region. The Period and Region filter is the stats
- * page's own (same URL params, same defaults); slot, tier, search, min games,
- * sort and layout are applied in the browser.
+ * page's own (same URL params), but it opens on every match rather than on the
+ * latest two weeks; slot, tier, search, min games, sort and layout are applied
+ * in the browser.
  */
 export default function ItemsList() {
   const periods = usePanelData(`/db/stats/periods?event_title=${encodeURIComponent(EVENT_TITLE)}`, {
@@ -167,7 +168,7 @@ export default function ItemsList() {
   const weeks = periods.data?.weeks ?? NONE;
   const patches = periods.data?.patches ?? NONE;
   const regions = periods.data?.regions ?? NONE;
-  const filters = useStatsFilters({ weeks, regions });
+  const filters = useStatsFilters({ weeks, regions, defaultRange: allWeeksRange });
   const view = useItemsView();
   const { range, region } = filters;
 
@@ -204,6 +205,7 @@ export default function ItemsList() {
             onRegion={filters.setRegion}
             onFilters={filters.setFilters}
             shareUrl={filters.shareUrl}
+            defaultRange={allWeeksRange}
           >
             <ItemControls view={view} />
           </StatsFilterBar>

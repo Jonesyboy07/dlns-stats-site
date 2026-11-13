@@ -188,9 +188,9 @@ function ItemBody({ itemId, query, minGames, filterText, onShowEverything }) {
 
 /**
  * /item/:itemId: one item's win rate, pick rate, buy timing and who builds it,
- * for a Night Shift week range and region. The filter is the stats page's
- * (same URL params), plus the index's min-games threshold, so the link back to
- * /items keeps all three.
+ * for a Night Shift week range and region. The filter is the items index's
+ * (same URL params, same all-match default), plus its min-games threshold, so
+ * the link back to /items keeps all three.
  */
 export default function ItemDetail() {
   const { itemId } = useParams();
@@ -200,7 +200,7 @@ export default function ItemDetail() {
   const weeks = periods.data?.weeks ?? NONE;
   const patches = periods.data?.patches ?? NONE;
   const regions = periods.data?.regions ?? NONE;
-  const filters = useStatsFilters({ weeks, regions });
+  const filters = useStatsFilters({ weeks, regions, defaultRange: allWeeksRange });
   const { minGames, setMinGames } = useItemsView();
   const { range, region } = filters;
 
@@ -233,6 +233,7 @@ export default function ItemDetail() {
             onRegion={filters.setRegion}
             onFilters={filters.setFilters}
             shareUrl={filters.shareUrl}
+            defaultRange={allWeeksRange}
           >
             <div className="flex flex-wrap items-center gap-3 pt-3 md:pt-0">
               <Link to={backHref} className="text-[13px] text-muted transition-colors hover:text-primary">

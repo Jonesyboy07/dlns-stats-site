@@ -33,7 +33,6 @@ _MAX_CACHE_ENTRIES = 2000
 _cache: dict[str, tuple[float, Any]] = {}
 
 _MATCH_RE = re.compile(r"^/matches?/(\d+)$")
-_SERIES_RE = re.compile(r"^/series/(\d+)$")
 _PLAYER_RE = re.compile(r"^/player/(\d+)$")
 _PLAYER_HERO_RE = re.compile(r"^/player/(\d+)/hero/(\d+)$")
 _HERO_RE = re.compile(r"^/hero/(\d+)$")
@@ -128,7 +127,6 @@ _NOINDEX_PREFIXES = ("/admin", "/react-admin", "/interviews/upload")
 
 _NOT_FOUND_TITLES = {
     "match": "Match not found",
-    "series": "Series not found",
     "player": "Player not found",
     "player-hero": "Player hero page not found",
     "hero": "Hero not found",
@@ -603,7 +601,6 @@ def build_seo_context() -> dict[str, Any]:
 
     try:
         match = _MATCH_RE.match(canonical)
-        series = _SERIES_RE.match(canonical)
         player = _PLAYER_RE.match(canonical)
         player_hero = _PLAYER_HERO_RE.match(canonical)
         hero = _HERO_RE.match(canonical)
@@ -616,24 +613,6 @@ def build_seo_context() -> dict[str, Any]:
             page = _match_page(int(match.group(1)), canonical)
             if not page:
                 not_found_kind = "match"
-        elif series:
-            series_id = int(series.group(1))
-            series_match = _fetch_match(series_id)
-            page = _match_page(series_id, canonical)
-            if not page:
-                not_found_kind = "series"
-            elif series_match:
-                team_a = series_match.get("event_team_a")
-                team_b = series_match.get("event_team_b")
-                label = f"{team_a} vs {team_b} — Series" if team_a and team_b else f"Series {series_id}"
-                if team_a and team_b:
-                    page["title"] = _with_brand(label)
-                breadcrumbs = [("Home", "/")]
-                week = series_match.get("event_week")
-                if week is not None:
-                    breadcrumbs.append((f"Night Shift Week {week}", f"/week/{week}"))
-                breadcrumbs.append((label, canonical))
-                page["breadcrumbs"] = breadcrumbs
         elif interview:
             page = _interview_page(interview.group(1), canonical)
         elif player_hero:

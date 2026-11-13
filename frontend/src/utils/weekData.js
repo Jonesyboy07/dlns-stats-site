@@ -781,6 +781,20 @@ export function groupIndexWeeks(weeks, teamFilter) {
 }
 
 /**
+ * The `?series=` key of the series that contains `matchId`, or null. Lets a
+ * match page link to `?match=<id>` without knowing how the week keys its
+ * series.
+ */
+export function findSeriesKeyForMatch(seriesList, matchId) {
+  const wanted = Number(matchId);
+  if (!Number.isFinite(wanted) || wanted <= 0) return null;
+  const found = (seriesList || []).find((series) =>
+    (series.games || []).some((game) => Number(game?.match?.match_id) === wanted),
+  );
+  return found?.key ?? null;
+}
+
+/**
  * `?region=` / `?series=` selection. A selected series wins over the region,
  * and a region that matches nothing falls back to the whole week.
  */

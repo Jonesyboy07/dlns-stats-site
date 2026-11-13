@@ -87,7 +87,7 @@ class PrerenderContentTests(unittest.TestCase):
         self.assertIn('href="/player/1"', root)
         self.assertIn('href="/hero/1"', root)
         self.assertIn('href="/week/3"', root)
-        self.assertIn('href="/series/5001"', root)
+        self.assertNotIn('href="/series/', root)
         self.assertIn('class="prerender-breadcrumb"', root)
         self.assertIn('aria-current="page"', root)
 

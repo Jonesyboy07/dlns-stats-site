@@ -259,9 +259,6 @@ export function breadcrumbsForPath(canonicalPath) {
   let match = /^\/matches\/(\d+)$/.exec(canonical);
   if (match) return [home, { name: `Match ${match[1]}`, path: canonical }];
 
-  match = /^\/series\/(\d+)$/.exec(canonical);
-  if (match) return [home, { name: `Series ${match[1]}`, path: canonical }];
-
   match = /^\/player\/(\d+)\/hero\/(\d+)$/.exec(canonical);
   if (match) {
     return [
@@ -325,9 +322,6 @@ export function routeMetaFor(pathname) {
 
   const match = /^\/matches?\/(\d+)$/.exec(canonical);
   if (match) return { ...base, title: `Deadlock Match ${match[1]}` };
-
-  const series = /^\/series\/(\d+)$/.exec(canonical);
-  if (series) return { ...base, title: `Deadlock Series ${series[1]}` };
 
   const hero = /^\/hero\/(\d+)$/.exec(canonical);
   if (hero) return { ...base, title: "Deadlock Hero Stats" };

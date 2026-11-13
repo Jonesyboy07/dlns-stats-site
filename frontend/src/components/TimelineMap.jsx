@@ -38,6 +38,16 @@ const CROSS_HOLLOW_STROKE = 3.8;
 const CROSS_HOLLOW_INNER = 1.5;
 
 /**
+ * The realtime player marker: a 20px circle of hero art inside the team colour, with
+ * a dark gap so it separates from the map art. The team colour is drawn at 80% so a
+ * crowded fight does not read as a wall of saturated circles.
+ */
+const MARKER_SIZE = "h-5 w-5";
+const MARKER_TINT = 0.8;
+/** `color-mix` damps a theme variable without having to resolve it to a value here. */
+const teamTint = (color) => `color-mix(in srgb, ${color} ${MARKER_TINT * 100}%, transparent)`;
+
+/**
  * One death, drawn as a cross. A circle read as "a spot on the map"; an X reads as
  * "someone died here", and it stays legible over the heat layer at the same size.
  *
@@ -205,7 +215,7 @@ export default function TimelineMap({
 
         {/* Realtime mode: where each player actually is, rather than where they died. */}
         {playerMarkers.map((marker) => {
-          const color = TEAM_STROKE[marker.team] ?? "#94a3b8";
+          const tint = teamTint(TEAM_STROKE[marker.team] ?? "#94a3b8");
           return (
             <span
               key={marker.key}
@@ -216,12 +226,12 @@ export default function TimelineMap({
               style={{ left: `${marker.left}%`, top: `${marker.top}%`, zIndex: marker.dead ? 2 : 3 }}
             >
               <span
-                className="relative block h-[26px] w-[26px] overflow-hidden rounded-full"
+                className={`relative block ${MARKER_SIZE} overflow-hidden rounded-full`}
                 style={{
-                  boxShadow: `0 0 0 2.5px ${
-                    marker.dead ? "rgb(255 255 255 / 0.35)" : color
-                  }, 0 0 0 4px rgb(0 0 0 / 0.75)${marker.dead ? "" : `, 0 0 10px ${color}`}`,
-                  backgroundColor: color,
+                  boxShadow: `0 0 0 2px ${
+                    marker.dead ? "rgb(255 255 255 / 0.35)" : tint
+                  }, 0 0 0 3px rgb(0 0 0 / 0.75)${marker.dead ? "" : `, 0 0 8px ${tint}`}`,
+                  backgroundColor: tint,
                   opacity: marker.dead ? 0.7 : 1,
                 }}
               >
@@ -235,7 +245,7 @@ export default function TimelineMap({
                   />
                 ) : null}
                 {marker.dead && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-bold tabular-nums text-white">
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-[9px] font-bold tabular-nums text-white">
                     {marker.respawnIn}
                   </span>
                 )}

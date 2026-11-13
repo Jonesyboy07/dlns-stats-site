@@ -44,11 +44,14 @@ export function defaultRange(weeks) {
   return [Math.max(firstWeek(weeks), last - 1), last];
 }
 
-/** Keeps a requested range inside the weeks that exist; falls back to the default. */
-export function clampRange(range, weeks) {
+/**
+ * Keeps a requested range inside the weeks that exist; falls back to
+ * `fallback(weeks)` (the latest two weeks unless a page wants all of them).
+ */
+export function clampRange(range, weeks, fallback = defaultRange) {
   const first = firstWeek(weeks);
   const last = lastWeek(weeks);
-  if (!range || first == null) return defaultRange(weeks);
+  if (!range || first == null) return fallback(weeks);
   const start = Math.max(first, Math.min(range[0], last));
   const end = Math.max(first, Math.min(range[1], last));
   return [Math.min(start, end), Math.max(start, end)];

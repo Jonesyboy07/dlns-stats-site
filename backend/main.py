@@ -2268,7 +2268,11 @@ def backfill_all_player_damage_sources(conn: sqlite3.Connection) -> None:
 	)
 
 
-def backfill_all_match_timeline(conn: sqlite3.Connection) -> None:
+def backfill_all_match_timeline(
+	conn: sqlite3.Connection,
+	only_match_id: Optional[int] = None,
+	since_week: Optional[int] = None,
+) -> None:
 	"""Populate match_objectives / match_mid_boss and the death detail columns.
 
 	Targets matches that have players but no objective rows, which is every match
@@ -2276,21 +2280,38 @@ def backfill_all_match_timeline(conn: sqlite3.Connection) -> None:
 	column added to `player_deaths` since -- re-running the deaths is what fills
 	those, so the second arm keeps a new column from silently staying empty on the
 	matches that already have objectives. One metadata request per match.
+
+	`only_match_id` does just that match; `since_week` keeps the sweep to matches
+	from that event week onwards, so a repair after a bad night need not walk the
+	whole history.
 	"""
-	rows = conn.execute(
-		"SELECT DISTINCT p.match_id FROM players p "
-		"WHERE NOT EXISTS (SELECT 1 FROM match_objectives o WHERE o.match_id = p.match_id) "
-		"OR EXISTS ("
-		"SELECT 1 FROM player_deaths d WHERE d.match_id = p.match_id "
-		"AND d.killer_player_slot IS NOT NULL AND d.killer_position_x IS NULL"
-		") "
-		"ORDER BY p.match_id DESC"
-	).fetchall()
-	match_ids = [int(r[0]) for r in rows]
-	if not match_ids:
-		print("[timelinebackfill] No matches missing timeline data.")
-		return
-	print(f"[timelinebackfill] Checking {len(match_ids)} matches missing timeline data.")
+	if only_match_id is not None:
+		match_ids = [int(only_match_id)]
+		print(f"[timelinebackfill] Backfilling timeline rows for match {only_match_id}.")
+	else:
+		sql = (
+			"SELECT DISTINCT p.match_id FROM players p "
+			"WHERE ("
+			"NOT EXISTS (SELECT 1 FROM match_objectives o WHERE o.match_id = p.match_id) "
+			"OR EXISTS ("
+			"SELECT 1 FROM player_deaths d WHERE d.match_id = p.match_id "
+			"AND d.killer_player_slot IS NOT NULL AND d.killer_position_x IS NULL"
+			")"
+			")"
+		)
+		params: List[Any] = []
+		scope = ""
+		if since_week is not None:
+			sql += " AND p.match_id IN (SELECT match_id FROM matches WHERE event_week >= ?)"
+			params.append(int(since_week))
+			scope = f" since week {int(since_week)}"
+		sql += " ORDER BY p.match_id DESC"
+		rows = conn.execute(sql, tuple(params)).fetchall()
+		match_ids = [int(r[0]) for r in rows]
+		if not match_ids:
+			print(f"[timelinebackfill] No matches missing timeline data{scope}.")
+			return
+		print(f"[timelinebackfill] Checking {len(match_ids)} matches missing timeline data{scope}.")
 	updated_matches = 0
 	skipped = 0
 	errors = 0
@@ -2322,33 +2343,55 @@ def backfill_all_match_timeline(conn: sqlite3.Connection) -> None:
 	)
 
 
-def backfill_all_player_paths(conn: sqlite3.Connection, only_match_id: Optional[int] = None) -> None:
+def backfill_all_player_paths(
+	conn: sqlite3.Connection,
+	only_match_id: Optional[int] = None,
+	since_week: Optional[int] = None,
+) -> None:
 	"""Populate match_player_paths for matches missing trails, or for one named match.
 
 	One metadata request per match, and the metadata payload carries every player's
 	whole-match trail, so a full sweep is heavy: expect it to be slow and to pull a
-	couple of megabytes per match. Re-running only fetches what is still missing.
+	couple of megabytes per match. Re-running only fetches what is still missing,
+	and `since_week` keeps a sweep to matches from that event week onwards.
 	"""
 	if only_match_id is not None:
 		match_ids = [int(only_match_id)]
 		print(f"[pathsbackfill] Backfilling position trails for match {only_match_id}.")
 	else:
-		rows = conn.execute(
+		sql = (
 			"SELECT DISTINCT p.match_id FROM players p "
-			"WHERE NOT EXISTS (SELECT 1 FROM match_player_paths t WHERE t.match_id = p.match_id) "
-			"ORDER BY p.match_id DESC"
-		).fetchall()
+			"WHERE NOT EXISTS (SELECT 1 FROM match_player_paths t WHERE t.match_id = p.match_id)"
+		)
+		params: List[Any] = []
+		scope = ""
+		if since_week is not None:
+			sql += " AND p.match_id IN (SELECT match_id FROM matches WHERE event_week >= ?)"
+			params.append(int(since_week))
+			scope = f" since week {int(since_week)}"
+		sql += " ORDER BY p.match_id DESC"
+		rows = conn.execute(sql, tuple(params)).fetchall()
 		match_ids = [int(r[0]) for r in rows]
 		if not match_ids:
 			# "Nothing is missing" and "there is nothing here" are very different
 			# answers, and the second one usually means the wrong database was used.
-			known = conn.execute("SELECT COUNT(DISTINCT match_id) FROM players").fetchone()[0]
-			if not known:
-				print("[pathsbackfill] This database has no matches recorded, so there is nothing to backfill.")
+			if since_week is not None:
+				known = conn.execute(
+					"SELECT COUNT(DISTINCT p.match_id) FROM players p "
+					"WHERE p.match_id IN (SELECT match_id FROM matches WHERE event_week >= ?)",
+					(int(since_week),),
+				).fetchone()[0]
 			else:
-				print(f"[pathsbackfill] All {known} matches already have position trails.")
+				known = conn.execute("SELECT COUNT(DISTINCT match_id) FROM players").fetchone()[0]
+			if not known:
+				if since_week is None:
+					print("[pathsbackfill] This database has no matches recorded, so there is nothing to backfill.")
+				else:
+					print(f"[pathsbackfill] No matches recorded{scope}, so there is nothing to backfill.")
+			else:
+				print(f"[pathsbackfill] All {known} matches{scope} already have position trails.")
 			return
-		print(f"[pathsbackfill] Fetching position trails for {len(match_ids)} matches.")
+		print(f"[pathsbackfill] Fetching position trails for {len(match_ids)} matches{scope}.")
 	updated_matches = 0
 	skipped = 0
 	errors = 0
@@ -3043,6 +3086,33 @@ def split_placeholder_ids(match_ids: Iterable[int]) -> Tuple[List[int], List[int
 	return fetchable, placeholders
 
 
+def ingest_match_extras(conn: sqlite3.Connection, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Everything a match's metadata carries beyond its players.
+
+	Damage by source, death details, objective destructions, mid boss kills and the
+	per-player position trails. Feed ingest and the admin submit path both go through
+	this, so a game saved from a panel is as complete as one ingested from the feed.
+	Every step replaces that match's rows, so re-running it is safe.
+	"""
+	# Per-player damage-by-source from the match damage_matrix
+	ingest_match_damage_sources(conn, match_id, match_info)
+	ingest_player_deaths(conn, match_id, match_info)
+	# Timeline rows: objective destructions and mid boss kills
+	ingest_match_objectives(conn, match_id, match_info)
+	ingest_match_mid_boss(conn, match_id, match_info)
+	# Per-player position trails for the map replay
+	ingest_player_paths(conn, match_id, match_info)
+
+
+async def ingest_match_extras_async(conn: Any, match_id: int, match_info: Dict[str, Any]) -> None:
+	"""Async twin of ingest_match_extras, for the feed's concurrent ingest."""
+	await ingest_match_damage_sources_async(conn, match_id, match_info)
+	await ingest_player_deaths_async(conn, match_id, match_info)
+	await ingest_match_objectives_async(conn, match_id, match_info)
+	await ingest_match_mid_boss_async(conn, match_id, match_info)
+	await ingest_player_paths_async(conn, match_id, match_info)
+
+
 def process_match_into_db(
 	conn: sqlite3.Connection,
 	match_id: int,
@@ -3093,14 +3163,8 @@ def process_match_into_db(
 	for p in players:
 		upsert_player(conn, match_id, p, winning_team, name_map)
 
-	# Store per-player damage-by-source from the match damage_matrix
-	ingest_match_damage_sources(conn, match_id, match_info)
-	ingest_player_deaths(conn, match_id, match_info)
-	# Timeline rows: objective destructions and mid boss kills
-	ingest_match_objectives(conn, match_id, match_info)
-	ingest_match_mid_boss(conn, match_id, match_info)
-	# Per-player position trails for the map replay
-	ingest_player_paths(conn, match_id, match_info)
+	# Damage sources, deaths, objectives, mid boss and position trails
+	ingest_match_extras(conn, match_id, match_info)
 
 	# Also persist updated users from cache to DB
 	for aid in account_ids_int:
@@ -3167,14 +3231,8 @@ async def process_match_into_db_async(
 		for p in players:
 			await upsert_player_async(conn, match_id, p, winning_team, name_map)
 
-		# Store per-player damage-by-source from the match damage_matrix
-		await ingest_match_damage_sources_async(conn, match_id, match_info)
-		await ingest_player_deaths_async(conn, match_id, match_info)
-		# Timeline rows: objective destructions and mid boss kills
-		await ingest_match_objectives_async(conn, match_id, match_info)
-		await ingest_match_mid_boss_async(conn, match_id, match_info)
-		# Per-player position trails for the map replay
-		await ingest_player_paths_async(conn, match_id, match_info)
+		# Damage sources, deaths, objectives, mid boss and position trails
+		await ingest_match_extras_async(conn, match_id, match_info)
 
 		for aid in account_ids_int:
 			await upsert_user_async(conn, aid, name_map.get(aid) or cache.get(str(aid)), avatar_cache.get(str(aid)))
@@ -3613,8 +3671,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-laneinfer", dest="laneinfer", type=str, default="false", help="If true, run positional lane inference backfill (lane_real) from match_paths and exit. Use 'force' to re-infer matches that already have lane_real.")
 	parser.add_argument("-goldbackfill", dest="goldbackfill", type=str, default="false", help="If true, backfill player_gold_sources (soul income) for matches missing it and exit")
 	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
-	parser.add_argument("-timelinebackfill", dest="timelinebackfill", type=str, default="false", help="If true, backfill match_objectives, match_mid_boss and the player_deaths detail columns for matches missing them and exit")
+	parser.add_argument("-timelinebackfill", dest="timelinebackfill", type=str, default="false", help="If true, backfill match_objectives, match_mid_boss and the player_deaths detail columns for matches missing them and exit. Pass a match id instead to backfill just that match")
 	parser.add_argument("-pathsbackfill", dest="pathsbackfill", type=str, default="false", help="If true, backfill match_player_paths (per-player position trails for the map replay) for matches missing them and exit. Pass a match id instead to backfill just that match. One large metadata fetch per match.")
+	parser.add_argument("-sinceweek", dest="sinceweek", type=int, default=None, help="Limit the -timelinebackfill and -pathsbackfill sweeps to matches from this event week onwards")
 	parser.add_argument("-metasync", dest="metasync", type=str, default="false", help="If true, re-apply the feed's authored metadata (teams, week, side, vod) to matches already in the DB and exit. No API calls.")
 	parser.add_argument("-versionbackfill", dest="versionbackfill", type=str, default="false", help="If true, fill matches.game_version from start_time (GameTracking-Deadlock commits, cached locally) and exit. Use 'force' to recompute every match.")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
@@ -3737,12 +3796,16 @@ def main(argv: Optional[List[str]] = None) -> int:
 		finally:
 			conn.close()
 
-	if parse_bool(args.timelinebackfill):
+	if parse_bool(args.timelinebackfill) or _optional_int(args.timelinebackfill) is not None:
 		conn = db_connect(db_path)
 		db_init(conn)
 		try:
 			print("[timelinebackfill] Running objective/boss/death-detail backfill...")
-			backfill_all_match_timeline(conn)
+			backfill_all_match_timeline(
+				conn,
+				only_match_id=None if parse_bool(args.timelinebackfill) else _optional_int(args.timelinebackfill),
+				since_week=args.sinceweek,
+			)
 			print("[timelinebackfill] Done.")
 			return 0
 		finally:
@@ -3758,6 +3821,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 			backfill_all_player_paths(
 				conn,
 				only_match_id=None if parse_bool(args.pathsbackfill) else _optional_int(args.pathsbackfill),
+				since_week=args.sinceweek,
 			)
 			print("[pathsbackfill] Done.")
 			return 0

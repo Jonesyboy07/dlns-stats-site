@@ -102,6 +102,10 @@ describe("mapVersionConfig", () => {
     expect(mapVersionConfig(null)).toBe(MAP_VERSIONS[DEFAULT_MAP_VERSION]);
   });
 
+  it("falls back to the map in play today", () => {
+    expect(DEFAULT_MAP_VERSION).toBe("post_cns");
+  });
+
   it("gives every layout an image pair and the map radius", () => {
     for (const [id, version] of Object.entries(MAP_VERSIONS)) {
       expect(version.id, id).toBe(id);
@@ -114,5 +118,10 @@ describe("mapVersionConfig", () => {
   it("points the pre-update layout at the old minimap", () => {
     expect(MAP_VERSIONS.pre_cns.overlay).toBe("mapHud/old_minimap.png");
     expect(MAP_VERSIONS.pre_cns.background).toBe("mapHud/old_minimap_bg.png");
+  });
+
+  it("points the City Never Sleeps layout at the reworked minimap", () => {
+    expect(MAP_VERSIONS.post_cns.overlay).toBe("mapHud/cns_minimap.png");
+    expect(MAP_VERSIONS.post_cns.background).toBe("mapHud/cns_minimap_bg.png");
   });
 });

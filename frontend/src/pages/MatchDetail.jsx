@@ -11,7 +11,7 @@ import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
 import { buildTimelineRows, clock, objectiveLabel, parseMatchTime, matchTimeParam } from "../utils/matchTimeline";
 import { buildObjectives, buildTimelineModel } from "../utils/matchTimelineModel";
 import { buildFeedRows } from "../utils/matchTimelineFeed";
-import { buildLaneView } from "../utils/matchTimelineLanes";
+import { buildLaneView, soulLeadSeries, teamSoulsAt } from "../utils/matchTimelineLanes";
 import ItemTooltip from "../components/items/ItemTooltip";
 import { killInvolves, trailMarkers } from "../utils/matchTimelineMap";
 import { decodeTrail, nextTime } from "../utils/replay";
@@ -379,6 +379,13 @@ function MatchDetail() {
         : [],
     [mapMode, matchPositions],
   );
+  // Amber-minus-Sapphire souls over the match, built once per match rather than on
+  // every playback tick.
+  const timelineSoulLead = useMemo(
+    () => (timeline?.available ? soulLeadSeries(timeline.players, timelineModel.durationS) : []),
+    [timeline, timelineModel.durationS],
+  );
+
   const timelinePlayerMarkers = useMemo(
     () => trailMarkers(timelineTrails, timelineModel.kills, timelineT),
     [timelineTrails, timelineModel.kills, timelineT],
@@ -762,7 +769,13 @@ function MatchDetail() {
 
   // The roster, the scoreline and the map all read the clock, so they are derived
   // together and can never drift apart.
-  const timelineRoster = buildRoster({ players, kills: timelineModel.kills, t: timelineT });
+  const timelineRoster = buildRoster({
+    players,
+    kills: timelineModel.kills,
+    t: timelineT,
+    timelinePlayers: timeline?.available ? timeline.players : null,
+    durationS: timelineModel.durationS,
+  });
   const timelineScores = teamScores(timelineModel.kills, timelineT);
 
   const timelineLaneView = buildLaneView({
@@ -774,6 +787,7 @@ function MatchDetail() {
     players,
     durationS: timelineModel.durationS,
     involves: (kill) => killInvolves(kill, timelineSelection),
+    soulLead: timelineSoulLead,
   });
 
   // The laning tab's lanes and its count of players with no lane at all, which the
@@ -1241,6 +1255,7 @@ function MatchDetail() {
             className="mb-4"
             teamNames={[amberTeamName, sapphireTeamName]}
             scores={timelineScores}
+            souls={teamSoulsAt(timelineSoulLead, timelineT ?? 0)}
             t={timelineT ?? 0}
             durationS={timelineModel.durationS}
           />
@@ -1330,6 +1345,7 @@ function MatchDetail() {
                     focusedFight={mapFocusedFight}
                     fights={timelineModel.fights}
                     heroName={getHeroName}
+                    teamNames={[amberTeamName, sapphireTeamName]}
                   />
                 </>
               ) : (

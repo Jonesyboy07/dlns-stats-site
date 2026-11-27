@@ -93,10 +93,30 @@ def _ensure_db_schema(app: Flask) -> None:
         conn = db_connect(db_path)
         try:
             db_init(conn)
+            _apply_team_identities(app, conn)
         finally:
             conn.close()
     except Exception:
         app.logger.exception("Failed to ensure DB schema at startup (will surface per-request)")
+
+
+def _apply_team_identities(app: Flask, conn) -> None:
+    """Fold data/team_identities.json into the DB, then drop stale team payloads.
+
+    A malformed file must never stop the site booting: the identities already in
+    the DB keep working, and the error is logged for whoever edited the file.
+    """
+    from .team_identity import identities_path, invalidate_team_caches, sync_team_identities
+
+    try:
+        changed = sync_team_identities(conn)
+    except Exception:
+        app.logger.exception("Team identity sync failed for %s; keeping the DB as it is", identities_path())
+        return
+    if changed:
+        with app.app_context():
+            invalidate_team_caches()
+        app.logger.info("Team identities updated from %s", identities_path())
 
 
 def create_app() -> Flask:

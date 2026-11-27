@@ -69,12 +69,63 @@ function RowIcon({ row, heroName }) {
   );
 }
 
+/**
+ * The objective that followed a fight, naming who took it: the follow-up is simply the
+ * next objective to fall, which is not always the winner's.
+ */
+function followUpText(objective, teamName) {
+  const label = objective.label ?? "an objective";
+  const taker = objective.team === 0 || objective.team === 1 ? teamName(objective.team) : null;
+  return taker ? `${taker} took ${label}` : label;
+}
+
+/**
+ * A fight's stakes: the respawn time each side sat through, and its standout killer.
+ * Nothing renders when the fight recorded neither.
+ */
+function FightStakes({ fight, teamName, heroName }) {
+  const dead = (fight.deadS ?? [0, 0])
+    .map((seconds, team) => ({ seconds, team }))
+    .filter((entry) => entry.seconds > 0);
+  const top = fight.topKiller;
+  if (!dead.length && !top) return null;
+
+  return (
+    <span className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1 text-xs font-normal text-muted">
+      {dead.length > 0 && (
+        <span title="Total respawn time each side sat through from this fight">
+          Dead time{" "}
+          {dead.map((entry, i) => (
+            <span key={entry.team}>
+              {i > 0 ? " · " : ""}
+              <span className="font-semibold" style={{ color: TEAM_STROKE[entry.team] }}>
+                {teamName(entry.team) || (entry.team === 0 ? "Amber" : "Sapphire")}
+              </span>{" "}
+              <span className="tabular-nums">{entry.seconds}s</span>
+            </span>
+          ))}
+        </span>
+      )}
+      {top && (
+        <span className="flex items-center gap-1" title="Most kills in this fight">
+          Top
+          <HeroIcon name={heroName(top.heroId)} size="h-4 w-4" />
+          <span className="font-semibold" style={{ color: TEAM_STROKE[top.team] ?? undefined }}>
+            {top.name ?? "Unknown"}
+          </span>
+          <span className="tabular-nums">×{top.kills}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** A fight's second line: when it ran, who won it, and what it led to. */
 function fightSubtitle(fight, teamName) {
   return [
     `${clock(fight.startS)}–${clock(fight.endS)}`,
     fight.winner == null ? "even" : `${teamName(fight.winner) || "the winner"} won`,
-    fight.objective ? `→ ${fight.objective.label}` : null,
+    fight.objective ? `→ ${followUpText(fight.objective, teamName)}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -207,9 +258,12 @@ export default function TimelineFeed({
                     <RowText row={row} teamName={teamName} />
                   </span>
                   {row.kind === "fight" ? (
-                    <span className="text-xs font-normal text-muted">
-                      {fightSubtitle(row.fight, teamName)}
-                    </span>
+                    <>
+                      <span className="text-xs font-normal text-muted">
+                        {fightSubtitle(row.fight, teamName)}
+                      </span>
+                      <FightStakes fight={row.fight} teamName={teamName} heroName={heroName} />
+                    </>
                   ) : null}
                   {(row.badges ?? []).map((badge) => (
                     <Badge key={badge.label} tone={badge.tone}>

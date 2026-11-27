@@ -67,6 +67,7 @@ When adding a React page, follow an existing page's pattern: add the entry under
 | [`backend/app/blueprints/registry.json`](../backend/app/blueprints/registry.json) | Registered blueprint list |
 | [`backend/app/blueprints/db_api.py`](../backend/app/blueprints/db_api.py) | Entry point for the `/db` JSON API (imports the `db/` modules) |
 | [`backend/app/blueprints/db/`](../backend/app/blueprints/db/) | `/db` route modules by area; shared helpers in `core.py` |
+| [`backend/app/team_identity.py`](../backend/app/team_identity.py) | Team identity: resolves a team name to every spelling it played under, and syncs `data/team_identities.json` |
 | [`frontend/vite.config.js`](../frontend/vite.config.js) | Vite entries, build output, dev proxies, and Vitest config |
 | [`docs/openapi_spec.json`](openapi_spec.json) | Tracked OpenAPI specification |
 | [`docs/db_schema.md`](db_schema.md) | SQLite schema reference |

@@ -630,6 +630,37 @@ CREATE TABLE IF NOT EXISTS match_player_paths (
 );
 
 CREATE INDEX IF NOT EXISTS idx_match_player_paths_match ON match_player_paths(match_id);
+
+-- Team identity. Matches only ever store the raw feed spelling of a team name, so a
+-- rename would otherwise fork a team into two partial records. `teams` is the
+-- identity and `team_names` maps every spelling the feed used onto it; the read
+-- path resolves a requested name to all of its spellings (see app/team_identity.py).
+CREATE TABLE IF NOT EXISTS teams (
+  team_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  logo_key TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS team_names (
+  -- LOWER(name), the key every team query already groups on.
+  name_key TEXT PRIMARY KEY,
+  team_id INTEGER NOT NULL,
+  display_name TEXT NOT NULL,
+  -- Event weeks the spelling was in effect; null means open-ended.
+  valid_from_week INTEGER,
+  valid_to_week INTEGER,
+  logo_key TEXT,
+  -- 'seed' rows are owned by data/team_identities.json, 'admin' rows by the site.
+  source TEXT NOT NULL DEFAULT 'seed',
+  note TEXT,
+  created_at TEXT,
+  FOREIGN KEY (team_id) REFERENCES teams(team_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_names_team ON team_names(team_id);
 """
 
 

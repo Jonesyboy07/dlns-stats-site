@@ -23,6 +23,8 @@ export const FIGHT_MIN_KILLS = 3;
 export const FIGHT_PAD_S = 4;
 // A fight's follow-up objective: the first one taken this soon after it ended.
 export const FIGHT_FOLLOW_UP_S = 75;
+// Kills one player needs in a fight before the card names them as its top killer.
+export const FIGHT_TOP_KILLER_MIN = 2;
 // Consecutive kills by one player within this window chain into a multi-kill.
 export const MULTI_KILL_GAP_S = 10;
 // Kills in a row before the next death of that player is a shutdown.
@@ -184,7 +186,14 @@ export function buildKills(events = [], { players = [] } = {}) {
  * `objective` is the first one the winner took within `FIGHT_FOLLOW_UP_S` afterwards.
  *
  * `objectives` are `{ timeS, label, laneName, ... }`; passing none simply leaves every
- * fight without a follow-up.
+ * fight without a follow-up. The follow-up is whichever objective fell first, not
+ * necessarily the winner's -- its `team` says who took it.
+ *
+ * Each fight also carries its stakes, from what the death events record exactly:
+ * `deadS` is the respawn time each side sat through (`[amber, sapphire]`), and
+ * `topKiller` is whoever made the most kills in it, once that is at least
+ * `FIGHT_TOP_KILLER_MIN` (a 1-1-1 fight has no standout). Souls and damage are not
+ * here: the stats snapshots are minutes apart, too coarse to split by fight.
  */
 export function buildFights(kills = [], { objectives = [] } = {}) {
   const groups = [];
@@ -213,6 +222,31 @@ export function buildFights(kills = [], { objectives = [] } = {}) {
         return at != null && at >= endS && at <= endS + FIGHT_FOLLOW_UP_S;
       }) ?? null;
 
+    const deadS = [0, 0];
+    for (const kill of group) {
+      if ((kill.killedTeam === 0 || kill.killedTeam === 1) && kill.respawnS != null) {
+        deadS[kill.killedTeam] += Number(kill.respawnS) || 0;
+      }
+    }
+
+    // Most kills wins; a tie goes to whoever got there first, so the card is stable.
+    const tally = new Map();
+    let topKiller = null;
+    for (const kill of group) {
+      if (kill.killerAccountId == null) continue;
+      const count = (tally.get(kill.killerAccountId) || 0) + 1;
+      tally.set(kill.killerAccountId, count);
+      if (count >= FIGHT_TOP_KILLER_MIN && count > (topKiller?.kills ?? 0)) {
+        topKiller = {
+          accountId: kill.killerAccountId,
+          name: kill.killerName ?? null,
+          heroId: kill.killerHeroId ?? null,
+          team: kill.team,
+          kills: count,
+        };
+      }
+    }
+
     return {
       index,
       startS,
@@ -227,6 +261,8 @@ export function buildFights(kills = [], { objectives = [] } = {}) {
       winner,
       score: `${amber}–${sapphire}`,
       objective,
+      deadS: deadS.map((seconds) => Math.round(seconds)),
+      topKiller,
     };
   });
 }

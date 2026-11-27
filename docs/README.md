@@ -10,6 +10,7 @@
 | [Project structure](PROJECT_STRUCTURE.md) | Current repository layout and application organization |
 | [Analytics](ANALYTICS.md) | Privacy-first analytics design and legitimate-interest assessment |
 | [Database schema](db_schema.md) | SQLite tables, fields, relationships, and indexes |
+| [Team identity runbook](TEAM_IDENTITY.md) | Renames, acquisitions, and teams going independent: what to edit and what changes |
 | [Database API notes](db_api_schema.md) | `/db` endpoint behavior and response notes |
 | [OpenAPI specification](openapi_spec.json) | Machine-readable API contract served at `/api/openapi.json` |
 | [Bracket administration](match-entry/README.md) | Current bracket editor workflows, safeguards, and migration |

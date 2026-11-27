@@ -3,20 +3,54 @@
  * second, and the share button.
  *
  * The kills shown are up to the clock rather than the final result, so scrubbing
- * through a match reads as a scoreboard filling in.
+ * through a match reads as a scoreboard filling in. `souls` is each side's banked souls
+ * at the same second (`[amber, sapphire]`), or null when the match has no snapshots --
+ * then the souls line is left out entirely rather than showing zeros.
  */
 
 import { useEffect, useRef, useState } from "react";
 import Button from "./Button";
 import { clock, matchTimeParam } from "../utils/matchTimeline";
+import { formatCompact } from "../utils/format";
 import { TEAM_STROKE } from "../utils/matchTimelineMap";
 
 /** How long the button says "Copied" before going back to offering the link. */
 const COPIED_MS = 1600;
 
+const SOULS_LINE = "font-valve-pulp text-[11px] font-semibold leading-none tabular-nums";
+
+/** One side's kill score, with its souls underneath when the match recorded them. */
+function TeamScore({ team, kills, souls }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="font-valve-pulp text-[30px] font-bold leading-none" style={{ color: TEAM_STROKE[team] }}>
+        {kills ?? 0}
+      </span>
+      {souls != null && (
+        <span className={`${SOULS_LINE} text-dim`} title="Souls banked at this moment">
+          {formatCompact(souls)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The souls gap, in the leading side's colour; "Even" when nobody is ahead. */
+function SoulGap({ souls }) {
+  const gap = souls[0] - souls[1];
+  if (gap === 0) return <span className={`${SOULS_LINE} text-dim`}>Even</span>;
+  const leader = gap > 0 ? 0 : 1;
+  return (
+    <span className={SOULS_LINE} style={{ color: TEAM_STROKE[leader] }} title="Soul lead at this moment">
+      {leader === 0 ? "◀ " : ""}+{formatCompact(Math.abs(gap))} souls{leader === 1 ? " ▶" : ""}
+    </span>
+  );
+}
+
 export default function TimelineHeader({
   teamNames = [],
   scores = { 0: 0, 1: 0 },
+  souls = null,
   t = 0,
   durationS = null,
   className = "",
@@ -51,15 +85,14 @@ export default function TimelineHeader({
         <span className="text-xs font-semibold" style={{ color: TEAM_STROKE[0] }}>
           {teamNames[0] || "Amber"}
         </span>
-        <span className="font-valve-pulp text-[30px] font-bold leading-none" style={{ color: TEAM_STROKE[0] }}>
-          {scores[0] ?? 0}
-        </span>
-        <span className="font-valve-oracle text-[13px] tabular-nums text-dim">
-          {clock(t)} / {clock(durationS)}
-        </span>
-        <span className="font-valve-pulp text-[30px] font-bold leading-none" style={{ color: TEAM_STROKE[1] }}>
-          {scores[1] ?? 0}
-        </span>
+        <TeamScore team={0} kills={scores[0]} souls={souls?.[0]} />
+        <div className="flex flex-col items-center gap-1">
+          <span className="font-valve-oracle text-[13px] tabular-nums text-dim">
+            {clock(t)} / {clock(durationS)}
+          </span>
+          {souls && <SoulGap souls={souls} />}
+        </div>
+        <TeamScore team={1} kills={scores[1]} souls={souls?.[1]} />
         <span className="text-xs font-semibold" style={{ color: TEAM_STROKE[1] }}>
           {teamNames[1] || "Sapphire"}
         </span>

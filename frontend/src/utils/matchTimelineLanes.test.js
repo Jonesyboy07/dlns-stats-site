@@ -4,6 +4,8 @@ import {
   PLAYBACK_SPEEDS,
   axisTicks,
   buildLaneView,
+  datedSouls,
+  interpolateAt,
   fightBands,
   killTicks,
   objectiveMarks,
@@ -11,7 +13,11 @@ import {
   playbackStep,
   playerLane,
   seekTime,
+  soulLeadAt,
+  soulLeadPath,
+  soulLeadSeries,
   spanPercent,
+  teamSoulsAt,
 } from "./matchTimelineLanes";
 
 const durationS = 1800;
@@ -247,7 +253,7 @@ describe("buildLaneView", () => {
 
   it("handles an empty call", () => {
     const view = buildLaneView();
-    expect(view.tracks).toEqual({ fights: [], kills: [], objectives: [] });
+    expect(view.tracks).toEqual({ fights: [], kills: [], objectives: [], souls: null });
     expect(view.players).toEqual([]);
     expect(view.axis).toEqual([]);
   });
@@ -279,5 +285,181 @@ describe("playback", () => {
     expect(playbackStep()).toBe(0.25);
     expect(playbackStep(1, 0)).toBe(0);
     expect(playbackStep(1, "slow")).toBe(0);
+  });
+});
+
+const snap = (time_stamp_s, net_worth) => ({ time_stamp_s, net_worth });
+
+describe("soulLeadSeries", () => {
+  it("is Amber minus Sapphire at every snapshot second", () => {
+    const players = {
+      1: { team: 0, snapshots: [snap(60, 500), snap(120, 1200)] },
+      2: { team: 0, snapshots: [snap(60, 400), snap(120, 900)] },
+      3: { team: 1, snapshots: [snap(60, 600), snap(120, 1000)] },
+    };
+    expect(soulLeadSeries(players, 1800)).toEqual([
+      { timeS: 60, lead: 300, souls: [900, 600] },
+      { timeS: 120, lead: 1100, souls: [2100, 1000] },
+    ]);
+  });
+
+  it("holds a player's last value when their snapshot lands at a different second", () => {
+    const players = {
+      1: { team: 0, snapshots: [snap(60, 1000)] },
+      2: { team: 1, snapshots: [snap(61, 800)] },
+    };
+    expect(soulLeadSeries(players, 1800)).toEqual([
+      { timeS: 60, lead: 1000, souls: [1000, 0] },
+      { timeS: 61, lead: 200, souls: [1000, 800] },
+    ]);
+  });
+
+  it("spreads undated snapshots evenly across the match", () => {
+    const players = {
+      1: { team: 0, snapshots: [{ net_worth: 0 }, { net_worth: 100 }, { net_worth: 300 }] },
+    };
+    expect(soulLeadSeries(players, 600).map((p) => p.timeS)).toEqual([0, 300, 600]);
+  });
+
+  it("returns nothing when there is nothing to plot", () => {
+    expect(soulLeadSeries(null, 1800)).toEqual([]);
+    expect(soulLeadSeries({}, 1800)).toEqual([]);
+    expect(soulLeadSeries({ 1: { team: 0, snapshots: [{ net_worth: 5 }] } }, null)).toEqual([]);
+  });
+
+  it("ignores players with no team", () => {
+    const players = {
+      1: { team: 0, snapshots: [snap(60, 500)] },
+      2: { team: null, snapshots: [snap(60, 9999)] },
+    };
+    expect(soulLeadSeries(players, 1800)).toEqual([{ timeS: 60, lead: 500, souls: [500, 0] }]);
+  });
+});
+
+describe("soulLeadAt", () => {
+  const series = [
+    { timeS: 60, lead: 0 },
+    { timeS: 120, lead: 1000 },
+  ];
+
+  it("interpolates between snapshots", () => {
+    expect(soulLeadAt(series, 90)).toBe(500);
+  });
+
+  it("is even before the first snapshot and holds after the last", () => {
+    expect(soulLeadAt(series, 10)).toBe(0);
+    expect(soulLeadAt([{ timeS: 100, lead: 1000 }], 50)).toBe(500);
+    expect(soulLeadAt(series, 999)).toBe(1000);
+  });
+
+  it("is null without a series", () => {
+    expect(soulLeadAt([], 60)).toBeNull();
+  });
+});
+
+describe("soulLeadPath", () => {
+  it("starts at 0:00 on the zero line and uses a symmetric scale", () => {
+    const path = soulLeadPath(
+      [
+        { timeS: 900, lead: 2000 },
+        { timeS: 1800, lead: -1000 },
+      ],
+      1800,
+      { width: 100, height: 20 },
+    );
+    expect(path.mid).toBe(10);
+    expect(path.maxAbs).toBe(2000);
+    const points = path.line.split(" ").map((pair) => pair.split(",").map(Number));
+    expect(points[0]).toEqual([0, 10]);
+    expect(points[1]).toEqual([50, 2]);
+    expect(points[2]).toEqual([100, 14]);
+    expect(path.area.startsWith("M0,10")).toBe(true);
+    expect(path.area.endsWith("L100,10 Z")).toBe(true);
+    expect(path.peak.amber).toEqual({ timeS: 900, lead: 2000 });
+    expect(path.peak.sapphire).toEqual({ timeS: 1800, lead: -1000 });
+  });
+
+  it("is null when it cannot be placed", () => {
+    expect(soulLeadPath([], 1800)).toBeNull();
+    expect(soulLeadPath([{ timeS: 1, lead: 1 }], null)).toBeNull();
+  });
+});
+
+describe("buildLaneView soul lead", () => {
+  it("adds the souls track only when there is a series", () => {
+    expect(buildLaneView({ durationS }).tracks.souls).toBeNull();
+    const view = buildLaneView({ durationS, soulLead: [{ timeS: 60, lead: 100 }] });
+    expect(view.tracks.souls.line).toBeTruthy();
+    expect(view.soulLead).toHaveLength(1);
+  });
+});
+
+describe("teamSoulsAt", () => {
+  const series = [
+    { timeS: 60, lead: 0, souls: [1000, 1000] },
+    { timeS: 120, lead: 1000, souls: [3000, 2000] },
+  ];
+
+  it("interpolates both sides between snapshots", () => {
+    expect(teamSoulsAt(series, 90)).toEqual([2000, 1500]);
+  });
+
+  it("agrees with soulLeadAt", () => {
+    const [amber, sapphire] = teamSoulsAt(series, 100);
+    expect(amber - sapphire).toBe(soulLeadAt(series, 100));
+  });
+
+  it("rises from zero before the first snapshot and holds after the last", () => {
+    expect(teamSoulsAt(series, 0)).toEqual([0, 0]);
+    expect(teamSoulsAt(series, 30)).toEqual([500, 500]);
+    expect(teamSoulsAt(series, 9999)).toEqual([3000, 2000]);
+  });
+
+  it("is null without a series", () => {
+    expect(teamSoulsAt([], 60)).toBeNull();
+  });
+});
+
+describe("datedSouls", () => {
+  it("orders dated snapshots and drops ones without souls", () => {
+    expect(
+      datedSouls([snap(360, 900), snap(180, 400), { time_stamp_s: 540, net_worth: null }], 1800),
+    ).toEqual([
+      { timeS: 180, souls: 400 },
+      { timeS: 360, souls: 900 },
+    ]);
+  });
+
+  it("spreads undated snapshots across the match, or gives up without a duration", () => {
+    const undated = [{ net_worth: 1 }, { net_worth: 2 }];
+    expect(datedSouls(undated, 600).map((p) => p.timeS)).toEqual([0, 600]);
+    expect(datedSouls(undated, null)).toEqual([]);
+    expect(datedSouls(null, 600)).toEqual([]);
+  });
+});
+
+describe("interpolateAt", () => {
+  const points = [
+    { timeS: 100, value: 1000 },
+    { timeS: 200, value: 3000 },
+  ];
+
+  it("rises from zero at 0:00 to the first point", () => {
+    expect(interpolateAt(points, 0)).toBe(0);
+    expect(interpolateAt(points, 50)).toBe(500);
+  });
+
+  it("is linear between points and holds after the last", () => {
+    expect(interpolateAt(points, 150)).toBe(2000);
+    expect(interpolateAt(points, 999)).toBe(3000);
+  });
+
+  it("interpolates pairs", () => {
+    const pairs = [{ timeS: 100, v: [100, 300] }];
+    expect(interpolateAt(pairs, 50, { read: (p) => p.v, zero: [0, 0] })).toEqual([50, 150]);
+  });
+
+  it("is null without points", () => {
+    expect(interpolateAt([], 10)).toBeNull();
   });
 });

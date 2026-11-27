@@ -6906,7 +6906,7 @@
             }
           }
         },
-        "description": "Return team detail: roster with per-player stats, records, pacing, hero\npool/history and the league baseline used by the Overview and Players tabs."
+        "description": "Return team detail: roster with per-player stats, records, pacing, hero\npool/history and the league baseline used by the Overview and Players tabs.\n\nAny spelling the team ever played under (or its slug) resolves to the same\npayload: every spelling's matches are merged, `team_name` is the current\nname, `former_names` lists the earlier ones and each match keeps the raw\n`event_team_a` / `event_team_b` it was played under."
       }
     },
     "/db/team/{team_name}/weeks": {
@@ -6949,7 +6949,7 @@
             }
           }
         },
-        "description": "Week axis for one team: the weeks it played plus the league's weeks.\n\n`/db/team/<name>` already computes both, but it carries the whole roster,\nitem catalogue and hero usage (145 KB for a busy team). The player page's\ntenure timeline needs one call per team, so this is the same scoping with\nonly the weeks in the payload."
+        "description": "Week axis for one team: the weeks it played plus the league's weeks.\n\n`/db/team/<name>` already computes both, but it carries the whole roster,\nitem catalogue and hero usage (145 KB for a busy team). The player page's\ntenure timeline needs one call per team, so this is the same scoping with\nonly the weeks in the payload.\n\nAny spelling of the team resolves here, so a player's tenure survives a\nrename: an old name returns the weeks the team played under every name."
       }
     },
     "/db/teams": {
@@ -6972,14 +6972,33 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "former_names": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "latest_week": {
                             "type": "integer"
+                          },
+                          "logo_key": {
+                            "nullable": true,
+                            "type": "string"
                           },
                           "losses": {
                             "type": "integer"
                           },
                           "matches": {
                             "type": "integer"
+                          },
+                          "names": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "slug": {
+                            "type": "string"
                           },
                           "team_name": {
                             "type": "string"
@@ -7006,7 +7025,7 @@
             }
           }
         },
-        "description": "Every team with its league record and the week it last played.\n\nThe scope deliberately mirrors `/team/<name>` so the list and a team's own\npage can never disagree: the \"Night Shift Open 1\" qualifier is ignored\n(unless that is all the team ever played, which keeps the pre-season entries\nvisible) and placeholder matches with no player rows are dropped.\n\n`won` uses `event_team_a_ingame_side` + `winning_team` — the SQL twin of the\nteam page's `team_result` — so an unscored match adds to the count but not to\neither side of the record. Verified: `wins + losses == matches` for all 67\nteams, and every figure matches the corresponding `/db/team` payload."
+        "description": "Every team with its league record and the week it last played.\n\nOne row per team, not per spelling: a team that renamed mid-season (or was\nacquired and rebranded) appears once, with the record of every name it played\nunder and the current name first. `names` lists the feed spellings, and\n`former_names` the ones that are no longer current; `slug` is the shared,\nURL-safe identity (`/team/<slug>` resolves just like `/team/<name>`).\n\nThe scope deliberately mirrors `/team/<name>` so the list and a team's own\npage can never disagree: the \"Night Shift Open 1\" qualifier is ignored\n(unless that is all the team ever played, which keeps the pre-season entries\nvisible) and placeholder matches with no player rows are dropped.\n\n`won` uses `event_team_a_ingame_side` + `winning_team` — the SQL twin of the\nteam page's `team_result` — so an unscored match adds to the count but not to\neither side of the record."
       }
     },
     "/db/users/{account_id}/damage": {

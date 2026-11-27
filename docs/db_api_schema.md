@@ -940,3 +940,39 @@ filters described above.
 removed, and at most 200 IDs are returned. The item-detail route returns `404`
 for an unknown item and `503` when the external item catalog is unavailable.
 The cards route also returns `503` when its catalog is unavailable.
+## Team routes
+
+The team endpoints are implemented in
+[`backend/app/blueprints/db/teams.py`](../backend/app/blueprints/db/teams.py).
+A team is a name the feed wrote on a match, so a rename (or an acquisition that
+rebrands a roster) would otherwise fork it into two partial teams. These routes
+resolve any spelling of a team to its identity and merge every spelling (see
+[Team identity](db_schema.md#team-identity)).
+
+| Route | Response overview |
+| --- | --- |
+| `/db/teams` | `teams` array: one row per team, with its league record and last week played |
+| `/db/team/<team_name>` | Roster, record, pacing, hero usage and match history for one team |
+| `/db/team/<team_name>/weeks` | `weeks` the team played plus the league's `league_weeks` |
+
+`<team_name>` may be any spelling the team has played under, in any casing, or
+the team's slug. Every row of `/db/teams` and both detail payloads carry:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `team_name` | string | Current name (the canonical identity) |
+| `slug` | string | URL-safe identity; `teamLogoKey()` derivation |
+| `former_names` | array | Earlier spellings, empty for a team that never renamed |
+| `resolved_from` | string or null | Detail routes only: the alias the request used |
+| `names` | array | `/db/teams` only: every spelling seen in the data |
+| `name_history` | array | Detail routes only: `name`, `valid_from_week`, `valid_to_week`, `logo_key` |
+
+Notes:
+- Each match keeps the `event_team_a` / `event_team_b` it was played under, so a
+  rename stays visible in the history.
+- `matches`, `wins`, `losses` and `latest_week` on `/db/teams` are totals across
+  every spelling, and the "Night Shift Open 1" scope rules are unchanged.
+- A series is keyed on the resolved identity, so games either side of a rename
+  still count as one series.
+- Names are matched case-insensitively on the same `LOWER(name)` key the queries
+  have always grouped on; nothing else in the API changes shape.

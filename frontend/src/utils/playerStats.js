@@ -6,6 +6,8 @@
  * tested in `playerStats.test.js`, so the pages stay presentational.
  */
 
+import { compareEvents, eventOf, eventPrefix } from "./events";
+
 export const WIN = "W";
 export const LOSS = "L";
 /**
@@ -243,40 +245,79 @@ export function poolCallouts(pool = [], minGames = MIN_HERO_GAMES) {
   };
 }
 
+const byGamesThenTeam = (a, b) => b.games - a.games || a.team.localeCompare(b.team);
+
 /**
- * Teams the player appears for (games desc), plus the span of weeks they played
- * and the team of their most recent match. Side-less matches still name a team
- * when `event_team_a_ingame_side` exists; they only lack a result.
+ * Teams the player appears for, plus the span of weeks they played and the team
+ * of their most recent match. Side-less matches still name a team when
+ * `event_team_a_ingame_side` exists; they only lack a result.
+ *
+ * Week numbers restart per event, so weeks are only ever grouped WITHIN an event:
+ * `events` is one entry per event (main league first) holding that event's teams
+ * and their weeks. `teams` is every team across events with total games, and the
+ * `firstWeek`/`lastWeek` span is the main league's, or the busiest event's when
+ * the player never played in it — `weekPrefix` names which ("NS", "FN", …).
  */
 export function playedTeams(matches = []) {
-  const byTeam = new Map();
+  const byEvent = new Map();
+  const allTeams = new Map();
+  const weeksByEvent = new Map();
+
   for (const match of matches) {
+    const event = eventOf(match.event_title);
+    if (match.event_week != null) {
+      if (!weeksByEvent.has(event)) weeksByEvent.set(event, []);
+      weeksByEvent.get(event).push(match.event_week);
+    }
+
     const name = teamForMatch(match);
     if (!name) continue;
     const key = name.toLowerCase();
-    if (!byTeam.has(key)) byTeam.set(key, { team: name, games: 0, weeks: new Set() });
-    const entry = byTeam.get(key);
+
+    if (!allTeams.has(key)) allTeams.set(key, { team: name, games: 0 });
+    allTeams.get(key).games += 1;
+
+    if (!byEvent.has(event)) byEvent.set(event, { games: 0, teams: new Map() });
+    const group = byEvent.get(event);
+    group.games += 1;
+    if (!group.teams.has(key)) group.teams.set(key, { team: name, games: 0, weeks: new Set() });
+    const entry = group.teams.get(key);
     entry.games += 1;
     if (match.event_week != null) entry.weeks.add(match.event_week);
   }
-  const teams = [...byTeam.values()]
-    .map((entry) => ({
-      team: entry.team,
-      games: entry.games,
-      weeks: [...entry.weeks].sort((a, b) => a - b),
-    }))
-    .sort((a, b) => b.games - a.games || a.team.localeCompare(b.team));
 
-  const weeks = matches.map((match) => match.event_week).filter((week) => week != null);
+  const gamesByEvent = Object.fromEntries([...byEvent].map(([event, group]) => [event, group.games]));
+  const events = [...byEvent.keys()]
+    .sort((a, b) => compareEvents(a, b, gamesByEvent))
+    .map((event) => ({
+      event,
+      prefix: eventPrefix(event),
+      games: gamesByEvent[event],
+      teams: [...byEvent.get(event).teams.values()]
+        .map((entry) => ({
+          team: entry.team,
+          games: entry.games,
+          weeks: [...entry.weeks].sort((a, b) => a - b),
+        }))
+        .sort(byGamesThenTeam),
+    }));
+
+  const weekCounts = Object.fromEntries([...weeksByEvent].map(([event, weeks]) => [event, weeks.length]));
+  const spanEvent = [...weeksByEvent.keys()].sort((a, b) => compareEvents(a, b, weekCounts))[0] ?? null;
+  const weeks = spanEvent ? weeksByEvent.get(spanEvent) : [];
+
   const newest = matches.find((match) => teamForMatch(match));
-  const current = newest ? teamForMatch(newest) : null;
+  const teams = [...allTeams.values()].sort(byGamesThenTeam);
 
   return {
+    events,
     teams,
-    current,
+    current: newest ? teamForMatch(newest) : null,
+    currentEvent: newest ? eventOf(newest.event_title) : null,
     teamCount: teams.length,
     firstWeek: weeks.length ? Math.min(...weeks) : null,
     lastWeek: weeks.length ? Math.max(...weeks) : null,
+    weekPrefix: eventPrefix(spanEvent),
   };
 }
 
@@ -511,14 +552,39 @@ export function personalBests(matches = []) {
  * past `topHeroes` fold into one "Others" row whose cell is the TOTAL games across
  * those heroes (not an average), so the matrix cannot grow without bound. Games
  * with no week at all (pre-season) cannot be placed and are reported separately.
+ *
+ * Week numbers restart per event, so each event gets its own matrix on its own
+ * axis: `events` is `[{ event, prefix, games, weeks, rows }]`, main league first.
+ * The top-level `weeks` / `rows` are the first event's.
  */
 export function heroWeekMatrix(matches = [], { topHeroes = 7 } = {}) {
   const played = matches.filter(
     (match) => match?.event_week != null && match?.hero_id != null,
   );
   const unplaced = matches.length - played.length;
-  if (played.length === 0) return { weeks: [], rows: [], unplaced };
+  if (played.length === 0) return { events: [], weeks: [], rows: [], unplaced };
 
+  const byEvent = new Map();
+  for (const match of played) {
+    const event = eventOf(match.event_title);
+    if (!byEvent.has(event)) byEvent.set(event, []);
+    byEvent.get(event).push(match);
+  }
+  const games = Object.fromEntries([...byEvent].map(([event, list]) => [event, list.length]));
+  const events = [...byEvent.keys()]
+    .sort((a, b) => compareEvents(a, b, games))
+    .map((event) => ({
+      event,
+      prefix: eventPrefix(event),
+      games: games[event],
+      ...eventHeroWeekMatrix(byEvent.get(event), topHeroes),
+    }));
+
+  return { events, weeks: events[0].weeks, rows: events[0].rows, unplaced };
+}
+
+/** One event's matrix; every match passed in has a week and a hero. */
+function eventHeroWeekMatrix(played, topHeroes) {
   const weeks = played.map((match) => match.event_week);
   const first = Math.min(...weeks);
   const last = Math.max(...weeks);
@@ -564,7 +630,7 @@ export function heroWeekMatrix(matches = [], { topHeroes = 7 } = {}) {
     });
   }
 
-  return { weeks: axis, rows, unplaced };
+  return { weeks: axis, rows };
 }
 
 /** Sort keys the hero pool table exposes. Unknown keys fall back to games. */

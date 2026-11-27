@@ -34,6 +34,7 @@ export default function TimelineMapPanel({
   kills = [],
   t = null,
   durationS = null,
+  objectives = [],
   mode = "deaths",
   heatColor = "team",
   range = "all",
@@ -128,6 +129,9 @@ export default function TimelineMapPanel({
       <TimelineMap
         view={view}
         version={version}
+        t={t}
+        objectives={objectives}
+        teamNames={teamNames}
         onHoverKill={onHoverKill}
         playerMarkers={mode === "realtime" ? playerMarkers : []}
         heroIcon={heroIcon}

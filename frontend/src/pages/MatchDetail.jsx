@@ -1281,6 +1281,7 @@ function MatchDetail() {
                     <div className="flex flex-col gap-2.5">
                       <TimelineMapPanel
                         kills={timelineModel.kills}
+                        objectives={timelineModel.objectives}
                         t={timelineT}
                         durationS={timelineModel.durationS}
                         mode={mapMode}

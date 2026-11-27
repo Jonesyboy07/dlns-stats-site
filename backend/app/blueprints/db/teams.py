@@ -65,6 +65,54 @@ def _resolved_from(identity: Optional[TeamIdentity], requested: str) -> Optional
     return requested
 
 
+# ── Per-event week axes ─────────────────────────────────────────────────────
+# Week numbers restart in every event: Fight Night week 5 and Night Shift week 5
+# are different weeks. Every week timeline is therefore keyed by
+# (event_title, event_week), never by the week number alone. A match with no
+# title is counted as the main league, which is how the league scopes have
+# always treated it.
+PRIMARY_EVENT = "Night Shift"
+EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
+
+
+def _event_of(title: Any) -> str:
+    return title or PRIMARY_EVENT
+
+
+def _league_weeks_by_event(conn) -> Dict[str, set]:
+    """Every week each event actually ran, across all teams (bye weeks are absent)."""
+    by_event: Dict[str, set] = {}
+    for title, week in conn.execute(
+        "SELECT DISTINCT COALESCE(m.event_title, ?), m.event_week FROM matches m "
+        f"WHERE m.event_week IS NOT NULL AND m.match_id > 0 AND {EXCLUDE_OPEN_SQL}",
+        (PRIMARY_EVENT,),
+    ):
+        by_event.setdefault(title, set()).add(week)
+    return by_event
+
+
+def _order_events(games_by_event: Dict[str, int]) -> List[str]:
+    """The main league first, then the team's busiest events."""
+    return sorted(
+        games_by_event,
+        key=lambda event: (event != PRIMARY_EVENT, -games_by_event[event], event.lower()),
+    )
+
+
+def _event_axis(team_weeks: set, league_weeks: set) -> List[int]:
+    """One event's axis: its league weeks clipped to the team's span, plus the team's own.
+
+    Built from the fixtures rather than a numeric first..last range so a genuine
+    bye week (no fixtures anywhere) cannot render as an empty column that breaks
+    every player's bar at once. A break in a bar always means "the team played,
+    this player did not".
+    """
+    if not team_weeks:
+        return []
+    first, last = min(team_weeks), max(team_weeks)
+    return sorted(week for week in (league_weeks | team_weeks) if first <= week <= last)
+
+
 # The teams index, aggregated per raw spelling. Grouping happens in Python so the
 # spellings of one team (a rename, an acquisition rebrand) end up as a single row.
 #
@@ -213,9 +261,13 @@ def team_weeks_api(team_name: str):
 
     Any spelling of the team resolves here, so a player's tenure survives a
     rename: an old name returns the weeks the team played under every name.
+
+    Week numbers restart per event, so `events` carries one entry per event the
+    team played (`event_title`, the team's `weeks`, the event's `league_weeks`),
+    main league first. The top-level `weeks` / `league_weeks` are that first
+    entry's, kept for older callers.
     """
     requested_name = team_name
-    EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
     with get_ro_conn() as conn:
         index = load_team_index(conn)
         identity = index.resolve(team_name)
@@ -233,31 +285,34 @@ def team_weeks_api(team_name: str):
         ).fetchone()
         scope_sql = EXCLUDE_OPEN_SQL if has_non_open_match else "1 = 1"
 
-        team_weeks = [
-            row[0]
-            for row in conn.execute(
-                f"""
-                SELECT DISTINCT m.event_week
-                FROM matches m
-                WHERE {side_sql}
-                  AND m.event_week IS NOT NULL
-                  AND EXISTS (SELECT 1 FROM players p WHERE p.match_id = m.match_id)
-                  AND ({scope_sql})
-                """,
-                side_params,
-            )
-            if row[0] is not None
-        ]
+        team_weeks: Dict[str, set] = {}
+        games: Dict[str, int] = {}
+        for title, week, count in conn.execute(
+            f"""
+            SELECT COALESCE(m.event_title, ?), m.event_week, COUNT(*)
+            FROM matches m
+            WHERE {side_sql}
+              AND m.event_week IS NOT NULL
+              AND EXISTS (SELECT 1 FROM players p WHERE p.match_id = m.match_id)
+              AND ({scope_sql})
+            GROUP BY 1, 2
+            """,
+            (PRIMARY_EVENT, *side_params),
+        ):
+            team_weeks.setdefault(title, set()).add(week)
+            games[title] = games.get(title, 0) + count
 
-        league_weeks = [
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT m.event_week FROM matches m "
-                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
-                f"AND ({EXCLUDE_OPEN_SQL})"
-            )
-            if row[0] is not None
-        ]
+        league_by_event = _league_weeks_by_event(conn)
+
+    events = [
+        {
+            "event_title": event,
+            "weeks": sorted(team_weeks[event]),
+            "league_weeks": sorted(league_by_event.get(event, set()) | team_weeks[event]),
+        }
+        for event in _order_events(games)
+    ]
+    primary = events[0] if events else {"weeks": [], "league_weeks": []}
 
     return jsonify(
         {
@@ -265,8 +320,9 @@ def team_weeks_api(team_name: str):
             "slug": identity.slug if identity else team_slug(team_name),
             "former_names": list(identity.former_names) if identity else [],
             "resolved_from": _resolved_from(identity, requested_name),
-            "weeks": sorted(team_weeks),
-            "league_weeks": sorted(league_weeks),
+            "weeks": primary["weeks"],
+            "league_weeks": primary["league_weeks"],
+            "events": events,
         }
     )
 
@@ -318,7 +374,6 @@ def get_team_detail(team_name: str):
         # event_team_a_ingame_side, so the side-unknown fallback below would
         # count BOTH teams' players for it. Ignore that event, unless doing so
         # would leave the team with nothing at all to show.
-        EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
         has_non_open_match = conn.execute(
             f"""
             SELECT 1 FROM matches m
@@ -528,60 +583,70 @@ def get_team_detail(team_name: str):
                     else []
                 )
 
-        # Latest week the team actually played, matching the filtered list.
-        max_week = max(
-            (m["event_week"] for m in matches if m["event_week"] is not None),
-            default=None,
-        )
+        # Roster timelines, one per event. Week numbers restart in every event,
+        # so mixing them would plot a Fight Night week 5 as Night Shift week 5.
+        team_weeks_by_event: Dict[str, set] = {}
+        games_by_event: Dict[str, int] = {}
+        for m in matches:
+            if m["event_week"] is None:
+                continue
+            event = _event_of(m.get("event_title"))
+            team_weeks_by_event.setdefault(event, set()).add(m["event_week"])
+            games_by_event[event] = games_by_event.get(event, 0) + 1
+        league_by_event = _league_weeks_by_event(conn)
 
-        # Roster timeline axis: the weeks the league actually ran, clipped to the
-        # team's own span. Derived from the fixtures rather than a numeric
-        # first..last range so that a genuine bye week (one with no fixtures
-        # anywhere) cannot render as an empty column that breaks every player's
-        # bar at once and reads as a mass roster change. The team's own weeks are
-        # unioned in so a week the team played is never dropped. Net effect: a
-        # break in a bar always means "the team played, this player did not".
-        team_weeks = {
-            m["event_week"] for m in matches if m["event_week"] is not None
-        }
-        league_weeks = {
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT m.event_week FROM matches m "
-                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
-                f"AND ({EXCLUDE_OPEN_SQL})"
-            )
-            if row[0] is not None
-        }
-        if team_weeks:
-            first_week, last_week = min(team_weeks), max(team_weeks)
-            roster_weeks = sorted(
-                week
-                for week in (league_weeks | team_weeks)
-                if first_week <= week <= last_week
-            )
-        else:
-            roster_weeks = []
-
-        # Weeks each player turned out, driving the timeline bars.
-        axis = set(roster_weeks)
-        cur_player_weeks = conn.execute(
+        # (event, week, games) each player turned out for this team.
+        player_event_weeks: Dict[str, Dict[int, Dict[int, int]]] = {}
+        for account_id, event, week, games in conn.execute(
             f"""
-            SELECT p.account_id, m.event_week
+            SELECT p.account_id, COALESCE(m.event_title, ?), m.event_week,
+                   COUNT(DISTINCT m.match_id)
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             WHERE p.account_id IS NOT NULL AND m.event_week IS NOT NULL
               AND ({ON_TEAM_SQL})
-            GROUP BY p.account_id, m.event_week
+            GROUP BY 1, 2, 3
             """,
-            on_team_params,
-        )
-        weeks_by_player: Dict[int, List[int]] = {}
-        for account_id, week in cur_player_weeks.fetchall():
-            if week in axis:
-                weeks_by_player.setdefault(account_id, []).append(week)
+            (PRIMARY_EVENT, *on_team_params),
+        ):
+            player_event_weeks.setdefault(event, {}).setdefault(account_id, {})[week] = games
+
+        roster_timelines = []
+        for event in _order_events(games_by_event):
+            axis_weeks = _event_axis(team_weeks_by_event[event], league_by_event.get(event, set()))
+            axis = set(axis_weeks)
+            timeline_players = []
+            for account_id, weeks_games in player_event_weeks.get(event, {}).items():
+                weeks = sorted(week for week in weeks_games if week in axis)
+                if not weeks:
+                    continue
+                timeline_players.append({
+                    "account_id": account_id,
+                    "weeks": weeks,
+                    "first_week": weeks[0],
+                    "last_week": weeks[-1],
+                    "appearances": sum(weeks_games[week] for week in weeks),
+                })
+            roster_timelines.append({
+                "event_title": event,
+                "weeks": axis_weeks,
+                "max_week": axis_weeks[-1] if axis_weeks else None,
+                "players": timeline_players,
+            })
+
+        # The page-level week fields (active roster, "NS <n>" headings) follow the
+        # first timeline: the main league, or the team's busiest event when it
+        # never played in the main league.
+        primary = roster_timelines[0] if roster_timelines else None
+        max_week = primary["max_week"] if primary else None
+        roster_weeks = primary["weeks"] if primary else []
+        league_weeks = league_by_event.get(primary["event_title"], set()) if primary else set()
+        primary_rows = {row["account_id"]: row for row in primary["players"]} if primary else {}
         for player in players:
-            player["weeks"] = sorted(weeks_by_player.get(player["account_id"], []))
+            row = primary_rows.get(player["account_id"])
+            player["weeks"] = row["weeks"] if row else []
+            player["first_week"] = row["first_week"] if row else None
+            player["last_week"] = row["last_week"] if row else None
 
         cur3 = conn.execute(
             f"""
@@ -775,6 +840,7 @@ def get_team_detail(team_name: str):
             "max_week": max_week,
             "roster_weeks": roster_weeks,
             "league_weeks": sorted(league_weeks),
+            "roster_timelines": roster_timelines,
             "total_matches": len(matches),
             "players": players,
             "matches": matches,

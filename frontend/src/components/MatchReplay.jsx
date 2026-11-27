@@ -26,6 +26,8 @@ export default function MatchReplay({
   durationS = null,
   version = null,
   rows = [],
+  objectives = [],
+  teamNames = [],
   heroIcon = null,
   className = "",
 }) {
@@ -62,7 +64,13 @@ export default function MatchReplay({
   if (trails.length === 0) {
     return (
       <div className={`flex flex-col items-center gap-2 ${className}`}>
-        <MatchMap rows={rows} version={version} className="w-full" />
+        <MatchMap
+          rows={rows}
+          version={version}
+          objectives={objectives}
+          teamNames={teamNames}
+          className="w-full"
+        />
         <p className="text-sm text-dim">Position trails have not been recorded for this match yet.</p>
       </div>
     );
@@ -87,6 +95,8 @@ export default function MatchReplay({
         rows={elapsedRows(rows, time)}
         now={time}
         version={version}
+        objectives={objectives}
+        teamNames={teamNames}
         className="w-full"
         caption={
           <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-dim">

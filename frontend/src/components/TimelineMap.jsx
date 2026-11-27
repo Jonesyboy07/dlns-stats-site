@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cdnImage } from "../utils/cdn";
+import MapFurniture from "./MapFurniture";
 import {
   BACKDROP_RATIO,
   MAP_ART_FILTER,
@@ -95,6 +96,9 @@ function DeathCross({ dot, onHover }) {
 export default function TimelineMap({
   view,
   version = null,
+  t = null,
+  objectives = [],
+  teamNames = [],
   onHoverKill = null,
   playerMarkers = [],
   heroIcon = null,
@@ -171,6 +175,9 @@ export default function TimelineMap({
           style={{ filter: MAP_ART_FILTER }}
           onError={() => setFailed(true)}
         />
+
+        {/* Scenery sits directly on the art; heat, lines and crosses paint over it. */}
+        <MapFurniture version={version} objectives={objectives} t={t} teamNames={teamNames} />
 
         <canvas
           ref={heatRef}

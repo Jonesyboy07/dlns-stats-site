@@ -953,7 +953,17 @@ resolve any spelling of a team to its identity and merge every spelling (see
 | --- | --- |
 | `/db/teams` | `teams` array: one row per team, with its league record and last week played |
 | `/db/team/<team_name>` | Roster, record, pacing, hero usage and match history for one team |
-| `/db/team/<team_name>/weeks` | `weeks` the team played plus the league's `league_weeks` |
+| `/db/team/<team_name>/weeks` | `events`: per event, the `weeks` the team played and the event's `league_weeks`; top-level `weeks` / `league_weeks` are the first event's |
+
+Week numbers restart in every event (Fight Night week 5 is not Night Shift
+week 5), so week timelines are always split by `event_title`; a match with no
+title counts as Night Shift. Events are ordered main league first, then by the
+team's games. The detail payload's `roster_timelines` holds one entry per event
+(`event_title`, axis `weeks`, `max_week`, and `players` rows with that event's
+`weeks`, `first_week`, `last_week` and `appearances`). Its page-level
+`max_week`, `roster_weeks` and each player's `weeks` / `first_week` /
+`last_week` follow the first timeline: Night Shift, or the team's busiest event
+when it never played Night Shift.
 
 `<team_name>` may be any spelling the team has played under, in any casing, or
 the team's slug. Every row of `/db/teams` and both detail payloads carry:

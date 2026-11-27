@@ -84,6 +84,9 @@ data/site_banner.json
 data/help_config.json
 data/user_cache.json
 
+# Local handoff notes (never committed)
+handoffs/
+
 /data/avatar_cache.json
 docs/stats-redesign/design-brief.md
 docs/stats-redesign/README-design.md

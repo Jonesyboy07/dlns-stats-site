@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { cdnImage } from "../utils/cdn";
+import MapFurniture from "./MapFurniture";
 import {
   BACKDROP_RATIO,
   MAP_ART_FILTER,
@@ -48,7 +49,16 @@ function deathMarkStyle(timeS, now) {
   return { opacity: Math.max(0.3, 0.85 - (age - 8) / 240), fresh: false };
 }
 
-export default function MatchMap({ rows = [], version = null, className = "", caption, now = null, children = null }) {
+export default function MatchMap({
+  rows = [],
+  version = null,
+  className = "",
+  caption,
+  now = null,
+  objectives = [],
+  teamNames = [],
+  children = null,
+}) {
   const [failed, setFailed] = useState(false);
   const config = mapVersionConfig(version);
   const markers = deathMarkers(rows);
@@ -79,6 +89,7 @@ export default function MatchMap({ rows = [], version = null, className = "", ca
           style={{ filter: MAP_ART_FILTER }}
           onError={() => setFailed(true)}
         />
+        <MapFurniture version={version} objectives={objectives} t={now} teamNames={teamNames} />
         {markers.map((marker) => {
           const { opacity, fresh } = deathMarkStyle(marker.timeS, now);
           return (

@@ -573,9 +573,10 @@ CREATE TABLE IF NOT EXISTS match_bans (
 CREATE INDEX IF NOT EXISTS idx_bans_hero ON match_bans(hero_id);
 
 -- Match timeline: objective destructions (walkers, Titan, shield generators,
--- barrack bosses, Core) as reported by match metadata. `team` is the team that
--- destroyed the objective; `destroyed_time_s` is 0 when it survived. Rows exist
--- for every objective the API reports, destroyed or not.
+-- barrack bosses, Core) as reported by match metadata. `team` is the side that
+-- OWNS the objective -- the one that lost it, verified against `winning_team` on
+-- the Patron -- and `destroyed_time_s` is 0 when it survived. Rows exist for every
+-- objective the API reports, destroyed or not.
 CREATE TABLE IF NOT EXISTS match_objectives (
   match_id INTEGER NOT NULL,
   team INTEGER NOT NULL,

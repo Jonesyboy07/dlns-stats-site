@@ -305,17 +305,47 @@ describe("playedTeams", () => {
   });
 
   it("groups teams by games, with the week span and the newest team", () => {
-    const { teams, current, teamCount, firstWeek, lastWeek } = playedTeams(rows);
+    const { events, teams, current, teamCount, firstWeek, lastWeek, weekPrefix } = playedTeams(rows);
     expect(teamCount).toBe(2);
-    expect(teams[0]).toMatchObject({ team: "Poppers' Pupils", games: 2, weeks: [55, 57] });
-    expect(teams[1]).toMatchObject({ team: "Melee Creeps", games: 1, weeks: [40] });
+    expect(teams[0]).toMatchObject({ team: "Poppers' Pupils", games: 2 });
+    expect(teams[1]).toMatchObject({ team: "Melee Creeps", games: 1 });
+    expect(events).toHaveLength(1);
+    expect(events[0].event).toBe("Night Shift");
+    expect(events[0].teams[0]).toMatchObject({ team: "Poppers' Pupils", games: 2, weeks: [55, 57] });
+    expect(events[0].teams[1]).toMatchObject({ team: "Melee Creeps", games: 1, weeks: [40] });
     expect(current).toBe("Poppers' Pupils");
     expect(firstWeek).toBe(20);
     expect(lastWeek).toBe(57);
+    expect(weekPrefix).toBe("NS");
+  });
+
+  it("never merges week numbers from different events", () => {
+    const mixed = [
+      match({ event_title: "Fight Night", event_week: 5, team: SAPPHIRE, event_team_a_ingame_side: 0 }), // newest
+      match({ event_title: "Night Shift", event_week: 30, team: AMBER, event_team_a_ingame_side: 0 }),
+      match({ event_title: "Night Shift", event_week: 31, team: AMBER, event_team_a_ingame_side: 0 }),
+    ];
+    const { events, firstWeek, lastWeek, weekPrefix, current, currentEvent } = playedTeams(mixed);
+
+    expect(events.map((group) => group.event)).toEqual(["Night Shift", "Fight Night"]);
+    expect(events[0].teams).toEqual([{ team: "Poppers' Pupils", games: 2, weeks: [30, 31] }]);
+    expect(events[1]).toMatchObject({ prefix: "FN", teams: [{ team: "Melee Creeps", games: 1, weeks: [5] }] });
+    // The headline span is the main league's, untouched by Fight Night week 5.
+    expect([firstWeek, lastWeek, weekPrefix]).toEqual([30, 31, "NS"]);
+    expect([current, currentEvent]).toEqual(["Melee Creeps", "Fight Night"]);
+  });
+
+  it("uses the busiest event's span when the player never played the main league", () => {
+    const { firstWeek, lastWeek, weekPrefix } = playedTeams([
+      match({ event_title: "Fight Night", event_week: 4, event_team_a_ingame_side: 0 }),
+      match({ event_title: "Fight Night", event_week: 2, event_team_a_ingame_side: 0 }),
+    ]);
+    expect([firstWeek, lastWeek, weekPrefix]).toEqual([2, 4, "FN"]);
   });
 
   it("handles a player with no games", () => {
     expect(playedTeams([])).toMatchObject({
+      events: [],
       teams: [],
       current: null,
       teamCount: 0,
@@ -802,8 +832,26 @@ describe("heroWeekMatrix", () => {
     expect(unplaced).toBe(1);
   });
 
+  it("gives each event its own axis instead of merging week numbers", () => {
+    const { events, weeks } = heroWeekMatrix([
+      match({ match_id: 1, event_title: "Fight Night", event_week: 5, ...hero(1, "Infernus") }),
+      match({ match_id: 2, event_title: "Night Shift", event_week: 30, ...hero(52, "Mirage") }),
+      match({ match_id: 3, event_title: "Night Shift", event_week: 32, ...hero(52, "Mirage") }),
+    ]);
+
+    expect(events.map((group) => [group.event, group.prefix, group.games, group.weeks])).toEqual([
+      ["Night Shift", "NS", 2, [30, 31, 32]],
+      ["Fight Night", "FN", 1, [5]],
+    ]);
+    // Without the split the axis would have run 5..32 with Infernus inside it.
+    expect(events[0].rows.map((row) => row.label)).toEqual(["Mirage"]);
+    expect(events[1].rows[0]).toMatchObject({ label: "Infernus", cells: [1] });
+    expect(weeks).toEqual([30, 31, 32]);
+  });
+
   it("has nothing to show without a placed game", () => {
     const empty = heroWeekMatrix([match({ event_week: null })]);
+    expect(empty.events).toEqual([]);
     expect(empty.weeks).toEqual([]);
     expect(empty.rows).toEqual([]);
     expect(empty.unplaced).toBe(1);

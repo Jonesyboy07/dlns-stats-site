@@ -12,43 +12,22 @@ const FILL = [
 ];
 const TOP_HEROES = 7;
 
-/**
- * Hero × Week: picks per week, one row per hero.
- *
- * The axis runs from the player's first to last league week and the count is
- * printed in every filled cell, so nothing is hover-only. A week the player sat
- * out is an empty cell rather than a skipped column — the point of the matrix is
- * to show the shape of the season, and skipping would hide the gaps. Heroes past
- * the top seven fold into an "Others" row whose cell is the total across them.
- */
-export default function HeroWeekMatrix({ matches = [] }) {
-  const { weeks, rows, unplaced } = useMemo(
-    () => heroWeekMatrix(matches, { topHeroes: TOP_HEROES }),
-    [matches],
-  );
-
-  if (weeks.length === 0) {
-    return (
-      <Panel title="Hero × Week">
-        <p className="text-sm text-muted">
-          No league weeks to plot yet — this player has no games with a week on record.
-        </p>
-      </Panel>
-    );
-  }
-
+/** One event's grid: a row per hero, a column per week of THAT event. */
+function EventMatrix({ group, showHeading }) {
+  const { weeks, rows, prefix } = group;
   const template = { gridTemplateColumns: `${LABEL_COLUMN} repeat(${weeks.length}, minmax(18px, 1fr))` };
 
   return (
-    <Panel
-      title="Hero × Week"
-      subtitle={`Picks per week, NS ${weeks[0]} – NS ${weeks[weeks.length - 1]} · number shown in every cell`}
-      action={
-        <span className="text-[12px] tabular-nums text-muted">
-          {rows.reduce((sum, row) => sum + row.games, 0)} games
-        </span>
-      }
-    >
+    <div className="flex flex-col gap-0.5">
+      {showHeading && (
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.05em] text-muted">
+          {group.event}
+          <span className="ml-1 font-normal normal-case text-dim">
+            · {prefix} {weeks[0]} – {prefix} {weeks[weeks.length - 1]} · {group.games} games
+          </span>
+        </p>
+      )}
+
       <div className="flex flex-col gap-0.5 scroll-thin overflow-x-auto">
         {rows.map((row) => (
           <div key={row.id} className="grid items-center gap-0.5" style={template}>
@@ -60,7 +39,7 @@ export default function HeroWeekMatrix({ matches = [] }) {
               return (
                 <span
                   key={week}
-                  title={`${row.label} · NS ${week}: ${count} pick${count === 1 ? "" : "s"}`}
+                  title={`${row.label} · ${prefix} ${week}: ${count} pick${count === 1 ? "" : "s"}`}
                   className="flex h-5 items-center justify-center rounded-[3px] text-[10px] font-semibold tabular-nums"
                   style={{
                     background: FILL[Math.min(count, 3)] ?? "var(--color-table)",
@@ -82,6 +61,59 @@ export default function HeroWeekMatrix({ matches = [] }) {
             </span>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Hero × Week: picks per week, one row per hero.
+ *
+ * The axis runs from the player's first to last week and the count is printed in
+ * every filled cell, so nothing is hover-only. A week the player sat out is an
+ * empty cell rather than a skipped column — the point of the matrix is to show
+ * the shape of the season, and skipping would hide the gaps. Heroes past the top
+ * seven fold into an "Others" row whose cell is the total across them.
+ *
+ * Week numbers restart per event (Fight Night week 5 is not Night Shift week 5),
+ * so each event gets its own grid, main league first.
+ */
+export default function HeroWeekMatrix({ matches = [] }) {
+  const { events, unplaced } = useMemo(
+    () => heroWeekMatrix(matches, { topHeroes: TOP_HEROES }),
+    [matches],
+  );
+
+  if (events.length === 0) {
+    return (
+      <Panel title="Hero × Week">
+        <p className="text-sm text-muted">
+          No league weeks to plot yet — this player has no games with a week on record.
+        </p>
+      </Panel>
+    );
+  }
+
+  const [lead] = events;
+  const subtitle =
+    events.length === 1
+      ? `Picks per week, ${lead.prefix} ${lead.weeks[0]} – ${lead.prefix} ${lead.weeks[lead.weeks.length - 1]} · number shown in every cell`
+      : "Picks per week, one grid per event · number shown in every cell";
+
+  return (
+    <Panel
+      title="Hero × Week"
+      subtitle={subtitle}
+      action={
+        <span className="text-[12px] tabular-nums text-muted">
+          {events.reduce((sum, group) => sum + group.games, 0)} games
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {events.map((group) => (
+          <EventMatrix key={group.event} group={group} showHeading={events.length > 1} />
+        ))}
       </div>
 
       {unplaced > 0 && (

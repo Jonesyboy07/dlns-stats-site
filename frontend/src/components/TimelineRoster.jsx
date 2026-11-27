@@ -1,88 +1,115 @@
 /**
- * The timeline's team rosters: who is on each side right now, and who is down.
+ * The timeline's rosters: one row per team, six chips each, reading the current second.
  *
- * A pill is the timeline's one selection control -- highlighting a player adds their
+ * A chip is the timeline's one selection control -- highlighting a player adds their
  * lane below and narrows the feed and the map, so the roster is where the reader aims
- * the whole panel. The second team's panel is mirrored, which is what makes the two
- * sides read as opposing columns rather than one list under another.
+ * the whole panel. Everything on a chip is a value at `t`, not a final stat: K/D come
+ * from the kill events, assists and souls from the nearest stats snapshot, and a dead
+ * player shows the respawn countdown in place of their souls.
  */
 
 import Button from "./Button";
 import HeroIcon from "./HeroIcon";
-import { TEAM_STROKE } from "../utils/matchTimelineMap";
+import { TEAM_STROKE, TEAM_TEXT } from "../utils/matchTimelineMap";
 import { formatCompact } from "../utils/format";
 
-/** The pill's hover text: state, then the running stats and how the souls were read. */
-function pillTitle(player) {
+/** `12/4/6` -- kills, deaths, assists, or the pair without assists. */
+function kdaText(player) {
+  const kills = player.kills ?? 0;
+  const deaths = player.deaths ?? 0;
+  if (player.assists == null) return `${kills}/${deaths}`;
+  return `${kills}/${deaths}/${player.assists}`;
+}
+
+/** The chip's hover text: state, then the running stats and how they were read. */
+function chipTitle(player, heroName) {
   const state = player.dead
     ? `dead, ${player.remainingS}s${player.killerName ? ` (killed by ${player.killerName})` : ""}`
     : "alive";
-  const stats = [`${player.kills ?? 0} kills / ${player.deaths ?? 0} deaths`];
+  const stats = [`${kdaText(player)} K/D/A`];
   if (player.souls != null) stats.push(`~${formatCompact(player.souls)} souls (estimated between snapshots)`);
-  return `${player.persona_name} – ${state}\n${stats.join(" · ")}`;
+  if (player.assists != null) stats.push("assists from the last stats snapshot");
+  return `${player.persona_name}${heroName(player.hero_id) ? ` (${heroName(player.hero_id)})` : ""} – ${state}\n${stats.join(" · ")}`;
 }
 
-function PlayerPill({ player, selected, onToggle, heroName }) {
+function PlayerChip({ player, selected, onToggle, heroName }) {
+  const team = Number(player.team) === 1 ? 1 : 0;
+  const color = TEAM_STROKE[team] ?? "#94a3b8";
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={() => onToggle(player.account_id)}
-      title={pillTitle(player)}
-      className={`flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition-colors ${
+      title={chipTitle(player, heroName)}
+      className={`flex min-w-0 items-center gap-2 rounded-lg border py-1.5 pl-1.5 pr-2.5 text-left transition-colors ${
         selected
           ? "border-accent-border-strong bg-accent-bg-strong"
-          : "border-border-light bg-badge-bg hover:border-border-lighter"
+          : "border-border-light bg-card hover:border-border-lighter"
       }`}
     >
-      {/* Only the portrait and the name dim while down: the countdown is the point. */}
-      <HeroIcon
-        name={heroName(player.hero_id)}
-        size="h-5 w-5"
-        className={`rounded-full ${player.dead ? "opacity-45 grayscale" : ""}`}
-      />
-      <span className={`${selected ? "text-accent-light" : "text-secondary"} ${
-        player.dead ? "opacity-45" : ""
-      }`}>
-        {player.persona_name}
-      </span>
-      <span className="text-[11px] tabular-nums text-dim">
-        {player.kills ?? 0}/{player.deaths ?? 0}
-        {player.souls != null && <> · {formatCompact(player.souls)}</>}
-      </span>
-      {player.dead && (
-        <span className="text-[11px] font-semibold tabular-nums text-danger-text">
-          {player.remainingS}s
+      {/* The countdown replaces the value, so the portrait carries the state instead. */}
+      <span className="relative shrink-0">
+        <span className="block rounded-full p-[2px]" style={{ boxShadow: `0 0 0 2px ${color}` }}>
+          <HeroIcon
+            name={heroName(player.hero_id)}
+            size="h-[26px] w-[26px]"
+            className={`rounded-full ${player.dead ? "opacity-40 grayscale" : ""}`}
+          />
         </span>
-      )}
+        {player.dead && (
+          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums text-danger-text">
+            {player.remainingS}
+          </span>
+        )}
+      </span>
+
+      <span className="flex min-w-0 flex-1 flex-col leading-tight">
+        <span
+          className={`truncate text-[12px] font-semibold ${
+            selected ? "text-accent-light" : player.dead ? "text-muted" : "text-primary"
+          }`}
+        >
+          {player.persona_name}
+        </span>
+        {/* K/D/A and the value share the second line so the name gets the full chip width. */}
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate text-[11px] tabular-nums text-secondary">{kdaText(player)}</span>
+          {/* Without soul snapshots the value is omitted, not dashed: K/D/A and the
+              respawn state still read on their own. */}
+          {player.dead || player.souls != null ? (
+            <span
+              className={`ml-auto shrink-0 text-[11px] font-bold tabular-nums ${
+                player.dead ? "text-danger-text" : "text-primary"
+              }`}
+            >
+              {player.dead ? "Respawn" : formatCompact(player.souls)}
+            </span>
+          ) : null}
+        </span>
+      </span>
     </button>
   );
 }
 
-function TeamPanel({ side, teamName, mirrored, selection, onToggle, heroName }) {
+function TeamRow({ side, teamName, selection, onToggle, heroName }) {
   const color = TEAM_STROKE[side.team] ?? "#94a3b8";
   return (
-    <div className="rounded-xl border border-border bg-table px-3 py-2.5">
-      <div className={`flex items-center gap-2 ${mirrored ? "flex-row-reverse" : ""}`}>
+    <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: "96px repeat(6, 1fr)" }}>
+      <div className="flex min-w-0 items-center gap-2">
         <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        <span className="truncate text-xs font-semibold" style={{ color }}>
+        <span className="truncate text-[12px] font-semibold" style={{ color: TEAM_TEXT[side.team] ?? color }}>
           {teamName}
         </span>
-        <span className={`shrink-0 text-xs text-dim ${mirrored ? "mr-auto" : "ml-auto"}`}>
-          {side.alive} alive
-        </span>
       </div>
-      <div className={`mt-2 flex flex-wrap gap-1.5 ${mirrored ? "justify-end" : ""}`}>
-        {side.members.map((player) => (
-          <PlayerPill
-            key={player.account_id}
-            player={player}
-            selected={selection.includes(player.account_id)}
-            onToggle={onToggle}
-            heroName={heroName}
-          />
-        ))}
-      </div>
+      {side.members.map((player) => (
+        <PlayerChip
+          key={player.account_id}
+          player={player}
+          selected={selection.includes(player.account_id)}
+          onToggle={onToggle}
+          heroName={heroName}
+        />
+      ))}
     </div>
   );
 }
@@ -100,40 +127,38 @@ export default function TimelineRoster({
   const hasSelection = selection.length > 0;
 
   return (
-    <div className={`grid items-start gap-4 md:grid-cols-[1fr_auto_1fr] ${className}`}>
+    <div className={`flex flex-col gap-2 ${className}`}>
       {amber ? (
-        <TeamPanel
+        <TeamRow
           side={amber}
           teamName={teamNames[0] || "Amber"}
-          mirrored={false}
           selection={selection}
           onToggle={onToggle}
           heroName={heroName}
         />
-      ) : (
-        <div />
-      )}
+      ) : null}
+      {sapphire ? (
+        <TeamRow
+          side={sapphire}
+          teamName={teamNames[1] || "Sapphire"}
+          selection={selection}
+          onToggle={onToggle}
+          heroName={heroName}
+        />
+      ) : null}
 
-      <div className="flex items-center justify-center">
-        {hasSelection && onClear && (
+      <div className="flex flex-wrap items-center gap-3 pl-[102px]">
+        <span className="text-[11px] text-muted">
+          {hasSelection
+            ? "Selected players have their own lane; their item buys are merged into All events."
+            : "Select a player to add their lane and narrow the feed and map to them."}
+        </span>
+        {hasSelection && onClear ? (
           <Button variant="ghost" size="xs" onClick={onClear}>
             Clear
           </Button>
-        )}
+        ) : null}
       </div>
-
-      {sapphire ? (
-        <TeamPanel
-          side={sapphire}
-          teamName={teamNames[1] || "Sapphire"}
-          mirrored
-          selection={selection}
-          onToggle={onToggle}
-          heroName={heroName}
-        />
-      ) : (
-        <div />
-      )}
     </div>
   );
 }

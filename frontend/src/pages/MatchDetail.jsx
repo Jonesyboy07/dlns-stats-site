@@ -6,11 +6,18 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import ErrorMessage from "../components/ErrorMessage";
 import MatchHeader from "../components/MatchHeader";
 import Spoiler from "../spoilers/Spoiler";
+import { setSpoilerFree, useSpoilerState } from "../spoilers/spoilerStore";
 import { heroIconUrl } from "../components/HeroIcon";
 import { SOUL_SOURCE_LABELS } from "../utils/soulSources";
 import { buildTimelineRows, clock, objectiveLabel, parseMatchTime, matchTimeParam } from "../utils/matchTimeline";
-import { buildObjectives, buildTimelineModel } from "../utils/matchTimelineModel";
-import { buildFeedRows } from "../utils/matchTimelineFeed";
+import {
+  TIMELINE_SOULS_ENABLED,
+  buildObjectives,
+  buildTimelineModel,
+  soulLeadScale,
+  turningPoints,
+} from "../utils/matchTimelineModel";
+import { buildFeedRows, feedCounts } from "../utils/matchTimelineFeed";
 import { buildLaneView, soulLeadSeries, teamSoulsAt } from "../utils/matchTimelineLanes";
 import ItemTooltip from "../components/items/ItemTooltip";
 import { killInvolves, trailMarkers } from "../utils/matchTimelineMap";
@@ -250,11 +257,25 @@ function MatchDetail() {
   const [mapLines, setMapLines] = useState("hover");
   const [mapHoverKillId, setMapHoverKillId] = useState(null);
   const [mapFocusedFight, setMapFocusedFight] = useState(null);
+  // The fight under the pointer (card, band or turning-point chip), by index.
+  const [hoveredFightIndex, setHoveredFightIndex] = useState(null);
   const [feedFilter, setFeedFilter] = useState("all");
+  // Quiet stretches the reader has opened, keyed by their first event's time.
+  const [expandedQuiet, setExpandedQuiet] = useState(() => new Set());
+  useEffect(() => {
+    setExpandedQuiet(new Set());
+    setHoveredFightIndex(null);
+  }, [matchId]);
+  // Spoiler-safe is the site-wide setting, not a tab-local one: with it on the timeline
+  // opens at 0:00 so the result cannot be read off the scrubber before it is played.
+  const spoilerState = useSpoilerState();
+  const spoilerSafe = Boolean(spoilerState?.enabled);
+  const spoilerSafeRef = useRef(spoilerSafe);
+  spoilerSafeRef.current = spoilerSafe;
   // Null means "the end of the match", which is where the timeline opens. A `?t=` in
   // the URL opens there instead, which is what makes a timeline link shareable.
   const [timelineTime, setTimelineTime] = useState(() =>
-    parseMatchTime(new URLSearchParams(window.location.search).get("t")),
+    spoilerSafe ? 0 : parseMatchTime(new URLSearchParams(window.location.search).get("t")),
   );
   const [timelinePlaying, setTimelinePlaying] = useState(false);
   // A viewing preference rather than match state, so it survives switching matches.
@@ -372,19 +393,34 @@ function MatchDetail() {
 
   // Trails mode is the only thing that needs the position trails, and decoding them is
   // wasted work otherwise: a whole match's trails are a few hundred KB of base64.
+  // Older matches have no trails. Realtime is then disabled in the map control, and a
+  // mode that would draw nothing (it is the default) falls back to Deaths.
+  const timelineHasPositions = (matchPositions?.players || []).length > 0;
+  const timelineMapMode = mapMode === "realtime" && !timelineHasPositions ? "deaths" : mapMode;
   const timelineTrails = useMemo(
     () =>
-      mapMode === "realtime"
+      timelineMapMode === "realtime"
         ? (matchPositions?.players || []).map(decodeTrail).filter(Boolean)
         : [],
-    [mapMode, matchPositions],
+    [timelineMapMode, matchPositions],
   );
   // Amber-minus-Sapphire souls over the match, built once per match rather than on
-  // every playback tick.
+  // every playback tick. Empty while souls are switched off, which also empties the
+  // turning points derived from it.
   const timelineSoulLead = useMemo(
-    () => (timeline?.available ? soulLeadSeries(timeline.players, timelineModel.durationS) : []),
+    () =>
+      TIMELINE_SOULS_ENABLED && timeline?.available
+        ? soulLeadSeries(timeline.players, timelineModel.durationS)
+        : [],
     [timeline, timelineModel.durationS],
   );
+  // The header's tug bar scale and the turning-point chips both come from that series.
+  const timelineTurningPoints = useMemo(() => turningPoints(timelineSoulLead), [timelineSoulLead]);
+  const timelineMaxLead = useMemo(() => soulLeadScale(timelineSoulLead), [timelineSoulLead]);
+  // The header's readouts at the clock, read through the same helper the soul-lead lane
+  // uses, so the two can never disagree about the lead.
+  const timelineSoulsNow = teamSoulsAt(timelineSoulLead, timelineT ?? 0);
+  const timelineLeadNow = timelineSoulsNow ? timelineSoulsNow[0] - timelineSoulsNow[1] : null;
 
   const timelinePlayerMarkers = useMemo(
     () => trailMarkers(timelineTrails, timelineModel.kills, timelineT),
@@ -407,7 +443,9 @@ function MatchDetail() {
     // is reused when only the match id in the URL changes. The clock re-reads `?t=`
     // rather than resetting to null, or a shared link would lose its timestamp the
     // moment the page mounted.
-    setTimelineTime(parseMatchTime(new URLSearchParams(window.location.search).get("t")));
+    setTimelineTime(
+      spoilerSafeRef.current ? 0 : parseMatchTime(new URLSearchParams(window.location.search).get("t")),
+    );
     setMapFocusedFight(null);
     setMapHoverKillId(null);
     setTimelineSelection([]);
@@ -750,6 +788,50 @@ function MatchDetail() {
       prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId],
     );
 
+  // Spoiler-safe is the site-wide setting; turning it on rewinds the tab to 0:00 so the
+  // result is not sitting on screen the moment it hides the rest of the match.
+  const toggleSpoilerSafe = (next) => {
+    setSpoilerFree(next);
+    if (next) {
+      setTimelinePlaying(false);
+      setTimelineTime(0);
+      // A focused fight is a look-ahead: drop it so nothing past 0:00 stays pinned.
+      setMapFocusedFight(null);
+    }
+  };
+
+  // The fight a turning point's window holds, if any.
+  const turningPointFight = (point) =>
+    (timelineModel.fights || []).find(
+      (candidate) => candidate.startS >= point.startS && candidate.endS <= point.endS,
+    ) ?? null;
+
+  // Hovering a chip highlights its fight everywhere, like hovering the card or band.
+  const hoverTimelineTurningPoint = (point) =>
+    setHoveredFightIndex(point ? (turningPointFight(point)?.index ?? null) : null);
+
+  const toggleQuietStretch = (key) =>
+    setExpandedQuiet((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  // A turning point focuses the fight inside its window, or seeks to the window's end
+  // when no fight fell in it -- the chip always lands somewhere useful.
+  const focusTimelineTurningPoint = (point) => {
+    const fight = turningPointFight(point);
+    setTimelinePlaying(false);
+    if (fight) {
+      setMapFocusedFight(fight);
+      setTimelineTime(fight.endS);
+    } else {
+      setMapFocusedFight(null);
+      setTimelineTime(point.endS);
+    }
+  };
+
   // The map, the feed and the lanes all read from one derivation of the same feed, so
   // they can never disagree about what a fight was or who was on a streak.
   const timelineSelectionNames = players
@@ -761,9 +843,13 @@ function MatchDetail() {
     filter: feedFilter,
     selection: timelineSelection,
     hoveredKillId: mapHoverKillId,
+    hoveredFightIndex,
     focusedFight: mapFocusedFight,
     durationS: timelineModel.durationS,
+    expandedQuiet,
   });
+  // Tab counts follow the clock and the selection, never the focus.
+  const timelineFeedCounts = feedCounts(timelineModel, { t: timelineT, selection: timelineSelection });
   const timelineTeamName = (team) =>
     (team === 0 ? amberTeamName : team === 1 ? sapphireTeamName : null) || "Unknown";
 
@@ -774,6 +860,7 @@ function MatchDetail() {
     kills: timelineModel.kills,
     t: timelineT,
     timelinePlayers: timeline?.available ? timeline.players : null,
+    showSouls: TIMELINE_SOULS_ENABLED,
     durationS: timelineModel.durationS,
   });
   const timelineScores = teamScores(timelineModel.kills, timelineT);
@@ -788,7 +875,13 @@ function MatchDetail() {
     durationS: timelineModel.durationS,
     involves: (kill) => killInvolves(kill, timelineSelection),
     soulLead: timelineSoulLead,
+    turningPoints: timelineTurningPoints,
   });
+  // The hovered fight as an object, for the map (which needs its kill ids).
+  const timelineHoveredFight =
+    hoveredFightIndex == null
+      ? null
+      : (timelineModel.fights || []).find((fight) => fight.index === hoveredFightIndex) ?? null;
 
   // The laning tab's lanes and its count of players with no lane at all, which the
   // panel reports rather than dropping silently.
@@ -981,6 +1074,12 @@ function MatchDetail() {
     adjacentMatches.event_title || weekMeta?.series || weekMeta?.title || null;
   const displayEventWeek =
     adjacentMatches.event_week != null ? adjacentMatches.event_week : weekMeta?.week;
+
+  // The timeline header's meta line: the event and week, when both are known.
+  const timelineMeta =
+    [displayEventTitle, displayEventWeek != null ? `Week ${displayEventWeek}` : null]
+      .filter(Boolean)
+      .join(" · ") || null;
 
   return (
     <div className="w-full p-8">
@@ -1250,14 +1349,24 @@ function MatchDetail() {
             </div>
           }
         >
-        <div className="mb-6 bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-6">
+        <div className="mb-6 max-w-[1240px] bg-card border border-border-light rounded-xl shadow-[0_1px_3px_rgb(0_0_0/0.3),0_1px_2px_rgb(0_0_0/0.2)] p-5">
           <TimelineHeader
             className="mb-4"
             teamNames={[amberTeamName, sapphireTeamName]}
             scores={timelineScores}
-            souls={teamSoulsAt(timelineSoulLead, timelineT ?? 0)}
+            souls={timelineSoulsNow}
+            lead={timelineLeadNow}
+            maxLead={timelineMaxLead}
+            alive={[timelineRoster[0]?.alive ?? 0, timelineRoster[1]?.alive ?? 0]}
             t={timelineT ?? 0}
             durationS={timelineModel.durationS}
+            meta={timelineMeta}
+            turningPoints={timelineTurningPoints}
+            spoilerSafe={spoilerSafe}
+            onToggleSpoiler={toggleSpoilerSafe}
+            onSelectTurningPoint={focusTimelineTurningPoint}
+            onHoverTurningPoint={hoverTimelineTurningPoint}
+            soulsEnabled={TIMELINE_SOULS_ENABLED}
           />
           {matchEvents == null || matchPositions == null ? (
             <p className="mt-3 text-sm text-dim">Loading…</p>
@@ -1284,19 +1393,22 @@ function MatchDetail() {
                         objectives={timelineModel.objectives}
                         t={timelineT}
                         durationS={timelineModel.durationS}
-                        mode={mapMode}
+                        mode={timelineMapMode}
+                        hasPositions={timelineHasPositions}
                         heatColor={mapHeat}
                         range={mapRange}
                         lines={mapLines}
                         playerMarkers={timelinePlayerMarkers}
                         heroIcon={getHeroIcon}
                         hoveredKillId={mapHoverKillId}
+                        hoveredFight={timelineHoveredFight}
                         selection={timelineSelection}
                         focusedFight={mapFocusedFight}
                         version={mapVersion}
                         teamNames={[amberTeamName, sapphireTeamName]}
                         selectionNames={timelineSelectionNames}
                         onHoverKill={setMapHoverKillId}
+                        onSeek={seekTimeline}
                         onExitFight={() => setMapFocusedFight(null)}
                         onChange={(patch) => {
                           if (patch.mode !== undefined) setMapMode(patch.mode);
@@ -1317,6 +1429,8 @@ function MatchDetail() {
                     </div>
                     <TimelineFeed
                       rows={timelineFeedRows}
+                      counts={timelineFeedCounts}
+                      t={timelineT ?? 0}
                       filter={feedFilter}
                       onFilter={setFeedFilter}
                       onSeek={seekTimeline}
@@ -1327,6 +1441,8 @@ function MatchDetail() {
                         setFeedFilter("all");
                       }}
                       onHoverKill={setMapHoverKillId}
+                      onHoverFight={setHoveredFightIndex}
+                      onToggleQuiet={toggleQuietStretch}
                       heroName={getHeroName}
                       teamName={timelineTeamName}
                     />
@@ -1345,6 +1461,12 @@ function MatchDetail() {
                     }}
                     focusedFight={mapFocusedFight}
                     fights={timelineModel.fights}
+                    hoveredKillId={mapHoverKillId}
+                    hoveredFightIndex={hoveredFightIndex}
+                    onHoverKill={setMapHoverKillId}
+                    onHoverFight={setHoveredFightIndex}
+                    spoilerSafe={spoilerSafe}
+                    showSoulLead={TIMELINE_SOULS_ENABLED}
                     heroName={getHeroName}
                     teamNames={[amberTeamName, sapphireTeamName]}
                   />

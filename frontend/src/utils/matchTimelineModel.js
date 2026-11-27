@@ -13,6 +13,7 @@
  */
 
 import { respawnSeconds } from "./replay";
+import { interpolateAt } from "./matchTimelineLanes";
 
 // Kills this close together are one engagement, and a group only counts as a fight
 // once it is this big -- a lone pick is not a team fight.
@@ -343,4 +344,98 @@ export function buildTimelineModel({
     /** The fight a kill belongs to, or undefined -- used to indent the feed. */
     fightForKill: (killId) => killFight.get(killId),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Soul lead: header readouts and turning points
+// ---------------------------------------------------------------------------
+
+/** A lead this small reads as level rather than as a lead. */
+export const EVEN_LEAD_SOULS = 500;
+
+/**
+ * Souls on the Timeline tab are switched off for now.
+ *
+ * The only soul data stored is the per-player stats snapshots, which are minutes apart,
+ * so every per-second value (team souls, the soul lead and tug bar, turning points, the
+ * roster's souls, the soul-lead lane) was an interpolation between samples. Rather than
+ * show estimates as if they were exact, those pieces render blank until demo parsing
+ * provides per-second souls -- see `.notes/demo-parsing-todo.md`. Flipping this back on
+ * restores the snapshot-based versions unchanged.
+ */
+export const TIMELINE_SOULS_ENABLED = false;
+
+/** Turning points compare the lead across this span. */
+export const TURNING_POINT_WINDOW_S = 120;
+
+/** Two turning points must start at least this far apart, so chips never overlap. */
+export const TURNING_POINT_SPACING_S = 180;
+
+/** Chips shown at most; more than three stops being a summary. */
+export const TURNING_POINT_LIMIT = 3;
+
+/**
+ * The largest absolute lead in the series, which is the scale the header's tug bar
+ * draws against. 0 when there is no series, so callers can treat it as "no bar".
+ */
+export function soulLeadScale(series = []) {
+  return (series || []).reduce((largest, point) => {
+    const lead = Number(point?.lead);
+    return Number.isFinite(lead) ? Math.max(largest, Math.abs(lead)) : largest;
+  }, 0);
+}
+
+/**
+ * The biggest soul-lead swings: for every sample second, the change in the lead over
+ * the next `windowS` seconds, keeping the largest few that start at least `spacingS`
+ * apart. Returned oldest first, which is the order the chips read in.
+ *
+ * The series comes from `soulLeadSeries`, one point per snapshot second. Snapshots are
+ * 3-5 minutes apart, so a two-minute window usually falls *between* two of them; the
+ * endpoints are interpolated rather than snapped, which is the same reading the header
+ * shows at `t`.
+ *
+ * Each entry is `{ startS, endS, swing, swingSouls, team }`, where `swing` is signed
+ * (positive = Amber gained) and `team` is the side that came out ahead.
+ */
+export function turningPoints(
+  series = [],
+  { windowS = TURNING_POINT_WINDOW_S, spacingS = TURNING_POINT_SPACING_S, limit = TURNING_POINT_LIMIT } = {},
+) {
+  const points = (series || []).filter(
+    (point) => Number.isFinite(Number(point?.timeS)) && Number.isFinite(Number(point?.lead)),
+  );
+  if (points.length < 2) return [];
+  const lastS = Number(points[points.length - 1].timeS);
+
+  const candidates = [];
+  for (const point of points) {
+    const startS = Number(point.timeS);
+    const endS = Math.min(startS + windowS, lastS);
+    // A window running past the end would compare against a held value, not the match.
+    if (endS - startS < windowS / 2) continue;
+    const read = (entry) => entry.lead;
+    const from = interpolateAt(points, startS, { read });
+    const to = interpolateAt(points, endS, { read });
+    if (from == null || to == null || to === from) continue;
+    candidates.push({ startS, endS, swing: to - from });
+  }
+
+  candidates.sort((a, b) => Math.abs(b.swing) - Math.abs(a.swing));
+  const picked = [];
+  for (const candidate of candidates) {
+    if (picked.length >= limit) break;
+    if (picked.some((chosen) => Math.abs(chosen.startS - candidate.startS) < spacingS)) continue;
+    picked.push(candidate);
+  }
+
+  return picked
+    .sort((a, b) => a.startS - b.startS)
+    .map((candidate) => ({
+      startS: candidate.startS,
+      endS: candidate.endS,
+      swing: candidate.swing,
+      swingSouls: Math.abs(candidate.swing),
+      team: candidate.swing > 0 ? 0 : 1,
+    }));
 }

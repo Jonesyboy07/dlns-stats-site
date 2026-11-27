@@ -56,7 +56,7 @@ const teamTint = (color) => `color-mix(in srgb, ${color} ${MARKER_TINT * 100}%, 
  * read differently at a glance. The old dot emptied its middle; a cross cannot, so the
  * outline is built by stroking the team colour wide and the background narrow on top.
  */
-function DeathCross({ dot, onHover }) {
+function DeathCross({ dot, onHover, onSelect }) {
   const color = TEAM_STROKE[dot.team] ?? "#94a3b8";
   const cross = (width, strokeColor) => (
     <g stroke={strokeColor} strokeWidth={width} strokeLinecap="round" fill="none">
@@ -69,14 +69,23 @@ function DeathCross({ dot, onHover }) {
       aria-hidden="true"
       onMouseEnter={onHover ? () => onHover(dot.killId) : undefined}
       onMouseLeave={onHover ? () => onHover(null) : undefined}
-      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-[width,height,opacity] duration-200 motion-reduce:transition-none"
+      // Mouse only: the keyboard path to the same seek is the feed row for this kill.
+      onClick={onSelect && dot.timeS != null ? () => onSelect(dot.timeS) : undefined}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-[width,height,opacity] duration-200 motion-reduce:transition-none ${
+        onSelect ? "cursor-pointer" : ""
+      }`}
       style={{
         left: pct(dot.x),
         top: pct(dot.y),
         width: dot.size,
         height: dot.size,
         opacity: dot.opacity,
-        boxShadow: dot.fresh ? "0 0 0 4px oklch(68.88% 0.187 300 / 0.35)" : "none",
+        // A hovered kill (from any panel) takes a white ring; a fresh death the accent one.
+        boxShadow: dot.ring
+          ? "0 0 0 2px #fff"
+          : dot.fresh
+            ? "0 0 0 4px oklch(68.88% 0.187 300 / 0.35)"
+            : "none",
       }}
     >
       <svg viewBox={`0 0 ${CROSS_UNITS} ${CROSS_UNITS}`} className="h-full w-full">
@@ -100,6 +109,7 @@ export default function TimelineMap({
   objectives = [],
   teamNames = [],
   onHoverKill = null,
+  onSelectKill = null,
   playerMarkers = [],
   heroIcon = null,
   caption = null,
@@ -170,7 +180,7 @@ export default function TimelineMap({
         />
         <img
           src={cdnImage(config.overlay)}
-          alt={`${config.label} minimap`}
+          alt="Match map"
           className="absolute inset-0 h-full w-full"
           style={{ filter: MAP_ART_FILTER }}
           onError={() => setFailed(true)}
@@ -217,7 +227,7 @@ export default function TimelineMap({
         </svg>
 
         {(view?.dots ?? []).map((entry) => (
-          <DeathCross key={entry.kill.id} dot={entry.dot} onHover={onHoverKill} />
+          <DeathCross key={entry.kill.id} dot={entry.dot} onHover={onHoverKill} onSelect={onSelectKill} />
         ))}
 
         {/* Realtime mode: where each player actually is, rather than where they died. */}

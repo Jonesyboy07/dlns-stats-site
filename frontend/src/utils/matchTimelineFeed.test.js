@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildKills, buildFights, buildObjectives, keyPurchases } from "./matchTimelineModel";
-import { FEED_FILTERS, buildFeedRows } from "./matchTimelineFeed";
+import { FEED_FILTERS, buildFeedRows, feedCounts, fightAt, quietSummary } from "./matchTimelineFeed";
 
 const players = [
   { player_slot: 1, team: 0, account_id: 101, hero_id: 11, persona_name: "ABL" },
@@ -127,10 +127,31 @@ describe("buildFeedRows", () => {
     expect(rows).toEqual([]);
   });
 
-  it("dims events that have not happened yet", () => {
+  it("lists only events the clock has reached", () => {
     const rows = buildFeedRows(m, { t: 700, durationS: 2000 });
-    expect(rows.find((row) => row.timeS === 1200).subdued).toBe(true);
-    expect(rows.find((row) => row.timeS === 600).subdued).toBe(false);
+    expect(rows.some((row) => row.timeS === 1200)).toBe(false);
+    expect(rows.every((row) => row.timeS <= 700)).toBe(true);
+    expect(rows.filter((row) => row.kind === "kill").map((row) => row.timeS)).toEqual([600, 610, 618]);
+  });
+
+  it("is empty at 0:00", () => {
+    expect(buildFeedRows(m, { t: 0, durationS: 2000 })).toEqual([]);
+  });
+
+  it("reveals a fight's header at its start, still in progress", () => {
+    const rows = buildFeedRows(m, { t: 612, durationS: 2000 });
+    const fight = rows.find((row) => row.kind === "fight");
+    expect(fight).toMatchObject({ inProgress: true, score: "2–0", winner: null, followUp: null });
+    // Its third kill (618s) has not happened yet.
+    expect(rows.filter((row) => row.kind === "kill")).toHaveLength(2);
+
+    const done = buildFeedRows(m, { t: 700, durationS: 2000 }).find((row) => row.kind === "fight");
+    expect(done).toMatchObject({ inProgress: false, score: "3–0", winner: 0 });
+  });
+
+  it("marks the hovered fight", () => {
+    const rows = buildFeedRows(m, { t: 2000, durationS: 2000, hoveredFightIndex: 0 });
+    expect(rows.find((row) => row.kind === "fight").hovered).toBe(true);
   });
 
   it("marks the latest past event as current", () => {
@@ -165,9 +186,14 @@ describe("buildFeedRows", () => {
 
     expect(rows.every((row) => row.fightIndex === 0 || row.kind === "fight" || row.kind === "objective")).toBe(true);
     expect(rows.some((row) => row.kind === "objective" && row.timeS === 1500)).toBe(false);
-    // A focused fight ignores the clock, so nothing in it reads as future.
-    expect(rows.every((row) => row.subdued === false)).toBe(true);
     expect(rows.find((row) => row.kind === "fight").background).toBe("fightFocused");
+  });
+
+  it("shows a focused fight whole, even past the clock", () => {
+    const rows = buildFeedRows(m, { t: 590, durationS: 2000, focusedFight: m.fights[0] });
+    expect(rows.filter((row) => row.kind === "kill")).toHaveLength(3);
+    expect(rows.find((row) => row.kind === "fight")).toMatchObject({ inProgress: false, score: "3–0" });
+    expect(rows.some((row) => row.current)).toBe(false);
   });
 
   it("carries the badges a kill earned", () => {
@@ -187,6 +213,96 @@ describe("buildFeedRows", () => {
     expect(buildFeedRows(null)).toEqual([]);
     expect(buildFeedRows({})).toEqual([]);
     expect(buildFeedRows(model(), {})).toHaveLength(7);
+  });
+});
+
+describe("fightAt", () => {
+  // The objective at 630s falls 8s after the fight ends (622s), inside the follow-up window.
+  const kills = buildKills(events, { players });
+  const objectives = buildObjectives(events, { labelOf: (id) => `Obj${id}`, laneOf: () => null });
+  const [fight] = buildFights(kills, { objectives });
+
+  it("names the follow-up only once it has fallen", () => {
+    expect(fight.objective.timeS).toBe(630);
+    expect(fightAt(fight, 625)).toMatchObject({ inProgress: false, followUp: null });
+    expect(fightAt(fight, 640).followUp).toBe(fight.objective);
+    expect(fightAt(fight).followUp).toBe(fight.objective);
+  });
+
+  it("counts only the kills so far while the fight runs", () => {
+    expect(fightAt(fight, 600)).toMatchObject({ inProgress: true, score: "1–0", winner: null });
+  });
+});
+
+describe("quiet stretches", () => {
+  // A first blood (badged, so it stays), three unremarkable pick-offs far apart, then an
+  // objective that ends the run.
+  const quietEvents = [
+    death(100, 7, 1),
+    death(300, 8, 2),
+    death(400, 9, 3),
+    death(500, 10, 1),
+    { type: "objective", time_s: 600, team: 0, objective_id: 5, lane: 1, player_damage: 100 },
+  ];
+  const quietKills = buildKills(quietEvents, { players });
+  const quiet = model({
+    kills: quietKills,
+    objectives: buildObjectives(quietEvents, { labelOf: (id) => `Obj${id}`, laneOf: () => null }),
+    fights: buildFights(quietKills, { objectives: [] }),
+  });
+
+  it("folds 3+ unremarkable rows into one stretch", () => {
+    const rows = buildFeedRows(quiet, { t: 2000, durationS: 2000 });
+    expect(rows.map((row) => row.kind)).toEqual(["kill", "quiet", "objective"]);
+    const stretch = rows[1];
+    expect(stretch).toMatchObject({ key: "quiet-300", startS: 300, endS: 500, picks: 3, items: 0, expanded: false });
+  });
+
+  it("keeps an expanded stretch's header followed by its rows", () => {
+    const rows = buildFeedRows(quiet, { t: 2000, durationS: 2000, expandedQuiet: new Set(["quiet-300"]) });
+    expect(rows.map((row) => row.kind)).toEqual(["kill", "quiet", "kill", "kill", "kill", "objective"]);
+    expect(rows[1].expanded).toBe(true);
+    expect(rows.slice(2, 5).every((row) => row.inStretch === "quiet-300")).toBe(true);
+  });
+
+  it("stands in for the current row while folded", () => {
+    const rows = buildFeedRows(quiet, { t: 550, durationS: 2000 });
+    expect(rows.find((row) => row.kind === "quiet")).toMatchObject({ current: true, background: "current" });
+  });
+
+  it("only folds in All events", () => {
+    const rows = buildFeedRows(quiet, { t: 2000, durationS: 2000, filter: "kills" });
+    expect(rows.some((row) => row.kind === "quiet")).toBe(false);
+  });
+
+  it("does not fold a run that is too short", () => {
+    const rows = buildFeedRows(quiet, { t: 450, durationS: 2000 });
+    expect(rows.some((row) => row.kind === "quiet")).toBe(false);
+  });
+
+  it("summarises what a stretch holds", () => {
+    expect(quietSummary({ picks: 3, items: 1 })).toBe("3 picks · 1 item");
+    expect(quietSummary({ picks: 1 })).toBe("1 pick");
+    expect(quietSummary({ items: 2 })).toBe("2 items");
+  });
+});
+
+describe("feedCounts", () => {
+  const m = model();
+
+  it("counts each tab's events up to the clock", () => {
+    // At 700s: the fight (596) and its 3 kills, the 630 objective; Colossus (700) is a
+    // key item but only enters All events with a player selected.
+    expect(feedCounts(m, { t: 700 })).toEqual({ all: 5, kills: 3, obj: 1, fights: 1, items: 1 });
+  });
+
+  it("follows the selection like the rows do", () => {
+    expect(feedCounts(m, { t: 700, selection: [101] })).toMatchObject({ all: 5, kills: 2, items: 1 });
+  });
+
+  it("is all zeros at 0:00 or without a model", () => {
+    expect(Object.values(feedCounts(m, { t: 0 })).every((count) => count === 0)).toBe(true);
+    expect(feedCounts(null).all).toBe(0);
   });
 });
 

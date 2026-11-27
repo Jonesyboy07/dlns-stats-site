@@ -3,12 +3,15 @@ import {
   FIGHT_GAP_S,
   KEY_ITEM_MIN_TIER,
   SHUTDOWN_STREAK,
+  TURNING_POINT_LIMIT,
   buildFights,
   buildKills,
   buildObjectives,
   buildTimelineModel,
   indexPlayers,
   keyPurchases,
+  soulLeadScale,
+  turningPoints,
 } from "./matchTimelineModel";
 
 // Two sides of six, matching a real scoreboard. Slots 1-6 are amber, 7-12 sapphire.
@@ -371,5 +374,92 @@ describe("buildTimelineModel", () => {
     expect(model.objectives).toEqual([]);
     expect(model.keyPurchases).toEqual([]);
     expect(model.durationS).toBeNull();
+  });
+});
+
+describe("soulLeadScale", () => {
+  it("is the largest absolute lead, for the header's tug bar", () => {
+    expect(soulLeadScale([{ timeS: 0, lead: 400 }, { timeS: 120, lead: -6200 }, { timeS: 240, lead: 900 }])).toBe(6200);
+  });
+
+  it("is 0 with no series or only bad points", () => {
+    expect(soulLeadScale([])).toBe(0);
+    expect(soulLeadScale(null)).toBe(0);
+    expect(soulLeadScale([{ timeS: 0, lead: null }, { lead: "x" }])).toBe(0);
+  });
+});
+
+describe("turningPoints", () => {
+  /** A series whose lead ramps at each entry, so swings are easy to predict. */
+  const series = (points) => points.map(([timeS, lead]) => ({ timeS, lead }));
+
+  it("finds the biggest two-minute swings, oldest first", () => {
+    // Snapshots every two minutes, so a full window captures a full step.
+    const points = turningPoints(
+      series([
+        [0, 0],
+        [120, 0],
+        [240, 3000],
+        [360, 3000],
+        [480, -2000],
+        [600, -2000],
+        [720, 1000],
+        [840, 1000],
+      ]),
+    );
+    expect(points.length).toBeGreaterThan(0);
+    expect(points.length).toBeLessThanOrEqual(TURNING_POINT_LIMIT);
+    expect(points[0].startS).toBeLessThan(points[points.length - 1].startS);
+    const biggest = points.reduce((best, point) => (point.swingSouls > best.swingSouls ? point : best));
+    // 3000 in Amber's favour collapsing to -2000 is the largest two-minute move.
+    expect(biggest.swingSouls).toBeGreaterThanOrEqual(4000);
+    expect(biggest.team).toBe(1);
+  });
+
+  it("keeps the chips at least three minutes apart", () => {
+    const points = turningPoints(
+      series([
+        [0, 0],
+        [200, 5000],
+        [400, 0],
+        [600, 5000],
+        [800, 0],
+        [1000, 5000],
+        [1200, 0],
+      ]),
+    );
+    for (let i = 1; i < points.length; i += 1) {
+      expect(points[i].startS - points[i - 1].startS).toBeGreaterThanOrEqual(180);
+    }
+  });
+
+  it("reads between snapshots instead of snapping to them", () => {
+    // Snapshots three minutes apart, so a two-minute window has no sample inside it.
+    const points = turningPoints(
+      series([
+        [0, 0],
+        [180, 3000],
+        [360, 3000],
+      ]),
+      { limit: 1 },
+    );
+    expect(points).toHaveLength(1);
+    expect(points[0].swingSouls).toBeGreaterThan(0);
+  });
+
+  it("signs the swing towards the side that gained", () => {
+    const [gain] = turningPoints(series([[0, -1000], [60, 1000], [120, 3000], [180, 3000]]), { limit: 1 });
+    expect(gain.team).toBe(0);
+    expect(gain.swing).toBeGreaterThan(0);
+
+    const [loss] = turningPoints(series([[0, 3000], [60, 1000], [120, -1000], [180, -1000]]), { limit: 1 });
+    expect(loss.team).toBe(1);
+    expect(loss.swing).toBeLessThan(0);
+  });
+
+  it("returns nothing for a flat or empty series", () => {
+    expect(turningPoints([])).toEqual([]);
+    expect(turningPoints(series([[0, 500]]))).toEqual([]);
+    expect(turningPoints(series([[0, 500], [240, 500]]))).toEqual([]);
   });
 });

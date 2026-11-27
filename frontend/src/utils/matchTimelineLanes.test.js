@@ -17,10 +17,45 @@ import {
   soulLeadPath,
   soulLeadSeries,
   spanPercent,
+  spoilerMask,
   teamSoulsAt,
+  turningPointBands,
 } from "./matchTimelineLanes";
 
 const durationS = 1800;
+
+describe("turningPointBands", () => {
+  it("places each swing window on the track with its beneficiary", () => {
+    const bands = turningPointBands(
+      [
+        { startS: 360, endS: 480, team: 1, swingSouls: 6000 },
+        { startS: 900, endS: 1020, team: 0, swingSouls: 4000 },
+      ],
+      durationS,
+    );
+    expect(bands).toEqual([
+      { key: "tp-360", left: 20, width: expect.closeTo(6.667, 2), team: 1, startS: 360, endS: 480 },
+      { key: "tp-900", left: 50, width: expect.closeTo(6.667, 2), team: 0, startS: 900, endS: 1020 },
+    ]);
+  });
+
+  it("skips what cannot be placed", () => {
+    expect(turningPointBands([{ startS: 10, endS: 20, team: 0 }], null)).toEqual([]);
+    expect(turningPointBands(null, durationS)).toEqual([]);
+  });
+});
+
+describe("spoilerMask", () => {
+  it("covers everything after the playhead", () => {
+    expect(spoilerMask(450, durationS)).toEqual({ left: 25, width: 75 });
+    expect(spoilerMask(0, durationS)).toEqual({ left: 0, width: 100 });
+  });
+
+  it("hides nothing at the end of the match or without a clock", () => {
+    expect(spoilerMask(durationS, durationS)).toBeNull();
+    expect(spoilerMask(null, durationS)).toBeNull();
+  });
+});
 
 describe("percentOf", () => {
   it("maps a match second onto the strip", () => {
@@ -198,6 +233,8 @@ describe("playerLane", () => {
     const { killMarks } = playerLane({ kills, keyPurchases, accountId: 7, durationS });
     expect(killMarks.map((mark) => mark.timeS)).toEqual([600, 1795]);
     expect(killMarks[0]).toMatchObject({ team: 0, victimName: null });
+    // The kill id lets hovering the mark light the same kill everywhere else.
+    expect(killMarks.every((mark) => mark.killId != null)).toBe(true);
   });
 
   it("marks only that player's key items", () => {
@@ -253,7 +290,7 @@ describe("buildLaneView", () => {
 
   it("handles an empty call", () => {
     const view = buildLaneView();
-    expect(view.tracks).toEqual({ fights: [], kills: [], objectives: [], souls: null });
+    expect(view.tracks).toEqual({ fights: [], kills: [], objectives: [], souls: null, turningPoints: [] });
     expect(view.players).toEqual([]);
     expect(view.axis).toEqual([]);
   });
@@ -274,8 +311,8 @@ describe("playback", () => {
     expect(playbackStep(4)).toBe(1);
   });
 
-  it("offers 1 x through 4 x", () => {
-    expect(PLAYBACK_SPEEDS).toEqual([1, 2, 3, 4]);
+  it("offers the handoff's 1 x, 2 x and 4 x", () => {
+    expect(PLAYBACK_SPEEDS).toEqual([1, 2, 4]);
   });
 
   it("advances nothing on a speed or tick that cannot be used", () => {
@@ -358,7 +395,7 @@ describe("soulLeadAt", () => {
 });
 
 describe("soulLeadPath", () => {
-  it("starts at 0:00 on the zero line and uses a symmetric scale", () => {
+  it("starts at 0:00 on the zero line and uses a symmetric scale with headroom", () => {
     const path = soulLeadPath(
       [
         { timeS: 900, lead: 2000 },
@@ -369,10 +406,12 @@ describe("soulLeadPath", () => {
     );
     expect(path.mid).toBe(10);
     expect(path.maxAbs).toBe(2000);
+    // The scale is the biggest lead x 1.1, so the peak stops short of the edge.
+    expect(path.scaleSouls).toBeCloseTo(2200);
     const points = path.line.split(" ").map((pair) => pair.split(",").map(Number));
     expect(points[0]).toEqual([0, 10]);
-    expect(points[1]).toEqual([50, 2]);
-    expect(points[2]).toEqual([100, 14]);
+    expect(points[1]).toEqual([50, 0.91]);
+    expect(points[2]).toEqual([100, 14.55]);
     expect(path.area.startsWith("M0,10")).toBe(true);
     expect(path.area.endsWith("L100,10 Z")).toBe(true);
     expect(path.peak.amber).toEqual({ timeS: 900, lead: 2000 });
@@ -425,9 +464,15 @@ describe("datedSouls", () => {
     expect(
       datedSouls([snap(360, 900), snap(180, 400), { time_stamp_s: 540, net_worth: null }], 1800),
     ).toEqual([
-      { timeS: 180, souls: 400 },
-      { timeS: 360, souls: 900 },
+      { timeS: 180, souls: 400, assists: null },
+      { timeS: 360, souls: 900, assists: null },
     ]);
+  });
+
+  it("carries the snapshot's assists alongside its souls", () => {
+    expect(
+      datedSouls([{ time_stamp_s: 120, net_worth: 900, assists: 3 }], 600),
+    ).toEqual([{ timeS: 120, souls: 900, assists: 3 }]);
   });
 
   it("spreads undated snapshots across the match, or gives up without a duration", () => {

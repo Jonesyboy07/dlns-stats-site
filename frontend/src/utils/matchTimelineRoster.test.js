@@ -158,6 +158,44 @@ describe("buildRoster", () => {
     expect(roster[0].members[0].souls).toBe(1800);
   });
 
+  it("blanks souls but keeps assists when souls are switched off", () => {
+    const timelinePlayers = {
+      101: { snapshots: [{ time_stamp_s: 180, net_worth: 1800, assists: 2 }] },
+    };
+    const roster = buildRoster({
+      players, kills: [], t: 300, timelinePlayers, durationS: 1800, showSouls: false,
+    });
+    expect(roster[0].members[0]).toMatchObject({ souls: null, assists: 2 });
+  });
+
+  it("reads assists from the last snapshot at or before the clock", () => {
+    const timelinePlayers = {
+      101: {
+        snapshots: [
+          { time_stamp_s: 180, net_worth: 1800, assists: 2 },
+          { time_stamp_s: 480, net_worth: 4200, assists: 5 },
+        ],
+      },
+    };
+    // 300s sits between the snapshots: souls interpolate, assists take the earlier one.
+    const between = buildRoster({ players, kills: [], t: 300, timelinePlayers, durationS: 1800 });
+    expect(between[0].members[0]).toMatchObject({ souls: 2760, assists: 2 });
+
+    const later = buildRoster({ players, kills: [], t: 600, timelinePlayers, durationS: 1800 });
+    expect(later[0].members[0].assists).toBe(5);
+  });
+
+  it("has no assists before the first snapshot, or without snapshots", () => {
+    const timelinePlayers = {
+      101: { snapshots: [{ time_stamp_s: 180, net_worth: 1800, assists: 2 }] },
+    };
+    const early = buildRoster({ players, kills: [], t: 60, timelinePlayers, durationS: 1800 });
+    expect(early[0].members[0].assists).toBeNull();
+
+    const none = buildRoster({ players, kills: [], t: 600, durationS: 1800 });
+    expect(none[0].members[0].assists).toBeNull();
+  });
+
   it("handles an empty call", () => {
     const roster = buildRoster();
     expect(roster).toHaveLength(2);

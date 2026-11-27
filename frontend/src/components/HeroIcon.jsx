@@ -18,8 +18,11 @@ export const heroIconUrl = (heroName) =>
 /**
  * Square hero portrait. Falls back to a dashed placeholder holding the hero's
  * initial when the name is missing or the image fails to load.
+ *
+ * `alt` defaults to the hero name; pass `""` where the portrait is decorative (the
+ * surrounding text already says who it is).
  */
-function HeroIcon({ name, size = "h-8 w-8", className = "" }) {
+function HeroIcon({ name, size = "h-8 w-8", className = "", alt }) {
   const [failed, setFailed] = useState(false);
 
   if (!name || failed) {
@@ -37,7 +40,7 @@ function HeroIcon({ name, size = "h-8 w-8", className = "" }) {
   return (
     <img
       src={heroIconUrl(name)}
-      alt={name}
+      alt={alt ?? name}
       title={name}
       loading="lazy"
       decoding="async"

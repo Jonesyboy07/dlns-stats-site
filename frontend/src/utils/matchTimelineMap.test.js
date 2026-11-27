@@ -7,6 +7,7 @@ import {
   MAP_MODES,
   MAP_SIZE,
   RECENT_WINDOW_S,
+  applyHover,
   buildMapView,
   dotFor,
   heatDeaths,
@@ -15,11 +16,63 @@ import {
   killLine,
   lineDeaths,
   mapCaption,
+  mapModeOptions,
+  mapOptionsFor,
   mapPoint,
   plottableDeaths,
   trailCaption,
   trailMarkers,
 } from "./matchTimelineMap";
+
+describe("applyHover", () => {
+  const dot = { killId: 3, size: 11, opacity: 1 };
+
+  it("grows the hovered kill and rings it", () => {
+    expect(applyHover(dot, { hoveredKillId: 3 })).toMatchObject({ size: 16, opacity: 1, ring: true });
+    expect(applyHover(dot, { hoveredKillId: 4 })).toEqual(dot);
+  });
+
+  it("grows a hovered fight's deaths and drops the rest to 25%", () => {
+    const fight = { killIds: new Set([3]) };
+    expect(applyHover(dot, { hoveredFight: fight })).toMatchObject({ size: 16, opacity: 1 });
+    expect(applyHover({ ...dot, killId: 9 }, { hoveredFight: fight })).toMatchObject({ size: 11, opacity: 0.25 });
+  });
+
+  it("keeps a selection fade underneath a fight hover", () => {
+    const faded = { killId: 9, size: 7, opacity: 0.15 };
+    expect(applyHover(faded, { hoveredFight: { killIds: new Set([3]) } }).opacity).toBe(0.15);
+  });
+
+  it("passes a missing dot through", () => {
+    expect(applyHover(null, { hoveredKillId: 1 })).toBeNull();
+  });
+});
+
+describe("mapOptionsFor", () => {
+  it("offers heat colouring only while heat is drawn", () => {
+    expect(mapOptionsFor("deaths")).toEqual(["range", "lines"]);
+    expect(mapOptionsFor("heat")).toEqual(["heat", "range", "lines"]);
+    expect(mapOptionsFor("both")).toEqual(["heat", "range", "lines"]);
+  });
+
+  it("drops Range in Realtime, which pins the window to the last 3 minutes", () => {
+    expect(mapOptionsFor("realtime")).toEqual(["lines"]);
+  });
+});
+
+describe("mapModeOptions", () => {
+  it("lists every mode, all enabled when trails exist", () => {
+    const options = mapModeOptions({ hasPositions: true });
+    expect(options.map((option) => option.value)).toEqual(MAP_MODES);
+    expect(options.some((option) => option.disabled)).toBe(false);
+  });
+
+  it("disables Realtime with a reason when the match has no trails", () => {
+    const realtime = mapModeOptions({ hasPositions: false }).find((option) => option.value === "realtime");
+    expect(realtime).toMatchObject({ disabled: true, title: "Needs position data" });
+    expect(mapModeOptions({ hasPositions: false }).filter((option) => option.disabled)).toHaveLength(1);
+  });
+});
 
 /** A kill in the shape `matchTimelineModel.buildKills` produces. */
 const kill = (overrides = {}) => ({

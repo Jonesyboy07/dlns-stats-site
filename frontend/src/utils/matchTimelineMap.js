@@ -31,7 +31,28 @@ export const HEAT_COLORS = {
 };
 
 /** Death cross sizes: resting, over the heat, highlighted, and faded out. */
-export const DOT_SIZE = { base: 11, both: 8, highlighted: 14, faded: 7, freshBonus: 5 };
+export const DOT_SIZE = { base: 11, both: 8, highlighted: 14, faded: 7, freshBonus: 5, hoverBonus: 5 };
+/** While a fight is hovered, deaths outside it drop to this. */
+export const FIGHT_HOVER_DIM = 0.25;
+
+/**
+ * Hover links from the other panels: the hovered kill grows and takes a white ring; a
+ * hovered fight grows its own deaths and drops every other one to `FIGHT_HOVER_DIM`.
+ * Applied after `dotFor`, so selection fading still holds underneath.
+ */
+export function applyHover(dot, { hoveredKillId = null, hoveredFight = null } = {}) {
+  if (!dot) return dot;
+  let next = dot;
+  if (hoveredFight?.killIds) {
+    next = hoveredFight.killIds.has(dot.killId)
+      ? { ...next, size: next.size + DOT_SIZE.hoverBonus, opacity: 1 }
+      : { ...next, opacity: Math.min(next.opacity, FIGHT_HOVER_DIM) };
+  }
+  if (hoveredKillId != null && dot.killId === hoveredKillId) {
+    next = { ...next, size: next.size + DOT_SIZE.hoverBonus, opacity: 1, ring: true };
+  }
+  return next;
+}
 
 export const KILL_LINE_WIDTH = 2;
 export const KILLER_RING_SIZE = 10;
@@ -51,10 +72,50 @@ export const HEAT_COLORS_MODE = ["team", "single"];
 export const RANGES = ["all", "recent"];
 export const LINE_MODES = ["off", "hover", "all"];
 
+/**
+ * Which of the map's secondary options mean anything in a mode, in panel order.
+ *
+ * Heat colouring only exists while heat is drawn, and Realtime pins the window to the
+ * last 3 minutes (see `buildMapView`), so its Range control would do nothing. Kill lines
+ * apply everywhere: Realtime still draws the recent deaths.
+ */
+export function mapOptionsFor(mode = "deaths") {
+  const options = [];
+  if (mode === "heat" || mode === "both") options.push("heat");
+  if (mode !== "realtime") options.push("range");
+  options.push("lines");
+  return options;
+}
+
+/**
+ * Map modes with the ones this match cannot draw switched off. Realtime needs position
+ * trails; an older match without them keeps the segment, struck through, so the control
+ * reads the same on every match.
+ */
+export function mapModeOptions({ hasPositions = true } = {}) {
+  return MAP_MODES.map((value) => ({
+    value,
+    label: MAP_MODE_LABELS[value],
+    ...(value === "realtime" && !hasPositions
+      ? { disabled: true, title: "Needs position data" }
+      : {}),
+  }));
+}
+
 /** The site's own team colours, so a line matches every other team mark on the page. */
 export const TEAM_STROKE = {
   0: "var(--color-team-amber)",
   1: "var(--color-team-sapphire)",
+};
+
+/**
+ * Team colours for TEXT. Raw sapphire fails WCAG AA as text on the dark panels, so
+ * names and numbers use the lighter sapphire the v3 handoff specifies; marks (rings,
+ * dots, lines, fills) keep `TEAM_STROKE`.
+ */
+export const TEAM_TEXT = {
+  0: "var(--color-team-amber)",
+  1: "oklch(0.72 0.17 261)",
 };
 
 const toNumber = (value) => (value == null ? null : Number(value));
@@ -292,6 +353,7 @@ export function buildMapView({
   heatColor = "team",
   lines = "hover",
   hoveredKillId = null,
+  hoveredFight = null,
   selection = [],
   focusedFight = null,
   durationS = null,
@@ -306,7 +368,13 @@ export function buildMapView({
     focusedFight,
   });
   const dots = deaths
-    .map((kill) => ({ kill, dot: dotFor(kill, { t, mode, selection, focusedFight, durationS }) }))
+    .map((kill) => ({
+      kill,
+      dot: applyHover(dotFor(kill, { t, mode, selection, focusedFight, durationS }), {
+        hoveredKillId,
+        hoveredFight,
+      }),
+    }))
     .filter((entry) => entry.dot);
 
   // Heat belongs to the plot modes that show deaths as a density. It hides the crosses

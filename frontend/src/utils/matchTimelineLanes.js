@@ -15,7 +15,7 @@ export const LANE_AXIS_STEP_S = 300;
 /** A fight band narrower than this is still worth a click. */
 export const LANE_MIN_BAND_PX = 22;
 /** Playback speeds, as multiples of real time: 1 x advances one match second per second. */
-export const PLAYBACK_SPEEDS = [1, 2, 3, 4];
+export const PLAYBACK_SPEEDS = [1, 2, 4];
 /**
  * Playback ticks this often. A quarter second is short enough that a marker glides to
  * its next position instead of stepping a whole match second at a time.
@@ -173,6 +173,8 @@ export function playerLane({ kills = [], keyPurchases = [], accountId = null, du
       if (left === null) return null;
       return {
         key: `kill-${kill.id}`,
+        // So hovering the mark lights the same kill on the map, the feed and the track.
+        killId: kill.id,
         left,
         timeS: kill.timeS,
         team: kill.team === 1 ? 1 : 0,
@@ -203,7 +205,40 @@ export function playerLane({ kills = [], keyPurchases = [], accountId = null, du
 }
 
 /** The soul-lead track's drawing box; the SVG scales it to the lane's real width. */
-export const SOUL_LEAD_VIEW = { width: 1000, height: 48 };
+export const SOUL_LEAD_VIEW = { width: 1000, height: 56 };
+/** The symmetric scale is the match's biggest lead times this, so the peak has headroom. */
+export const SOUL_LEAD_HEADROOM = 1.1;
+
+/**
+ * Turning-point windows as faint bands on the soul-lead track, so the swings the header
+ * names can be found on the chart. `points` come from `turningPoints()`.
+ */
+export function turningPointBands(points = [], durationS = null) {
+  return (points || [])
+    .map((point) => {
+      const span = spanPercent(point?.startS, point?.endS, durationS);
+      if (!span) return null;
+      return {
+        key: `tp-${point.startS}`,
+        left: span.left,
+        width: span.width,
+        team: point.team === 1 ? 1 : 0,
+        startS: point.startS,
+        endS: point.endS,
+      };
+    })
+    .filter(Boolean);
+}
+
+/**
+ * The part of the soul-lead chart spoiler-safe hides: everything after the playhead.
+ * Null when there is nothing left to hide (the clock is at the end) or no clock.
+ */
+export function spoilerMask(t, durationS) {
+  const left = percentOf(t, durationS);
+  if (left === null || left >= 100) return null;
+  return { left, width: 100 - left };
+}
 
 const finiteOrNull = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -212,9 +247,13 @@ const finiteOrNull = (value) => {
 };
 
 /**
- * One player's snapshots as `[{ timeS, souls }]` in time order. Snapshots are dated by
- * `time_stamp_s`; when any lacks one they are spread evenly across the match instead,
- * the same fallback the scoreboard's souls chart uses.
+ * One player's snapshots as `[{ timeS, souls, assists }]` in time order. Snapshots are
+ * dated by `time_stamp_s`; when any lacks one they are spread evenly across the match
+ * instead, the same fallback the scoreboard's souls chart uses.
+ *
+ * `assists` rides along because it only exists at snapshot granularity: the timeline
+ * records each death's killer but not who assisted, so the roster can only read
+ * assists between samples, never between events.
  */
 export function datedSouls(snapshots = [], durationS = null) {
   const list = Array.isArray(snapshots) ? snapshots : [];
@@ -228,7 +267,8 @@ export function datedSouls(snapshots = [], durationS = null) {
         timeS = Math.round((index / (list.length - 1)) * duration);
       }
       const souls = finiteOrNull(snapshot?.net_worth);
-      return souls === null ? null : { timeS, souls };
+      if (souls === null) return null;
+      return { timeS, souls, assists: finiteOrNull(snapshot?.assists) };
     })
     .filter(Boolean)
     .sort((a, b) => a.timeS - b.timeS);
@@ -335,8 +375,10 @@ export function teamSoulsAt(series = [], timeS = 0) {
 /**
  * The soul-lead track's geometry in `SOUL_LEAD_VIEW` units: a polyline for the lead and
  * a closed area path that the component clips into the Amber (above zero) and Sapphire
- * (below zero) halves. The scale is symmetric so neither side's region looks bigger than
- * it is. The line starts at 0:00 with no lead when the first snapshot is later.
+ * (below zero) halves. The scale is symmetric -- `scaleSouls`, the biggest lead times
+ * `SOUL_LEAD_HEADROOM` -- so neither side's region looks bigger than it is, and the
+ * track labels its top and bottom with it. The line starts at 0:00 with no lead when the
+ * first snapshot is later.
  */
 export function soulLeadPath(series = [], durationS = null, view = SOUL_LEAD_VIEW) {
   const duration = finiteOrNull(durationS);
@@ -344,9 +386,9 @@ export function soulLeadPath(series = [], durationS = null, view = SOUL_LEAD_VIE
 
   const points = series[0].timeS > 0 ? [{ timeS: 0, lead: 0 }, ...series] : series;
   const maxAbs = Math.max(1, ...points.map((p) => Math.abs(p.lead)));
+  const scaleSouls = maxAbs * SOUL_LEAD_HEADROOM;
   const mid = view.height / 2;
-  // A little headroom so the peak does not touch the lane's border.
-  const scale = (mid - 2) / maxAbs;
+  const scale = mid / scaleSouls;
 
   const coords = points.map((p) => {
     const x = (clamp(p.timeS, 0, duration) / duration) * view.width;
@@ -367,7 +409,7 @@ export function soulLeadPath(series = [], durationS = null, view = SOUL_LEAD_VIE
     { amber: { lead: 0, timeS: null }, sapphire: { lead: 0, timeS: null } },
   );
 
-  return { line, area, mid, maxAbs, peak };
+  return { line, area, mid, maxAbs, scaleSouls, peak };
 }
 
 /**
@@ -385,6 +427,7 @@ export function buildLaneView({
   durationS = null,
   involves = null,
   soulLead = [],
+  turningPoints = [],
 } = {}) {
   const byAccount = new Map(
     (players || [])
@@ -398,6 +441,7 @@ export function buildLaneView({
       kills: killTicks(kills, durationS, { selection, involves }),
       objectives: objectiveMarks(objectives, durationS),
       souls: soulLeadPath(soulLead, durationS),
+      turningPoints: turningPointBands(turningPoints, durationS),
     },
     soulLead: soulLead || [],
     players: (selection || []).map((accountId) => {

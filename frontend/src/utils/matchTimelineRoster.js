@@ -21,6 +21,22 @@ export function teamScores(kills = [], t = null) {
 }
 
 /**
+ * Assists at `at`, read from the last stats snapshot at or before it. Before the first
+ * snapshot (or without snapshots) there is nothing to read, so this is null rather
+ * than 0 -- the roster shows what it knows, not a confident zero.
+ */
+export function assistsAt(points = [], at = Infinity) {
+  const list = points || [];
+  const clock = Number.isFinite(at) ? at : Infinity;
+  let assists = null;
+  for (const point of list) {
+    if (point.timeS > clock) break;
+    if (point.assists != null) assists = point.assists;
+  }
+  return assists;
+}
+
+/**
  * Each player with their state at `t`: whether they are down, and how many seconds are
  * left. A player is dead between a death and the end of its respawn, which is the same
  * window the map's kill lines and the lanes' dead bars use.
@@ -28,16 +44,17 @@ export function teamScores(kills = [], t = null) {
  * `remainingS` rounds up, so a player with half a second left reads "1s" rather than
  * "0s" sitting next to a dead pill.
  *
- * `kills` and `deaths` count the kill events up to `t`, so they are exact. Assists are
- * not counted: a death records only its killer. `souls` is estimated between the
- * player's stats snapshots (minutes apart) and is null without them; `timelinePlayers`
- * is the `/timeline` response's `players`, keyed by account id.
+ * `kills` and `deaths` count the kill events up to `t`, so they are exact. Assists come
+ * from the last stats snapshot at or before `t`, so they lag by up to a snapshot gap
+ * (minutes) and are null without snapshots -- a death records only its killer.
+ * `souls` is estimated between the player's stats snapshots and is null without them;
+ * `timelinePlayers` is the `/timeline` response's `players`, keyed by account id.
  */
 export function playerStates(
   players = [],
   kills = [],
   t = null,
-  { timelinePlayers = null, durationS = null } = {},
+  { timelinePlayers = null, durationS = null, showSouls = true } = {},
 ) {
   const at = t == null ? Infinity : Number(t);
   const soulsClock = Number.isFinite(at) ? at : Number(durationS) || Infinity;
@@ -51,11 +68,15 @@ export function playerStates(
     }
     const snapshots = timelinePlayers?.[String(player.account_id)]?.snapshots;
     const points = datedSouls(snapshots, durationS);
-    const souls = Number.isFinite(soulsClock)
-      ? interpolateAt(points, soulsClock, { read: (p) => p.souls })
-      : points.length
-        ? points[points.length - 1].souls
-        : null;
+    // `showSouls: false` blanks souls while keeping the snapshots' assists.
+    const souls = !showSouls
+      ? null
+      : Number.isFinite(soulsClock)
+        ? interpolateAt(points, soulsClock, { read: (p) => p.souls })
+        : points.length
+          ? points[points.length - 1].souls
+          : null;
+    const assists = assistsAt(points, soulsClock);
 
     const death = (kills || []).find((kill) => {
       if (kill.victimAccountId !== player.account_id) return false;
@@ -70,6 +91,7 @@ export function playerStates(
       killerName: death?.killerName ?? null,
       kills: killCount,
       deaths: deathCount,
+      assists,
       souls,
     };
   });
@@ -90,8 +112,9 @@ export function buildRoster({
   t = null,
   timelinePlayers = null,
   durationS = null,
+  showSouls = true,
 } = {}) {
-  const states = playerStates(players, kills, t, { timelinePlayers, durationS });
+  const states = playerStates(players, kills, t, { timelinePlayers, durationS, showSouls });
   const order = (state) => state.player_slot ?? 0;
   return [0, 1].map((team) => {
     const members = states.filter((state) => state.team === team).sort((a, b) => order(a) - order(b));

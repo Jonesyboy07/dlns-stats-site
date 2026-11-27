@@ -40,7 +40,7 @@ const colWidth = {
  * Anchored just BELOW the axis, so it reads as belonging to the top of the column
  * rather than following the cursor around and covering the rows it describes.
  */
-function WeekTooltip({ week, lineup, left }) {
+function WeekTooltip({ week, lineup, left, prefix }) {
   return (
     <div
       aria-hidden="true"
@@ -48,7 +48,7 @@ function WeekTooltip({ week, lineup, left }) {
       style={{ left, top: 30, width: TOOLTIP_WIDTH, transform: "translateX(-50%)" }}
     >
       <p className="text-[11px] font-semibold uppercase tracking-[.05em] text-muted">
-        NS {week}
+        {prefix} {week}
         {lineup.length > 0 && (
           <span className="ml-1 font-normal normal-case text-dim">
             · {lineup.length} player{lineup.length === 1 ? "" : "s"}
@@ -87,8 +87,11 @@ function WeekTooltip({ week, lineup, left }) {
  * current roster, grey for everyone who has moved on — rather than a badge, which
  * cost a column of width in every row to say something a weight change says for
  * free. A cell still means "rostered in this week", independent of that.
+ *
+ * One timeline covers ONE event: week numbers restart per event, so the team page
+ * renders a timeline per event and `prefix` labels its weeks ("NS", "FN", …).
  */
-function RosterTimeline({ players = [], weeks = [], maxWeek }) {
+function RosterTimeline({ players = [], weeks = [], maxWeek, prefix = "NS" }) {
   const axis = weeks ?? [];
   const [hovered, setHovered] = useState(null);
   const scrollerRef = useRef(null);
@@ -124,6 +127,7 @@ function RosterTimeline({ players = [], weeks = [], maxWeek }) {
         first: player.first_week ?? played[0],
         last: player.last_week ?? played[played.length - 1],
         games: player.appearances ?? 0,
+        prefix,
       }),
     };
   });
@@ -244,6 +248,7 @@ function RosterTimeline({ players = [], weeks = [], maxWeek }) {
             week={hovered.week}
             lineup={lineups.get(hovered.week) ?? []}
             left={hovered.left}
+            prefix={prefix}
           />
         )}
       </div>

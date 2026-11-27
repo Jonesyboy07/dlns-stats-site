@@ -223,4 +223,8 @@ describe("tenureSummary", () => {
     expect(tenureSummary({ first: 44, last: 58, weeks: 15, games: null })).toBe("NS 44–58 · 15 wk");
     expect(tenureSummary({ first: null, last: null })).toBeNull();
   });
+
+  it("labels the weeks with their event", () => {
+    expect(tenureSummary({ first: 3, last: 5, games: 4, prefix: "FN" })).toBe("FN 3–5 · 4 g");
+  });
 });

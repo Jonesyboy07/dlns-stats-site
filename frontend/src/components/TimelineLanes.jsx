@@ -1,5 +1,5 @@
 /**
- * The replay timeline: three fixed tracks (fights, kills, objectives) plus one lane per
+ * The replay timeline: fixed tracks (soul lead, fights, kills, objectives) plus one lane per
  * highlighted player showing when they were dead and what they bought.
  *
  * All the geometry comes from `buildLaneView`; this file positions it and handles the
@@ -8,14 +8,22 @@
  * tracks can never drift out of step with each other.
  */
 
+import { useId } from "react";
 import HeroIcon from "./HeroIcon";
 import ItemIcon from "./ItemIcon";
 import { clock } from "../utils/matchTimeline";
-import { LANE_MIN_BAND_PX, percentOf, seekTime } from "../utils/matchTimelineLanes";
+import { formatCompact } from "../utils/format";
+import {
+  LANE_MIN_BAND_PX,
+  SOUL_LEAD_VIEW,
+  percentOf,
+  seekTime,
+  soulLeadAt,
+} from "../utils/matchTimelineLanes";
 import { TEAM_STROKE } from "../utils/matchTimelineMap";
 import { staticImagePathToCdn } from "../utils/cdn";
 
-const LANE_HEIGHTS = { fights: 26, kills: 26, objectives: 24, player: 28 };
+const LANE_HEIGHTS = { souls: SOUL_LEAD_VIEW.height, fights: 26, kills: 26, objectives: 24, player: 28 };
 
 const LABEL = "font-valve-oracle text-[11px] font-semibold uppercase tracking-[0.04em] text-dim";
 
@@ -31,6 +39,81 @@ function Lane({ height, onSeek, children, className = "", style }) {
     >
       {children}
     </div>
+  );
+}
+
+/** A soul lead as "2.3k" (the sign is carried by the team colour, not a minus). */
+const formatLead = (value) => formatCompact(Math.abs(value));
+
+/**
+ * The soul-lead track: Amber's lead above the zero line, Sapphire's below, on a
+ * symmetric scale. One area path is drawn twice, each copy clipped to its own half, so
+ * the colour flips exactly where the lead changes hands.
+ */
+function SoulLeadTrack({ souls, teamNames }) {
+  const id = useId().replace(/:/g, "");
+  const { width, height } = SOUL_LEAD_VIEW;
+  const { peak } = souls;
+  const peakText = (team, entry) =>
+    entry.timeS == null
+      ? null
+      : `${teamNames[team] ?? (team === 0 ? "Amber" : "Sapphire")} peak +${formatLead(entry.lead)} at ${clock(entry.timeS)}`;
+  const title = ["Soul lead", peakText(0, peak.amber), peakText(1, peak.sapphire)]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      className="absolute inset-0 h-full w-full"
+      aria-label={title}
+    >
+      <title>{title}</title>
+      <defs>
+        <clipPath id={`${id}-amber`}>
+          <rect x="0" y="0" width={width} height={souls.mid} />
+        </clipPath>
+        <clipPath id={`${id}-sapphire`}>
+          <rect x="0" y={souls.mid} width={width} height={height - souls.mid} />
+        </clipPath>
+      </defs>
+      <line
+        x1="0"
+        x2={width}
+        y1={souls.mid}
+        y2={souls.mid}
+        stroke="var(--color-border-lighter)"
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
+      />
+      <path
+        d={souls.area}
+        clipPath={`url(#${id}-amber)`}
+        fill="color-mix(in oklch, var(--color-team-amber) 30%, transparent)"
+      />
+      <path
+        d={souls.area}
+        clipPath={`url(#${id}-sapphire)`}
+        fill="color-mix(in oklch, var(--color-team-sapphire) 40%, transparent)"
+      />
+      <polyline
+        points={souls.line}
+        fill="none"
+        stroke="var(--color-team-amber)"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+        clipPath={`url(#${id}-amber)`}
+      />
+      <polyline
+        points={souls.line}
+        fill="none"
+        stroke="var(--color-team-sapphire)"
+        strokeWidth="1.5"
+        vectorEffect="non-scaling-stroke"
+        clipPath={`url(#${id}-sapphire)`}
+      />
+    </svg>
   );
 }
 
@@ -51,12 +134,15 @@ export default function TimelineLanes({
   focusedFight = null,
   fights = [],
   heroName = () => null,
+  teamNames = [],
   className = "",
 }) {
   const tracks = view?.tracks ?? { fights: [], kills: [], objectives: [] };
   const lanes = view?.players ?? [];
   const axis = view?.axis ?? [];
   const playhead = percentOf(t, durationS);
+  const lead = tracks.souls ? soulLeadAt(view?.soulLead, t) : null;
+  const leadTeam = lead == null || lead === 0 ? null : lead > 0 ? 0 : 1;
 
   // A click anywhere on a lane jumps to that point; the bands and the player lanes sit
   // above the tracks, so a click on one has to stop rather than seek through.
@@ -82,6 +168,19 @@ export default function TimelineLanes({
 
       <div className="grid grid-cols-[130px_1fr] gap-1">
         <div className="flex flex-col gap-1">
+          {tracks.souls && (
+            <div style={{ height: LANE_HEIGHTS.souls }} className="flex flex-col justify-center">
+              <span className={LABEL}>Soul lead</span>
+              <span
+                className="truncate pr-2 font-valve-pulp text-xs font-bold tabular-nums"
+                style={{ color: leadTeam == null ? "var(--color-dim)" : TEAM_STROKE[leadTeam] }}
+              >
+                {leadTeam == null
+                  ? "Even"
+                  : `${teamNames[leadTeam] ?? (leadTeam === 0 ? "Amber" : "Sapphire")} +${formatLead(lead)}`}
+              </span>
+            </div>
+          )}
           <LaneLabel height={LANE_HEIGHTS.fights}>Fights</LaneLabel>
           <LaneLabel height={LANE_HEIGHTS.kills}>Kills</LaneLabel>
           <LaneLabel height={LANE_HEIGHTS.objectives}>Objectives</LaneLabel>
@@ -98,6 +197,11 @@ export default function TimelineLanes({
         </div>
 
         <div className="relative flex flex-col gap-1">
+          {tracks.souls && (
+            <Lane height={LANE_HEIGHTS.souls} onSeek={seekFrom}>
+              <SoulLeadTrack souls={tracks.souls} teamNames={teamNames} />
+            </Lane>
+          )}
           <Lane height={LANE_HEIGHTS.fights} onSeek={seekFrom}>
             {tracks.fights.map((band) => (
               <button

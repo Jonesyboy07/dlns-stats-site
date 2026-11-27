@@ -225,6 +225,38 @@ describe("buildFights", () => {
     expect([...fight.killIds].sort()).toEqual([0, 1, 2]);
   });
 
+  it("adds up the respawn time each side sat through", () => {
+    // Two Sapphire deaths and one Amber death, 20s each.
+    const [fight] = buildFights(kills);
+    expect(fight.deadS).toEqual([20, 40]);
+  });
+
+  it("names no top killer when nobody stood out", () => {
+    // Three different killers, one kill each.
+    expect(buildFights(kills)[0].topKiller).toBeNull();
+  });
+
+  it("names the player with the most kills", () => {
+    const spree = buildKills(
+      [death(100, 7, 1), death(104, 8, 1), death(108, 2, 9), death(112, 9, 1)],
+      { players },
+    );
+    expect(buildFights(spree)[0].topKiller).toMatchObject({
+      accountId: 101,
+      name: "Amber1",
+      team: 0,
+      kills: 3,
+    });
+  });
+
+  it("breaks a tie for top killer by who got there first", () => {
+    const tied = buildKills(
+      [death(100, 1, 7), death(104, 8, 2), death(108, 9, 2), death(112, 3, 7)],
+      { players },
+    );
+    expect(buildFights(tied)[0].topKiller.accountId).toBe(102);
+  });
+
   it("handles a feed with no fights at all", () => {
     expect(buildFights(kills.slice(3))).toEqual([]);
     expect(buildFights([])).toEqual([]);

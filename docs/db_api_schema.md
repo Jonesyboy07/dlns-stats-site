@@ -940,3 +940,49 @@ filters described above.
 removed, and at most 200 IDs are returned. The item-detail route returns `404`
 for an unknown item and `503` when the external item catalog is unavailable.
 The cards route also returns `503` when its catalog is unavailable.
+## Team routes
+
+The team endpoints are implemented in
+[`backend/app/blueprints/db/teams.py`](../backend/app/blueprints/db/teams.py).
+A team is a name the feed wrote on a match, so a rename (or an acquisition that
+rebrands a roster) would otherwise fork it into two partial teams. These routes
+resolve any spelling of a team to its identity and merge every spelling (see
+[Team identity](db_schema.md#team-identity)).
+
+| Route | Response overview |
+| --- | --- |
+| `/db/teams` | `teams` array: one row per team, with its league record and last week played |
+| `/db/team/<team_name>` | Roster, record, pacing, hero usage and match history for one team |
+| `/db/team/<team_name>/weeks` | `events`: per event, the `weeks` the team played and the event's `league_weeks`; top-level `weeks` / `league_weeks` are the first event's |
+
+Week numbers restart in every event (Fight Night week 5 is not Night Shift
+week 5), so week timelines are always split by `event_title`; a match with no
+title counts as Night Shift. Events are ordered main league first, then by the
+team's games. The detail payload's `roster_timelines` holds one entry per event
+(`event_title`, axis `weeks`, `max_week`, and `players` rows with that event's
+`weeks`, `first_week`, `last_week` and `appearances`). Its page-level
+`max_week`, `roster_weeks` and each player's `weeks` / `first_week` /
+`last_week` follow the first timeline: Night Shift, or the team's busiest event
+when it never played Night Shift.
+
+`<team_name>` may be any spelling the team has played under, in any casing, or
+the team's slug. Every row of `/db/teams` and both detail payloads carry:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `team_name` | string | Current name (the canonical identity) |
+| `slug` | string | URL-safe identity; `teamLogoKey()` derivation |
+| `former_names` | array | Earlier spellings, empty for a team that never renamed |
+| `resolved_from` | string or null | Detail routes only: the alias the request used |
+| `names` | array | `/db/teams` only: every spelling seen in the data |
+| `name_history` | array | Detail routes only: `name`, `valid_from_week`, `valid_to_week`, `logo_key` |
+
+Notes:
+- Each match keeps the `event_team_a` / `event_team_b` it was played under, so a
+  rename stays visible in the history.
+- `matches`, `wins`, `losses` and `latest_week` on `/db/teams` are totals across
+  every spelling, and the "Night Shift Open 1" scope rules are unchanged.
+- A series is keyed on the resolved identity, so games either side of a rename
+  still count as one series.
+- Names are matched case-insensitively on the same `LOWER(name)` key the queries
+  have always grouped on; nothing else in the API changes shape.

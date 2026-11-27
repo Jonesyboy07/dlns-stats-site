@@ -9,7 +9,13 @@ import FormStrip from "./FormStrip";
  * (1b) would reuse the same pieces stacked in the rail.
  */
 export default function PlayerIdentityCard({ user, accountId, matches = [], teamMeta }) {
-  const { current = null, teamCount = 0, firstWeek = null, lastWeek = null } = teamMeta ?? {};
+  const {
+    current = null,
+    teamCount = 0,
+    firstWeek = null,
+    lastWeek = null,
+    weekPrefix = "NS",
+  } = teamMeta ?? {};
   const persona = user?.persona_name || "Unknown Player";
 
   return (
@@ -42,7 +48,7 @@ export default function PlayerIdentityCard({ user, accountId, matches = [], team
 
           {firstWeek != null && (
             <span>
-              First NS {firstWeek} · Last NS {lastWeek ?? firstWeek}
+              First {weekPrefix} {firstWeek} · Last {weekPrefix} {lastWeek ?? firstWeek}
             </span>
           )}
 

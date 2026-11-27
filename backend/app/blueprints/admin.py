@@ -1257,6 +1257,8 @@ _SYSTEM_FILE_PATHS = (
     'backend/app/blueprints/db/items.py',
     'backend/app/blueprints/db/nightshift.py',
     'backend/app/blueprints/db/site.py',
+    'backend/app/team_identity.py',
+    'data/team_identities.json',
     'frontend/src/pages/SystemAdmin.jsx',
 )
 

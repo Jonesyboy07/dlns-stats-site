@@ -2,11 +2,12 @@ from __future__ import annotations
 
 """/db routes: teams."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from flask import jsonify
 
 from ...cache import cache
 from ...heroes import get_hero_name
+from ...team_identity import TeamIdentity, TeamIndex, load_team_index, team_key, team_slug
 from .core import (
     MIN_SIGNATURE_ITEM_TIER,
     _item_catalog,
@@ -21,8 +22,99 @@ from .core import (
 LANE_ORDER = (1, 4, 6)
 
 
-# The teams index. One row per team (case-folded), ordered by games played so the
-# list opens on the teams the league actually revolves around.
+def _spelling_keys(index: TeamIndex, team_name: str) -> Tuple[str, ...]:
+    """Every raw spelling of the requested team, or the name itself when unknown."""
+    keys = tuple(key for key in index.names_for(team_name) if key)
+    return keys or (team_key(team_name),)
+
+
+def _either_side_sql(keys: Sequence[str], alias: str = "m") -> Tuple[str, Tuple[str, ...]]:
+    """`(SQL, params)` matching either team column against any spelling of a team."""
+    marks = ",".join("?" * len(keys))
+    sql = (
+        f"(LOWER({alias}.event_team_a) IN ({marks}) "
+        f"OR LOWER({alias}.event_team_b) IN ({marks}))"
+    )
+    return sql, tuple(keys) * 2
+
+
+def _on_team_sql(keys: Sequence[str], scope_sql: str) -> Tuple[str, Tuple[str, ...]]:
+    """`(SQL, params)` keeping only players who played for this team's side.
+
+    Uses `event_team_a_ingame_side` to pick the right half of the scoreboard.
+    When team is team_a their side is `event_team_a_ingame_side` (p.team equals
+    it); when team is team_b it is the other side. With no recorded side the
+    match's players are all included, as before.
+    """
+    marks = ",".join("?" * len(keys))
+    sql = f"""
+                ((LOWER(m.event_team_a) IN ({marks}) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+                OR
+                (LOWER(m.event_team_b) IN ({marks}) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
+                OR
+                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) IN ({marks}) OR LOWER(m.event_team_b) IN ({marks}))))
+                AND ({scope_sql})
+        """
+    return sql, tuple(keys) * 4
+
+
+def _resolved_from(identity: Optional[TeamIdentity], requested: str) -> Optional[str]:
+    """The alias the request used, when it was not already the current name."""
+    if identity is None or team_key(requested) == team_key(identity.display_name):
+        return None
+    return requested
+
+
+# ── Per-event week axes ─────────────────────────────────────────────────────
+# Week numbers restart in every event: Fight Night week 5 and Night Shift week 5
+# are different weeks. Every week timeline is therefore keyed by
+# (event_title, event_week), never by the week number alone. A match with no
+# title is counted as the main league, which is how the league scopes have
+# always treated it.
+PRIMARY_EVENT = "Night Shift"
+EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
+
+
+def _event_of(title: Any) -> str:
+    return title or PRIMARY_EVENT
+
+
+def _league_weeks_by_event(conn) -> Dict[str, set]:
+    """Every week each event actually ran, across all teams (bye weeks are absent)."""
+    by_event: Dict[str, set] = {}
+    for title, week in conn.execute(
+        "SELECT DISTINCT COALESCE(m.event_title, ?), m.event_week FROM matches m "
+        f"WHERE m.event_week IS NOT NULL AND m.match_id > 0 AND {EXCLUDE_OPEN_SQL}",
+        (PRIMARY_EVENT,),
+    ):
+        by_event.setdefault(title, set()).add(week)
+    return by_event
+
+
+def _order_events(games_by_event: Dict[str, int]) -> List[str]:
+    """The main league first, then the team's busiest events."""
+    return sorted(
+        games_by_event,
+        key=lambda event: (event != PRIMARY_EVENT, -games_by_event[event], event.lower()),
+    )
+
+
+def _event_axis(team_weeks: set, league_weeks: set) -> List[int]:
+    """One event's axis: its league weeks clipped to the team's span, plus the team's own.
+
+    Built from the fixtures rather than a numeric first..last range so a genuine
+    bye week (no fixtures anywhere) cannot render as an empty column that breaks
+    every player's bar at once. A break in a bar always means "the team played,
+    this player did not".
+    """
+    if not team_weeks:
+        return []
+    first, last = min(team_weeks), max(team_weeks)
+    return sorted(week for week in (league_weeks | team_weeks) if first <= week <= last)
+
+
+# The teams index, aggregated per raw spelling. Grouping happens in Python so the
+# spellings of one team (a rename, an acquisition rebrand) end up as a single row.
 #
 # Two scopes are applied, both copied from `get_team_detail` so the two pages
 # cannot drift apart:
@@ -63,21 +155,18 @@ sides AS (
     WHERE m.event_team_b IS NOT NULL AND m.event_team_b <> ''
 )
 SELECT
+    LOWER(s.team_name) AS name_key,
     MIN(s.team_name) AS team_name,
-    COUNT(DISTINCT s.match_id) AS matches,
-    SUM(CASE WHEN s.won = 1 THEN 1 ELSE 0 END) AS wins,
-    SUM(CASE WHEN s.won = 0 THEN 1 ELSE 0 END) AS losses,
-    MAX(s.event_week) AS latest_week
+    COUNT(DISTINCT CASE WHEN NOT s.is_open THEN s.match_id END) AS league_matches,
+    COUNT(DISTINCT CASE WHEN s.is_open THEN s.match_id END) AS open_matches,
+    SUM(CASE WHEN NOT s.is_open AND s.won = 1 THEN 1 ELSE 0 END) AS league_wins,
+    SUM(CASE WHEN NOT s.is_open AND s.won = 0 THEN 1 ELSE 0 END) AS league_losses,
+    SUM(CASE WHEN s.is_open AND s.won = 1 THEN 1 ELSE 0 END) AS open_wins,
+    SUM(CASE WHEN s.is_open AND s.won = 0 THEN 1 ELSE 0 END) AS open_losses,
+    MAX(CASE WHEN NOT s.is_open THEN s.event_week END) AS league_latest_week,
+    MAX(CASE WHEN s.is_open THEN s.event_week END) AS open_latest_week
 FROM sides s
-JOIN (
-    SELECT LOWER(team_name) AS key,
-           SUM(CASE WHEN NOT is_open THEN 1 ELSE 0 END) AS league_games
-    FROM sides
-    GROUP BY LOWER(team_name)
-) scope ON scope.key = LOWER(s.team_name)
-WHERE scope.league_games = 0 OR NOT s.is_open
 GROUP BY LOWER(s.team_name)
-ORDER BY matches DESC, LOWER(s.team_name) ASC
 """
 
 
@@ -86,6 +175,12 @@ ORDER BY matches DESC, LOWER(s.team_name) ASC
 def get_teams():
     """Every team with its league record and the week it last played.
 
+    One row per team, not per spelling: a team that renamed mid-season (or was
+    acquired and rebranded) appears once, with the record of every name it played
+    under and the current name first. `names` lists the feed spellings, and
+    `former_names` the ones that are no longer current; `slug` is the shared,
+    URL-safe identity (`/team/<slug>` resolves just like `/team/<name>`).
+
     The scope deliberately mirrors `/team/<name>` so the list and a team's own
     page can never disagree: the "Night Shift Open 1" qualifier is ignored
     (unless that is all the team ever played, which keeps the pre-season entries
@@ -93,12 +188,62 @@ def get_teams():
 
     `won` uses `event_team_a_ingame_side` + `winning_team` — the SQL twin of the
     team page's `team_result` — so an unscored match adds to the count but not to
-    either side of the record. Verified: `wins + losses == matches` for all 67
-    teams, and every figure matches the corresponding `/db/team` payload.
+    either side of the record.
     """
     with get_ro_conn() as conn:
-        cur = conn.execute(_TEAMS_SQL)
-        return jsonify({"teams": _rows_to_dicts(cur)})
+        index = load_team_index(conn)
+        rows = _rows_to_dicts(conn.execute(_TEAMS_SQL))
+
+    families: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        identity = index.by_name(row["team_name"])
+        # Only an identity merges spellings: two unrelated names that happen to
+        # slugify the same ("SLICE N DICE" / "SLICE 'N DICE") stay separate teams.
+        key = identity.slug if identity else f"name:{row['name_key']}"
+        slug = identity.slug if identity else team_slug(row["team_name"])
+        family = families.get(key)
+        if family is None:
+            family = families[key] = {
+                "team_name": identity.display_name if identity else row["team_name"],
+                "slug": slug,
+                "logo_key": identity.logo_key if identity else None,
+                "former_names": list(identity.former_names) if identity else [],
+                "names": [],
+                # [matches, wins, losses, latest_week] per scope
+                "_league": [0, 0, 0, None],
+                "_open": [0, 0, 0, None],
+            }
+        family["names"].append(row["team_name"])
+        for bucket, scope in (("_league", "league"), ("_open", "open")):
+            target = family[bucket]
+            target[0] += row[f"{scope}_matches"] or 0
+            target[1] += row[f"{scope}_wins"] or 0
+            target[2] += row[f"{scope}_losses"] or 0
+            week = row[f"{scope}_latest_week"]
+            if week is not None and (target[3] is None or week > target[3]):
+                target[3] = week
+
+    teams = []
+    for family in families.values():
+        matches, wins, losses, latest_week = family["_league"]
+        if not matches:
+            # Only the qualifier event played: keep its games so pre-season entries stay visible.
+            matches, wins, losses, latest_week = family["_open"]
+        teams.append(
+            {
+                "team_name": family["team_name"],
+                "slug": family["slug"],
+                "logo_key": family["logo_key"],
+                "names": sorted(family["names"], key=str.lower),
+                "former_names": family["former_names"],
+                "matches": matches,
+                "wins": wins,
+                "losses": losses,
+                "latest_week": latest_week,
+            }
+        )
+    teams.sort(key=lambda team: (-team["matches"], team["team_name"].lower()))
+    return jsonify({"teams": teams})
 
 
 SIGNATURE_ITEM_LIMIT = 3
@@ -113,51 +258,71 @@ def team_weeks_api(team_name: str):
     item catalogue and hero usage (145 KB for a busy team). The player page's
     tenure timeline needs one call per team, so this is the same scoping with
     only the weeks in the payload.
+
+    Any spelling of the team resolves here, so a player's tenure survives a
+    rename: an old name returns the weeks the team played under every name.
+
+    Week numbers restart per event, so `events` carries one entry per event the
+    team played (`event_title`, the team's `weeks`, the event's `league_weeks`),
+    main league first. The top-level `weeks` / `league_weeks` are that first
+    entry's, kept for older callers.
     """
-    EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
+    requested_name = team_name
     with get_ro_conn() as conn:
+        index = load_team_index(conn)
+        identity = index.resolve(team_name)
+        side_sql, side_params = _either_side_sql(_spelling_keys(index, team_name))
+        if identity is not None:
+            team_name = identity.display_name
         has_non_open_match = conn.execute(
             f"""
             SELECT 1 FROM matches m
             WHERE {EXCLUDE_OPEN_SQL}
-              AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+              AND {side_sql}
             LIMIT 1
             """,
-            (team_name, team_name),
+            side_params,
         ).fetchone()
         scope_sql = EXCLUDE_OPEN_SQL if has_non_open_match else "1 = 1"
 
-        team_weeks = [
-            row[0]
-            for row in conn.execute(
-                f"""
-                SELECT DISTINCT m.event_week
-                FROM matches m
-                WHERE (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
-                  AND m.event_week IS NOT NULL
-                  AND EXISTS (SELECT 1 FROM players p WHERE p.match_id = m.match_id)
-                  AND ({scope_sql})
-                """,
-                (team_name, team_name),
-            )
-            if row[0] is not None
-        ]
+        team_weeks: Dict[str, set] = {}
+        games: Dict[str, int] = {}
+        for title, week, count in conn.execute(
+            f"""
+            SELECT COALESCE(m.event_title, ?), m.event_week, COUNT(*)
+            FROM matches m
+            WHERE {side_sql}
+              AND m.event_week IS NOT NULL
+              AND EXISTS (SELECT 1 FROM players p WHERE p.match_id = m.match_id)
+              AND ({scope_sql})
+            GROUP BY 1, 2
+            """,
+            (PRIMARY_EVENT, *side_params),
+        ):
+            team_weeks.setdefault(title, set()).add(week)
+            games[title] = games.get(title, 0) + count
 
-        league_weeks = [
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT m.event_week FROM matches m "
-                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
-                f"AND ({EXCLUDE_OPEN_SQL})"
-            )
-            if row[0] is not None
-        ]
+        league_by_event = _league_weeks_by_event(conn)
+
+    events = [
+        {
+            "event_title": event,
+            "weeks": sorted(team_weeks[event]),
+            "league_weeks": sorted(league_by_event.get(event, set()) | team_weeks[event]),
+        }
+        for event in _order_events(games)
+    ]
+    primary = events[0] if events else {"weeks": [], "league_weeks": []}
 
     return jsonify(
         {
             "team_name": team_name,
-            "weeks": sorted(team_weeks),
-            "league_weeks": sorted(league_weeks),
+            "slug": identity.slug if identity else team_slug(team_name),
+            "former_names": list(identity.former_names) if identity else [],
+            "resolved_from": _resolved_from(identity, requested_name),
+            "weeks": primary["weeks"],
+            "league_weeks": primary["league_weeks"],
+            "events": events,
         }
     )
 
@@ -166,41 +331,57 @@ def team_weeks_api(team_name: str):
 @cache.cached(timeout=1800)
 def get_team_detail(team_name: str):
     """Return team detail: roster with per-player stats, records, pacing, hero
-    pool/history and the league baseline used by the Overview and Players tabs."""
+    pool/history and the league baseline used by the Overview and Players tabs.
+
+    Any spelling the team ever played under (or its slug) resolves to the same
+    payload: every spelling's matches are merged, `team_name` is the current
+    name, `former_names` lists the earlier ones and each match keeps the raw
+    `event_team_a` / `event_team_b` it was played under. That is what keeps a
+    rename — or an acquisition rebrand — one team with one history.
+    """
+    requested_name = team_name
     with get_ro_conn() as conn:
-        canonical_row = conn.execute(
-            """
-            SELECT MIN(event_team_a) FROM matches
-            WHERE LOWER(event_team_a) = LOWER(?) AND event_team_a IS NOT NULL
-            """,
-            (team_name,),
-        ).fetchone()
-        if canonical_row and canonical_row[0]:
-            team_name = canonical_row[0]
+        index = load_team_index(conn)
+        identity = index.resolve(team_name)
+        keys = _spelling_keys(index, team_name)
+        side_sql, side_params = _either_side_sql(keys)
+
+        if identity is not None:
+            team_name = identity.display_name
         else:
-            canonical_row2 = conn.execute(
+            # No identity entry: adopt the spelling the feed actually stored, as before.
+            canonical_row = conn.execute(
                 """
-                SELECT MIN(event_team_b) FROM matches
-                WHERE LOWER(event_team_b) = LOWER(?) AND event_team_b IS NOT NULL
+                SELECT MIN(event_team_a) FROM matches
+                WHERE LOWER(event_team_a) = LOWER(?) AND event_team_a IS NOT NULL
                 """,
                 (team_name,),
             ).fetchone()
-            if canonical_row2 and canonical_row2[0]:
-                team_name = canonical_row2[0]
+            if canonical_row and canonical_row[0]:
+                team_name = canonical_row[0]
+            else:
+                canonical_row2 = conn.execute(
+                    """
+                    SELECT MIN(event_team_b) FROM matches
+                    WHERE LOWER(event_team_b) = LOWER(?) AND event_team_b IS NOT NULL
+                    """,
+                    (team_name,),
+                ).fetchone()
+                if canonical_row2 and canonical_row2[0]:
+                    team_name = canonical_row2[0]
 
         # "Night Shift Open 1" is a separate qualifier event whose rows carry no
         # event_team_a_ingame_side, so the side-unknown fallback below would
         # count BOTH teams' players for it. Ignore that event, unless doing so
         # would leave the team with nothing at all to show.
-        EXCLUDE_OPEN_SQL = "(m.event_title IS NULL OR m.event_title <> 'Night Shift Open 1')"
         has_non_open_match = conn.execute(
             f"""
             SELECT 1 FROM matches m
             WHERE {EXCLUDE_OPEN_SQL}
-              AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+              AND {side_sql}
             LIMIT 1
             """,
-            (team_name, team_name),
+            side_params,
         ).fetchone()
         SCOPE_SQL = EXCLUDE_OPEN_SQL if has_non_open_match else "1 = 1"
 
@@ -210,28 +391,18 @@ def get_team_detail(team_name: str):
         playable_ids = {
             row[0]
             for row in conn.execute(
-                """
+                f"""
                 SELECT DISTINCT p.match_id
                 FROM players p
                 JOIN matches m ON m.match_id = p.match_id
-                WHERE LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?)
+                WHERE {side_sql}
                 """,
-                (team_name, team_name),
+                side_params,
             )
         }
 
-        # Use event_team_a_ingame_side to restrict to players on the correct side.
-        # When team is team_a: their in-game side = event_team_a_ingame_side → p.team = event_team_a_ingame_side
-        # When team is team_b: their in-game side = 1 - event_team_a_ingame_side → p.team != event_team_a_ingame_side
-        # Fallback (no ingame_side data): include all players from matching matches.
-        ON_TEAM_SQL = f"""
-                ((LOWER(m.event_team_a) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
-                OR
-                (LOWER(m.event_team_b) = LOWER(?) AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
-                OR
-                (m.event_team_a_ingame_side IS NULL AND (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))))
-                AND ({SCOPE_SQL})
-        """
+        # Restrict players to this team's side of the scoreboard; see _on_team_sql.
+        ON_TEAM_SQL, on_team_params = _on_team_sql(keys, SCOPE_SQL)
 
         cur = conn.execute(
             f"""
@@ -261,7 +432,7 @@ def get_team_detail(team_name: str):
             ORDER BY appearances DESC, u.persona_name ASC
             LIMIT 200
             """,
-            (team_name, team_name, team_name, team_name),
+            on_team_params,
         )
         players = _rows_to_dicts(cur)
         # The per-player win/loss split reads `players.result`, the same field the
@@ -285,7 +456,7 @@ def get_team_detail(team_name: str):
             GROUP BY p.account_id, p.hero_id
             ORDER BY games DESC
             """,
-            (team_name, team_name, team_name, team_name),
+            on_team_params,
         )
         from ...heroes import get_all_hero_names
         all_names = get_all_hero_names()
@@ -330,7 +501,7 @@ def get_team_detail(team_name: str):
             GROUP BY p.account_id, item_id
             ORDER BY games DESC
             """,
-            (team_name, team_name, team_name, team_name),
+            on_team_params,
         )
         signature_items: Dict[int, List[Dict[str, Any]]] = {}
         for account_id, item_id, games in cur_items.fetchall():
@@ -360,11 +531,11 @@ def get_team_detail(team_name: str):
                 m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
                 m.winning_team, m.duration_s, m.start_time, m.match_vod
             FROM matches m
-            WHERE (LOWER(m.event_team_a) = LOWER(?) OR LOWER(m.event_team_b) = LOWER(?))
+            WHERE {side_sql}
               AND {SCOPE_SQL}
             ORDER BY m.start_time DESC
             """,
-            (team_name, team_name),
+            side_params,
         )
         matches = [m for m in _rows_to_dicts(cur2) if m["match_id"] in playable_ids]
 
@@ -412,60 +583,70 @@ def get_team_detail(team_name: str):
                     else []
                 )
 
-        # Latest week the team actually played, matching the filtered list.
-        max_week = max(
-            (m["event_week"] for m in matches if m["event_week"] is not None),
-            default=None,
-        )
+        # Roster timelines, one per event. Week numbers restart in every event,
+        # so mixing them would plot a Fight Night week 5 as Night Shift week 5.
+        team_weeks_by_event: Dict[str, set] = {}
+        games_by_event: Dict[str, int] = {}
+        for m in matches:
+            if m["event_week"] is None:
+                continue
+            event = _event_of(m.get("event_title"))
+            team_weeks_by_event.setdefault(event, set()).add(m["event_week"])
+            games_by_event[event] = games_by_event.get(event, 0) + 1
+        league_by_event = _league_weeks_by_event(conn)
 
-        # Roster timeline axis: the weeks the league actually ran, clipped to the
-        # team's own span. Derived from the fixtures rather than a numeric
-        # first..last range so that a genuine bye week (one with no fixtures
-        # anywhere) cannot render as an empty column that breaks every player's
-        # bar at once and reads as a mass roster change. The team's own weeks are
-        # unioned in so a week the team played is never dropped. Net effect: a
-        # break in a bar always means "the team played, this player did not".
-        team_weeks = {
-            m["event_week"] for m in matches if m["event_week"] is not None
-        }
-        league_weeks = {
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT m.event_week FROM matches m "
-                "WHERE m.event_week IS NOT NULL AND m.match_id > 0 "
-                f"AND ({EXCLUDE_OPEN_SQL})"
-            )
-            if row[0] is not None
-        }
-        if team_weeks:
-            first_week, last_week = min(team_weeks), max(team_weeks)
-            roster_weeks = sorted(
-                week
-                for week in (league_weeks | team_weeks)
-                if first_week <= week <= last_week
-            )
-        else:
-            roster_weeks = []
-
-        # Weeks each player turned out, driving the timeline bars.
-        axis = set(roster_weeks)
-        cur_player_weeks = conn.execute(
+        # (event, week, games) each player turned out for this team.
+        player_event_weeks: Dict[str, Dict[int, Dict[int, int]]] = {}
+        for account_id, event, week, games in conn.execute(
             f"""
-            SELECT p.account_id, m.event_week
+            SELECT p.account_id, COALESCE(m.event_title, ?), m.event_week,
+                   COUNT(DISTINCT m.match_id)
             FROM players p
             JOIN matches m ON m.match_id = p.match_id
             WHERE p.account_id IS NOT NULL AND m.event_week IS NOT NULL
               AND ({ON_TEAM_SQL})
-            GROUP BY p.account_id, m.event_week
+            GROUP BY 1, 2, 3
             """,
-            (team_name, team_name, team_name, team_name),
-        )
-        weeks_by_player: Dict[int, List[int]] = {}
-        for account_id, week in cur_player_weeks.fetchall():
-            if week in axis:
-                weeks_by_player.setdefault(account_id, []).append(week)
+            (PRIMARY_EVENT, *on_team_params),
+        ):
+            player_event_weeks.setdefault(event, {}).setdefault(account_id, {})[week] = games
+
+        roster_timelines = []
+        for event in _order_events(games_by_event):
+            axis_weeks = _event_axis(team_weeks_by_event[event], league_by_event.get(event, set()))
+            axis = set(axis_weeks)
+            timeline_players = []
+            for account_id, weeks_games in player_event_weeks.get(event, {}).items():
+                weeks = sorted(week for week in weeks_games if week in axis)
+                if not weeks:
+                    continue
+                timeline_players.append({
+                    "account_id": account_id,
+                    "weeks": weeks,
+                    "first_week": weeks[0],
+                    "last_week": weeks[-1],
+                    "appearances": sum(weeks_games[week] for week in weeks),
+                })
+            roster_timelines.append({
+                "event_title": event,
+                "weeks": axis_weeks,
+                "max_week": axis_weeks[-1] if axis_weeks else None,
+                "players": timeline_players,
+            })
+
+        # The page-level week fields (active roster, "NS <n>" headings) follow the
+        # first timeline: the main league, or the team's busiest event when it
+        # never played in the main league.
+        primary = roster_timelines[0] if roster_timelines else None
+        max_week = primary["max_week"] if primary else None
+        roster_weeks = primary["weeks"] if primary else []
+        league_weeks = league_by_event.get(primary["event_title"], set()) if primary else set()
+        primary_rows = {row["account_id"]: row for row in primary["players"]} if primary else {}
         for player in players:
-            player["weeks"] = sorted(weeks_by_player.get(player["account_id"], []))
+            row = primary_rows.get(player["account_id"])
+            player["weeks"] = row["weeks"] if row else []
+            player["first_week"] = row["first_week"] if row else None
+            player["last_week"] = row["last_week"] if row else None
 
         cur3 = conn.execute(
             f"""
@@ -480,7 +661,7 @@ def get_team_detail(team_name: str):
             GROUP BY p.hero_id
             ORDER BY picks DESC
             """,
-            (team_name, team_name, team_name, team_name),
+            on_team_params,
         )
         hero_picks_raw = _rows_to_dicts(cur3)
 
@@ -491,7 +672,7 @@ def get_team_detail(team_name: str):
             JOIN matches m ON m.match_id = p.match_id
             WHERE p.hero_id IS NOT NULL AND ({ON_TEAM_SQL})
             """,
-            (team_name, team_name, team_name, team_name),
+            on_team_params,
         ).fetchone()
         total_picks = total_picks_row[0] if total_picks_row else 0
 
@@ -509,15 +690,23 @@ def get_team_detail(team_name: str):
             })
 
         # ── Records, form, pacing (all derived from the match history) ──────
-        team_lower = team_name.lower()
+        spelling_keys = set(keys)
+
+        def on_team_a(match: Dict[str, Any]) -> bool:
+            """True when this team was side A, whichever spelling it played under."""
+            return team_key(match.get("event_team_a")) in spelling_keys
+
+        def family_key(name: Any) -> str:
+            """Canonical key for a side, so a rename cannot split a series in two."""
+            resolved = index.by_name(name)
+            return resolved.slug if resolved is not None else team_key(name)
 
         def team_result(match: Dict[str, Any]):
             """True when this team won, False when they lost, None if unscored."""
             side = match.get("event_team_a_ingame_side")
             if side is None or match.get("winning_team") is None:
                 return None
-            is_team_a = (match.get("event_team_a") or "").lower() == team_lower
-            return match["winning_team"] == side if is_team_a else match["winning_team"] != side
+            return match["winning_team"] == side if on_team_a(match) else match["winning_team"] != side
 
         # `matches` is ordered by start_time DESC, so the head is the newest game.
         scored = [(m, r) for m, r in ((m, team_result(m)) for m in matches) if r is not None]
@@ -529,8 +718,8 @@ def get_team_detail(team_name: str):
         series_map: Dict[str, List[bool]] = {}
         for match, won in scored:
             key = "||".join([
-                (match.get("event_team_a") or "").lower(),
-                (match.get("event_team_b") or "").lower(),
+                family_key(match.get("event_team_a")),
+                family_key(match.get("event_team_b")),
                 match.get("event_title") or "",
                 str(match.get("event_week")),
             ])
@@ -568,11 +757,10 @@ def get_team_detail(team_name: str):
             if not won or not match.get("duration_s"):
                 continue
             if longest_win is None or match["duration_s"] > longest_win["duration_s"]:
-                is_team_a = (match.get("event_team_a") or "").lower() == team_lower
                 longest_win = {
                     "match_id": match["match_id"],
                     "duration_s": match["duration_s"],
-                    "opponent": match.get("event_team_b") if is_team_a else match.get("event_team_a"),
+                    "opponent": match.get("event_team_b") if on_team_a(match) else match.get("event_team_a"),
                     "event_week": match.get("event_week"),
                 }
 
@@ -643,9 +831,16 @@ def get_team_detail(team_name: str):
 
         return jsonify({
             "team_name": team_name,
+            "slug": identity.slug if identity else team_slug(team_name),
+            "former_names": list(identity.former_names) if identity else [],
+            "resolved_from": _resolved_from(identity, requested_name),
+            "name_history": [spelling.to_payload() for spelling in identity.spellings]
+            if identity
+            else [],
             "max_week": max_week,
             "roster_weeks": roster_weeks,
             "league_weeks": sorted(league_weeks),
+            "roster_timelines": roster_timelines,
             "total_matches": len(matches),
             "players": players,
             "matches": matches,

@@ -13,6 +13,8 @@ Tables:
 - `match_mid_boss` stores mid boss (Rejuvenator) kills.
 - `match_player_paths` stores per-player position trails for the map replay.
 - `user_stats` stores per-user aggregates derived from `players`.
+- `teams` stores one row per team identity, and `team_names` maps the raw team
+  names written on each match onto it (see [Team identity](#team-identity)).
 
 Relationships:
 - `players.match_id` -> `matches.match_id` (ON DELETE CASCADE)
@@ -301,3 +303,83 @@ Stores aggregated per-user statistics computed from `players`.
 | `avg_kda` | REAL | Yes | (kills + assists) / max(deaths, 1) |
 | `winrate` | REAL | Yes | wins / matches_played |
 | `updated_at` | TEXT | Yes | ISO-8601 UTC |
+
+## Team identity
+
+A team is not stored on a match: `matches.event_team_a` / `event_team_b` hold the
+raw name the feed used that week, and every team view is derived from those
+strings. A rename — or an acquisition that rebrands a roster — therefore used to
+arrive as a separate team with its own partial record.
+
+Two tables fix that without touching a single match row: `teams` is the identity,
+and `team_names` maps every spelling the feed has used onto it. Read paths resolve
+a requested name to all of its spellings (`app/team_identity.py`), so the record,
+roster and weeks stay continuous across a rename. The seed is
+[`data/team_identities.json`](../data/team_identities.json) (override with
+`TEAM_IDENTITIES_PATH`); it is applied at web-app startup by
+`sync_team_identities()`. For the step-by-step workflow — renames, acquisitions,
+and a team going independent — see the
+[team identity runbook](TEAM_IDENTITY.md).
+
+```json
+{
+  "teams": [
+    {
+      "name": "Current Name",
+      "slug": "currentname",
+      "logo_key": "currentname",
+      "names": [
+        { "name": "OLD NAME", "valid_to_week": 11, "logo_key": "oldname" },
+        { "name": "Current Name", "valid_from_week": 12 }
+      ]
+    }
+  ]
+}
+```
+
+- `name` is the current (canonical) name and always resolves, even when `names`
+  only lists older spellings.
+- `slug` and the per-spelling `logo_key` are optional; both default to the
+  name reduced to its alphanumerics (`"Melee Creeps"` -> `meleecreeps`), which is
+  also how the crest file is named.
+- `valid_from_week` / `valid_to_week` record which event weeks the spelling was
+  in effect. They are informational for now: every spelling still counts towards
+  the team's record, and each match keeps the name it was played under.
+- Two teams cannot claim the same name (case-insensitive) or the same slug, and
+  `valid_from_week` may not be after `valid_to_week`; the file is rejected before
+  anything is written, and the app keeps the identities already in the DB.
+
+### Table: `teams`
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `team_id` | INTEGER | No | Primary key (autoincrement) |
+| `slug` | TEXT | No | Unique, URL-safe identity (`/team/<slug>`) |
+| `display_name` | TEXT | No | Current name |
+| `logo_key` | TEXT | Yes | Default crest stem for the team |
+| `created_at` | TEXT | Yes | ISO-8601 UTC |
+| `updated_at` | TEXT | Yes | ISO-8601 UTC |
+
+### Table: `team_names`
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `name_key` | TEXT | No | Primary key: `LOWER(name)`, the key team queries group on |
+| `team_id` | INTEGER | No | FK -> `teams.team_id` (ON DELETE CASCADE) |
+| `display_name` | TEXT | No | Name as the feed wrote it |
+| `valid_from_week` | INTEGER | Yes | First event week the spelling was used |
+| `valid_to_week` | INTEGER | Yes | Last event week the spelling was used; null = open-ended |
+| `logo_key` | TEXT | Yes | Crest stem for this spelling (historical badge) |
+| `source` | TEXT | No | `seed` (owned by the JSON file) or `admin` (owned by the site) |
+| `note` | TEXT | Yes | Free text, e.g. why a name changed |
+| `created_at` | TEXT | Yes | ISO-8601 UTC |
+
+Primary Key:
+- `name_key`
+
+Indexes:
+- `idx_team_names_team` ON `team_names(team_id)`
+
+Re-syncing is idempotent: rows are only written when something actually changed,
+rows missing from the file are deleted when `source` is `seed`, and an `admin` row
+is never moved or removed by the file.

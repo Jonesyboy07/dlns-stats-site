@@ -573,9 +573,10 @@ CREATE TABLE IF NOT EXISTS match_bans (
 CREATE INDEX IF NOT EXISTS idx_bans_hero ON match_bans(hero_id);
 
 -- Match timeline: objective destructions (walkers, Titan, shield generators,
--- barrack bosses, Core) as reported by match metadata. `team` is the team that
--- destroyed the objective; `destroyed_time_s` is 0 when it survived. Rows exist
--- for every objective the API reports, destroyed or not.
+-- barrack bosses, Core) as reported by match metadata. `team` is the side that
+-- OWNS the objective -- the one that lost it, verified against `winning_team` on
+-- the Patron -- and `destroyed_time_s` is 0 when it survived. Rows exist for every
+-- objective the API reports, destroyed or not.
 CREATE TABLE IF NOT EXISTS match_objectives (
   match_id INTEGER NOT NULL,
   team INTEGER NOT NULL,
@@ -630,6 +631,37 @@ CREATE TABLE IF NOT EXISTS match_player_paths (
 );
 
 CREATE INDEX IF NOT EXISTS idx_match_player_paths_match ON match_player_paths(match_id);
+
+-- Team identity. Matches only ever store the raw feed spelling of a team name, so a
+-- rename would otherwise fork a team into two partial records. `teams` is the
+-- identity and `team_names` maps every spelling the feed used onto it; the read
+-- path resolves a requested name to all of its spellings (see app/team_identity.py).
+CREATE TABLE IF NOT EXISTS teams (
+  team_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  logo_key TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS team_names (
+  -- LOWER(name), the key every team query already groups on.
+  name_key TEXT PRIMARY KEY,
+  team_id INTEGER NOT NULL,
+  display_name TEXT NOT NULL,
+  -- Event weeks the spelling was in effect; null means open-ended.
+  valid_from_week INTEGER,
+  valid_to_week INTEGER,
+  logo_key TEXT,
+  -- 'seed' rows are owned by data/team_identities.json, 'admin' rows by the site.
+  source TEXT NOT NULL DEFAULT 'seed',
+  note TEXT,
+  created_at TEXT,
+  FOREIGN KEY (team_id) REFERENCES teams(team_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_names_team ON team_names(team_id);
 """
 
 

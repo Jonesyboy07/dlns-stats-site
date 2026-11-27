@@ -131,6 +131,33 @@ describe("buildRoster", () => {
     expect(roster[0].members[0].killerName).toBeNull();  // the fixture records no name
   });
 
+  it("counts kills and deaths up to the clock", () => {
+    const fightKills = [
+      kill(0, 100, 1, 107, 120, { killerAccountId: 101 }),
+      kill(1, 200, 1, 108, 220, { killerAccountId: 101 }),
+      kill(2, 300, 0, 101, 320, { killerAccountId: 107 }),
+    ];
+    const at = (t) => buildRoster({ players, kills: fightKills, t });
+    const abl = (roster) => roster[0].members.find((m) => m.account_id === 101);
+    expect([abl(at(150)).kills, abl(at(150)).deaths]).toEqual([1, 0]);
+    expect([abl(at(400)).kills, abl(at(400)).deaths]).toEqual([2, 1]);
+  });
+
+  it("estimates souls between snapshots, and leaves them out without any", () => {
+    const timelinePlayers = {
+      101: { snapshots: [{ time_stamp_s: 180, net_worth: 1800 }, { time_stamp_s: 360, net_worth: 5400 }] },
+    };
+    const roster = buildRoster({ players, kills: [], t: 270, timelinePlayers, durationS: 1800 });
+    expect(roster[0].members[0].souls).toBe(3600);
+    expect(roster[0].members[1].souls).toBeNull();
+  });
+
+  it("reads the last souls when the clock is unset", () => {
+    const timelinePlayers = { 101: { snapshots: [{ time_stamp_s: 180, net_worth: 1800 }] } };
+    const roster = buildRoster({ players, kills: [], t: null, timelinePlayers });
+    expect(roster[0].members[0].souls).toBe(1800);
+  });
+
   it("handles an empty call", () => {
     const roster = buildRoster();
     expect(roster).toHaveLength(2);

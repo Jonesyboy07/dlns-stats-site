@@ -71,6 +71,7 @@ function TeamDetail() {
     team_name,
     max_week,
     roster_weeks = [],
+    roster_timelines,
     players = [],
     matches = [],
     hero_picks = [],
@@ -148,6 +149,7 @@ function TeamDetail() {
           currentPlayers={currentPlayers}
           players={players}
           rosterWeeks={roster_weeks}
+          rosterTimelines={roster_timelines}
           max_week={max_week}
           leaderboard={leaderboard}
           heroUsage={hero_usage}

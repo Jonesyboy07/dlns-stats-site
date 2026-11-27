@@ -1,0 +1,19 @@
+{
+  "teams": [
+    {
+      "name": "Cloud9",
+      "slug": "cloud9",
+      "names": [
+        {
+          "name": "Melee Creeps",
+          "valid_to_week": 63,
+          "logo_key": "meleecreeps"
+        },
+        {
+          "name": "Cloud9",
+          "valid_from_week": 64
+        }
+      ]
+    }
+  ]
+}

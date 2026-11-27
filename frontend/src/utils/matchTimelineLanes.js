@@ -202,9 +202,178 @@ export function playerLane({ kills = [], keyPurchases = [], accountId = null, du
   return { deadBars, killMarks, itemMarks };
 }
 
+/** The soul-lead track's drawing box; the SVG scales it to the lane's real width. */
+export const SOUL_LEAD_VIEW = { width: 1000, height: 48 };
+
+const finiteOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 /**
- * Everything the lane strip draws, in one call: the three fixed tracks, then one lane
- * per highlighted player.
+ * One player's snapshots as `[{ timeS, souls }]` in time order. Snapshots are dated by
+ * `time_stamp_s`; when any lacks one they are spread evenly across the match instead,
+ * the same fallback the scoreboard's souls chart uses.
+ */
+export function datedSouls(snapshots = [], durationS = null) {
+  const list = Array.isArray(snapshots) ? snapshots : [];
+  const duration = finiteOrNull(durationS);
+  const allTimed = list.length > 0 && list.every((s) => finiteOrNull(s?.time_stamp_s) !== null);
+  return list
+    .map((snapshot, index) => {
+      let timeS = finiteOrNull(snapshot?.time_stamp_s);
+      if (!allTimed) {
+        if (duration === null || list.length < 2) return null;
+        timeS = Math.round((index / (list.length - 1)) * duration);
+      }
+      const souls = finiteOrNull(snapshot?.net_worth);
+      return souls === null ? null : { timeS, souls };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.timeS - b.timeS);
+}
+
+/**
+ * A value read off time-ordered `points` at `timeS`, linear between the points either
+ * side. Everyone starts a match with nothing, so before the first point the value rises
+ * from `zero` at 0:00 -- the same line the soul-lead track draws. After the last point
+ * it holds. Null when there are no points.
+ *
+ * `read` and `zero` let one routine serve a single number or a `[amber, sapphire]`
+ * pair; the result is rounded either way.
+ */
+export function interpolateAt(points = [], timeS = 0, { read = (p) => p.value, zero = 0 } = {}) {
+  if (!points?.length) return null;
+  const t = Math.max(0, Number(timeS) || 0);
+  const mix = (a, b, ratio) =>
+    Array.isArray(a)
+      ? a.map((value, i) => Math.round(value + (b[i] - value) * ratio))
+      : Math.round(a + (b - a) * ratio);
+  const first = points[0];
+  if (t <= first.timeS) {
+    if (first.timeS <= 0) return mix(read(first), read(first), 0);
+    return mix(zero, read(first), t / first.timeS);
+  }
+  const last = points[points.length - 1];
+  if (t >= last.timeS) return mix(read(last), read(last), 0);
+  let low = 0;
+  let high = points.length - 1;
+  while (high - low > 1) {
+    const mid = (low + high) >> 1;
+    if (points[mid].timeS <= t) low = mid;
+    else high = mid;
+  }
+  const a = points[low];
+  const b = points[high];
+  return mix(read(a), read(b), (t - a.timeS) / (b.timeS - a.timeS || 1));
+}
+
+/**
+ * Amber's souls minus Sapphire's at every snapshot second, from the per-player
+ * snapshots `/db/matches/<id>/timeline` returns.
+ *
+ * Each player's snapshots are dated by `time_stamp_s`; a player whose snapshots carry no
+ * time has them spread evenly across the match, the same fallback the scoreboard's souls
+ * chart uses. Players are summed at the union of all snapshot seconds, each holding their
+ * latest value, so one player's snapshots landing a second late cannot spike the lead.
+ * Returns `[{ timeS, lead, souls: [amber, sapphire] }]` in time order, or `[]` when there
+ * is nothing to plot.
+ */
+export function soulLeadSeries(timelinePlayers = null, durationS = null) {
+  const duration = finiteOrNull(durationS);
+  const players = Object.values(timelinePlayers || {}).filter(
+    (player) => player && (player.team === 0 || player.team === 1),
+  );
+
+  const dated = players.map((player) => ({
+    team: player.team,
+    points: datedSouls(player.snapshots, duration),
+  }));
+
+  const times = [...new Set(dated.flatMap((player) => player.points.map((p) => p.timeS)))].sort(
+    (a, b) => a - b,
+  );
+  if (!times.length) return [];
+
+  // One cursor per player walks forward with the clock, so this is linear in snapshots.
+  const cursors = dated.map(() => -1);
+  return times.map((timeS) => {
+    const souls = [0, 0];
+    dated.forEach((player, i) => {
+      while (cursors[i] + 1 < player.points.length && player.points[cursors[i] + 1].timeS <= timeS) {
+        cursors[i] += 1;
+      }
+      if (cursors[i] >= 0) souls[player.team] += player.points[cursors[i]].souls;
+    });
+    return { timeS, lead: souls[0] - souls[1], souls };
+  });
+}
+
+/**
+ * The lead at `timeS`, interpolated between the snapshots either side so the readout
+ * moves smoothly during playback. Before the first snapshot it rises from an even 0:00,
+ * matching the drawn line; after the last it holds. Null when there is no series.
+ */
+export function soulLeadAt(series = [], timeS = 0) {
+  // Derived from the team totals so the lane's readout and the header's gap can never
+  // differ by a rounding step.
+  const souls = teamSoulsAt(series, timeS);
+  return souls ? souls[0] - souls[1] : null;
+}
+
+/**
+ * Each team's banked souls at `timeS` as `[amber, sapphire]`, interpolated like
+ * `soulLeadAt` so the header's totals and the lane's readout always agree. Before the
+ * first snapshot both rise from 0 at 0:00; null when there is no series.
+ */
+export function teamSoulsAt(series = [], timeS = 0) {
+  const totals = (point) => point.souls ?? [Math.max(0, point.lead), Math.max(0, -point.lead)];
+  return interpolateAt(series, timeS, { read: totals, zero: [0, 0] });
+}
+
+/**
+ * The soul-lead track's geometry in `SOUL_LEAD_VIEW` units: a polyline for the lead and
+ * a closed area path that the component clips into the Amber (above zero) and Sapphire
+ * (below zero) halves. The scale is symmetric so neither side's region looks bigger than
+ * it is. The line starts at 0:00 with no lead when the first snapshot is later.
+ */
+export function soulLeadPath(series = [], durationS = null, view = SOUL_LEAD_VIEW) {
+  const duration = finiteOrNull(durationS);
+  if (!series?.length || duration === null || duration <= 0) return null;
+
+  const points = series[0].timeS > 0 ? [{ timeS: 0, lead: 0 }, ...series] : series;
+  const maxAbs = Math.max(1, ...points.map((p) => Math.abs(p.lead)));
+  const mid = view.height / 2;
+  // A little headroom so the peak does not touch the lane's border.
+  const scale = (mid - 2) / maxAbs;
+
+  const coords = points.map((p) => {
+    const x = (clamp(p.timeS, 0, duration) / duration) * view.width;
+    const y = mid - p.lead * scale;
+    return [Number(x.toFixed(2)), Number(y.toFixed(2))];
+  });
+  const line = coords.map(([x, y]) => `${x},${y}`).join(" ");
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  const area = `M${first[0]},${mid} L${line.replace(/ /g, " L")} L${last[0]},${mid} Z`;
+
+  const peak = points.reduce(
+    (acc, p) => {
+      if (p.lead > acc.amber.lead) acc.amber = p;
+      if (p.lead < acc.sapphire.lead) acc.sapphire = p;
+      return acc;
+    },
+    { amber: { lead: 0, timeS: null }, sapphire: { lead: 0, timeS: null } },
+  );
+
+  return { line, area, mid, maxAbs, peak };
+}
+
+/**
+ * Everything the lane strip draws, in one call: the fixed tracks, then one lane per
+ * highlighted player. `soulLead` is a precomputed `soulLeadSeries` -- it is built once
+ * per match rather than on every playback tick.
  */
 export function buildLaneView({
   kills = [],
@@ -215,6 +384,7 @@ export function buildLaneView({
   players = [],
   durationS = null,
   involves = null,
+  soulLead = [],
 } = {}) {
   const byAccount = new Map(
     (players || [])
@@ -227,7 +397,9 @@ export function buildLaneView({
       fights: fightBands(fights, durationS),
       kills: killTicks(kills, durationS, { selection, involves }),
       objectives: objectiveMarks(objectives, durationS),
+      souls: soulLeadPath(soulLead, durationS),
     },
+    soulLead: soulLead || [],
     players: (selection || []).map((accountId) => {
       const player = byAccount.get(accountId) ?? null;
       return {

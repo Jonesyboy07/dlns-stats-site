@@ -10,6 +10,17 @@
 import Button from "./Button";
 import HeroIcon from "./HeroIcon";
 import { TEAM_STROKE } from "../utils/matchTimelineMap";
+import { formatCompact } from "../utils/format";
+
+/** The pill's hover text: state, then the running stats and how the souls were read. */
+function pillTitle(player) {
+  const state = player.dead
+    ? `dead, ${player.remainingS}s${player.killerName ? ` (killed by ${player.killerName})` : ""}`
+    : "alive";
+  const stats = [`${player.kills ?? 0} kills / ${player.deaths ?? 0} deaths`];
+  if (player.souls != null) stats.push(`~${formatCompact(player.souls)} souls (estimated between snapshots)`);
+  return `${player.persona_name} – ${state}\n${stats.join(" · ")}`;
+}
 
 function PlayerPill({ player, selected, onToggle, heroName }) {
   return (
@@ -17,9 +28,7 @@ function PlayerPill({ player, selected, onToggle, heroName }) {
       type="button"
       aria-pressed={selected}
       onClick={() => onToggle(player.account_id)}
-      title={`${player.persona_name} – ${
-        player.dead ? `dead, ${player.remainingS}s` : "alive"
-      }`}
+      title={pillTitle(player)}
       className={`flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-medium transition-colors ${
         selected
           ? "border-accent-border-strong bg-accent-bg-strong"
@@ -36,6 +45,10 @@ function PlayerPill({ player, selected, onToggle, heroName }) {
         player.dead ? "opacity-45" : ""
       }`}>
         {player.persona_name}
+      </span>
+      <span className="text-[11px] tabular-nums text-dim">
+        {player.kills ?? 0}/{player.deaths ?? 0}
+        {player.souls != null && <> · {formatCompact(player.souls)}</>}
       </span>
       {player.dead && (
         <span className="text-[11px] font-semibold tabular-nums text-danger-text">

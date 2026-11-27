@@ -153,10 +153,13 @@ export function axisLabels(axis = [], every = 3) {
   return labels;
 }
 
-/** "NS 44–58 · 15 wk · 34 g" — a single week collapses to "NS 52 · 1 wk · 7 g". */
-export function tenureSummary({ first, last, weeks, games }) {
+/**
+ * "NS 44–58 · 15 wk · 34 g" — a single week collapses to "NS 52 · 1 wk · 7 g".
+ * `prefix` names the event the weeks belong to ("FN 3–5" for Fight Night).
+ */
+export function tenureSummary({ first, last, weeks, games, prefix = "NS" }) {
   if (first == null && last == null) return null;
-  const span = first == null || first === last ? `NS ${last ?? first}` : `NS ${first}\u2013${last}`;
+  const span = first == null || first === last ? `${prefix} ${last ?? first}` : `${prefix} ${first}\u2013${last}`;
   const parts = [span];
   if (weeks != null) parts.push(`${weeks} wk`);
   if (games != null) parts.push(`${games} g`);

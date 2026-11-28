@@ -512,6 +512,38 @@ An answer with `available: false` is deliberately not cached: that is the normal
 before a backfill, and caching it would leave the page reporting no trails for the whole
 timeout after the data landed. `/db/matches/<match_id>/events` works the same way.
 
+## Route: `/db/matches/<match_id>/demo`
+
+What demo parsing read from the match's replay file (`backend/main.py -demoparse`; see
+[data ingestion](INGESTION.md#demo-parsing)). The Timeline tab uses it for exact
+per-second souls, assists, and each fight's souls gained and top damage.
+
+Path parameters:
+- `match_id`: integer match ID
+
+Response when the match has not been parsed (or its parse failed):
+`{"available": false, "status": null | "no_demo" | "failed"}`. Not cached, like
+`/positions`, so a parse shows up as soon as it lands.
+
+Response when parsed:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `available` | boolean | `true` |
+| `parser`, `parser_version` | string | `boon` and the version that produced the data |
+| `demo_build` | integer | Game build the demo was recorded on |
+| `duration_s` | number | Regulation length read from the demo |
+| `step_s` | integer | Seconds between samples (1) |
+| `sample_count` | integer | Samples per series; sample `i` is match second `i * step_s` |
+| `players` | object | Keyed by account id: `account_id`, `hero_id`, `team` (0/1), and the per-second arrays `souls` (net worth) and `assists` |
+| `kills` | array | Each kill in time order: `time_s`, `victim_account_id`, `killer_account_id`, `assister_account_ids` |
+| `damage` | array | Hero-on-hero damage per second as `[time_s, attacker_account_id, victim_account_id, damage]`, time-ordered |
+| `events` | array | `mid_boss_killed` and `rejuv_pickup` events: `kind`, `time_s`, `team`, `account_id` |
+| `breakables` | integer | How many breakables were destroyed (stored, but not listed here) |
+
+A 30-minute match is a few hundred KB of JSON before compression; the series are mostly
+small, repetitive integers, so it compresses well.
+
 ## Route: `/db/matches/<match_id>/items`
 
 Returns enriched purchased-item data for each player in a match.

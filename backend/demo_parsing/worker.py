@@ -70,7 +70,8 @@ def fill_grid(
     """
     by_second: Dict[int, Sequence[Optional[int]]] = {}
     for second, values in samples:
-        if 0 <= second < length:
+        # A tick boon could not place on the match clock has no second; skip it.
+        if second is not None and 0 <= second < length:
             by_second[second] = values
     columns: List[List[int]] = [[] for _ in range(field_count)]
     last = [0] * field_count
@@ -109,12 +110,21 @@ def parse(path: str) -> dict:
 
     # Match-clock seconds for every tick that appears, computed once per unique tick
     # and joined back, rather than assuming a fixed tick -> second formula.
+    #
+    # tick_to_match_seconds is tick_to_seconds minus the pre-game length, and returns
+    # None when a demo does not record the pre-game length (seen on Valve-hosted demos).
+    # The pre-game offset is a fraction of a second on the demos that do record it, so
+    # tick_to_seconds is used for the whole demo in that case. Rows still without a time
+    # are dropped: an event with no time cannot go on a timeline.
+    use_match_clock = demo.tick_to_match_seconds(int(demo.game_start_tick or 0)) is not None
+    clock_of = demo.tick_to_match_seconds if use_match_clock else demo.tick_to_seconds
+
     def seconds_of(frame: "pl.DataFrame") -> "pl.DataFrame":
         ticks = frame.select("tick").unique()
         mapping = ticks.with_columns(
-            pl.Series("match_s", [demo.tick_to_match_seconds(int(t)) for t in ticks["tick"]], dtype=pl.Float64)
+            pl.Series("match_s", [clock_of(int(t)) for t in ticks["tick"]], dtype=pl.Float64)
         )
-        return frame.join(mapping, on="tick", how="left")
+        return frame.join(mapping, on="tick", how="left").filter(pl.col("match_s").is_not_null())
 
     length = grid_length(demo.regulation_seconds)
 
@@ -197,6 +207,8 @@ def parse(path: str) -> dict:
         "demo_build": demo.build,
         "tick_rate": demo.tick_rate,
         "duration_s": float(demo.regulation_seconds),
+        # "match" when boon's match clock was available, "demo" when tick_to_seconds stood in.
+        "clock": "match" if use_match_clock else "demo",
         "step_s": 1,
         "sample_count": length,
         "fields": list(SERIES_FIELDS),

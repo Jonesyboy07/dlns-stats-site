@@ -7,6 +7,7 @@
  */
 
 import { datedSouls, interpolateAt } from "./matchTimelineLanes";
+import { demoValueAt } from "./matchTimelineDemo";
 
 /** A kill counts toward the scoreline once its second has passed. */
 export function teamScores(kills = [], t = null) {
@@ -49,12 +50,16 @@ export function assistsAt(points = [], at = Infinity) {
  * (minutes) and are null without snapshots -- a death records only its killer.
  * `souls` is estimated between the player's stats snapshots and is null without them;
  * `timelinePlayers` is the `/timeline` response's `players`, keyed by account id.
+ *
+ * With `demo` (the `/demo` response) a player's souls and assists are read for the exact
+ * second instead -- the demo records both every second -- and the snapshots are only a
+ * fallback for a player the demo has no series for.
  */
 export function playerStates(
   players = [],
   kills = [],
   t = null,
-  { timelinePlayers = null, durationS = null, showSouls = true } = {},
+  { timelinePlayers = null, durationS = null, showSouls = true, demo = null } = {},
 ) {
   const at = t == null ? Infinity : Number(t);
   const soulsClock = Number.isFinite(at) ? at : Number(durationS) || Infinity;
@@ -68,15 +73,19 @@ export function playerStates(
     }
     const snapshots = timelinePlayers?.[String(player.account_id)]?.snapshots;
     const points = datedSouls(snapshots, durationS);
-    // `showSouls: false` blanks souls while keeping the snapshots' assists.
+    const demoSouls = demo ? demoValueAt(demo, player.account_id, "souls", soulsClock) : null;
+    const demoAssists = demo ? demoValueAt(demo, player.account_id, "assists", soulsClock) : null;
+    // `showSouls: false` blanks souls while keeping the assists.
     const souls = !showSouls
       ? null
-      : Number.isFinite(soulsClock)
-        ? interpolateAt(points, soulsClock, { read: (p) => p.souls })
-        : points.length
-          ? points[points.length - 1].souls
-          : null;
-    const assists = assistsAt(points, soulsClock);
+      : demoSouls != null
+        ? demoSouls
+        : Number.isFinite(soulsClock)
+          ? interpolateAt(points, soulsClock, { read: (p) => p.souls })
+          : points.length
+            ? points[points.length - 1].souls
+            : null;
+    const assists = demoAssists != null ? demoAssists : assistsAt(points, soulsClock);
 
     const death = (kills || []).find((kill) => {
       if (kill.victimAccountId !== player.account_id) return false;
@@ -113,8 +122,9 @@ export function buildRoster({
   timelinePlayers = null,
   durationS = null,
   showSouls = true,
+  demo = null,
 } = {}) {
-  const states = playerStates(players, kills, t, { timelinePlayers, durationS, showSouls });
+  const states = playerStates(players, kills, t, { timelinePlayers, durationS, showSouls, demo });
   const order = (state) => state.player_slot ?? 0;
   return [0, 1].map((team) => {
     const members = states.filter((state) => state.team === team).sort((a, b) => order(a) - order(b));

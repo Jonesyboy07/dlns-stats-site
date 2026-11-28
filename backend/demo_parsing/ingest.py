@@ -104,6 +104,9 @@ def parse_match(
             match_id, replay_index=replay_index, download_base_url=download_base_url, try_valve=try_valve,
         )
     except demo_source.DemoNotFound:
+        # Only worth a line for a single named match; a sweep reports the count instead.
+        if try_valve:
+            log(f"[demoparse] {match_id}: no demo on the replay share or at Valve")
         demo_store.mark_status(conn, match_id, "no_demo")
         return "no_demo"
 
@@ -117,6 +120,10 @@ def parse_match(
         result_match = result.get("match_id")
         if result_match not in (None, 0) and int(result_match) != int(match_id):
             raise demo_parse.DemoParseError(f"demo is for match {result_match}, not {match_id}")
+        # A parse that read nothing is a failure, not an empty success: recording it as
+        # ok would blank souls on the page and stop later sweeps from retrying it.
+        if not result.get("series"):
+            raise demo_parse.DemoParseError("parser produced no player data")
         counts = demo_store.write_result(conn, match_id, result, source=location.source)
         log(
             f"[demoparse] {match_id}: ok from {location.source} in {time.time() - started:.0f}s "
@@ -124,6 +131,7 @@ def parse_match(
         )
         return "ok"
     except demo_source.DemoNotFound as exc:
+        log(f"[demoparse] {match_id}: no demo ({location.source}: {exc})")
         demo_store.mark_status(conn, match_id, "no_demo", source=location.source, error=str(exc))
         return "no_demo"
     except (demo_source.DemoFormatError, demo_parse.DemoParseError, OSError, ValueError) as exc:

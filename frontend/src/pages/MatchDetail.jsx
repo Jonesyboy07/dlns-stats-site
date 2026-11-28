@@ -18,6 +18,7 @@ import {
   turningPoints,
 } from "../utils/matchTimelineModel";
 import { buildFeedRows, feedCounts } from "../utils/matchTimelineFeed";
+import { demoSoulLeadSeries, hasDemo, withFightDemoStats } from "../utils/matchTimelineDemo";
 import { buildLaneView, soulLeadSeries, teamSoulsAt } from "../utils/matchTimelineLanes";
 import ItemTooltip from "../components/items/ItemTooltip";
 import { killInvolves, trailMarkers } from "../utils/matchTimelineMap";
@@ -239,6 +240,9 @@ function MatchDetail() {
   const [activeSoulsMetric, setActiveSoulsMetric] = useState("net_worth");
   const [itemNames, setItemNames] = useState({});
   const [timeline, setTimeline] = useState(null);
+  // Parsed replay data (`/demo`): per-second souls and assists, damage, events. Null or
+  // `available: false` until `-demoparse` has run for the match.
+  const [matchDemo, setMatchDemo] = useState(null);
   const [matchEvents, setMatchEvents] = useState(null);
   const [matchPositions, setMatchPositions] = useState(null);
   const [fetchErrors, setFetchErrors] = useState([]);
@@ -337,14 +341,22 @@ function MatchDetail() {
   // loading/error returns below, or the hook count changes between renders.
   const timelineModel = useMemo(() => {
     const events = matchEvents?.events || [];
-    return buildTimelineModel({
+    const model = buildTimelineModel({
       events,
       purchases: matchEvents?.purchases || [],
       players,
       objectives: buildObjectives(events, { labelOf: objectiveLabel, laneOf: laneMeta }),
       durationS: matchEvents?.duration_s ?? matchPositions?.duration_s ?? null,
     });
-  }, [matchEvents, matchPositions, players]);
+    // With a parsed demo, each fight also carries its souls gained and top damage.
+    return hasDemo(matchDemo)
+      ? { ...model, fights: withFightDemoStats(model.fights, matchDemo, players) }
+      : model;
+  }, [matchEvents, matchPositions, players, matchDemo]);
+  // Souls show per match: on for a match with a parsed demo (exact, per second), blank
+  // otherwise. TIMELINE_SOULS_ENABLED still governs the snapshot-based estimates.
+  const timelineHasDemo = hasDemo(matchDemo);
+  const timelineSoulsOn = timelineHasDemo || TIMELINE_SOULS_ENABLED;
 
   // Advance by elapsed wall-clock time on each animation frame, like MatchReplay, so
   // trail positions stay smooth and playback speed is independent of the frame rate.
@@ -405,15 +417,15 @@ function MatchDetail() {
     [timelineMapMode, matchPositions],
   );
   // Amber-minus-Sapphire souls over the match, built once per match rather than on
-  // every playback tick. Empty while souls are switched off, which also empties the
-  // turning points derived from it.
-  const timelineSoulLead = useMemo(
-    () =>
-      TIMELINE_SOULS_ENABLED && timeline?.available
-        ? soulLeadSeries(timeline.players, timelineModel.durationS)
-        : [],
-    [timeline, timelineModel.durationS],
-  );
+  // every playback tick: every second from the demo when there is one, else (only with
+  // TIMELINE_SOULS_ENABLED) estimated from the snapshots. Empty otherwise, which also
+  // empties the turning points derived from it.
+  const timelineSoulLead = useMemo(() => {
+    if (hasDemo(matchDemo)) return demoSoulLeadSeries(matchDemo);
+    return TIMELINE_SOULS_ENABLED && timeline?.available
+      ? soulLeadSeries(timeline.players, timelineModel.durationS)
+      : [];
+  }, [matchDemo, timeline, timelineModel.durationS]);
   // The header's tug bar scale and the turning-point chips both come from that series.
   const timelineTurningPoints = useMemo(() => turningPoints(timelineSoulLead), [timelineSoulLead]);
   const timelineMaxLead = useMemo(() => soulLeadScale(timelineSoulLead), [timelineSoulLead]);
@@ -436,6 +448,7 @@ function MatchDetail() {
     fetchMatchBuild();
     fetchWeekMeta();
     fetchTimeline();
+    fetchMatchDemo();
     fetchMatchEvents();
     fetchMatchPositions();
     fetchSeriesGames();
@@ -480,6 +493,18 @@ function MatchDetail() {
       }
     } catch (err) {
       setFetchErrors((prev) => [...prev, "timeline"]);
+    }
+  };
+
+  // A missing or failed demo is a normal state (most matches have none), so it is not
+  // reported as a fetch error: souls simply stay blank.
+  const fetchMatchDemo = async () => {
+    setMatchDemo(null);
+    try {
+      const response = await fetch(`/db/matches/${matchId}/demo`);
+      if (response.ok) setMatchDemo(await response.json());
+    } catch {
+      // leave it null
     }
   };
 
@@ -860,7 +885,8 @@ function MatchDetail() {
     kills: timelineModel.kills,
     t: timelineT,
     timelinePlayers: timeline?.available ? timeline.players : null,
-    showSouls: TIMELINE_SOULS_ENABLED,
+    demo: timelineHasDemo ? matchDemo : null,
+    showSouls: timelineSoulsOn,
     durationS: timelineModel.durationS,
   });
   const timelineScores = teamScores(timelineModel.kills, timelineT);
@@ -1366,7 +1392,7 @@ function MatchDetail() {
             onToggleSpoiler={toggleSpoilerSafe}
             onSelectTurningPoint={focusTimelineTurningPoint}
             onHoverTurningPoint={hoverTimelineTurningPoint}
-            soulsEnabled={TIMELINE_SOULS_ENABLED}
+            soulsEnabled={timelineSoulsOn}
           />
           {matchEvents == null || matchPositions == null ? (
             <p className="mt-3 text-sm text-dim">Loading…</p>
@@ -1466,7 +1492,7 @@ function MatchDetail() {
                     onHoverKill={setMapHoverKillId}
                     onHoverFight={setHoveredFightIndex}
                     spoilerSafe={spoilerSafe}
-                    showSoulLead={TIMELINE_SOULS_ENABLED}
+                    showSoulLead={timelineSoulsOn}
                     heroName={getHeroName}
                     teamNames={[amberTeamName, sapphireTeamName]}
                   />

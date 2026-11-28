@@ -158,6 +158,22 @@ describe("buildRoster", () => {
     expect(roster[0].members[0].souls).toBe(1800);
   });
 
+  it("reads souls and assists for the exact second from a parsed demo", () => {
+    const timelinePlayers = {
+      101: { snapshots: [{ time_stamp_s: 180, net_worth: 1800, assists: 2 }] },
+    };
+    const demo = {
+      available: true,
+      step_s: 1,
+      players: { 101: { souls: [0, 50, 75, 4321], assists: [0, 0, 1, 3] } },
+    };
+    const roster = buildRoster({ players, kills: [], t: 3, timelinePlayers, durationS: 1800, demo });
+    // The demo wins over the snapshots, which would have interpolated a guess.
+    expect(roster[0].members[0]).toMatchObject({ souls: 4321, assists: 3 });
+    // A player the demo has no series for falls back to the snapshots (none here).
+    expect(roster[0].members[1]).toMatchObject({ souls: null, assists: null });
+  });
+
   it("blanks souls but keeps assists when souls are switched off", () => {
     const timelinePlayers = {
       101: { snapshots: [{ time_stamp_s: 180, net_worth: 1800, assists: 2 }] },

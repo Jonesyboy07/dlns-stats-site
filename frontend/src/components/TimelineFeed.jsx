@@ -20,6 +20,7 @@ import { FEED_FILTERS, quietSummary } from "../utils/matchTimelineFeed";
 import { TEAM_STROKE, TEAM_TEXT } from "../utils/matchTimelineMap";
 import { clock } from "../utils/matchTimeline";
 import { staticImagePathToCdn } from "../utils/cdn";
+import { formatCompact } from "../utils/format";
 
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-secondary-light";
@@ -255,8 +256,9 @@ function followUpText(objective, teamName) {
  * fight is still running (header revealed, last kill not yet) it reads "In progress"
  * and its stats wait for the end.
  *
- * Souls gained and top damage are not recorded per fight yet: the stats snapshots are
- * minutes apart. Their columns hold the layout and read "—" until that data exists.
+ * Souls gained and top damage come from the match's parsed demo (`fight.demoStats`, see
+ * matchTimelineDemo.js). A match without one reads "—" in both, since the stats
+ * snapshots are minutes apart and too coarse to split by fight.
  */
 function FightCard({ row, heroName, teamName, onFocusFight, onHoverFight }) {
   const { fight, inProgress, score, winner, followUp, focused, hovered, current } = row;
@@ -265,6 +267,9 @@ function FightCard({ row, heroName, teamName, onFocusFight, onHoverFight }) {
     .map((seconds, team) => ({ seconds, team }))
     .filter((entry) => entry.seconds > 0);
   const top = fight.topKiller;
+  // A running fight's numbers wait for its end, like its result does.
+  const soulsGained = !inProgress ? (fight.demoStats?.soulsGained ?? null) : null;
+  const topDamage = !inProgress ? (fight.demoStats?.topDamage ?? null) : null;
 
   const result = inProgress ? (
     <span className="font-semibold text-accent-light">In progress</span>
@@ -305,14 +310,37 @@ function FightCard({ row, heroName, teamName, onFocusFight, onHoverFight }) {
         </span>
 
         <span className="grid w-full grid-cols-3 gap-3 border-t border-accent-border pt-2">
-          <FightStat label="Souls gained" title="Souls per fight are not recorded yet">
-            —
+          <FightStat
+            label="Souls gained"
+            title={soulsGained ? "Souls each side gained between the fight's start and end" : "Needs a parsed demo for this match"}
+          >
+            {soulsGained ? (
+              <span className="tabular-nums">
+                <span style={{ color: TEAM_TEXT[0] }}>{formatCompact(soulsGained[0])}</span>
+                <span className="text-muted"> vs </span>
+                <span style={{ color: TEAM_TEXT[1] }}>{formatCompact(soulsGained[1])}</span>
+              </span>
+            ) : (
+              "—"
+            )}
           </FightStat>
           <FightStat label="Then">
             {!inProgress && followUp ? followUpText(followUp, teamName) : "—"}
           </FightStat>
-          <FightStat label="Top damage" title="Damage per fight is not recorded yet">
-            —
+          <FightStat
+            label="Top damage"
+            title={topDamage ? "Most hero damage dealt during the fight" : "Needs a parsed demo for this match"}
+          >
+            {topDamage ? (
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                <span className="truncate font-semibold" style={{ color: TEAM_TEXT[topDamage.team] ?? undefined }}>
+                  {topDamage.name ?? heroName(topDamage.heroId) ?? "Unknown"}
+                </span>
+                <span className="shrink-0 tabular-nums text-muted">{formatCompact(topDamage.damage)}</span>
+              </span>
+            ) : (
+              "—"
+            )}
           </FightStat>
         </span>
 

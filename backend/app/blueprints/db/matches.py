@@ -20,6 +20,7 @@ from ...utils.item_icons import item_icon_index, resolve_icon
 from ....constants import ITEMS_URL
 from ....game_version import resolve_game_version
 from ....main import objective_lane, objective_name
+from ....demo_parsing.store import unpack_series
 from .core import (
     _build_replay_index_sync,
     _hero_ability_slots,
@@ -1169,6 +1170,99 @@ def match_timeline(match_id: int):  # type: ignore
         })
 
     return jsonify({"available": True, "players": players})
+
+
+# The per-second series the Timeline reads. The others (kills, deaths, hero damage,
+# level) are stored too, but the page already has exact kills and deaths from the death
+# events, and damage comes per second from match_hero_damage.
+DEMO_SERIES_FIELDS = ("souls", "assists")
+
+
+@bp.get("/matches/<int:match_id>/demo")
+@cache.cached(timeout=3600, response_filter=_cache_only_when_available)
+def match_demo(match_id: int):  # type: ignore
+    """What demo parsing read from a match's replay (see backend/demo_parsing).
+
+    `available` is false until `-demoparse` has produced an `ok` parse; the page then
+    leaves every per-second souls value blank rather than estimating it. When available:
+    `players` holds each player's per-second `souls` (net worth) and `assists`, sample `i`
+    being match second `i * step_s`; `kills` lists each kill's assisters; `damage` is
+    hero-on-hero damage per second as `[time_s, attacker, victim, damage]`; `events` are
+    the mid boss kill and Rejuvenator pickups (breakables are only counted).
+    """
+    with get_ro_conn() as conn:
+        try:
+            status_row = conn.execute(
+                "SELECT status, parser, parser_version, demo_build, duration_s FROM match_demo_parse WHERE match_id = ?",
+                (match_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            status_row = None  # database predates demo parsing
+        if not status_row or status_row[0] != "ok":
+            return jsonify({"available": False, "status": status_row[0] if status_row else None})
+
+        series_rows = conn.execute(
+            "SELECT account_id, hero_id, team, step_s, sample_count, fields, data "
+            "FROM match_player_series WHERE match_id = ?",
+            (match_id,),
+        ).fetchall()
+        kill_rows = conn.execute(
+            "SELECT time_s, victim_account_id, killer_account_id, assister_account_ids "
+            "FROM match_kill_assists WHERE match_id = ? ORDER BY kill_index",
+            (match_id,),
+        ).fetchall()
+        damage_rows = conn.execute(
+            "SELECT time_s, attacker_account_id, victim_account_id, damage "
+            "FROM match_hero_damage WHERE match_id = ? ORDER BY time_s",
+            (match_id,),
+        ).fetchall()
+        event_rows = conn.execute(
+            "SELECT kind, time_s, team, account_id FROM match_demo_events "
+            "WHERE match_id = ? AND kind != 'breakable' ORDER BY time_s",
+            (match_id,),
+        ).fetchall()
+        breakables = conn.execute(
+            "SELECT COUNT(*) FROM match_demo_events WHERE match_id = ? AND kind = 'breakable'",
+            (match_id,),
+        ).fetchone()[0]
+
+    step_s, sample_count = 1, 0
+    players: Dict[str, Any] = {}
+    for account_id, hero_id, team, step, count, fields, blob in series_rows:
+        decoded = unpack_series(blob, fields.split(","), count)
+        step_s, sample_count = step, max(sample_count, count)
+        players[str(account_id)] = {
+            "account_id": account_id,
+            "hero_id": hero_id,
+            "team": team,
+            **{field: decoded.get(field, []) for field in DEMO_SERIES_FIELDS},
+        }
+
+    return jsonify({
+        "available": True,
+        "parser": status_row[1],
+        "parser_version": status_row[2],
+        "demo_build": status_row[3],
+        "duration_s": status_row[4],
+        "step_s": step_s,
+        "sample_count": sample_count,
+        "players": players,
+        "kills": [
+            {
+                "time_s": time_s,
+                "victim_account_id": victim,
+                "killer_account_id": killer,
+                "assister_account_ids": json.loads(assisters or "[]"),
+            }
+            for time_s, victim, killer, assisters in kill_rows
+        ],
+        "damage": [list(row) for row in damage_rows],
+        "events": [
+            {"kind": kind, "time_s": time_s, "team": team, "account_id": account_id}
+            for kind, time_s, team, account_id in event_rows
+        ],
+        "breakables": breakables,
+    })
 
 
 @bp.get("/matches/<int:match_id>/items")

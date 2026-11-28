@@ -106,6 +106,11 @@ class WorkerHelperTests(unittest.TestCase):
         samples = [(0, (100, 0)), (0, (150, 0)), (2, (400, None)), (3, (450, 1)), (9, (999, 9))]
         self.assertEqual(worker.fill_grid(samples, 5, 2), [[150, 150, 400, 450, 450], [0, 0, 0, 1, 1]])
 
+    def test_fill_grid_skips_ticks_with_no_match_time(self):
+        # boon returns None for a tick it cannot place on the match clock.
+        samples = [(None, (999,)), (1, (5,)), (None, (777,))]
+        self.assertEqual(worker.fill_grid(samples, 3, 1), [[0, 5, 5]])
+
     def test_fill_grid_starts_at_zero(self):
         self.assertEqual(worker.fill_grid([(2, (7,))], 3, 1), [[0, 0, 7]])
 
@@ -365,12 +370,85 @@ class ParseMatchTests(DbTestCase):
         self.assertEqual(status, "failed")
         self.assertIn("boom", error)
 
+    def test_an_empty_parse_is_a_failure_not_ok(self):
+        self.add_match(9001)
+        empty = sample_result()
+        empty["series"] = {}
+        with mock.patch.object(source, "download", side_effect=self._fake_download), \
+             mock.patch.object(parse, "run_worker", return_value=empty):
+            self.assertEqual(self._run(), "failed")
+        status, error = self.conn.execute("SELECT status, error FROM match_demo_parse").fetchone()
+        self.assertEqual(status, "failed")
+        self.assertIn("no player data", error)
+
     def test_refuses_a_demo_for_another_match(self):
         self.add_match(9001)
         with mock.patch.object(source, "download", side_effect=self._fake_download), \
              mock.patch.object(parse, "run_worker", return_value=sample_result(match_id=5555)):
             self.assertEqual(self._run(), "failed")
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM match_player_series").fetchone()[0], 0)
+
+
+# --------------------------------------------------------------------------- endpoint
+
+
+class DemoEndpointTests(unittest.TestCase):
+    """`/db/matches/<id>/demo`: what the Timeline reads."""
+
+    def setUp(self):
+        self._old_env = {key: os.environ.get(key) for key in ("DB_PATH", "CACHE_DIR", "CACHE_WARMUP_ON_STARTUP")}
+        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        os.environ["DB_PATH"] = str(Path(self.tmp.name) / "dlns.sqlite3")
+        os.environ["CACHE_DIR"] = str(Path(self.tmp.name) / "cache")
+        os.environ["CACHE_WARMUP_ON_STARTUP"] = "false"
+        from backend.app.main_web import create_app
+
+        self.app = create_app()
+        self.app.config["TESTING"] = True
+        self.client = self.app.test_client()
+        conn = db_connect(Path(os.environ["DB_PATH"]))
+        try:
+            db_init(conn)
+            conn.execute("INSERT INTO matches (match_id, duration_s, winning_team) VALUES (9001, 1800, 0)")
+            conn.execute("INSERT INTO matches (match_id, duration_s, winning_team) VALUES (9002, 1800, 0)")
+            conn.commit()
+            store.write_result(conn, 9001, sample_result(), source="cdn")
+        finally:
+            conn.close()
+
+    def tearDown(self):
+        for key, old in self._old_env.items():
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
+        self.tmp.cleanup()
+
+    def test_returns_decoded_series_kills_damage_and_events(self):
+        payload = self.client.get("/db/matches/9001/demo").get_json()
+        self.assertTrue(payload["available"])
+        self.assertEqual(payload["parser_version"], "0.19.0")
+        self.assertEqual((payload["step_s"], payload["sample_count"]), (1, 4))
+        amber = payload["players"]["11"]
+        self.assertEqual(amber["souls"], [0, 400, 900, 1500])
+        self.assertEqual(amber["assists"], [0, 1, 1, 2])
+        self.assertEqual(amber["team"], 0)
+        self.assertNotIn("level", amber)  # only what the Timeline reads
+        self.assertEqual(payload["kills"][0]["assister_account_ids"], [33])
+        self.assertEqual(payload["damage"], [[1, 11, 22, 50], [2, 11, 22, 70], [2, 22, 11, 10]])
+        # Breakables are counted, not listed.
+        self.assertEqual([event["kind"] for event in payload["events"]], ["rejuv_pickup"])
+        self.assertEqual(payload["breakables"], 1)
+
+    def test_unparsed_and_failed_matches_are_unavailable(self):
+        self.assertEqual(self.client.get("/db/matches/9002/demo").get_json(), {"available": False, "status": None})
+        conn = db_connect(Path(os.environ["DB_PATH"]))
+        try:
+            store.mark_status(conn, 9002, "failed", error="boom")
+        finally:
+            conn.close()
+        payload = self.client.get("/db/matches/9002/demo").get_json()
+        self.assertEqual(payload, {"available": False, "status": "failed"})
 
 
 if __name__ == "__main__":

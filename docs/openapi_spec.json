@@ -6773,7 +6773,7 @@
           "Site"
         ],
         "summary": "Deprecated banner alias kept for compatibility",
-        "description": "Redirects (302) to the current site banner endpoint.",
+        "description": "Deprecated banner alias kept for compatibility.",
         "deprecated": true,
         "parameters": [],
         "responses": {
@@ -6798,8 +6798,7 @@
               }
             }
           }
-        },
-        "description": "Deprecated banner alias kept for compatibility."
+        }
       }
     },
     "/db/stats/hero-selection": {
@@ -8218,6 +8217,49 @@
           }
         },
         "description": "Headline and Overview aggregates for ?weeks=a-b&region=All|EU|NA.\n\n`weeks` defaults to the event's last two weeks. The headline's change lines\ncompare the range's last week with the week before it, whether or not that\nweek is inside the range."
+      }
+    },
+    "/db/matches/{match_id}/demo": {
+      "get": {
+        "tags": [
+          "Matches"
+        ],
+        "summary": "What demo parsing read from a match's replay (see backend/demo_parsing)",
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "description": "Match id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "What demo parsing read from a match's replay (see backend/demo_parsing).\n\n`available` is false until `-demoparse` has produced an `ok` parse; the page then\nleaves every per-second souls value blank rather than estimating it. When available:\n`players` holds each player's per-second `souls` (net worth) and `assists`, sample `i`\nbeing match second `i * step_s`; `kills` lists each kill's assisters; `damage` is\nhero-on-hero damage per second as `[time_s, attacker, victim, damage]`; `events` are\nthe mid boss kill and Rejuvenator pickups (breakables are only counted)."
       }
     }
   }

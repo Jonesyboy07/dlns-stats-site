@@ -632,6 +632,89 @@ CREATE TABLE IF NOT EXISTS match_player_paths (
 
 CREATE INDEX IF NOT EXISTS idx_match_player_paths_match ON match_player_paths(match_id);
 
+-- Demo parsing (backend/demo_parsing). Everything below comes from a match's replay
+-- file rather than the metadata API, and is written by `-demoparse`.
+--
+-- One row per match that has been attempted, whatever the outcome, so a sweep knows
+-- what is done, what has no demo, and what failed (and with which parser version, so
+-- a boon upgrade can re-run exactly the matches an older version produced).
+CREATE TABLE IF NOT EXISTS match_demo_parse (
+  match_id INTEGER PRIMARY KEY,
+  -- 'ok' | 'no_demo' | 'failed'
+  status TEXT NOT NULL,
+  -- 'cdn' (the replay share) or 'valve' (Valve's replay host)
+  source TEXT,
+  parser TEXT,
+  parser_version TEXT,
+  demo_build INTEGER,
+  duration_s REAL,
+  attempted_at TEXT,
+  parsed_at TEXT,
+  error TEXT,
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+-- Per-player stats every second of the match, packed one row per player (the same
+-- reason as match_player_paths: ~17k rows per match otherwise). `fields` names the
+-- packed series in order; `data` is each field as zlib-compressed little-endian int32
+-- deltas, concatenated. See demo_parsing/store.py (pack_series / unpack_series).
+CREATE TABLE IF NOT EXISTS match_player_series (
+  match_id INTEGER NOT NULL,
+  account_id INTEGER NOT NULL,
+  hero_id INTEGER,
+  team INTEGER,
+  step_s INTEGER NOT NULL,
+  sample_count INTEGER NOT NULL,
+  fields TEXT NOT NULL,
+  data BLOB NOT NULL,
+  PRIMARY KEY (match_id, account_id),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+-- Every kill with its assisters, which the metadata API does not record. Joined to
+-- player_deaths by victim and time (the two agree to within a second).
+CREATE TABLE IF NOT EXISTS match_kill_assists (
+  match_id INTEGER NOT NULL,
+  kill_index INTEGER NOT NULL,
+  time_s REAL NOT NULL,
+  victim_account_id INTEGER,
+  killer_account_id INTEGER,
+  -- JSON array of account ids.
+  assister_account_ids TEXT NOT NULL,
+  PRIMARY KEY (match_id, kill_index),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+-- Hero-on-hero damage summed per second, attacker x victim, so any window (a team
+-- fight) can be totalled without storing every damage event.
+CREATE TABLE IF NOT EXISTS match_hero_damage (
+  match_id INTEGER NOT NULL,
+  time_s INTEGER NOT NULL,
+  attacker_account_id INTEGER NOT NULL,
+  victim_account_id INTEGER NOT NULL,
+  damage INTEGER NOT NULL,
+  PRIMARY KEY (match_id, time_s, attacker_account_id, victim_account_id)
+) WITHOUT ROWID;
+
+-- Timed events only the demo has: breakables, the mid boss kill and Rejuvenator
+-- pickups (camp clears later). `kind` says which; `name` is the breakable subclass.
+CREATE TABLE IF NOT EXISTS match_demo_events (
+  match_id INTEGER NOT NULL,
+  event_index INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  time_s REAL NOT NULL,
+  team INTEGER,
+  account_id INTEGER,
+  name TEXT,
+  x REAL,
+  y REAL,
+  z REAL,
+  PRIMARY KEY (match_id, event_index),
+  FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_demo_events_kind ON match_demo_events(match_id, kind);
+
 -- Team identity. Matches only ever store the raw feed spelling of a team name, so a
 -- rename would otherwise fork a team into two partial records. `teams` is the
 -- identity and `team_names` maps every spelling the feed used onto it; the read
@@ -3705,7 +3788,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 	parser.add_argument("-dmgbackfill", dest="dmgbackfill", type=str, default="false", help="If true, backfill player_damage_sources (damage by source) for matches missing it and exit")
 	parser.add_argument("-timelinebackfill", dest="timelinebackfill", type=str, default="false", help="If true, backfill match_objectives, match_mid_boss and the player_deaths detail columns for matches missing them and exit. Pass a match id instead to backfill just that match")
 	parser.add_argument("-pathsbackfill", dest="pathsbackfill", type=str, default="false", help="If true, backfill match_player_paths (per-player position trails for the map replay) for matches missing them and exit. Pass a match id instead to backfill just that match. One large metadata fetch per match.")
-	parser.add_argument("-sinceweek", dest="sinceweek", type=int, default=None, help="Limit the -timelinebackfill and -pathsbackfill sweeps to matches from this event week onwards")
+	parser.add_argument("-sinceweek", dest="sinceweek", type=int, default=None, help="Limit the -timelinebackfill, -pathsbackfill and -demoparse sweeps to matches from this event week onwards")
+	parser.add_argument("-demoparse", dest="demoparse", type=str, default="false", help="If true, parse replay demos (per-second souls/K/D/A, assists, damage, events) for matches not yet parsed and exit. Pass a match id instead to parse just that match. Needs boon (backend/requirements-demo.txt) in this interpreter or in DEMO_PYTHON.")
+	parser.add_argument("-demoreparse", dest="demoreparse", type=str, default="false", help="With -demoparse: also re-run matches already parsed or that failed (e.g. after upgrading boon)")
+	parser.add_argument("-demotimeout", dest="demotimeout", type=int, default=600, help="With -demoparse: seconds one demo may take before it is abandoned")
+	parser.add_argument("-demokeep", dest="demokeep", type=str, default="false", help="With -demoparse: keep each match's downloaded and decompressed files (debugging)")
 	parser.add_argument("-metasync", dest="metasync", type=str, default="false", help="If true, re-apply the feed's authored metadata (teams, week, side, vod) to matches already in the DB and exit. No API calls.")
 	parser.add_argument("-versionbackfill", dest="versionbackfill", type=str, default="false", help="If true, fill matches.game_version from start_time (GameTracking-Deadlock commits, cached locally) and exit. Use 'force' to recompute every match.")
 	parser.add_argument("-db", dest="db_path", type=str, default=str(DEFAULT_DB_PATH), help="Path to SQLite DB file")
@@ -3857,6 +3944,28 @@ def main(argv: Optional[List[str]] = None) -> int:
 			)
 			print("[pathsbackfill] Done.")
 			return 0
+		finally:
+			conn.close()
+
+	if parse_bool(args.demoparse) or _optional_int(args.demoparse) is not None:
+		# Imported here so the normal ingest never touches the demo package.
+		try:
+			from demo_parsing.ingest import run_demo_parse
+		except ImportError:  # pragma: no cover - module execution
+			from backend.demo_parsing.ingest import run_demo_parse
+		conn = db_connect(db_path)
+		db_init(conn)
+		try:
+			print(f"[demoparse] Database: {db_path}")
+			stats = run_demo_parse(
+				conn,
+				only_match_id=None if parse_bool(args.demoparse) else _optional_int(args.demoparse),
+				since_week=args.sinceweek,
+				reparse=parse_bool(args.demoreparse),
+				timeout_s=args.demotimeout,
+				keep_files=parse_bool(args.demokeep),
+			)
+			return 1 if stats.get("failed") and not stats.get("ok") else 0
 		finally:
 			conn.close()
 

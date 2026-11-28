@@ -1,0 +1,12 @@
+# Demo parsing (optional). Only the machine that runs `backend/main.py -demoparse`
+# needs these; the web server does not import them.
+#
+# boon parses Deadlock demos (Rust core, Python bindings, Polars DataFrames). MIT.
+# https://github.com/pnxenopoulos/boon
+#
+# Pinned exactly: a game patch can change the demo format, and a parse is only
+# reproducible with the version that produced it (stored per match in
+# match_demo_parse.parser_version). boon 0.11+ reads demos recorded from the
+# City Never Sleeps update (2026-09-29) onwards; older demos need boon <= 0.10 in a
+# separate environment, pointed at with DEMO_PYTHON.
+boon-deadlock==0.19.0

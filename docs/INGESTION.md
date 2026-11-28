@@ -104,7 +104,11 @@ Normal ingestion tracks processed IDs in [`data/matches_status.json`](../data/ma
 | `-dmgbackfill true` | Backfill player damage sources |
 | `-timelinebackfill true` | Backfill `match_objectives`, `match_mid_boss` and the `player_deaths` detail columns for matches missing them. Pass a match id instead of `true` to backfill only that match |
 | `-pathsbackfill true` | Backfill `match_player_paths` (per-player position trails for the map replay) for matches missing them. Pass a match id instead of `true` to backfill only that match |
-| `-sinceweek N` | Limit the `-timelinebackfill` and `-pathsbackfill` sweeps to matches from event week N onwards |
+| `-sinceweek N` | Limit the `-timelinebackfill`, `-pathsbackfill` and `-demoparse` sweeps to matches from event week N onwards |
+| `-demoparse true` | Parse replay demos for matches not yet parsed (see [Demo parsing](#demo-parsing)). Pass a match id instead of `true` to parse only that match |
+| `-demoreparse true` | With `-demoparse`: also re-run matches already parsed or that failed |
+| `-demotimeout SECONDS` | With `-demoparse`: how long one demo may take (default 600) |
+| `-demokeep true` | With `-demoparse`: keep each match's downloaded and decompressed files for debugging |
 | `-metasync true` | Reapply feed metadata to existing matches without API requests |
 | `-timelineprobe MATCH_ID` | Fetch one match's metadata, print a timeline summary, and dump the raw JSON under `-probedir`; read-only, never touches the DB or feed |
 | `-probedir PATH` | Output directory for `-timelineprobe` raw dumps (default `data/_probe`) |
@@ -145,6 +149,52 @@ what a repair after a broken night usually wants:
 ```
 python3 backend/main.py -timelinebackfill true -sinceweek 60
 python3 backend/main.py -pathsbackfill true -sinceweek 60
+```
+
+### Demo parsing
+
+`-demoparse` reads a match's replay file (`.dem`) rather than the metadata API, which
+gives what the API cannot: every player's souls, kills, deaths, assists, hero damage and
+level **every second**, the assisters of each kill, hero-on-hero damage per second, and
+timed events (breakables, the mid boss kill and Rejuvenator pickups). The code is in
+[`backend/demo_parsing/`](../backend/demo_parsing/); the tables are described in
+[the database schema](db_schema.md#demo-parsing).
+
+**Setup.** The parser, [boon](https://github.com/pnxenopoulos/boon), is optional and only
+needed where this command runs, not on the web server:
+
+```
+python -m pip install -r backend/requirements-demo.txt
+```
+
+Or install it into a separate virtualenv and set `DEMO_PYTHON` to that interpreter.
+boon 0.11+ reads demos recorded from the City Never Sleeps update (2026-09-29) onwards;
+older demos fail with the pinned version and are recorded as `failed`.
+
+**Where demos come from.** First the replay share, through the index the web app keeps
+(`_cache/replay_index.json`, or `REPLAY_INDEX_FILE_CACHE_PATH`) and
+`REPLAY_DOWNLOAD_BASE_URL`. For matches from the last 30 days that are not on the share,
+Valve's replay host is tried as well, but Valve deletes demos within weeks. The share
+stores each demo as a zstd-compressed `.dem` inside a zip; the command decompresses it
+(Python 3.14+, or the `zstandard` package).
+
+**What a run does.** Each match is downloaded to a temporary folder (`DEMO_WORK_DIR`,
+default the system temp directory), parsed in a separate process with a time limit, and
+written in one transaction; the files are deleted afterwards. Every match gets a
+`match_demo_parse` row, so re-running only does what is left:
+
+| Status | Meaning | Next sweep |
+| --- | --- | --- |
+| `ok` | Parsed | Skipped (re-run with `-demoreparse true`) |
+| `no_demo` | Not on the share or at Valve | Checked again: a replay may be uploaded later |
+| `failed` | Found, but download or parse failed; `error` says why | Skipped (re-run with `-demoreparse true`) |
+
+A 30-minute match takes about 25 seconds including the download and adds about 110 KB to
+the database.
+
+```
+python3 backend/main.py -demoparse 121839019
+python3 backend/main.py -demoparse true -sinceweek 60
 ```
 
 ### Which database the CLI uses

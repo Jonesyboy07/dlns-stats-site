@@ -20,6 +20,7 @@ Review the comments in `.env.example` and replace placeholders for the features 
 | Database and match API | `DB_PATH`, `API_LATEST_LIMIT`, `STEAM_API_KEY` |
 | Cache and response compression | `CACHE_TYPE`, `CACHE_DEFAULT_TIMEOUT`, `CACHE_DIR`, `CACHE_THRESHOLD`, `CACHE_WARMUP_ON_STARTUP`, `CACHE_WARMUP_DELAY_SECONDS`, `COMPRESS_LEVEL`, `COMPRESS_BR_LEVEL`, `COMPRESS_MIN_SIZE` |
 | Replay storage and indexing | `REPLAY_SHARE_API_URL`, `REPLAY_DOWNLOAD_BASE_URL`, `REPLAY_URL_CACHE_TTL_SECONDS`, `REPLAY_URL_FILE_CACHE_PATH`, `REPLAY_INDEX_FILE_CACHE_PATH`, `REPLAY_INDEX_REFRESH_HOURS`, `REPLAY_SCAN_MAX_DIRS`, `REPLAY_SCAN_DEADLINE_SECONDS`, `REPLAY_LISTING_TIMEOUT_SECONDS`, `REPLAY_SCAN_PARTIAL_TTL_SECONDS` |
+| Demo parsing (`backend/main.py -demoparse`) | `REPLAY_DOWNLOAD_BASE_URL`, `REPLAY_INDEX_FILE_CACHE_PATH`, `DEMO_PYTHON` (interpreter with boon installed; default the current one), `DEMO_WORK_DIR` (temporary download folder; default the system temp directory). See [data ingestion](INGESTION.md#demo-parsing) |
 | Discord authentication and permissions | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `DISCORD_OWNER_ID`, `DISCORD_ADMIN_IDS`, `DISCORD_CO_OWNER_ID`, `MATCH_SUBMITTER` |
 | Twitch stream status | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL`, `TWITCH_URL` |
 | Image/asset hosting | `IMAGE_CDN_BASE`, `VITE_IMAGE_CDN_BASE`, `TEAM_LOGO_CDN_BASE`, `VITE_TEAM_LOGO_BASE` |

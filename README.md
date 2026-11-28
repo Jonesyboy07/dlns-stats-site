@@ -63,6 +63,14 @@ python backend/main.py -matchfile data/matches.json -recheckall true
 
 For the full option reference, input format, and repository scripts, see [data ingestion](docs/INGESTION.md).
 
+Replay demos can also be parsed for per-second souls, K/D/A, assists, damage and timed events. That needs the optional parser from [`backend/requirements-demo.txt`](backend/requirements-demo.txt):
+
+```bash
+python backend/main.py -demoparse true
+```
+
+See [demo parsing](docs/INGESTION.md#demo-parsing).
+
 ## Project map
 
 | Area | Contents |
@@ -111,3 +119,5 @@ Start with the [documentation index](docs/README.md). It links to local setup an
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Demo parsing uses [boon](https://github.com/pnxenopoulos/boon) by Peter Xenopoulos (MIT).

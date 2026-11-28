@@ -12,6 +12,9 @@ Tables:
 - `match_objectives` stores objective destructions for the match timeline.
 - `match_mid_boss` stores mid boss (Rejuvenator) kills.
 - `match_player_paths` stores per-player position trails for the map replay.
+- `match_demo_parse`, `match_player_series`, `match_kill_assists`, `match_hero_damage`
+  and `match_demo_events` hold what demo parsing reads from replay files (see
+  [Demo parsing](#demo-parsing)).
 - `user_stats` stores per-user aggregates derived from `players`.
 - `teams` stores one row per team identity, and `team_names` maps the raw team
   names written on each match onto it (see [Team identity](#team-identity)).
@@ -23,6 +26,8 @@ Relationships:
 - `match_objectives.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `match_mid_boss.match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `match_player_paths.match_id` -> `matches.match_id` (ON DELETE CASCADE)
+- `match_demo_parse`, `match_player_series`, `match_kill_assists` and
+  `match_demo_events`: `match_id` -> `matches.match_id` (ON DELETE CASCADE)
 - `user_stats.account_id` -> `users.account_id` (ON DELETE CASCADE)
 
 ## Pragmas
@@ -277,6 +282,101 @@ Indexes:
 
 `health`, `move_type` and `combat_type` come free in the same payload and are stored so
 a richer replay needs no re-fetch; nothing reads them yet.
+
+## Demo parsing
+
+Written by `backend/main.py -demoparse` (code in
+[`backend/demo_parsing/`](../backend/demo_parsing/), usage in
+[data ingestion](INGESTION.md#demo-parsing)). Everything here comes from the match's
+replay file rather than the metadata API. Times are match-clock seconds, the same clock
+as `player_deaths.death_time_s`; teams are 0 (Amber) and 1 (Sapphire). A re-parse
+replaces all of a match's rows in one transaction.
+
+### Table: `match_demo_parse`
+
+One row per match that has been attempted, whatever happened.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | Primary key; FK -> `matches.match_id` |
+| `status` | TEXT | No | `ok`, `no_demo` or `failed` |
+| `source` | TEXT | Yes | `cdn` (the replay share) or `valve` |
+| `parser` | TEXT | Yes | `boon` |
+| `parser_version` | TEXT | Yes | The boon version that produced the rows |
+| `demo_build` | INTEGER | Yes | Game build the demo was recorded on |
+| `duration_s` | REAL | Yes | Regulation length read from the demo |
+| `attempted_at` | TEXT | Yes | ISO-8601 UTC of the latest attempt |
+| `parsed_at` | TEXT | Yes | ISO-8601 UTC of the latest successful parse |
+| `error` | TEXT | Yes | Why the latest attempt failed |
+
+A failed re-parse keeps an earlier `ok` (and its data) and only records the error.
+
+### Table: `match_player_series`
+
+Each player's stats every second, one row per player per match (packed, like
+`match_player_paths`, rather than ~17,000 rows per match).
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` |
+| `account_id` | INTEGER | No | |
+| `hero_id` | INTEGER | Yes | |
+| `team` | INTEGER | Yes | 0 or 1 |
+| `step_s` | INTEGER | No | Seconds between samples (1) |
+| `sample_count` | INTEGER | No | Samples per field; sample `i` is match second `i * step_s` |
+| `fields` | TEXT | No | Comma-separated field names, in packed order: `souls,kills,deaths,assists,hero_damage,level` |
+| `data` | BLOB | No | Each field as little-endian int32 deltas, concatenated, zlib-compressed. Decode with `unpack_series` in `demo_parsing/store.py` |
+
+`souls` is the player's net worth (souls held plus souls spent), the same quantity as
+`player_snapshots.net_worth`. Each value is what the player had at the end of that
+second; `hero_damage` and K/D/A are running totals.
+
+Primary Key: (`match_id`, `account_id`)
+
+### Table: `match_kill_assists`
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` |
+| `kill_index` | INTEGER | No | Kills in time order |
+| `time_s` | REAL | No | Within a second of the matching `player_deaths.death_time_s` |
+| `victim_account_id` | INTEGER | Yes | |
+| `killer_account_id` | INTEGER | Yes | Null when no hero got the kill (troopers, guardians) |
+| `assister_account_ids` | TEXT | No | JSON array of account ids |
+
+Primary Key: (`match_id`, `kill_index`)
+
+### Table: `match_hero_damage`
+
+Hero-on-hero damage summed per second, so any window (a team fight) can be totalled.
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | |
+| `time_s` | INTEGER | No | Match second |
+| `attacker_account_id` | INTEGER | No | |
+| `victim_account_id` | INTEGER | No | |
+| `damage` | INTEGER | No | Damage dealt (after mitigation) in that second |
+
+Primary Key: (`match_id`, `time_s`, `attacker_account_id`, `victim_account_id`); `WITHOUT ROWID`.
+
+### Table: `match_demo_events`
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `match_id` | INTEGER | No | FK -> `matches.match_id` |
+| `event_index` | INTEGER | No | |
+| `kind` | TEXT | No | `breakable`, `mid_boss_killed` or `rejuv_pickup` |
+| `time_s` | REAL | No | |
+| `team` | INTEGER | Yes | The picking-up team for `rejuv_pickup`; null for the boss itself |
+| `account_id` | INTEGER | Yes | Not recorded yet for any kind |
+| `name` | TEXT | Yes | Breakable subclass, e.g. `citadel_breakable_prop_wooden_crate` |
+| `x`, `y`, `z` | REAL | Yes | World position (breakables) |
+
+Primary Key: (`match_id`, `event_index`)
+
+Indexes:
+- `idx_match_demo_events_kind` ON `match_demo_events(match_id, kind)`
 
 ## Table: `user_stats`
 
